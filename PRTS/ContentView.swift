@@ -217,7 +217,7 @@ struct ContentView: View {
             Text(backend.status.message)
                 .font(.caption.weight(.semibold))
                 .lineLimit(2)
-            Text("Frames converted: \(backend.convertedFrameCount) · mode: minimal")
+            Text("home.backend.framesConverted \(backend.convertedFrameCount)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             if let error = backend.lastError {
@@ -233,12 +233,12 @@ struct ContentView: View {
 
     private var commandEntry: some View {
         HStack(spacing: 8) {
-            TextField("Test command (e.g. 开始导航)", text: $commandText)
+            TextField("home.command.placeholder", text: $commandText)
                 .textFieldStyle(.roundedBorder)
                 .submitLabel(.send)
                 .onSubmit(submitCommand)
                 .accessibilityIdentifier("backendCommandField")
-            Button("Send", action: submitCommand)
+            Button("home.command.send", action: submitCommand)
                 .buttonStyle(.borderedProminent)
                 .disabled(commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityIdentifier("backendCommandSend")

@@ -112,23 +112,23 @@ struct SettingsView: View {
             }
 
             Section {
-                Picker("Runtime profile", selection: $runtimeProfile) {
+                Picker("settings.runtime.profile", selection: $runtimeProfile) {
                     ForEach(PRTSRuntimeProfile.allCases) { profile in
-                        Text(profile.label).tag(profile.rawValue)
+                        Text(LocalizedStringKey(profile.localizationKey)).tag(profile.rawValue)
                     }
                 }
-                Toggle("Enable brain / VLM (experimental)", isOn: $brainEnabled)
+                Toggle("settings.runtime.brain", isOn: $brainEnabled)
                     .onChange(of: brainEnabled) { enabled in
                         if enabled { runtimeProfile = PRTSRuntimeProfile.fullExperimental.rawValue }
                     }
-                Toggle("Enable perception (segmentation + detection)", isOn: $perceptionEnabled)
-                Toggle("Enable ASR (on-demand)", isOn: $asrEnabled)
-                Toggle("Enable maps", isOn: $mapsEnabled)
-                Text("Model features remain unavailable until the pinned Apple runtime and model files are supplied. Full / experimental is never selected automatically.")
+                Toggle("settings.runtime.perception", isOn: $perceptionEnabled)
+                Toggle("settings.runtime.asr", isOn: $asrEnabled)
+                Toggle("settings.runtime.maps", isOn: $mapsEnabled)
+                Text("settings.runtime.unavailable")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                Label("Runtime and models", systemImage: "cpu")
+                Label("settings.runtime.section", systemImage: "cpu")
                     .accessibilityAddTraits(.isHeader)
             }
             .onChange(of: runtimeProfile) { rawValue in

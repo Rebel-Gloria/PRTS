@@ -579,8 +579,23 @@
         }
       }
     },
-    "PRTS" : {
-
+    "PRTS" : {},
+    "settings.back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回"
+          }
+        }
+      }
     },
     "settings.feedback.haptic" : {
       "extractionState" : "manual",
@@ -629,23 +644,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "反馈"
-          }
-        }
-      }
-    },
-    "settings.back" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "返回"
           }
         }
       }
@@ -1024,40 +1022,6 @@
         }
       }
     },
-    "speech.camera.startAction" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start button at the bottom of the screen."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“开始”按钮在屏幕下方。"
-          }
-        }
-      }
-    },
-    "speech.camera.stopAction" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Press and hold to stop button."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“长按停止”按钮。"
-          }
-        }
-      }
-    },
     "speech.camera.liveStatus" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1143,6 +1107,23 @@
         }
       }
     },
+    "speech.camera.startAction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start button at the bottom of the screen."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“开始”按钮在屏幕下方。"
+          }
+        }
+      }
+    },
     "speech.camera.starting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1156,6 +1137,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在启动摄像头。"
+          }
+        }
+      }
+    },
+    "speech.camera.stopAction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press and hold to stop button."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“长按停止”按钮。"
           }
         }
       }
@@ -1177,23 +1175,6 @@
         }
       }
     },
-    "speech.home" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PRTS home. %@. %@. Settings button at the top right."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PRTS 首页。%@。%@。“设置”按钮在右上角。"
-          }
-        }
-      }
-    },
     "speech.haptic.changed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1207,6 +1188,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "触觉反馈已%@。"
+          }
+        }
+      }
+    },
+    "speech.home" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PRTS home. %@. %@. Settings button at the top right."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PRTS 首页。%@。%@。“设置”按钮在右上角。"
           }
         }
       }
@@ -1343,6 +1341,227 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音播报已开启。"
+          }
+        }
+      }
+    },
+    "settings.runtime.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime and models"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行模式与模型"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime profile"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行档位"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile.minimal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimal — interface, camera, system speech, contracts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最简模式 — 界面、相机、系统语音播报与契约解析"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile.perception" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perception — segmentation and obstacle detection (when available)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "感知模式 — 语义分割与障碍物检测（资源可用时）"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile.fullExperimental" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full / experimental — opt in explicitly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整 / 实验模式 — 仅手动开启"
+          }
+        }
+      }
+    },
+    "settings.runtime.brain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable brain / VLM (experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用大脑 / 视觉语言模型（实验性）"
+          }
+        }
+      }
+    },
+    "settings.runtime.perception" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable perception (segmentation + detection)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用感知（语义分割 + 目标检测）"
+          }
+        }
+      }
+    },
+    "settings.runtime.asr" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable ASR (on-demand)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用自动语音识别（按需加载）"
+          }
+        }
+      }
+    },
+    "settings.runtime.maps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable maps"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用地图"
+          }
+        }
+      }
+    },
+    "settings.runtime.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model features remain unavailable until the pinned Apple runtime and model files are supplied. Full / experimental is never selected automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在提供固定版本的 Apple 运行时和模型文件之前，模型功能不可用。应用不会自动选择完整 / 实验模式。"
+          }
+        }
+      }
+    },
+    "home.backend.framesConverted %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frames converted: %lld · mode: minimal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已转换帧数：%lld · 模式：最简"
+          }
+        }
+      }
+    },
+    "home.command.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送"
+          }
+        }
+      }
+    },
+    "home.command.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test command (e.g. 开始导航)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测试指令（例如：开始导航）"
           }
         }
       }
