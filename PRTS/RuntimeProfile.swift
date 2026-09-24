@@ -6,11 +6,12 @@ enum PRTSRuntimeProfile: String, CaseIterable, Identifiable {
     case fullExperimental
 
     var id: String { rawValue }
-    var label: String {
+
+    var localizationKey: String {
         switch self {
-        case .minimal: return "Minimal — UI, camera, system TTS, contracts"
-        case .perception: return "Perception — segmentation/detection (when available)"
-        case .fullExperimental: return "Full / experimental — explicitly opt in"
+        case .minimal: return "settings.runtime.profile.minimal"
+        case .perception: return "settings.runtime.profile.perception"
+        case .fullExperimental: return "settings.runtime.profile.fullExperimental"
         }
     }
 
