@@ -1,4 +1,5 @@
 import Foundation
+import CoreVideo
 
 struct PRTSNavigationEngine {
     var planner = PRTSPathPlanner()

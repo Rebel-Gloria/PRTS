@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 struct PRTSRouteSegment: Codable, Identifiable, Equatable {
     let id: UUID

@@ -12,7 +12,7 @@ struct PRTSDepthObstacleEstimator {
         guard let base = CVPixelBufferGetBaseAddress(depthMap) else { return [] }
         let width = CVPixelBufferGetWidth(depthMap)
         let height = CVPixelBufferGetHeight(depthMap)
-        let stride = CVPixelBufferGetBytesPerRow(depthMap) / MemoryLayout<Float32>.size
+        let rowStride = CVPixelBufferGetBytesPerRow(depthMap) / MemoryLayout<Float32>.size
         let pixels = base.assumingMemoryBound(to: Float32.self)
 
         return detections.compactMap { detection in
@@ -25,7 +25,7 @@ struct PRTSDepthObstacleEstimator {
             var samples: [Float] = []
             for y in stride(from: y0, through: y1, by: max(1, (y1 - y0) / 12)) {
                 for x in stride(from: x0, through: x1, by: max(1, (x1 - x0) / 12)) {
-                    let value = pixels[y * stride + x]
+                    let value = pixels[y * rowStride + x]
                     if value.isFinite, value > 0.05, value <= maxDistanceMeters { samples.append(value) }
                 }
             }

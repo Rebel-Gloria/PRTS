@@ -8,7 +8,7 @@ final class PRTSSpatialCueEngine: ObservableObject {
     private let player = AVAudioPlayerNode()
     private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
 
-    override init() {
+    init() {
         super.init()
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
