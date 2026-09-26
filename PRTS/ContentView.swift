@@ -93,7 +93,7 @@ struct ContentView: View {
                     backend.consume(frame)
                     perceptionEngine.process(frame)
                 }
-                    arSession.start()
+                    if arSession.state == .paused { arSession.start() }
                     if isReturningFromBackground {
                         isReturningFromBackground = false
                         speechManager.speakHomeScreen(cameraState: camera.state)
