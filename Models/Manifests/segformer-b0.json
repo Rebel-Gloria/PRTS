@@ -1,0 +1,9 @@
+{
+  "name": "SegFormer-B0 ADE20K",
+  "kind": "semantic-segmentation",
+  "source": "nvidia/segformer-b0-finetuned-ade-512-512",
+  "source_sha256": null,
+  "input": { "width": 224, "height": 224, "color_space": "RGB", "normalization": "float32_0_1" },
+  "ground_class_ids": [3, 11, 29],
+  "target": "SegFormerB0.mlpackage"
+}

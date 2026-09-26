@@ -1,0 +1,12 @@
+{
+  "name": "YOLO11n-seg",
+  "kind": "instance-segmentation",
+  "source": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-seg.pt",
+  "source_sha256": "55ed65c56c91713d23e8402371c6c49a6fd84f257f7dce452e8d70e41dcbe152",
+  "input": { "width": 256, "height": 256, "color_space": "RGB", "normalization": "uint8_0_255" },
+  "confidence_threshold": 0.35,
+  "nms_iou_threshold": 0.55,
+  "max_distance_meters": 4.5,
+  "minimum_box_area_pixels": 600,
+  "target": "YOLO11nSeg.mlpackage"
+}
