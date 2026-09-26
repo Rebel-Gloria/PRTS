@@ -11,7 +11,6 @@ struct PRTSARPreview: UIViewRepresentable {
         view.automaticallyUpdatesLighting = false
         view.scene = SCNScene()
         view.preferredFramesPerSecond = 30
-        view.rendersCameraGrain = false
         return view
     }
 

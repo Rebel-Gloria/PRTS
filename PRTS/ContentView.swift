@@ -11,6 +11,7 @@ import UIKit
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @EnvironmentObject private var backend: PRTSBackendBridge
+    @EnvironmentObject private var arSession: PRTSARSessionCoordinator
     @EnvironmentObject private var speechManager: SpeechManager
     @EnvironmentObject private var hapticManager: HapticManager
     @Environment(\.scenePhase) private var scenePhase
@@ -82,7 +83,7 @@ struct ContentView: View {
                     isHoldingStop = false
                     didCompleteStopHold = false
                     hapticManager.stopHoldFeedback()
-                    camera.stopCamera()
+                    arSession.pause()
                     backend.pause()
                 } else if phase == .active {
                     backend.setActive(true)
@@ -128,8 +129,8 @@ struct ContentView: View {
 
     @ViewBuilder
     private var cameraSurface: some View {
-        if camera.state == .running {
-            CameraPreview(session: camera.session)
+        if arSession.state == .running {
+            PRTSARPreview(session: arSession.session)
                 .ignoresSafeArea()
                 .transition(.opacity)
                 .accessibilityHidden(true)
@@ -217,7 +218,7 @@ struct ContentView: View {
             Text(backend.status.message)
                 .font(.caption.weight(.semibold))
                 .lineLimit(2)
-            Text("Frames converted: \(backend.convertedFrameCount) · mode: minimal")
+            Text("Frames converted: \(backend.convertedFrameCount) · AR: \(arSession.state.label)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             if let error = backend.lastError {
@@ -257,11 +258,11 @@ struct ContentView: View {
             startCameraFromButton()
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: camera.state == .running ? "stop.fill" : "play.fill")
+                Image(systemName: arSession.state == .running ? "stop.fill" : "play.fill")
                     .accessibilityHidden(true)
 
                 Text(LocalizedStringKey(
-                    camera.state == .running
+                    arSession.state == .running
                         ? "home.camera.button.stopLongPress"
                         : "home.camera.button.start"
                 ))
@@ -276,12 +277,12 @@ struct ContentView: View {
         .disabled(camera.state.isBusy)
         .opacity(camera.state.isBusy ? 0.65 : 1)
         .accessibilityLabel(LocalizedStringKey(
-            camera.state == .running
+            arSession.state == .running
                 ? "home.camera.button.stopLongPress"
                 : "home.camera.button.start.label"
         ))
         .accessibilityHint(LocalizedStringKey(
-            camera.state == .running
+            arSession.state == .running
                 ? "home.camera.button.stopLongPress.hint"
                 : "home.camera.button.start.hint"
         ))
@@ -292,7 +293,7 @@ struct ContentView: View {
     private var stopGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
-                guard camera.state == .running, !isHoldingStop else { return }
+                guard arSession.state == .running, !isHoldingStop else { return }
 
                 isHoldingStop = true
                 didCompleteStopHold = false
@@ -305,14 +306,14 @@ struct ContentView: View {
                         return
                     }
 
-                    guard !Task.isCancelled, isHoldingStop, camera.state == .running else {
+                    guard !Task.isCancelled, isHoldingStop, arSession.state == .running else {
                         return
                     }
 
                     isHoldingStop = false
                     didCompleteStopHold = true
                     hapticManager.stopHoldFeedback()
-                    camera.stopCamera()
+                    arSession.pause()
                 }
             }
             .onEnded { _ in
@@ -327,13 +328,13 @@ struct ContentView: View {
     }
 
     private func startCameraFromButton() {
-        guard camera.state != .running,
+        guard arSession.state != .running,
               !camera.state.isBusy,
               !isHoldingStop,
               !didCompleteStopHold else { return }
 
         hapticManager.buttonTapped()
-        camera.startCamera()
+        arSession.start()
     }
 }
 
