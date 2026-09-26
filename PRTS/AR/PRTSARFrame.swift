@@ -16,26 +16,3 @@ struct PRTSARFrame {
     let orientation: UIInterfaceOrientation
 }
 
-enum PRTSARSessionState: Equatable {
-    case unavailable(String)
-    case idle
-    case running
-    case paused
-    case relocalizing
-}
-
-enum PRTSARTrackingState: Equatable {
-    case unavailable
-    case initializing
-    case limited(String)
-    case normal
-
-    init(_ state: ARCamera.TrackingState) {
-        switch state {
-        case .notAvailable: self = .unavailable
-        case .normal: self = .normal
-        case .limited(let reason): self = .limited(String(describing: reason))
-        @unknown default: self = .limited("unknown")
-        }
-    }
-}
