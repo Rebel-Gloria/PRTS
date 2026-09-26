@@ -88,6 +88,8 @@ struct ContentView: View {
                 } else if phase == .active {
                     backend.setActive(true)
                     camera.frameConsumer = backend
+                    arSession.onFrame = { frame in backend.consume(frame) }
+                    arSession.start()
                     if isReturningFromBackground {
                         isReturningFromBackground = false
                         speechManager.speakHomeScreen(cameraState: camera.state)
@@ -99,6 +101,7 @@ struct ContentView: View {
             }
             .onAppear {
                 camera.frameConsumer = backend
+                arSession.onFrame = { frame in backend.consume(frame) }
                 backend.onSpeechRequest = { [weak speechManager] request in speechManager?.enqueueBackendSpeech(request) }
                 backend.onPlaybackChange = { [weak backend] active in backend?.setPlaybackFromTTS(active) }
                 backend.onCancelSpeech = { [weak speechManager] in speechManager?.cancelBackendSpeech() }
