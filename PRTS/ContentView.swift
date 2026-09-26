@@ -12,6 +12,7 @@ struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @EnvironmentObject private var backend: PRTSBackendBridge
     @EnvironmentObject private var arSession: PRTSARSessionCoordinator
+    @EnvironmentObject private var perceptionEngine: PRTSPerceptionEngine
     @EnvironmentObject private var speechManager: SpeechManager
     @EnvironmentObject private var hapticManager: HapticManager
     @Environment(\.scenePhase) private var scenePhase
@@ -88,7 +89,10 @@ struct ContentView: View {
                 } else if phase == .active {
                     backend.setActive(true)
                     camera.frameConsumer = backend
-                    arSession.onFrame = { frame in backend.consume(frame) }
+                    arSession.onFrame = { frame in
+                    backend.consume(frame)
+                    perceptionEngine.process(frame)
+                }
                     arSession.start()
                     if isReturningFromBackground {
                         isReturningFromBackground = false
@@ -101,7 +105,10 @@ struct ContentView: View {
             }
             .onAppear {
                 camera.frameConsumer = backend
-                arSession.onFrame = { frame in backend.consume(frame) }
+                arSession.onFrame = { frame in
+                    backend.consume(frame)
+                    perceptionEngine.process(frame)
+                }
                 backend.onSpeechRequest = { [weak speechManager] request in speechManager?.enqueueBackendSpeech(request) }
                 backend.onPlaybackChange = { [weak backend] active in backend?.setPlaybackFromTTS(active) }
                 backend.onCancelSpeech = { [weak speechManager] in speechManager?.cancelBackendSpeech() }
