@@ -27,6 +27,7 @@ final class PRTSBackendBridge: ObservableObject {
     @Published private(set) var lastError: String?
 
     var onSpeechRequest: ((SpeechRequest) -> Void)?
+    var onRGBFrame: ((RGBFrame) -> Void)?
     var playbackSink: ((Bool) -> Void)?
     var onPlaybackChange: ((Bool) -> Void)?
     var onCancelSpeech: (() -> Void)?
@@ -130,6 +131,18 @@ final class PRTSBackendBridge: ObservableObject {
            let cue = event.payload["cue"]?.string,
            let expiry = event.payload["expires_s"]?.number {
             onCue?(cue, expiry)
+        }
+    }
+
+    /// Receives the unified ARKit frame source. Conversion is bounded by the caller's latest-frame policy.
+    func consume(_ arFrame: PRTSARFrame) {
+        do {
+            let frame = try CameraAdapter.frame(arFrame.pixelBuffer, timestamp: arFrame.timestamp, sequence: arFrame.sequence)
+            latestFrame = frame
+            convertedFrameCount += 1
+            onRGBFrame?(frame)
+        } catch {
+            lastError = "AR camera adapter: \(error)"
         }
     }
 

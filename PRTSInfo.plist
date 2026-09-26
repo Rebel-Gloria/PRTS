@@ -21,7 +21,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>PRTS uses the camera to understand and describe your surroundings.</string>
+	<string>PRTS uses the camera and ARKit depth sensing to understand and describe your surroundings.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>PRTS uses your location to announce your approximate surroundings when requested.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>PRTS may use the local network for development diagnostics.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
