@@ -1,0 +1,23 @@
+{
+  "App/ProbeApp.swift": "d0b151d355b34ff80fb94b1e2471c9234c736c592e1099f990ab6eca667fc9fc",
+  "App/ProbeContentView.swift": "df2edc05ed15cb8ab74d08d8a36226c54b39edc5ff51e544aff090a17610b157",
+  "App/ProbeEngine.swift": "c7f3ecb71bf3bab1563c3376e4a806b6b7d053f84b4bb8b73f4b40d814eee04e",
+  "App/ProbeRenderer.swift": "8fa7af09dbecea345bfab84f1b30755fcaef8e93cf61ba811aec148fbfc2605d",
+  "App/ProbeSettingsView.swift": "d9ba0429ca54001a566a0dd9cf676ed949d17a6f84756e11c5daf1f5917faa96",
+  "App/ProbeShaders.metal.txt": "a8595d0bb628113b6e9593299a0b632c88d668dbeb9f25ebb72642310277bdeb",
+  "App/SessionRecorder.swift": "ee8c092ef8ac9f6a82847b81ddb819c997dd1465fb951f582b111f45770f8a83",
+  "App/Snapshots.swift": "4f797ad8f3e99372ec295dfc3188ce91351fb59dc52ab3936f089e02a31eb917",
+  "Core/Package.swift": "b07eb929d0ea0d7e19a383c10981c49e4ddc76a1e9716081e151c4b27ebda76e",
+  "Core/Sources/SpatialCore/Analysis.swift": "f6b7fe6075d407e598600b9d11972d8de2526e90390d99ffbf9ff03edd5da8e7",
+  "Core/Sources/SpatialCore/AppendFile.swift": "a447a4ef0a34eb2dab34594cd51083e4ee952e64728b057c79f29285c02f0a68",
+  "Core/Sources/SpatialCore/Depth.swift": "fecff01ec16e3f76af65d2ce4d8a7a28d21c1156a51faf4d623aa4eae6d477f7",
+  "Core/Sources/SpatialCore/Geometry.swift": "8937c2acf906b3cc9aa50f72fb9ac04ad6ae5b242dccd9bbb9e99b896690f7ae",
+  "Core/Sources/SpatialCore/Grid.swift": "68091b1b23770273e5569988865d06f00bd0bcab3ea75e71f0dc4b28b04264c8",
+  "Core/Sources/SpatialCore/Ground.swift": "8deecf60b38fe15cecfa0014f01389989d894d29544991b99386651739120540",
+  "Core/Tests/SpatialCoreTests/SpatialCoreTests.swift": "dad66e54b1348d7931664c9f3d046d80c4ad55d8d70609bf0d28441ba405344f",
+  "PRTSSpatialProbe.xcodeproj/project.pbxproj": "f6d6a5ed8c8a16a9e2d7728a3c3206adbdb462c3a4e1c42768cad38da64f69a8",
+  "scripts/generate_project.py": "9caf7e165dfb543b839844810cf9ee949bb2be261d8eacde702003b6ea8164d6",
+  "scripts/summarize_session.py": "5d3075b2097aedd334d6e0a35c350a7f7e950650c3c02426095ae5e8cd08b9a4",
+  "scripts/test_summarize_session.py": "4516b4bea3918188bf654f0150905ffbfc5f5a6cb65e105bd76b800f32f425bd",
+  "scripts/validate.sh": "6cf7e013df21e40f9388bc4ed3201760f171bb442fe776579f555bfec621e4da"
+}

@@ -1,0 +1,12 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+build/
+*.xcarchive
+*.ipa
+Local.xcconfig
+Evidence/
+__pycache__/
+*.pyc
