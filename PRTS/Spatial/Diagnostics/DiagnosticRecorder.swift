@@ -1,3 +1,5 @@
+/// Scalar and binary spatial diagnostics recorder; captured RGB is intentionally excluded.
+
 import ARKit
 import Foundation
 import SpatialCore

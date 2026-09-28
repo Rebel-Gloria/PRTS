@@ -1,3 +1,5 @@
+/// Compatibility boundary for future semantic detectors. Offline spatial perception does not depend on this layer.
+
 import ARKit
 import CoreVideo
 import Foundation

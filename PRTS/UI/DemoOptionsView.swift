@@ -1,3 +1,5 @@
+/// Presentation-only switches for the home-screen demonstration overlays.
+
 import SwiftUI
 import SpatialCore
 
