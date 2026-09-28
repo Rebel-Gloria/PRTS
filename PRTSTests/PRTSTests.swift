@@ -33,4 +33,15 @@ struct PRTSTests {
         #expect(Bundle.main.url(forResource:"ProbeShaders.metal",withExtension:"txt") != nil)
         #expect(Bundle.main.url(forResource:"DepthAnythingV2SmallF16",withExtension:"mlmodelc") != nil)
     }
+    @Test func displayOptionsRemainBackwardCompatible() throws {
+        let old = RenderOptions()
+        var json = try #require(JSONSerialization.jsonObject(with:JSONEncoder().encode(old)) as? [String:Any])
+        for key in ["cameraImageVisible","geometryOverlaysVisible","pathVisible","legendsVisible"] { json.removeValue(forKey:key) }
+        let decoded = try JSONDecoder().decode(RenderOptions.self,from:JSONSerialization.data(withJSONObject:json))
+        #expect(decoded.showCameraImage && decoded.showOverlays && decoded.showPath && decoded.showLegends)
+        var hidden = decoded
+        hidden.showCameraImage = false; hidden.showOverlays = false; hidden.showPath = false; hidden.showHUD = false
+        #expect(try JSONDecoder().decode(RenderOptions.self,from:JSONEncoder().encode(hidden)) == hidden)
+        #expect(hidden.showSurfaceModel == old.showSurfaceModel)
+    }
 }
