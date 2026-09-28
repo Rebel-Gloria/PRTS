@@ -43,6 +43,7 @@ struct ContentView: View {
                     header
 
                     Spacer()
+                        .frame(maxWidth:.infinity)
                         .overlay(alignment:.topLeading) {
                             GeometryReader { bounds in
                                 ScrollView {

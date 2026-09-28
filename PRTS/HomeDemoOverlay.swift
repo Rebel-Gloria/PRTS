@@ -28,7 +28,13 @@ struct HomeDemoOverlay: View {
             }
             if model.options.showLegends {
                 VStack(alignment:.leading,spacing:4) {
-                    Text(model.snapshot.usesMonocular ? "来源：Core ML 预测＋原生尺度校准（非LiDAR实测）" : "来源：ARKit LiDAR（以设备实际能力为准）")
+                    if !model.capabilities.world {
+                        Text("当前设备无世界追踪；仅显示界面，不提供实测空间数据")
+                    } else if !model.snapshot.running {
+                        Text("未采集；无当前传感器数据")
+                    } else {
+                        Text(model.snapshot.usesMonocular ? "来源：Core ML 预测＋原生尺度校准（非LiDAR实测）" : "来源：ARKit LiDAR")
+                    }
                     if !model.options.showCameraImage { Text("RGB画面已隐藏；采集状态见主按钮") }
                     if model.options.showOverlays {
                         Text("蓝：地面表面 · 红：突起／阻挡范围 · 未知不补成可通行")

@@ -36,6 +36,20 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertNotIn("showCameraImage", engine)
         self.assertNotIn("showOverlays", engine)
 
+    def test_demo_is_a_home_overlay_not_a_second_camera_screen(self):
+        home = (ROOT / "PRTS/ContentView.swift").read_text()
+        settings = (ROOT / "PRTS/SettingsView.swift").read_text()
+        overlay = (ROOT / "PRTS/HomeDemoOverlay.swift").read_text()
+        options = (ROOT / "PRTS/DemoOptionsView.swift").read_text()
+        self.assertIn("HomeDemoOverlay(model:camera.model)",home)
+        self.assertIn('NavigationLink("演示模式选项")',settings)
+        self.assertNotIn("ProbeContentView",settings)
+        for text in [overlay,options]:
+            self.assertNotIn("ARSession()",text)
+            self.assertNotIn("ProbeViewModel()",text)
+            self.assertNotIn("Timer.publish",text)
+        self.assertFalse((ROOT / "PRTS/Spatial/ProbeContentView.swift").exists())
+
     def test_original_home_controls_and_theme_are_preserved(self):
         # Intentional baseline: local main c9bace5, before the uncommitted UI rewrite.
         s = (ROOT / "PRTS/ContentView.swift").read_text()
