@@ -8,7 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		F10000000000000000000001 /* PRTSContracts in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000004 /* PRTSContracts */; };
-		F10000000000000000000002 /* PRTSAppleModels in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000005 /* PRTSAppleModels */; };
+		F10000000000000000000006 /* SpatialCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000008 /* SpatialCore */; };
+		F10000000000000000000009 /* SpatialCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000008 /* SpatialCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,7 +59,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F10000000000000000000001 /* PRTSContracts in Frameworks */,
-				F10000000000000000000002 /* PRTSAppleModels in Frameworks */,
+				F10000000000000000000006 /* SpatialCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,6 +67,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F10000000000000000000009 /* SpatialCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,7 +122,7 @@
 			name = PRTS;
 			packageProductDependencies = (
 				F10000000000000000000004 /* PRTSContracts */,
-				F10000000000000000000005 /* PRTSAppleModels */,
+				F10000000000000000000008 /* SpatialCore */,
 			);
 			productName = PRTS;
 			productReference = DDE04D7230132D31000C8361 /* PRTS.app */;
@@ -144,6 +146,7 @@
 			);
 			name = PRTSTests;
 			packageProductDependencies = (
+				F10000000000000000000008 /* SpatialCore */,
 			);
 			productName = PRTSTests;
 			productReference = DDE04D7F30132D33000C8361 /* PRTSTests.xctest */;
@@ -205,13 +208,14 @@
 			);
 			mainGroup = DDE04D6930132D31000C8361;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */,
+				F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DDE04D7330132D31000C8361 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			packageReferences = (
-				F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */,
-			);
 			targets = (
 				DDE04D7130132D31000C8361 /* PRTS */,
 				DDE04D7E30132D33000C8361 /* PRTSTests */,
@@ -280,29 +284,6 @@
 			targetProxy = DDE04D8A30132D33000C8361 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Vendor/PRTSCore;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		F10000000000000000000004 /* PRTSContracts */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */;
-			productName = PRTSContracts;
-		};
-		F10000000000000000000005 /* PRTSAppleModels */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */;
-			productName = PRTSAppleModels;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		DDE04D9130132D33000C8361 /* Debug */ = {
@@ -425,7 +406,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 56PKSY3B35;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -441,7 +423,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
@@ -469,7 +451,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 56PKSY3B35;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -485,7 +468,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
@@ -512,9 +495,9 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTSTests;
@@ -537,9 +520,9 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTSTests;
@@ -561,9 +544,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTSUITests;
@@ -585,9 +568,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTSUITests;
@@ -645,6 +628,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/PRTSCore;
+		};
+		F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/SpatialCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F10000000000000000000004 /* PRTSContracts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */;
+			productName = PRTSContracts;
+		};
+		F10000000000000000000008 /* SpatialCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */;
+			productName = SpatialCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DDE04D6A30132D31000C8361 /* Project object */;
 }

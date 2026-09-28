@@ -23,6 +23,28 @@ final class PRTSUITests: XCTestCase {
     }
 
     @MainActor
+    func testRestoredHomeAndSharedSpatialSettings() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let settings = app.buttons["settingsButton"]
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(settings.waitForExistence(timeout:10))
+        XCTAssertTrue(camera.exists)
+        XCTAssertTrue(app.textFields["backendCommandField"].exists)
+        XCTAssertLessThan(settings.frame.midY,camera.frame.midY)
+        let home = XCTAttachment(screenshot:app.screenshot()); home.name = "Restored dark-teal home"; home.lifetime = .keepAlways; add(home)
+        settings.tap()
+        let spatial = app.buttons["spatialSettingsButton"]
+        if !spatial.isHittable { app.swipeUp() }
+        XCTAssertTrue(spatial.waitForExistence(timeout:5))
+        spatial.tap()
+        XCTAssertTrue(app.buttons["完成"].waitForExistence(timeout:5))
+        let settingsImage = XCTAttachment(screenshot:app.screenshot()); settingsImage.name = "Shared spatial settings"; settingsImage.lifetime = .keepAlways; add(settingsImage)
+        app.buttons["完成"].tap()
+        XCTAssertTrue(spatial.waitForExistence(timeout:5))
+    }
+
+    @MainActor
     func testExample() throws {
         // UI tests must launch the application that they test.
         let app = XCUIApplication()

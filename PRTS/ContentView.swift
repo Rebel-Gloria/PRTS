@@ -6,21 +6,22 @@
 //
 
 import SwiftUI
+import SpatialCore
+import Combine
 import UIKit
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
-    @EnvironmentObject private var backend: PRTSBackendBridge
+    @StateObject private var feedback = FeedbackCoordinator()
     @EnvironmentObject private var speechManager: SpeechManager
     @EnvironmentObject private var hapticManager: HapticManager
     @Environment(\.scenePhase) private var scenePhase
-    @State private var hasAnnouncedInitialHome = false
-    @State private var isReturningFromBackground = false
     @State private var isHoldingStop = false
     @State private var stopHoldTask: Task<Void, Never>?
     @State private var didCompleteStopHold = false
     @State private var isShowingSettings = false
     @State private var commandText = ""
+    private let pollTimer = Timer.publish(every:0.1,on:.main,in:.common).autoconnect()
 
     var body: some View {
         NavigationStack {
@@ -53,83 +54,52 @@ struct ContentView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingSettings) {
-                SettingsView()
+                SettingsView(model:camera.model)
             }
             .onChange(of: camera.state) { newState in
-                if newState == .running {
-                    backend.setActive(true)
-                    camera.frameConsumer = backend
-                } else if newState == .idle || newState == .permissionDenied {
-                    backend.pause()
-                }
-                guard scenePhase != .background else { return }
-
-                UIAccessibility.post(
-                    notification: .announcement,
-                    argument: speechManager.accessibilityAnnouncement(for: newState)
-                )
+                guard scenePhase == .active else { return }
+                UIAccessibility.post(notification:.announcement,argument:speechManager.accessibilityAnnouncement(for:newState))
                 speechManager.speakCameraState(newState)
-
-                if newState == .running {
-                    hapticManager.cameraStarted()
+                if newState == .running { hapticManager.cameraStarted() }
+            }
+            .onReceive(pollTimer) { _ in
+                camera.poll(suspendFeedback:isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
+                if !isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
+                    feedback.consume(result,speech:speechManager,haptics:hapticManager)
+                } else if feedback.lastConsumedResultID != nil {
+                    feedback.reset(); speechManager.stopCurrentSpeech()
                 }
             }
-            .onChange(of: scenePhase) { phase in
-                if phase == .background {
-                    isReturningFromBackground = true
-                    stopHoldTask?.cancel()
-                    stopHoldTask = nil
-                    isHoldingStop = false
-                    didCompleteStopHold = false
+            .onChange(of:scenePhase) { phase in
+                if phase != .active {
+                    stopHoldTask?.cancel(); stopHoldTask = nil
+                    isHoldingStop = false; didCompleteStopHold = false
                     hapticManager.stopHoldFeedback()
-                    camera.stopCamera()
-                    backend.pause()
-                } else if phase == .active {
-                    backend.setActive(true)
-                    camera.frameConsumer = backend
-                    if isReturningFromBackground {
-                        isReturningFromBackground = false
-                        speechManager.speakHomeScreen(cameraState: camera.state)
-                    }
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
-                backend.handleMemoryWarning()
+                camera.lifecycle(phase)
+                if phase != .active { feedback.reset(); speechManager.stopCurrentSpeech() }
             }
             .onAppear {
-                camera.frameConsumer = backend
-                backend.onSpeechRequest = { [weak speechManager] request in speechManager?.enqueueBackendSpeech(request) }
-                backend.onPlaybackChange = { [weak backend] active in backend?.setPlaybackFromTTS(active) }
-                backend.onCancelSpeech = { [weak speechManager] in speechManager?.cancelBackendSpeech() }
-                speechManager.backendPlaybackChanged = { [weak backend] active in backend?.setPlaybackFromTTS(active) }
-                backend.onAttentionEvent = { [weak hapticManager] in hapticManager?.cameraStarted() }
-                backend.onCue = { _, expiry in
-                    guard expiry > ProcessInfo.processInfo.systemUptime else { return }
-                    hapticManager.buttonTapped()
-                }
-                backend.initialize()
-                if hasAnnouncedInitialHome {
-                    guard !isReturningFromBackground else { return }
-                    speechManager.speakHomeScreen(cameraState: camera.state)
-                } else {
-                    hasAnnouncedInitialHome = true
-                    speechManager.speakHomeScreen(cameraState: camera.state)
-                }
+                camera.poll(suspendFeedback:true)
+                speechManager.speakHomeScreen(cameraState:camera.state)
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
-                camera.frameConsumer = nil
-                backend.close()
-                speechManager.cancelBackendSpeech()
+            .onReceive(NotificationCenter.default.publisher(for:UIApplication.didReceiveMemoryWarningNotification)) { _ in
+                camera.model.engine.diagnostics.event("memory_warning",details:"iOS notification",epoch:camera.model.snapshot.epoch)
+            }
+            .onReceive(NotificationCenter.default.publisher(for:UIApplication.willTerminateNotification)) { _ in
+                camera.model.engine.diagnostics.journal.flush(lifecycle:"will_terminate")
+                speechManager.stopCurrentSpeech()
             }
         }
+
         .tint(.appAccent)
         .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
     private var cameraSurface: some View {
-        if camera.state == .running {
-            CameraPreview(session: camera.session)
+        if camera.state == .running && !isShowingSettings {
+            CameraPreview(camera: camera)
                 .ignoresSafeArea()
                 .transition(.opacity)
                 .accessibilityHidden(true)
@@ -214,13 +184,13 @@ struct ContentView: View {
 
     private var backendStatus: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(backend.status.message)
+            Text(camera.status)
                 .font(.caption.weight(.semibold))
                 .lineLimit(2)
-            Text("home.backend.framesConverted \(backend.convertedFrameCount)")
+            Text("观测帧 \(camera.frameCount) · 实验验证，候选通道不等于安全路线")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            if let error = backend.lastError {
+            if let error = camera.model.errorMessage ?? camera.model.permissionMessage {
                 Text(error).font(.caption2).foregroundStyle(.orange)
             }
         }
@@ -247,9 +217,15 @@ struct ContentView: View {
     }
 
     private func submitCommand() {
-        let intent = backend.pushText(commandText)
+        let command = commandText.trimmingCharacters(in:.whitespacesAndNewlines).lowercased()
         commandText = ""
-        if intent != nil { hapticManager.buttonTapped() }
+        switch command {
+        case "开始", "start": camera.startCamera()
+        case "停止", "stop": camera.stopCamera()
+        case "状态", "status": speechManager.speak(camera.status)
+        default: speechManager.speak("当前只支持：开始、停止、状态；自然语言模型尚未接入。")
+        }
+        hapticManager.buttonTapped()
     }
 
     private var primaryButton: some View {
