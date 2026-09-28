@@ -50,3 +50,7 @@ python3 scripts/read_diag.py /tmp/prts-diag-new-run/<launch-directory> --verify-
 原未提交工作区已完整备份到本机测试目录 `build/MainIntegration0928/before/PRTS-workspace.tgz`，另有未提交补丁与状态清单。没有硬重置、删库或强推；PBX中既有团队/Bundle配置保留，只接入已有本地SpatialCore依赖和同步目录，并更新主应用build为12。
 
 独立测试工程保留在分支首个归档提交；集成提交后通过正常Git merge进入main。需要退回产品UI/后端时使用Git revert相应集成提交，不要误删设备DIAG。
+
+## 2026-09-28 主页面演示叠加
+
+演示功能不是独立运行模式。主页面始终是唯一的实时相机/空间感知宿主；`演示模式选项`只是设置分页，用于控制主页面的显示层。关闭摄像机画面只隐藏RGB，不停止ARSession、空间分析、路径计算或DIAG。关闭叠加层、路径或指标栏也不改变感知结果和反馈逻辑。
