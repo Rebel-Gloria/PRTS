@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-20",
+  "builds": {
+    "iPhone Debug unsigned": "PASS",
+    "iPhone Release unsigned": "PASS",
+    "Simulator Debug": "PASS"
+  },
+  "tests": {
+    "Swift Debug": {
+      "executed": 25,
+      "failures": 0
+    },
+    "Swift Release": {
+      "executed": 25,
+      "failures": 0
+    },
+    "Python report tool": {
+      "executed": 5,
+      "status": "PASS"
+    }
+  },
+  "realDeviceInstalled": false,
+  "realDeviceValidated": false,
+  "firstAcceptanceMilestone": "M1 real-device RGB+raw-depth+confidence alignment: UNVERIFIED",
+  "simulatorScreenshot": "simulator-ui.png",
+  "sensorMeasurements": "NONE; no accuracy or thermal measurements",
+  "sourceFingerprint": "source-sha256.json"
+}
