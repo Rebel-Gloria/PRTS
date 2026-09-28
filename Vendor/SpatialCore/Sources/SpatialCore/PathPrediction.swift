@@ -184,10 +184,14 @@ public struct PathPredictor: Sendable {
     private var path: PredictedPath?
     private var goal: FixedPathGoal?
     private var outsideSince: Double?
+    private var lastTimestamp: Double = 0
+    private var blockedGoalSince: Double?
+    private var blockedGoalLast: Double = 0
+    private var blockedGoalCount = 0
     private var lastFrame: UInt64 = 0
     private var epoch: UInt64 = 0,version: UInt64 = 0
     public init() {}
-    public mutating func reset() { path = nil;goal = nil;outsideSince = nil;lastFrame = 0 }
+    public mutating func reset() { path = nil;goal = nil;outsideSince = nil;lastFrame = 0;lastTimestamp = 0;blockedGoalSince = nil;blockedGoalCount = 0 }
     public mutating func update(result r: AnalysisResult,observation: DepthObservation?,options raw: PathOptions,directionStable: Bool? = nil) -> PathUpdate {
         let start = ProcessInfo.processInfo.systemUptime,options = raw.validated()
         if epoch != r.epoch || version != r.parameterVersion { reset();epoch = r.epoch;version = r.parameterVersion }
@@ -196,7 +200,14 @@ public struct PathPredictor: Sendable {
             var u = PathUpdate(path:path.flatMap { r.timestamp >= $0.observedAt && r.timestamp-$0.observedAt <= options.retentionSeconds ? $0 : nil },reason:"out_of_order_ignored")
             u.goal = goal;return u
         }
-        lastFrame = r.frameID
+        guard r.timestamp.isFinite,r.timestamp >= lastTimestamp else { reset();return .init(reason:"ground_or_metric_conflict") }
+        lastFrame = r.frameID;lastTimestamp = r.timestamp
+        if r.diagnostics?.groundReferenceInvalidation == "reference_expired_or_clock_reversed" {
+            // Lost evidence is not a contradictory world measurement. Keep only the goal ID;
+            // no line or haptic survives, and renewed evidence must replan to this same point.
+            path = nil;blockedGoalSince = nil;blockedGoalCount = 0
+            var update = PathUpdate(reason:"ground_evidence_expired");update.goal = goal;return update
+        }
         if r.diagnostics?.groundReferenceInvalidation != nil {
             path = nil;goal = nil;outsideSince = nil;return .init(reason:"ground_or_metric_conflict")
         }
@@ -212,7 +223,7 @@ public struct PathPredictor: Sendable {
                 if outsideSince == nil { outsideSince = r.timestamp }
                 if r.timestamp-outsideSince! >= 0.3 { change = "target_out_of_range" }
             } else { outsideSince = nil }
-            if let plane = r.plane,abs(plane.height(fixed.point)) > 0.12 || simd_dot(plane.normal,fixed.plane.normal) < 0.97 { change = "ground_or_metric_conflict" }
+            if let plane = r.plane,r.diagnostics?.groundConfirmed == true,abs(plane.height(fixed.point)) > 0.12 || simd_dot(plane.normal,fixed.plane.normal) < 0.97 { change = "ground_or_metric_conflict" }
             if let change { path = nil;goal = nil;outsideSince = nil;reason = change }
         }
         if reason == "ground_or_metric_conflict" { return .init(reason:reason) }
@@ -232,14 +243,24 @@ public struct PathPredictor: Sendable {
         }
         // A blocked ROUTE pauses guidance but does not move the target. Only a currently
         // occupied goal footprint is itself invalid, rather than merely awaiting a detour.
+        var goalCurrentlyBlocked = false
         if let fixed = goal,path == nil {
             let endpoint = makePath([fixed.point,fixed.point],goal:fixed,result:r,width:options.minimumWidth)
             if intersectsObstacle(endpoint,result:r,observation:observation,includeApproach:false) {
-                goal = nil;outsideSince = nil;change = "target_blocked";obstacleInvalidated = true;reason = "current_obstacle_invalidated"
+                goalCurrentlyBlocked = true;obstacleInvalidated = true;reason = "current_obstacle_invalidated"
+                if blockedGoalSince == nil || r.timestamp-blockedGoalLast > 0.4 {
+                    blockedGoalSince = r.timestamp;blockedGoalCount = 0
+                }
+                blockedGoalLast = r.timestamp;blockedGoalCount += 1
+                if blockedGoalCount >= 3,r.timestamp-(blockedGoalSince ?? r.timestamp) >= 0.3,confirmed {
+                    goal = nil;outsideSince = nil;change = "target_blocked"
+                    blockedGoalSince = nil;blockedGoalCount = 0
+                }
             }
         }
+        if !goalCurrentlyBlocked { blockedGoalSince = nil;blockedGoalCount = 0 }
         // Re-route only TO the same world point. A newly visible farther area never moves it.
-        if let fixed = goal,let raster,confirmed,(path == nil || reason == "retained_world_path") {
+        if !goalCurrentlyBlocked,let fixed = goal,let raster,confirmed,(path == nil || reason == "retained_world_path") {
             search = raster.search(fixedTarget:fixed.point)
             if let points = search?.points,points.count >= 2 {
                 path = makePath(points,goal:fixed,result:r,width:options.minimumWidth)

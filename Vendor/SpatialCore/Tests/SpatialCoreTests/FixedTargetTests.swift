@@ -81,8 +81,34 @@ extension PathPredictionTests {
         var r = result(id:2,time:1.1);let q = r.grid!.basis.local(a.goal!.point),i = r.grid!.index(x:q.x,z:q.z)!
         r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 6
         let b = tracker.update(result:r,observation:nil,options:.init())
-        XCTAssertEqual(b.goalChangeReason,"target_blocked");XCTAssertNotEqual(b.goal?.id,a.goal?.id)
-        XCTAssertNotEqual(b.path?.points.last,a.goal?.point)
+        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        var latest = b
+        for j in 3...6 { r.frameID = UInt64(j);r.timestamp = 1+Double(j-1)*0.1;latest = tracker.update(result:r,observation:nil,options:.init()) }
+        XCTAssertNotEqual(latest.goal?.id,a.goal?.id)
+        XCTAssertNotEqual(latest.path?.points.last,a.goal?.point)
+    }
+    func testGroundEvidenceExpiryHidesPathButPreservesFixedGoal() {
+        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var lost = missing(id:2,time:3.1)
+        lost.diagnostics = AnalysisDiagnostics();lost.diagnostics?.groundReferenceInvalidation = "reference_expired_or_clock_reversed"
+        let b = tracker.update(result:lost,observation:nil,options:.init())
+        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        let c = tracker.update(result:result(id:3,time:3.2),observation:nil,options:.init())
+        XCTAssertEqual(c.goal?.id,a.goal?.id);XCTAssertEqual(c.path?.points.last,a.goal?.point)
+    }
+    func testClockReversalStillClearsFixedGoal() {
+        var tracker = PathPredictor();_ = tracker.update(result:result(),observation:nil,options:.init())
+        let b = tracker.update(result:result(id:2,time:0.5),observation:nil,options:.init())
+        XCTAssertNil(b.path);XCTAssertNil(b.goal)
+    }
+    func testTransientBlockedGoalNeverDrawsOldPathOrSelectsNewGoal() {
+        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var r = result(id:2,time:1.1);let q = r.grid!.basis.local(a.goal!.point),i = r.grid!.index(x:q.x,z:q.z)!
+        r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 6
+        let b = tracker.update(result:r,observation:nil,options:.init())
+        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        let c = tracker.update(result:result(id:3,time:1.2),observation:nil,options:.init())
+        XCTAssertEqual(c.goal?.id,a.goal?.id)
     }
     func testReRouteEndpointIsExactWorldGoalNotRoundedGridCentre() {
         let r = result(),blue = BluePathGrid(result:r)!,candidate = blue.search().points.last!+V3(0.01,0,0.01)

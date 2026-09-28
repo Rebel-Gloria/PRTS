@@ -282,7 +282,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     // Even a delayed obstacle/conflict may REMOVE a line; it may never publish
                     // a delayed replacement. Safety invalidation is not tied to display freshness.
                     if frame.id >= s.minimumGeometryFrameID,
-                       (["current_obstacle_invalidated","replanned_around_obstacle","ground_or_metric_conflict"].contains(pathUpdate.reason) ||
+                       (["current_obstacle_invalidated","replanned_around_obstacle","ground_or_metric_conflict","ground_evidence_expired"].contains(pathUpdate.reason) ||
                         ["target_reached","target_out_of_range","target_blocked"].contains(pathUpdate.goalChangeReason ?? "")) {
                         s.pathUpdate = .init(reason:pathUpdate.reason)
                     }
