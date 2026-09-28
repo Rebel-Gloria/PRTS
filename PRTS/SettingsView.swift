@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var model: ProbeViewModel
     @State private var showSpatialSettings = false
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var speech: SpeechManager
     @EnvironmentObject private var haptics: HapticManager
 
@@ -35,6 +34,7 @@ struct SettingsView: View {
         }
         .sheet(isPresented:$showSpatialSettings) { ProbeSettingsView(model:model) }
         .navigationTitle("设置")
-        .toolbar { ToolbarItem(placement: .topBarLeading) { Button("返回") { dismiss() } } }
+        .onAppear { speech.speakSettingsScreen(hapticFeedbackEnabled:haptics.isEnabled) }
+        .onChange(of:haptics.isEnabled) { _,enabled in speech.speakHapticFeedbackState(enabled) }
     }
 }

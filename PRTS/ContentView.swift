@@ -67,7 +67,7 @@ struct ContentView: View {
                 SettingsView(model:camera.model)
             }
             .onChange(of: camera.state) { newState in
-                guard scenePhase == .active else { return }
+                guard scenePhase == .active,!isShowingSettings else { return }
                 UIAccessibility.post(notification:.announcement,argument:speechManager.accessibilityAnnouncement(for:newState))
                 speechManager.speakCameraState(newState)
                 if newState == .running { hapticManager.cameraStarted() }
@@ -76,8 +76,14 @@ struct ContentView: View {
                 camera.poll(suspendFeedback:isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
                 if !isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
                     feedback.consume(result,speech:speechManager,haptics:hapticManager)
-                } else if feedback.lastConsumedResultID != nil {
-                    feedback.reset(); speechManager.stopCurrentSpeech()
+                } else if !isShowingSettings,feedback.lastConsumedResultID != nil {
+                    feedback.reset(); speechManager.cancelPerceptionSpeech()
+                }
+            }
+            .onChange(of:isShowingSettings) { _,shown in
+                if shown {
+                    feedback.reset()
+                    speechManager.cancelPerceptionSpeech()
                 }
             }
             .onChange(of:scenePhase) { phase in
@@ -87,7 +93,7 @@ struct ContentView: View {
                     hapticManager.stopHoldFeedback()
                 }
                 camera.lifecycle(phase)
-                if phase != .active { feedback.reset(); speechManager.stopCurrentSpeech() }
+                if phase != .active { feedback.reset(); speechManager.cancelPerceptionSpeech() }
             }
             .onAppear {
                 camera.poll(suspendFeedback:true)

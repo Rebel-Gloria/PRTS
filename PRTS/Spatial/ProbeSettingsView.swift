@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ProbeSettingsView: View {
     @ObservedObject var model: ProbeViewModel
+    @EnvironmentObject private var speech: SpeechManager
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
@@ -108,7 +109,7 @@ struct ProbeSettingsView: View {
         .alert("导出未完成",isPresented:Binding(get:{ model.errorMessage != nil },set:{ if !$0 { model.errorMessage = nil } })) {
             Button("确定") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
-        .onAppear { model.refreshDiagnostics() }
+        .onAppear { model.refreshDiagnostics(); speech.speak("空间感知设置。可调整路径、触觉、图层和参数，并导出诊断日志。") }
         .onChange(of:model.pathOptions) { _,_ in model.updatePathSettings() }
         .onChange(of:model.parameters) { _,_ in model.updateSettings() }
         .onChange(of:model.options.layer) { _,_ in model.updateLayers() }

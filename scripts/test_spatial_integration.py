@@ -51,6 +51,14 @@ class SpatialIntegrationTests(unittest.TestCase):
             self.assertNotIn("Timer.publish",text)
         self.assertFalse((ROOT / "PRTS/Spatial/ProbeContentView.swift").exists())
 
+    def test_settings_has_native_back_and_separate_speech_ownership(self):
+        settings = (ROOT / "PRTS/SettingsView.swift").read_text()
+        home = (ROOT / "PRTS/ContentView.swift").read_text()
+        self.assertNotIn('Button("返回")',settings)
+        self.assertIn('speech.speakSettingsScreen',settings)
+        self.assertIn('else if !isShowingSettings,feedback.lastConsumedResultID',home)
+        self.assertIn('speechManager.cancelPerceptionSpeech()',home)
+
     def test_original_home_controls_and_theme_are_preserved(self):
         # Intentional baseline: local main c9bace5, before the uncommitted UI rewrite.
         s = (ROOT / "PRTS/ContentView.swift").read_text()
