@@ -145,7 +145,16 @@ enum SensorLayer: Int, CaseIterable, Identifiable, Codable, Sendable { case rgb,
     var id: Int { rawValue }
     var title: String { switch self { case .rgb: "RGB"; case .depth: "深度"; case .confidence: "置信度" } }
 }
-struct RenderOptions: Codable, Sendable {
+struct RenderOptions: Codable, Sendable, Equatable {
+    // Optional backing keys preserve decoding of older diagnostic records.
+    var cameraImageVisible: Bool? = nil
+    var geometryOverlaysVisible: Bool? = nil
+    var pathVisible: Bool? = nil
+    var legendsVisible: Bool? = nil
+    var showCameraImage: Bool { get { cameraImageVisible ?? true } set { cameraImageVisible = newValue } }
+    var showOverlays: Bool { get { geometryOverlaysVisible ?? true } set { geometryOverlaysVisible = newValue } }
+    var showPath: Bool { get { pathVisible ?? true } set { pathVisible = newValue } }
+    var showLegends: Bool { get { legendsVisible ?? true } set { legendsVisible = newValue } }
     var layer: SensorLayer = .rgb
     var overlayDepth = false
     var overlayAlpha: Float = 0.45

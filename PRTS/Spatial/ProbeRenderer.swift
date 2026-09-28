@@ -205,17 +205,17 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 intrinsics:SIMD4(frame.intrinsics.fx,frame.intrinsics.fy,frame.intrinsics.cx,frame.intrinsics.cy),
                 imageAndModes:SIMD4(Float(iw),Float(ih),Float(s.options.layer.rawValue),s.options.overlayDepth ? 1 : 0),
                 rangeAndFlags:SIMD4(s.usesMonocular && prediction?.observation == nil ? 1 : s.options.heatMax,s.options.overlayAlpha,depth == nil ? 0 : 1,confidence == nil ? 0 : 1),
-                colorEncoding:SIMD4(pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ? 1 : 0,matrix == (kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String) ? 1 : 0,0,0),
+                colorEncoding:SIMD4(pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ? 1 : 0,matrix == (kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String) ? 1 : 0,s.options.showCameraImage ? 0 : 1,0),
                 worldToCamera:simd_inverse(frame.frame.camera.transform))
             encoder.setRenderPipelineState(imagePipeline); encoder.setDepthStencilState(noDepth)
             encoder.setVertexBytes(&uniforms,length:MemoryLayout<ShaderUniforms>.stride,index:0)
             encoder.setFragmentBytes(&uniforms,length:MemoryLayout<ShaderUniforms>.stride,index:0)
             encoder.setFragmentTexture(y.0,index:0); encoder.setFragmentTexture(cbcr.0,index:1)
             encoder.setFragmentTexture(depth?.0 ?? dummyDepth,index:2); encoder.setFragmentTexture(confidence?.0 ?? dummyConfidence,index:3)
-            encoder.drawPrimitives(type:.triangleStrip,vertexStart:0,vertexCount:4); rgbSubmitted = true
+            encoder.drawPrimitives(type:.triangleStrip,vertexStart:0,vertexCount:4); rgbSubmitted = s.options.showCameraImage && s.options.layer == .rgb
             encoder.setRenderPipelineState(worldPipeline); encoder.setDepthStencilState(worldDepth); encoder.setCullMode(.none)
             encoder.setVertexBytes(&uniforms,length:MemoryLayout<ShaderUniforms>.stride,index:1)
-            if s.frozen == nil,frame.trackingNormal,start-frame.frame.timestamp <= s.parameters.maxResultAge {
+            if s.options.showOverlays,s.frozen == nil,frame.trackingNormal,start-frame.frame.timestamp <= s.parameters.maxResultAge {
                 if s.usesMonocular,s.options.showFloor,s.nativePlaneFrameID >= s.minimumGeometryFrameID,s.geometryEnabled,
                    (s.nativePlanes.first.map({ start-$0.timestamp <= 1 }) == true || s.retainedNativeGround(now:start) != nil) {
                     updateNativePlanes(s)
@@ -253,12 +253,12 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                     }
                 }
                 updatePathBuffer(predictedPath)
-                if let pathBuffer,pathCount > 0 {
+                if s.options.showPath,let pathBuffer,pathCount > 0 {
                     encoder.setVertexBuffer(pathBuffer,offset:0,index:0)
                     encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:pathCount); drawnPath = pathCount
                 }
                 // Legacy multi-sector diagnostics remain available only when single-path mode is off.
-                if !s.pathOptions.enabled,s.options.showChannels,s.activeGuidanceResult(now:start) != nil,let channelBuffer,channelCount > 0 { encoder.setVertexBuffer(channelBuffer,offset:0,index:0); encoder.drawPrimitives(type:.line,vertexStart:0,vertexCount:channelCount); drawnChannels = channelCount }
+                if s.options.showPath,!s.pathOptions.enabled,s.options.showChannels,s.activeGuidanceResult(now:start) != nil,let channelBuffer,channelCount > 0 { encoder.setVertexBuffer(channelBuffer,offset:0,index:0); encoder.drawPrimitives(type:.line,vertexStart:0,vertexCount:channelCount); drawnChannels = channelCount }
             }
         } else if !s.running { meshes.removeAll(); gridBuffer = nil; surfaceBuffer = nil; surfaceCount = 0; blockingBuffer = nil; blockingCount = 0; blockingLines = nil; blockingLineCount = 0; channelBuffer = nil; analysisKey = ""; surfaceKey = "" }
         encoder.endEncoding()

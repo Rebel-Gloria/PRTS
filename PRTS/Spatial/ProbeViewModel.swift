@@ -7,7 +7,12 @@ import SpatialCore
 final class ProbeViewModel: ObservableObject {
     let engine = ProbeEngine()
     @Published var snapshot = SharedSnapshot()
-    @Published var options = RenderOptions()
+    @Published var options = RenderOptions() {
+        didSet {
+            if let data = try? JSONEncoder().encode(options) { UserDefaults.standard.set(data,forKey:"homeRenderOptions.v1") }
+            engine.updateOptions(options)
+        }
+    }
     @Published var parameters = ProbeParameters()
     @Published var pathOptions = PathOptions()
     @Published var hapticStatus = "等待路径"
@@ -25,6 +30,8 @@ final class ProbeViewModel: ObservableObject {
     private var lastHeartbeat: Double = 0
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     init() {
+        if let data = UserDefaults.standard.data(forKey:"homeRenderOptions.v1"),let saved = try? JSONDecoder().decode(RenderOptions.self,from:data) { options = saved }
+        engine.updateOptions(options)
         if let data = UserDefaults.standard.data(forKey:"pathOptions"),let options = try? JSONDecoder().decode(PathOptions.self,from:data) { pathOptions = options.validated() }
         engine.store.update { $0.pathOptions = pathOptions }
         UIDevice.current.isBatteryMonitoringEnabled = true

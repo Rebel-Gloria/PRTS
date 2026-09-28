@@ -12,18 +12,29 @@ class SpatialIntegrationTests(unittest.TestCase):
                 self.assertEqual(source.read_bytes(), (ROOT / "Vendor/SpatialCore/Sources/SpatialCore" / source.name).read_bytes())
 
     def test_runtime_algorithms_are_identical_except_explicit_imports(self):
-        for name in ["ProbeEngine.swift", "Snapshots.swift", "ProbeRenderer.swift", "PathHaptics.swift", "CoreMLDepthModel.swift", "MonocularDepthProvider.swift", "DiagnosticRecorder.swift", "SessionRecorder.swift"]:
+        for name in ["ProbeEngine.swift", "PathHaptics.swift", "CoreMLDepthModel.swift", "MonocularDepthProvider.swift", "DiagnosticRecorder.swift", "SessionRecorder.swift"]:
             def body(path):
                 return "\n".join(line for line in path.read_text().splitlines() if not line.startswith("import ")).strip()
             with self.subTest(file=name):
                 self.assertEqual(body(PROBE / "App" / name),body(ROOT / "PRTS/Spatial" / name))
 
-    def test_model_and_shader_match_verified_probe(self):
-        sources = [PROBE / "App/ProbeShaders.metal.txt"] + [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]
+    def test_model_matches_verified_probe(self):
+        sources = [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]
         for source in sources:
             target = ROOT / "PRTS/Spatial" / source.relative_to(PROBE / "App")
             with self.subTest(file=str(source.name)):
                 self.assertEqual(hashlib.sha256(source.read_bytes()).digest(),hashlib.sha256(target.read_bytes()).digest())
+
+    def test_home_visibility_does_not_disable_capture_or_analysis(self):
+        renderer = (ROOT / "PRTS/Spatial/ProbeRenderer.swift").read_text()
+        shader = (ROOT / "PRTS/Spatial/ProbeShaders.metal.txt").read_text()
+        self.assertIn("s.options.showCameraImage ? 0 : 1", renderer)
+        self.assertIn("if s.options.showOverlays,s.frozen == nil", renderer)
+        self.assertIn("if s.options.showPath,let pathBuffer", renderer)
+        self.assertIn("u.colorEncoding.z > 0.5 ?", shader)
+        engine = (ROOT / "PRTS/Spatial/ProbeEngine.swift").read_text()
+        self.assertNotIn("showCameraImage", engine)
+        self.assertNotIn("showOverlays", engine)
 
     def test_original_home_controls_and_theme_are_preserved(self):
         # Intentional baseline: local main c9bace5, before the uncommitted UI rewrite.
