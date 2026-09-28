@@ -1,27 +1,36 @@
+import Foundation
+import CoreVideo
+import SpatialCore
 import Testing
 @testable import PRTS
-import PRTSContracts
-import PRTSAppleModels
 
 struct PRTSTests {
-    @Test @MainActor func pushTextUsesPinnedCommandContractWithoutPretendingModelsRan() {
-        let bridge = PRTSBackendBridge()
-        let intent = bridge.pushText("开始导航")
-        #expect(intent?.action == "navigate")
-        #expect(bridge.latestCommand.contains("Contract intent"))
-        #expect(bridge.latestCommand.contains("models not running"))
+    @Test func phaseOneRuntimeHasNoLargeModelProfiles() {
+        #expect(PRTSRuntimeProfile.offlineGeometry.rawValue == "offlineGeometry")
     }
 
-    @Test func defaultRuntimeIsMinimalAndDoesNotLoadLargeBrain() {
-        let profile = PRTSRuntimeProfile.minimal
-        #expect(!profile.enablesPerception)
-        #expect(!profile.loadsLargeBrain)
-        #expect(!PRTSAppleRuntimeCapability.coreSessionAvailable)
+    @Test @MainActor func missingDetectorIsExplicitlyUnavailable() {
+        let detector = UnavailableObstacleDetector()
+        #expect(detector.capability == .unavailable(.modelNotBundled))
     }
 
-    @Test func fullExperimentalIsExplicitAndPerceptionDoesNotLoadBrain() {
-        #expect(PRTSRuntimeProfile.perception.enablesPerception)
-        #expect(!PRTSRuntimeProfile.perception.loadsLargeBrain)
-        #expect(PRTSRuntimeProfile.fullExperimental.loadsLargeBrain)
+    @Test @MainActor func feedbackCoordinatorStartsWithoutOldResultIdentity() {
+        let coordinator = FeedbackCoordinator()
+        #expect(coordinator.lastConsumedResultID == nil)
+        #expect(coordinator.lastSpokenResultID == nil)
+    }
+    @Test @MainActor func emptyStoppedSnapshotNeverPublishesMeasuredGuidance() {
+        #expect(SceneSnapshotAdapter.measuredResult(SharedSnapshot(),now:1) == nil)
+    }
+
+    @Test @MainActor func integratedCameraOwnsProbeEngineWithoutStartingCapture() {
+        let camera = CameraManager()
+        #expect(!camera.model.snapshot.running)
+        #expect(camera.latestSceneResult == nil)
+    }
+
+    @Test func rendererAndMonocularModelAreBundled() {
+        #expect(Bundle.main.url(forResource:"ProbeShaders.metal",withExtension:"txt") != nil)
+        #expect(Bundle.main.url(forResource:"DepthAnythingV2SmallF16",withExtension:"mlmodelc") != nil)
     }
 }

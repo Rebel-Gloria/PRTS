@@ -1,0 +1,44 @@
+"""Source/resource parity and preserved home-layout guards; not device acceptance."""
+import hashlib
+from pathlib import Path
+import unittest
+ROOT = Path(__file__).resolve().parents[1]
+PROBE = ROOT / "Experiments/SpatialProbe"
+
+class SpatialIntegrationTests(unittest.TestCase):
+    def test_all_verified_algorithms_are_identical(self):
+        for source in (PROBE / "Core/Sources/SpatialCore").glob("*.swift"):
+            with self.subTest(file=source.name):
+                self.assertEqual(source.read_bytes(), (ROOT / "Vendor/SpatialCore/Sources/SpatialCore" / source.name).read_bytes())
+
+    def test_runtime_algorithms_are_identical_except_explicit_imports(self):
+        for name in ["ProbeEngine.swift", "Snapshots.swift", "ProbeRenderer.swift", "PathHaptics.swift", "CoreMLDepthModel.swift", "MonocularDepthProvider.swift", "DiagnosticRecorder.swift", "SessionRecorder.swift"]:
+            def body(path):
+                return "\n".join(line for line in path.read_text().splitlines() if not line.startswith("import ")).strip()
+            with self.subTest(file=name):
+                self.assertEqual(body(PROBE / "App" / name),body(ROOT / "PRTS/Spatial" / name))
+
+    def test_model_and_shader_match_verified_probe(self):
+        sources = [PROBE / "App/ProbeShaders.metal.txt"] + [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]
+        for source in sources:
+            target = ROOT / "PRTS/Spatial" / source.relative_to(PROBE / "App")
+            with self.subTest(file=str(source.name)):
+                self.assertEqual(hashlib.sha256(source.read_bytes()).digest(),hashlib.sha256(target.read_bytes()).digest())
+
+    def test_original_home_controls_and_theme_are_preserved(self):
+        # Intentional baseline: local main c9bace5, before the uncommitted UI rewrite.
+        s = (ROOT / "PRTS/ContentView.swift").read_text()
+        parts = {
+            "header": s[s.index("    private var header:"):s.index("    private var cameraStatus:")],
+            "cameraStatus": s[s.index("    private var cameraStatus:"):s.index("    private var backendStatus:")],
+            "primaryButton": s[s.index("    private var primaryButton:"):s.index("    private var stopGesture:")],
+            "stopGesture": s[s.index("    private var stopGesture:"):s.index("    private func startCameraFromButton")],
+            "theme": s[s.index("private extension Color"):],
+        }
+        expected = {'header': 'b6fd21bf1b46b2e6d4151abfa1f471660ba09d045abea164f266e43dd79b1909', 'cameraStatus': 'c4b944ef4a1364469fad3ca8df7008808ca1fa693f1a6ec91ceaea8aa4008755', 'primaryButton': 'cd8e9cefccb539e922831be45aa32f6738eda904aa8bf5e3f9e66137fe7be663', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
+        for name,content in parts.items():
+            with self.subTest(part=name):
+                self.assertEqual(hashlib.sha256(content.encode()).hexdigest(),expected[name])
+
+if __name__ == "__main__":
+    unittest.main()
