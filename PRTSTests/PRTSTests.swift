@@ -44,4 +44,13 @@ struct PRTSTests {
         #expect(try JSONDecoder().decode(RenderOptions.self,from:JSONEncoder().encode(hidden)) == hidden)
         #expect(hidden.showSurfaceModel == old.showSurfaceModel)
     }
+    @Test @MainActor func settingsSpeechBuildsLocalizedAnnouncement() {
+        let speech = SpeechManager()
+        speech.speakSettingsScreen(hapticFeedbackEnabled:true)
+        #expect(speech.lastSettingsAnnouncement?.isEmpty == false)
+        #expect(speech.lastSettingsAnnouncement != "speech.settings.summary")
+        speech.cancelPerceptionSpeech()
+        #expect(speech.lastSettingsAnnouncement?.isEmpty == false)
+        speech.stopCurrentSpeech()
+    }
 }

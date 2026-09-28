@@ -17,16 +17,16 @@ final class FeedbackCoordinator: ObservableObject {
             lastSpokenResultID = event.resultID
             switch event {
             case .perceptionUnavailable:
-                speech.speak("感知暂不可用")
+                speech.speakPerception("感知暂不可用")
                 // Direction haptics are owned solely by PathHaptics.
             case .centerObstacle(_, let distance, _):
-                speech.speak(String(format: "前方障碍，约 %.1f 米", distance),
+                speech.speakPerception(String(format: "前方障碍，约 %.1f 米", distance),
                              english: String(format: "Obstacle ahead, about %.1f meters", distance))
 
             case .observedCandidate(_, let sector):
                 let zh = sector == .left ? "左侧" : (sector == .right ? "右侧" : "中间")
                 let en = sector == .left ? "left" : (sector == .right ? "right" : "center")
-                speech.speak("\(zh)存在观测候选通道", english: "Observed candidate channel in the \(en)")
+                speech.speakPerception("\(zh)存在观测候选通道", english: "Observed candidate channel in the \(en)")
 
             }
         }
@@ -35,5 +35,5 @@ final class FeedbackCoordinator: ObservableObject {
 
 @MainActor
 private extension SpeechManager {
-    func speak(_ chinese: String,english: String) { speak((followSystemLanguageEnabled ? SpeechLanguage.fromSystemLanguage() : selectedLanguage) == .chinese ? chinese : english) }
+    func speakPerception(_ chinese: String,english: String) { speakPerception((followSystemLanguageEnabled ? SpeechLanguage.fromSystemLanguage() : selectedLanguage) == .chinese ? chinese : english) }
 }
