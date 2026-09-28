@@ -1,18 +1,7 @@
-//
-//  CameraManager.swift
-//  PRTS
-//
-
-@preconcurrency import AVFoundation
-import Combine
-import CoreMedia
 import SwiftUI
-
-/// Implement this protocol in the future backend adapter to receive camera frames.
-/// Frames arrive on a dedicated serial queue and must be processed off the main thread.
-nonisolated protocol CameraFrameConsumer: AnyObject {
-    nonisolated func consumeVideoFrame(_ sampleBuffer: CMSampleBuffer)
-}
+import AVFoundation
+import Combine
+import SpatialCore
 
 nonisolated enum CameraUnavailableReason: Equatable {
     case noRearCamera
@@ -125,145 +114,28 @@ nonisolated enum CameraState: Equatable {
     }
 }
 
+
+/// UI adapter only. The sole camera owner is ProbeEngine's ARSession.
 @MainActor
-final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
-    nonisolated(unsafe) let session = AVCaptureSession()
-
+final class CameraManager: ObservableObject {
+    let model = ProbeViewModel()
     @Published private(set) var state: CameraState = .idle
-
-    /// Assign a backend adapter here later. Keeping this nil has no runtime cost.
-    nonisolated(unsafe) weak var frameConsumer: (any CameraFrameConsumer)?
-
-    private let sessionQueue = DispatchQueue(label: "com.jingxuan.prts.camera.session")
-    private let frameOutputQueue = DispatchQueue(label: "com.jingxuan.prts.camera.frames")
-    nonisolated(unsafe) private var isConfigured = false
-
-    func startCamera() {
-        guard !state.isBusy, state != .running else { return }
-
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            configureAndStartSession()
-
-        case .notDetermined:
-            updateState(.requestingPermission)
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] isGranted in
-                guard let self else { return }
-
-                if isGranted {
-                    Task { @MainActor [weak self] in
-                        self?.configureAndStartSession()
-                    }
-                } else {
-                    self.updateState(.permissionDenied)
-                }
-            }
-
-        case .denied, .restricted:
-            updateState(.permissionDenied)
-
-        @unknown default:
-            updateState(.unavailable(.unknownPermission))
-        }
+    @Published private(set) var status = "离线空间感知待启动"
+    @Published private(set) var latestSceneResult: SceneResult?
+    @Published private(set) var frameCount: UInt64 = 0
+    func poll(suspendFeedback: Bool) {
+        model.feedbackSuspended = suspendFeedback
+        model.poll()
+        frameCount = model.snapshot.frame?.id ?? 0
+        status = model.snapshot.status
+        latestSceneResult = SceneSnapshotAdapter.measuredResult(model.snapshot,now:ProcessInfo.processInfo.systemUptime)
+        if model.snapshot.running { state = .running }
+        else if model.requestingPermission { state = .requestingPermission }
+        else if AVCaptureDevice.authorizationStatus(for: .video) == .denied || AVCaptureDevice.authorizationStatus(for: .video) == .restricted { state = .permissionDenied }
+        else if !model.capabilities.world { state = .unavailable(.noRearCamera) }
+        else { state = .idle }
     }
-
-    func stopCamera() {
-        sessionQueue.async { [weak self] in
-            guard let self else { return }
-
-            if self.session.isRunning {
-                self.session.stopRunning()
-            }
-            self.updateState(.idle)
-        }
-    }
-
-    private func configureAndStartSession() {
-        updateState(.starting)
-
-        sessionQueue.async { [weak self] in
-            guard let self else { return }
-
-            do {
-                if !self.isConfigured {
-                    try self.configureSession()
-                }
-
-                if !self.session.isRunning {
-                    self.session.startRunning()
-                }
-                self.updateState(.running)
-            } catch let error as CameraSetupError {
-                self.updateState(.unavailable(error.reason))
-            } catch {
-                self.updateState(.unavailable(.sessionStartFailed))
-            }
-        }
-    }
-
-    nonisolated private func configureSession() throws {
-        session.beginConfiguration()
-        defer { session.commitConfiguration() }
-
-        session.sessionPreset = .high
-
-        guard let camera = AVCaptureDevice.default(
-            .builtInWideAngleCamera,
-            for: .video,
-            position: .back
-        ) else {
-            throw CameraSetupError.noRearCamera
-        }
-
-        let input = try AVCaptureDeviceInput(device: camera)
-        guard session.canAddInput(input) else {
-            throw CameraSetupError.cannotAddInput
-        }
-        session.addInput(input)
-
-        let output = AVCaptureVideoDataOutput()
-        output.alwaysDiscardsLateVideoFrames = true
-        output.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
-        ]
-        output.setSampleBufferDelegate(self, queue: frameOutputQueue)
-
-        guard session.canAddOutput(output) else {
-            throw CameraSetupError.cannotAddOutput
-        }
-        session.addOutput(output)
-
-        isConfigured = true
-    }
-
-    nonisolated func captureOutput(
-        _ output: AVCaptureOutput,
-        didOutput sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
-    ) {
-        frameConsumer?.consumeVideoFrame(sampleBuffer)
-    }
-
-    nonisolated private func updateState(_ newState: CameraState) {
-        DispatchQueue.main.async { [weak self] in
-            self?.state = newState
-        }
-    }
-}
-
-private nonisolated enum CameraSetupError: Error {
-    case noRearCamera
-    case cannotAddInput
-    case cannotAddOutput
-
-    var reason: CameraUnavailableReason {
-        switch self {
-        case .noRearCamera:
-            return .noRearCamera
-        case .cannotAddInput:
-            return .cannotAddInput
-        case .cannotAddOutput:
-            return .cannotAddOutput
-        }
-    }
+    func startCamera() { guard !model.snapshot.running else { return }; model.startOrStop(); poll(suspendFeedback: true) }
+    func stopCamera() { model.engine.stop(); model.poll(); latestSceneResult = nil; state = .idle }
+    func lifecycle(_ phase: ScenePhase) { model.lifecycle(phase); poll(suspendFeedback: phase != .active) }
 }

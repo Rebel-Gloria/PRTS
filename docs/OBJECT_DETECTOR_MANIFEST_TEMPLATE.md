@@ -1,0 +1,31 @@
+# Object detector manifest template
+
+- Model name:
+- Model version/revision:
+- Original source URL:
+- Download date:
+- Original file SHA-256:
+- Converted Core ML file SHA-256:
+- License identifier and full license URL:
+- Redistribution decision/approver:
+- Conversion tool and exact version:
+- Conversion command:
+- Minimum iOS:
+- Core ML compute units policy:
+- Input feature name:
+- Input width × height:
+- Pixel format / RGB or BGR:
+- Resize and letterbox rule:
+- Value range and normalization:
+- Output feature/tensor names and shapes:
+- Class list file and SHA-256:
+- Confidence threshold:
+- NMS IoU threshold and algorithm:
+- Coordinate convention:
+- Reference evaluation dataset/version:
+- Pre-conversion accuracy:
+- Post-conversion accuracy:
+- iPhone 15 Pro median / p95 latency:
+- iPhone 15 Pro peak memory:
+- Thermal test duration and result:
+- Known limitations:

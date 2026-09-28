@@ -41,6 +41,13 @@ final class HapticManager: ObservableObject {
         }
     }
 
+    func obstacleWarning(severe: Bool) {
+        guard isEnabled else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(severe ? .error : .warning)
+    }
+
+    func candidateObserved() { impact(style: .light) }
+
     func startHoldFeedback() {
         guard isEnabled, holdFeedbackTimer == nil else { return }
 
