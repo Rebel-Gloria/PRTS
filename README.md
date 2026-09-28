@@ -11,3 +11,6 @@ PRTS 当前默认运行“第一阶段完全离线基础感知”：单一 ARKit
 - `docs/PHASE1_OFFLINE_PERCEPTION.md`
 - `Vendor/SpatialCore/PROVENANCE.md`
 - `docs/OBJECT_DETECTOR_MANIFEST_TEMPLATE.md`
+- `docs/architecture/CODE_STRUCTURE.md`
+- `docs/architecture/RUNTIME_DATA_FLOW.md`
+- `PRTS/README.md`

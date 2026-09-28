@@ -10,8 +10,8 @@
 
 - `Vendor/SpatialCore`：完整迁入经测试的地面估计、保守三态栅格、体积障碍、表面/历史显示、单目尺度追踪、路径搜索、固定目标点、路径时效与触觉策略、诊断格式及197项合成测试。保留原项目的 SceneContracts / FeedbackPolicy 兼容接口，不使用旧版几何实现。
 - `PRTS/Spatial`：单一ARSession、最新帧邮箱、Metal渲染、Core ML单目分支、手动空间数据采样和每次启动DIAG。核心运行文件与测试工程一致，只有明确的import及UI宿主适配。
-- `PRTS/CameraManager.swift`：原主界面的轻量适配器，不再拥有AVCaptureSession或第二套ARSession。
-- `PRTS/CameraPreview.swift`：显示同一引擎、同一坐标变换的Metal画面，完整视野aspect-fit。
+- `PRTS/Capture/CameraManager.swift`：原主界面的轻量适配器，不再拥有AVCaptureSession或第二套ARSession。
+- `PRTS/Capture/CameraPreview.swift`：显示同一引擎、同一坐标变换的Metal画面，完整视野aspect-fit。
 - `PRTSBackendBridge.swift`：无大模型运行时；保留目标检测未配置状态与未来消费者协议。`SceneSnapshotAdapter`仅将当前有效、同源帧的实测LiDAR结果导出给兼容语音反馈；不会把单目预测改称实测。完整路径/单目/网格数据仍通过SharedSnapshot的带来源类型访问。
 - 语音可提示当前有效障碍；左右/对准触觉只由移植的PathHaptics输出，避免旧反馈协调器同时振动。全局触觉开关、设置页、后台和停止均抑制路径触觉。
 

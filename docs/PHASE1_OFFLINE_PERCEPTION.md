@@ -10,7 +10,7 @@
 
 ### 单一 ARSession 与同帧关联
 
-`PRTS/CameraManager.swift` 中只有一个 `ARSession`。它使用 `ARWorldTrackingConfiguration`、重力对齐，并在设备支持时启用：
+`PRTS/Capture/CameraManager.swift` 中只有一个 `ARSession`。它使用 `ARWorldTrackingConfiguration`、重力对齐，并在设备支持时启用：
 
 - 原始 `sceneDepth`；
 - `meshWithClassification`；
