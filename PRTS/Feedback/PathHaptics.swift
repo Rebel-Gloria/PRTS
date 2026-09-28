@@ -1,3 +1,5 @@
+/// Directional haptic policy for the fixed world-space target; never creates a route.
+
 import CoreHaptics
 import UIKit
 import SpatialCore

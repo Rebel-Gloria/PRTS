@@ -1,3 +1,5 @@
+/// Main-actor presentation state for the home screen and spatial settings.
+
 import SwiftUI
 import Combine
 import AVFoundation

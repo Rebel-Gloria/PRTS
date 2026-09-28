@@ -1,3 +1,5 @@
+/// UI-facing adapter around `ProbeEngine`; the ARSession itself is owned by the spatial runtime.
+
 import SwiftUI
 import AVFoundation
 import Combine

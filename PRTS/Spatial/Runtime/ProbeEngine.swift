@@ -1,3 +1,5 @@
+/// Owns the single ARSession, bounded frame mailbox, analysis worker, mesh cache and diagnostic journal.
+
 import ARKit
 import AVFoundation
 import Foundation

@@ -1,3 +1,5 @@
+/// Home-screen camera surface. It renders the same Metal view used by spatial analysis.
+
 import SwiftUI
 
 /// Uses the same aspect-fit renderer and the same ARSession as analysis.

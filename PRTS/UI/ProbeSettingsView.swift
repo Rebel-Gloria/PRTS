@@ -1,3 +1,5 @@
+/// Advanced spatial parameters, layer controls, diagnostics and export.
+
 import SpatialCore
 import SwiftUI
 import UniformTypeIdentifiers
