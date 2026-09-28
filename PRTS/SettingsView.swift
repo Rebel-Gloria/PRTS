@@ -28,7 +28,7 @@ struct SettingsView: View {
             }
             Section("空间感知与演示") {
                 Button("图层、路径、触觉与 DIAG 日志") { showSpatialSettings = true }.accessibilityIdentifier("spatialSettingsButton")
-                NavigationLink("技术演示与指标") { ProbeContentView(model:model).navigationTitle("空间感知演示") }.accessibilityIdentifier("spatialDemoLink")
+                NavigationLink("演示模式选项") { DemoOptionsView(model:model) }.accessibilityIdentifier("demoOptionsLink")
                 Text("LiDAR 设备使用 ARKit 实测深度；无 LiDAR 使用原生平面与本地 Core ML 预测，预测不等于实测。候选通道不等于安全路线。")
                     .font(.footnote).foregroundStyle(.secondary)
             }

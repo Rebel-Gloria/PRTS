@@ -59,7 +59,7 @@ struct ProbeSettingsView: View {
                     Toggle("ARKit floor 分类填色",isOn:$model.options.showFloor).disabled(model.options.showSurfaceModel)
                     Toggle("局部栅格投影：未知／障碍／候选",isOn:$model.options.showGrid).disabled(model.options.showSurfaceModel)
                     Toggle("旧版多方向候选段（关闭预测线后显示）",isOn:$model.options.showChannels).disabled(model.pathOptions.enabled)
-                    Toggle("指标和图例面板",isOn:$model.options.showHUD)
+                    Text("主页面画面、叠加层和指标栏请在“演示模式选项”中设置。").font(.caption)
                     Text("floor 分类不是地面真值；候选区域不代表安全。关闭面板可检查图像四角，底部仍保留实验警告。").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("几何参数（更改会撤销旧结果）") {

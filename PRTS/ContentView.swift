@@ -43,6 +43,15 @@ struct ContentView: View {
                     header
 
                     Spacer()
+                        .overlay(alignment:.topLeading) {
+                            GeometryReader { bounds in
+                                ScrollView {
+                                    HomeDemoOverlay(model:camera.model)
+                                }
+                                .frame(width:bounds.size.width,height:bounds.size.height)
+                                .clipped()
+                            }
+                        }
 
                     cameraStatus
                     backendStatus
