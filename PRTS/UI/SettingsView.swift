@@ -1,3 +1,5 @@
+/// Product settings page; uses the system navigation back button.
+
 import SwiftUI
 
 struct SettingsView: View {

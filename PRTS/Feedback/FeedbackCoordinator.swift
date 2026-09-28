@@ -1,3 +1,5 @@
+/// Converts one accepted spatial result into rate-limited speech/haptic events.
+
 import Combine
 import Foundation
 import SpatialCore

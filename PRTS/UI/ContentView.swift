@@ -1,3 +1,5 @@
+/// Restored product home screen. Technical overlays are embedded here instead of a separate demo mode.
+
 //
 //  ContentView.swift
 //  PRTS

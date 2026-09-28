@@ -1,3 +1,5 @@
+/// Read-only home overlay driven by the same `ProbeViewModel` as the renderer.
+
 import SwiftUI
 import SpatialCore
 

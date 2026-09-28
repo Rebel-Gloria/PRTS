@@ -1,3 +1,5 @@
+/// Immutable-ish runtime snapshots shared by capture, analysis, rendering and diagnostics.
+
 import ARKit
 import Foundation
 import SpatialCore

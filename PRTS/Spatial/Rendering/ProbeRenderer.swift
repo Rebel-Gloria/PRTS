@@ -1,3 +1,5 @@
+/// Metal renderer for RGB/depth and world-space overlays. It never performs sensor analysis.
+
 import SwiftUI
 import MetalKit
 import ARKit

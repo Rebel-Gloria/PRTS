@@ -1,3 +1,5 @@
+/// User-facing speech service. Perception cues and settings announcements have separate cancellation ownership.
+
 //
 //  SpeechManager.swift
 //  PRTS

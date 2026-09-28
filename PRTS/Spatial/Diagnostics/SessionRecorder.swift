@@ -1,3 +1,5 @@
+/// Manual spatial sample recorder for depth, confidence, mesh and analysis metadata.
+
 import ARKit
 
 import Foundation
