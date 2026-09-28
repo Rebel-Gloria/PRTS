@@ -45,6 +45,16 @@ final class SpeechManager: NSObject, ObservableObject {
     @Published private(set) var selectedLanguage: SpeechLanguage
 
     private let synthesizer = AVSpeechSynthesizer()
+    private var perceptionSpeechActive = false
+    private(set) var lastSettingsAnnouncement: String?
+    func speakPerception(_ message: String) {
+        speak(message)
+        perceptionSpeechActive = voiceAnnouncementsEnabled
+    }
+    func cancelPerceptionSpeech() {
+        guard perceptionSpeechActive else { return }
+        stopCurrentSpeech()
+    }
     private var backendQueue: [SpeechRequest] = []
     private var activeBackendRequest: SpeechRequest?
     private var activeBackendUtteranceID: ObjectIdentifier?
@@ -98,7 +108,7 @@ final class SpeechManager: NSObject, ObservableObject {
     }
 
     func speakSettingsScreen(hapticFeedbackEnabled: Bool) {
-        speak(localized(
+        let message = localized(
             "speech.settings.summary",
             arguments: [
                 localized(voiceAnnouncementsEnabled ? "speech.value.on" : "speech.value.off"),
@@ -106,7 +116,9 @@ final class SpeechManager: NSObject, ObservableObject {
                 languageSettingAnnouncement,
                 localized(hapticFeedbackEnabled ? "speech.value.on" : "speech.value.off")
             ]
-        ))
+        )
+        lastSettingsAnnouncement = message
+        speak(message)
     }
 
     func speakHapticFeedbackState(_ enabled: Bool) {
@@ -117,6 +129,7 @@ final class SpeechManager: NSObject, ObservableObject {
     }
 
     func speak(_ message: String) {
+        perceptionSpeechActive = false
         guard voiceAnnouncementsEnabled else { return }
 
         prepareAudioSession()
@@ -260,6 +273,7 @@ final class SpeechManager: NSObject, ObservableObject {
     }
 
     func stopCurrentSpeech() {
+        perceptionSpeechActive = false
         backendQueue.removeAll()
         backendExpiryTimer?.invalidate()
         backendExpiryTimer = nil

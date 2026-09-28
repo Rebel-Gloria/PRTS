@@ -4,6 +4,7 @@ import SpatialCore
 /// Presentation switches only: the home screen remains the sole live display.
 struct DemoOptionsView: View {
     @ObservedObject var model: ProbeViewModel
+    @EnvironmentObject private var speech: SpeechManager
     var body: some View {
         Form {
             Section("主页面画面") {
@@ -41,6 +42,7 @@ struct DemoOptionsView: View {
                     .font(.footnote).foregroundStyle(.orange)
             }
         }
+        .onAppear { speech.speak("演示模式选项。可控制主页面摄像机画面、叠加层、路径和参数指标。隐藏画面不会停止采集。") }
         .navigationTitle("演示模式选项")
         .navigationBarTitleDisplayMode(.inline)
     }

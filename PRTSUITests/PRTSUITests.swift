@@ -34,6 +34,7 @@ final class PRTSUITests: XCTestCase {
         XCTAssertLessThan(settings.frame.midY,camera.frame.midY)
         let home = XCTAttachment(screenshot:app.screenshot()); home.name = "Restored dark-teal home"; home.lifetime = .keepAlways; add(home)
         settings.tap()
+        XCTAssertEqual(app.navigationBars.buttons.count,1,"Settings must have only the system Back button")
         let demo = app.buttons["demoOptionsLink"]
         if !demo.isHittable { app.swipeUp() }
         XCTAssertTrue(demo.waitForExistence(timeout:5))
