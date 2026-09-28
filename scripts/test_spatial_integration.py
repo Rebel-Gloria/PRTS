@@ -13,35 +13,43 @@ class SpatialIntegrationTests(unittest.TestCase):
                 self.assertEqual(source.read_bytes(), (ROOT / "Vendor/SpatialCore/Sources/SpatialCore" / source.name).read_bytes())
 
     def test_runtime_algorithms_are_identical_except_explicit_imports(self):
-        for name in ["ProbeEngine.swift", "PathHaptics.swift", "CoreMLDepthModel.swift", "MonocularDepthProvider.swift", "DiagnosticRecorder.swift", "SessionRecorder.swift"]:
+        files = {
+            "ProbeEngine.swift": ROOT / "PRTS/Spatial/Runtime/ProbeEngine.swift",
+            "PathHaptics.swift": ROOT / "PRTS/Feedback/PathHaptics.swift",
+            "CoreMLDepthModel.swift": ROOT / "PRTS/Spatial/Runtime/CoreMLDepthModel.swift",
+            "MonocularDepthProvider.swift": ROOT / "PRTS/Spatial/Runtime/MonocularDepthProvider.swift",
+            "DiagnosticRecorder.swift": ROOT / "PRTS/Spatial/Diagnostics/DiagnosticRecorder.swift",
+            "SessionRecorder.swift": ROOT / "PRTS/Spatial/Diagnostics/SessionRecorder.swift",
+        }
+        for name,target in files.items():
             def body(path):
-                return "\n".join(line for line in path.read_text().splitlines() if not line.startswith("import ")).strip().replace(',"ground_evidence_expired"', "")
+                return "\n".join(line for line in path.read_text().splitlines() if not line.lstrip().startswith(("import ","//"))).strip().replace(',"ground_evidence_expired"', "")
             with self.subTest(file=name):
-                self.assertEqual(body(PROBE / "App" / name),body(ROOT / "PRTS/Spatial" / name))
+                self.assertEqual(body(PROBE / "App" / name),body(target))
 
     def test_model_matches_verified_probe(self):
         sources = [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]
         for source in sources:
-            target = ROOT / "PRTS/Spatial" / source.relative_to(PROBE / "App")
+            target = ROOT / "PRTS/Spatial/Models" / source.relative_to(PROBE / "App/Models")
             with self.subTest(file=str(source.name)):
                 self.assertEqual(hashlib.sha256(source.read_bytes()).digest(),hashlib.sha256(target.read_bytes()).digest())
 
     def test_home_visibility_does_not_disable_capture_or_analysis(self):
-        renderer = (ROOT / "PRTS/Spatial/ProbeRenderer.swift").read_text()
-        shader = (ROOT / "PRTS/Spatial/ProbeShaders.metal.txt").read_text()
+        renderer = (ROOT / "PRTS/Spatial/Rendering/ProbeRenderer.swift").read_text()
+        shader = (ROOT / "PRTS/Spatial/Rendering/ProbeShaders.metal.txt").read_text()
         self.assertIn("s.options.showCameraImage ? 0 : 1", renderer)
         self.assertIn("if s.options.showOverlays,s.frozen == nil", renderer)
         self.assertIn("if s.options.showPath,let pathBuffer", renderer)
         self.assertIn("u.colorEncoding.z > 0.5 ?", shader)
-        engine = (ROOT / "PRTS/Spatial/ProbeEngine.swift").read_text()
+        engine = (ROOT / "PRTS/Spatial/Runtime/ProbeEngine.swift").read_text()
         self.assertNotIn("showCameraImage", engine)
         self.assertNotIn("showOverlays", engine)
 
     def test_demo_is_a_home_overlay_not_a_second_camera_screen(self):
-        home = (ROOT / "PRTS/ContentView.swift").read_text()
-        settings = (ROOT / "PRTS/SettingsView.swift").read_text()
-        overlay = (ROOT / "PRTS/HomeDemoOverlay.swift").read_text()
-        options = (ROOT / "PRTS/DemoOptionsView.swift").read_text()
+        home = (ROOT / "PRTS/UI/ContentView.swift").read_text()
+        settings = (ROOT / "PRTS/UI/SettingsView.swift").read_text()
+        overlay = (ROOT / "PRTS/UI/HomeDemoOverlay.swift").read_text()
+        options = (ROOT / "PRTS/UI/DemoOptionsView.swift").read_text()
         self.assertIn("HomeDemoOverlay(model:camera.model)",home)
         self.assertIn('NavigationLink("演示模式选项")',settings)
         self.assertNotIn("ProbeContentView",settings)
@@ -49,11 +57,11 @@ class SpatialIntegrationTests(unittest.TestCase):
             self.assertNotIn("ARSession()",text)
             self.assertNotIn("ProbeViewModel()",text)
             self.assertNotIn("Timer.publish",text)
-        self.assertFalse((ROOT / "PRTS/Spatial/ProbeContentView.swift").exists())
+        self.assertFalse((ROOT / "PRTS/Spatial/Runtime/ProbeContentView.swift").exists())
 
     def test_settings_has_native_back_and_separate_speech_ownership(self):
-        settings = (ROOT / "PRTS/SettingsView.swift").read_text()
-        home = (ROOT / "PRTS/ContentView.swift").read_text()
+        settings = (ROOT / "PRTS/UI/SettingsView.swift").read_text()
+        home = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         self.assertNotIn('Button("返回")',settings)
         self.assertIn('speech.speakSettingsScreen',settings)
         self.assertIn('else if !isShowingSettings,feedback.lastConsumedResultID',home)
@@ -61,7 +69,7 @@ class SpatialIntegrationTests(unittest.TestCase):
 
     def test_original_home_controls_and_theme_are_preserved(self):
         # Intentional baseline: local main c9bace5, before the uncommitted UI rewrite.
-        s = (ROOT / "PRTS/ContentView.swift").read_text()
+        s = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         parts = {
             "header": s[s.index("    private var header:"):s.index("    private var cameraStatus:")],
             "cameraStatus": s[s.index("    private var cameraStatus:"):s.index("    private var backendStatus:")],
