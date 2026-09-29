@@ -8,11 +8,11 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 36 | 4785 | 4540 |
+| App | 36 | 4797 | 4552 |
 | SpatialCore | 35 | 4798 | 4660 |
 | Tests | 32 | 4522 | 4383 |
 | Scripts | 10 | 896 | 829 |
-| Total | 113 | 15001 | 14412 |
+| Total | 113 | 15013 | 14424 |
 
 ## 完整源码文件树
 
@@ -64,7 +64,7 @@ PRTS/
     HomeDemoOverlay.swift (81 lines)
     Localization.swift (86 lines)
     PhotoCaptureButton.swift (42 lines)
-    PhotoDescriptionSettingsView.swift (48 lines)
+    PhotoDescriptionSettingsView.swift (60 lines)
     ProbeSettingsView.swift (153 lines)
     SettingsView.swift (64 lines)
 PRTSTests/

@@ -33,7 +33,7 @@ final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         let utterance = AVSpeechUtterance(string: text)
         let defaultID = AVSpeechSynthesisVoice(language: "zh-CN")?.identifier
         let alternate = AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("zh") && $0.identifier != defaultID }
+            .filter { $0.language == "zh-CN" && $0.identifier != defaultID }
             .sorted { $0.identifier < $1.identifier }.first
         utterance.voice = alternate ?? AVSpeechSynthesisVoice(language: "zh-CN")
         // Devices with only one Chinese voice still have a distinct lower-pitch profile.

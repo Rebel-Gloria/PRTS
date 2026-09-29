@@ -5,6 +5,8 @@ struct PhotoDescriptionSettingsView: View {
     @State private var key = ""
     @State private var hasKey = false
     @State private var message = ""
+    @State private var requestingPermissions = false
+    @State private var speechAuthorized = PhotoSpeechRecognizer.authorized
 
     var body: some View {
         Form {
@@ -33,6 +35,16 @@ struct PhotoDescriptionSettingsView: View {
                     }
                 }
                 if !message.isEmpty { Text(message).font(.caption) }
+            }
+            Section("语音提问权限") {
+                Button(speechAuthorized ? "麦克风与语音识别已授权" : "授权麦克风与语音识别") {
+                    requestingPermissions = true
+                    Task {
+                        speechAuthorized = await PhotoSpeechRecognizer.requestPermissions()
+                        requestingPermissions = false
+                        message = speechAuthorized ? "语音提问已就绪" : "请在系统设置中允许麦克风与语音识别"
+                    }
+                }.disabled(requestingPermissions || speechAuthorized)
             }
             Section("操作") {
                 Text("短按：拍照并描述。长按半秒，听到提示音后提问，松手发送。")
