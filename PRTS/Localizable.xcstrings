@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "0.50m仅是预测线的通道宽度要求，不额外叠加身体宽度/余量，也不代表所有人的身体都能通过。原有净空检查参数不变。" : {
+
+    },
     "accessibility.camera.permissionDenied" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -119,6 +122,12 @@
           }
         }
       }
+    },
+    "Apple Depth Anything V2 Small FP16 · 相对深度。结合ARKit原生平面/稀疏特征校验尺度；无法确认时只显示相对深度。没有传感器置信度，可绘实验预测线，但不授权已验证净空通道。" : {
+
+    },
+    "ARKit floor 分类填色" : {
+
     },
     "camera.error.cannotAddInput" : {
       "extractionState" : "manual",
@@ -303,6 +312,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摄像头不可用"
+          }
+        }
+      }
+    },
+    "DIAG · 每次启动自动记录" : {
+
+    },
+    "DIAG %lld KB · 丢弃 %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "DIAG %1$lld KB · 丢弃 %2$lld"
+          }
+        }
+      }
+    },
+    "English" : {
+
+    },
+    "floor 分类不是地面真值；候选区域不代表安全。关闭面板可检查图像四角，底部仍保留实验警告。" : {
+
+    },
+    "home.backend.framesConverted %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frames converted: %lld · mode: minimal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已转换帧数：%lld · 模式：最简"
           }
         }
       }
@@ -528,6 +573,40 @@
         }
       }
     },
+    "home.command.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test command (e.g. 开始导航)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测试指令（例如：开始导航）"
+          }
+        }
+      }
+    },
+    "home.command.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送"
+          }
+        }
+      }
+    },
     "home.settings.button" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -579,7 +658,24 @@
         }
       }
     },
-    "PRTS" : {},
+    "LiDAR 设备使用 ARKit 实测深度；无 LiDAR 使用原生平面与本地 Core ML 预测，预测不等于实测。候选通道不等于安全路线。" : {
+
+    },
+    "LiDAR几何使用原始sceneDepth。无LiDAR热图与输入RGB同帧显示，推理存在延迟；无传感器置信度。所有图层保持完整视野。" : {
+
+    },
+    "LiDAR手动样本含深度、置信度和几何；无LiDAR手动样本写入DIAG的prediction记录。均不保存RGB。预测数据不能用旧测量深度回放器冒充LiDAR数据。" : {
+
+    },
+    "PRTS" : {
+
+    },
+    "RGB 叠加深度热图" : {
+
+    },
+    "RGB画面已隐藏；采集状态见主按钮" : {
+
+    },
     "settings.back" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -865,6 +961,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "慢速"
+          }
+        }
+      }
+    },
+    "settings.runtime.asr" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable ASR (on-demand)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用自动语音识别（按需加载）"
+          }
+        }
+      }
+    },
+    "settings.runtime.brain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable brain / VLM (experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用大脑 / 视觉语言模型（实验性）"
+          }
+        }
+      }
+    },
+    "settings.runtime.maps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable maps"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用地图"
+          }
+        }
+      }
+    },
+    "settings.runtime.perception" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable perception (segmentation + detection)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用感知（语义分割 + 目标检测）"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime profile"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行档位"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile.fullExperimental" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full / experimental — opt in explicitly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整 / 实验模式 — 仅手动开启"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile.minimal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimal — interface, camera, system speech, contracts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最简模式 — 界面、相机、系统语音播报与契约解析"
+          }
+        }
+      }
+    },
+    "settings.runtime.profile.perception" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perception — segmentation and obstacle detection (when available)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "感知模式 — 语义分割与障碍物检测（资源可用时）"
+          }
+        }
+      }
+    },
+    "settings.runtime.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime and models"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行模式与模型"
+          }
+        }
+      }
+    },
+    "settings.runtime.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model features remain unavailable until the pinned Apple runtime and model files are supplied. Full / experimental is never selected automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在提供固定版本的 Apple 运行时和模型文件之前，模型功能不可用。应用不会自动选择完整 / 实验模式。"
           }
         }
       }
@@ -1345,226 +1611,291 @@
         }
       }
     },
-    "settings.runtime.section" : {
-      "extractionState" : "manual",
+    "丢弃日志记录：%lld" : {
+
+    },
+    "中文" : {
+
+    },
+    "主图层" : {
+
+    },
+    "主页面信息栏" : {
+
+    },
+    "主页面叠加层" : {
+
+    },
+    "主页面画面" : {
+
+    },
+    "主页面画面、叠加层和指标栏请在“演示模式选项”中设置。" : {
+
+    },
+    "仅当前深度的可见表面；高出已确认地面至少5 cm并有空间支持时标红。不补遮挡背面，不保证物体与地面接触。蓝色表示地面表面，不代表可通行。启用时替代历史floor填色和二维栅格投影，俯视图仍保留未知状态。" : {
+
+    },
+    "会话指标与手动空间样本" : {
+
+    },
+    "传感器底图" : {
+
+    },
+    "传感器显示" : {
+
+    },
+    "关闭叠加层或路径显示不停止分析，也不关闭方向振动。表面建模开启时替代地面分类填色及栅格投影。振动请在触觉和路径设置中调整。" : {
+
+    },
+    "最近分析（可能过期）：%@" : {
+
+    },
+    "几何参数（更改会撤销旧结果）" : {
+
+    },
+    "几何叠加" : {
+
+    },
+    "几何叠加总开关" : {
+
+    },
+    "分类网格线框" : {
+
+    },
+    "刷新诊断记录列表" : {
+
+    },
+    "包含 manifest.json、frames.jsonl、metrics.csv、events.jsonl，以及手动样本。导出运行中会话时得到该时刻的快照；停止后导出可获得完整会话。" : {
+
+    },
+    "原生地面分类" : {
+
+    },
+    "参数指标栏" : {
+
+    },
+    "参考方向是相机朝向的地面投影，不等于人体前进方向。近身盲区不连接到候选段。不能宣称可靠台阶、落差、玻璃或细小障碍检测。" : {
+
+    },
+    "叠加深度热图" : {
+
+    },
+    "叠加透明度" : {
+
+    },
+    "只按沿地面距离选择最远可达点，不偏好正前方。选中后固定世界位置，不因新出现更远点而移动。范围边缘有5°/0.2m余量，持续越界0.3秒后重选。新障碍、追踪异常和地面冲突仍优先撤销提示。" : {
+
+    },
+    "只隐藏 RGB 画面；相机采集、空间感知、路径计算和 DIAG 继续运行。关闭后仍可在深色背景查看叠加层。停止采集请使用主页面停止按钮。" : {
+
+    },
+    "图例与来源说明" : {
+
+    },
+    "图层、路径、触觉与 DIAG 日志" : {
+
+    },
+    "完成" : {
+
+    },
+    "实验验证，候选通道不等于安全路线" : {
+
+    },
+    "实验验证，候选通道不等于安全路线。蓝色只代表地面表面；红色上方柱体是禁入范围，不是实测实体。" : {
+
+    },
+    "导出会话文件夹到“文件”" : {
+
+    },
+    "导出历史 DIAG（最近30次）" : {
+
+    },
+    "导出未完成" : {
+
+    },
+    "导出本次完整 DIAG" : {
+
+    },
+    "局部栅格：未知／障碍／候选" : {
+
+    },
+    "局部栅格投影：未知／障碍／候选" : {
+
+    },
+    "局部范围：前4 m／左右各1.5 m；栅格10 cm；仅高置信度建立肯定证据；最多250 ms结果年龄。更稀疏采样可能只得到更多未知，不会补洞。" : {
+
+    },
+    "平滑深度（仅显示）" : {
+
+    },
+    "开关自动保存；返回主页面立即生效，无需另行启动演示模式。" : {
+
+    },
+    "开启后禁用 sceneDepth、平滑深度及场景网格；运行中切换将重建会话，清空旧证据。" : {
+
+    },
+    "当前设备无世界追踪；仅显示界面，不提供实测空间数据" : {
+
+    },
+    "所有行走测试由视力正常人员在受控环境完成，不进行无保护盲行。真机能力须实测，模拟器不构成 LiDAR 验收。" : {
+
+    },
+    "扇形目标路径与偏航振动" : {
+
+    },
+    "振动提示方向偏差" : {
+
+    },
+    "提示语言" : {
+
+    },
+    "无损压缩、32 MiB分段；单次启动512 MiB、Diagnostics目录2 GiB上限。达到限额不删除旧记录；丢失数据会计数。深度／空间结构同样可能包含环境隐私。" : {
+
+    },
+    "旧版多方向候选段（关闭预测线后显示）" : {
+
+    },
+    "显示摄像机画面" : {
+
+    },
+    "暂无分析结果；零耗时不代表完成分析" : {
+
+    },
+    "未校准相对深度：仅远近色阶，不提供米制距离" : {
+
+    },
+    "未采集 · 等待开始" : {
+
+    },
+    "未采集；无当前传感器数据" : {
+
+    },
+    "本机不支持 sceneDepth：无LiDAR模式固定开启，不能关闭。" : {
+
+    },
+    "本次：%@" : {
+
+    },
+    "来源：ARKit LiDAR" : {
+
+    },
+    "来源：Core ML 预测＋原生尺度校准（非LiDAR实测）" : {
+
+    },
+    "模拟无LiDAR设备" : {
+
+    },
+    "正在准备导出…" : {
+
+    },
+    "深度和置信度底图独立于 RGB 开关；缺失数据不会显示为有效观测。" : {
+
+    },
+    "深度数据来源" : {
+
+    },
+    "深度采样步长 %lld" : {
+
+    },
+    "演示模式选项" : {
+
+    },
+    "目标位置与连线证据分开保留。证据过期时隐藏连线并停振，但不另换一个目标；恢复后仍尝试连接同一世界点。" : {
+
+    },
+    "确定" : {
+
+    },
+    "空间感知 · 参数指标" : {
+
+    },
+    "空间感知与演示" : {
+
+    },
+    "绘制脚下到扇形目标的预测线" : {
+
+    },
+    "置信度：低＝红 · 中＝黄 · 高＝青；无效/缺失＝灰，无LiDAR无传感器置信度" : {
+
+    },
+    "能力与边界" : {
+
+    },
+    "自动保存深度／置信度帧（按分析频率）、位姿、网格更新、各阶段判定与性能。不会保存 RGB／彩色视频，也不上传。相机仍需点击开始。" : {
+
+    },
+    "蓝：地面表面 · 红：突起／阻挡范围 · 未知不补成可通行" : {
+
+    },
+    "蓝色地面与红色突起" : {
+
+    },
+    "表面建模：蓝地面／红突起" : {
+
+    },
+    "观测帧 %llu · 实验验证，候选通道不等于安全路线" : {
+
+    },
+    "触觉" : {
+
+    },
+    "触觉提示" : {
+
+    },
+    "设置" : {
+
+    },
+    "诊断达到磁盘限额，已停止新增数据；请导出并通过文件管理清理历史记录。" : {
+
+    },
+    "语言" : {
+
+    },
+    "语速" : {
+
+    },
+    "语音" : {
+
+    },
+    "语音提示" : {
+
+    },
+    "跟随系统语言" : {
+
+    },
+    "路径与目标点" : {
+
+    },
+    "连线偏左：重复双短振；偏右：重复长振。偏差越大越强、越密。进入对准范围稳定0.3秒强振一次，之后保持静默；达到重新提示角度并持续0.25秒才恢复。只有单个振动器，靠节奏区分左右，不是在手机左右两侧发振。强振只确认角度，不确认位置或安全。" : {
+
+    },
+    "追踪：%@ · 热状态：%@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Runtime and models"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "运行模式与模型"
+            "state" : "new",
+            "value" : "追踪：%1$@ · 热状态：%2$@"
           }
         }
       }
     },
-    "settings.runtime.profile" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Runtime profile"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "运行档位"
-          }
-        }
-      }
+    "采集中" : {
+
     },
-    "settings.runtime.profile.minimal" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Minimal — interface, camera, system speech, contracts"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "最简模式 — 界面、相机、系统语音播报与契约解析"
-          }
-        }
-      }
+    "障碍上方红色阻挡柱" : {
+
     },
-    "settings.runtime.profile.perception" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perception — segmentation and obstacle detection (when available)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "感知模式 — 语义分割与障碍物检测（资源可用时）"
-          }
-        }
-      }
+    "障碍及上方阻挡柱（红色）" : {
+
     },
-    "settings.runtime.profile.fullExperimental" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Full / experimental — opt in explicitly"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完整 / 实验模式 — 仅手动开启"
-          }
-        }
-      }
+    "验证参数" : {
+
     },
-    "settings.runtime.brain" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable brain / VLM (experimental)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用大脑 / 视觉语言模型（实验性）"
-          }
-        }
-      }
+    "黄圈：远端目标；黄实线：已观测区连线；橙虚线：短时缓存。青虚线：估计脚下至观测起点的未验证连接，不能据此确认盲区可通行。已观测路线不跨未知缺口；蓝地面并不证明头部净空、台阶或落差安全。无LiDAR使用已校准预测几何，误差更大。" : {
+
     },
-    "settings.runtime.perception" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable perception (segmentation + detection)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用感知（语义分割 + 目标检测）"
-          }
-        }
-      }
-    },
-    "settings.runtime.asr" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable ASR (on-demand)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用自动语音识别（按需加载）"
-          }
-        }
-      }
-    },
-    "settings.runtime.maps" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable maps"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用地图"
-          }
-        }
-      }
-    },
-    "settings.runtime.unavailable" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Model features remain unavailable until the pinned Apple runtime and model files are supplied. Full / experimental is never selected automatically."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在提供固定版本的 Apple 运行时和模型文件之前，模型功能不可用。应用不会自动选择完整 / 实验模式。"
-          }
-        }
-      }
-    },
-    "home.backend.framesConverted %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frames converted: %lld · mode: minimal"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已转换帧数：%lld · 模式：最简"
-          }
-        }
-      }
-    },
-    "home.command.send" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "发送"
-          }
-        }
-      }
-    },
-    "home.command.placeholder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Test command (e.g. 开始导航)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "测试指令（例如：开始导航）"
-          }
-        }
-      }
+    "黄线／圈：观测路径／目标 · 橙虚线：短时缓存 · 青虚线：未验证近身连接" : {
+
     }
   },
   "version" : "1.0"
