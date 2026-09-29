@@ -7,6 +7,7 @@ This directory contains the product target. The target is intentionally organize
 - **App** — application composition and runtime profile declarations.
 - **UI** — the restored product home screen, settings pages and presentation-only overlays.
 - **Capture** — the home-screen adapter and camera surface. It does not own a second camera session.
+- **PhotoDescription** — explicit photo/question requests, Keychain, native recognition and separate answer TTS; never supplies route geometry.
 - **Feedback** — speech, haptics and result-to-feedback policy.
 - **Integration** — compatibility seams for future semantic detectors or backend providers.
 - **Spatial/Runtime** — ARSession ownership, frame mailbox, analysis orchestration and runtime snapshots.
