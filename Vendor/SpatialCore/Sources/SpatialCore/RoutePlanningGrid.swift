@@ -11,7 +11,7 @@ public struct RoutePlanningGrid: Sendable {
     public var requiredWidth: Float
     public var maxDistance: Float
 
-    public init?(result: AnalysisResult, options: PathOptions = .init()) {
+    public init?(result: AnalysisResult, options: PathOptions = .init(), requireBodyClearance: Bool = false) {
         guard var grid = result.grid, result.plane != nil,
             grid.epoch == result.epoch, grid.frameID == result.frameID,
             grid.timestamp == result.timestamp
@@ -21,7 +21,7 @@ public struct RoutePlanningGrid: Sendable {
             let cell = grid.cells[i]
             if cell.obstacleSamples > 0 || cell.state == .obstacle {
                 grid.cells[i].state = .obstacle
-            } else if cell.state == .candidate || (cell.groundSamples >= 3 && cell.observedAt == result.timestamp) {
+            } else if cell.state == .candidate || (!requireBodyClearance && cell.groundSamples >= 3 && cell.observedAt == result.timestamp) {
                 grid.cells[i].state = .candidate
                 supported += 1
             } else {
@@ -30,7 +30,7 @@ public struct RoutePlanningGrid: Sendable {
         }
         self.grid = grid
         blueCells = supported
-        requiredWidth = options.validated().minimumWidth
+        requiredWidth = requireBodyClearance ? options.minimumWidth : options.validated().minimumWidth
         maxDistance = result.parameters.forwardRange
         mask = PathClearance.mask(grid: grid, radius: requiredWidth / 2)
     }

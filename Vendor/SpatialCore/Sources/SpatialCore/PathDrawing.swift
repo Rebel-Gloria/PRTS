@@ -59,7 +59,7 @@ public enum PathDrawing {
     }
     return .init(
       role: .prediction,
-      vertices: ribbon(points, normal: projection.plane.normal, width: 0.036, dashed: false))
+      vertices: ribbon(points, normal: projection.plane.normal, width: 0.025, dashed: true))
   }
   private static func ribbon(_ points: [V3], normal: V3, width: Float, dashed: Bool) -> [V3] {
     let lift = normal * 0.025
