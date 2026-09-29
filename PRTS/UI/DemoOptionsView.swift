@@ -41,7 +41,7 @@ struct DemoOptionsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {
-                Text("实验验证，候选通道不等于安全路线。蓝色只代表地面表面；红色上方柱体是禁入范围，不是实测实体。")
+                Text("蓝色：地面。红色：障碍及上方阻挡范围。")
                     .font(.footnote).foregroundStyle(.orange)
             }
         }

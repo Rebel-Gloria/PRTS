@@ -70,8 +70,6 @@ struct ContentView: View {
                     #if PRTS_DEV_CAPTURE
                     if showCommandEntry { commandEntry }
                     #endif
-                    Text("实验验证，候选通道不等于安全路线")
-                        .font(.caption2).foregroundStyle(.orange)
                     primaryButton
                 }
                 .padding(.horizontal, 24)
@@ -90,7 +88,9 @@ struct ContentView: View {
             .onReceive(pollTimer) { _ in
                 camera.poll(suspendFeedback:isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
                 if !isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
-                    feedback.consume(result,speech:speechManager,haptics:hapticManager)
+                    feedback.consume(result,speech:speechManager,haptics:hapticManager,
+                                     announceCandidates:camera.model.snapshot.pathHeading(now:ProcessInfo.processInfo.systemUptime) == nil)
+                    if !isHoldingStop { feedback.consumeDirection(camera.model.snapshot,speech:speechManager) }
                 } else if !isShowingSettings,feedback.lastConsumedResultID != nil {
                     feedback.reset(); speechManager.cancelPerceptionSpeech()
                 }
