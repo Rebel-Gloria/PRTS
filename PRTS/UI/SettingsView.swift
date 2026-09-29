@@ -32,6 +32,9 @@ struct SettingsView: View {
                 Button("停止采集并打开 DIAG 导出页") { model.engine.devCapture.stop(); showSpatialSettings = true }
             }
             #endif
+            Section("拍照描述") {
+                NavigationLink("服务与 API Key") { PhotoDescriptionSettingsView() }
+            }
             Section("语音") {
                 Toggle("语音提示", isOn: Binding(get: { speech.voiceAnnouncementsEnabled }, set: speech.setVoiceAnnouncementsEnabled))
                 Picker("语速", selection: Binding(get: { speech.rateOption }, set: speech.setRateOption)) {
