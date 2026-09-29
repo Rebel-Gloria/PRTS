@@ -1,3 +1,5 @@
+> build16 历史实施报告。默认规划策略已由 [build17](OBSTACLE_VETO_2026-09-29.md) 更新，本文保留当时的验证结果。
+
 # Route continuity / verified evidence — round 1 (build 16)
 
 ## Scope and baseline

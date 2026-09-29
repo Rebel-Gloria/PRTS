@@ -48,12 +48,12 @@ Vendor/
 │   ├── Sources/SpatialCore/
 │   │   ├── PathPrediction.swift         # Public path contracts, order/session facade, presentation
 │   │   ├── ForwardRoutePlanner.swift    # Straight/avoid/rejoin/user-turn state machine
-│   │   ├── RoutePlanningGrid.swift     # Current measured ground support, independent of rendering
+│   │   ├── RoutePlanningGrid.swift     # Search raster, independent of rendering
 │   │   ├── ForwardRouteState.swift      # World reference, diagnostics and turn dwell
 │   │   ├── ForwardObstacleTrigger.swift # Near triangle and occupied-component extent
 │   │   ├── ForwardPathSearch.swift      # Straight trace, return and side-route searches
 │   │   ├── FanPathSearch.swift          # Shared graph search and footprint collision checks
-│   │   ├── PathObstacleCheck.swift      # Current grid/depth veto for every route
+│   │   ├── PathObstacleCheck.swift      # Shared occupancy/optional depth intersection
 │   │   └── …                            # Existing ground/depth/grid/diagnostic algorithms retained
 │   └── Tests/SpatialCoreTests/
 └── PRTSCore/                           # Optional contracts/model compatibility
@@ -87,3 +87,10 @@ The 2026-09-29 strategy adds helpers inside the existing modules; no existing di
 ### Route continuity additions (build16)
 
 Within existing `Vendor/SpatialCore`: `RouteEvidenceMap.swift` owns world-indexed evidence and proof intervals; `RouteContinuity.swift` owns atomic publication decisions, proof expiry and bounded arc progress. `PathPredictor` integrates them on the existing serial analysis worker. No new parallel runtime, package or camera session. [Contracts](ROUTE_CONTINUITY_2026-09-29.md).
+
+### Obstacle-veto integration (build17)
+
+No directory or module moves. `TemporalOccupancyGrid.swift` adapts confirmed world obstacle tracks
+into the rolling search raster; `RouteContinuity.swift` keeps publication/order/epoch contracts and
+diagnostic lengths. `PathPredictor` selects the product policy explicitly through `RuntimeProfile`.
+`RouteEvidenceMap` remains only the offline verified comparator. See [build17 report](OBSTACLE_VETO_2026-09-29.md).
