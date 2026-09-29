@@ -53,6 +53,9 @@ struct DeviceCapabilities: Sendable {
 final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     let store = SharedStore()
     let diagnostics = DiagnosticRecorder()
+    #if PRTS_DEV_CAPTURE
+    let devCapture: DevCaptureRecorder
+    #endif
     let recorder: SessionRecorder
     let capabilities = DeviceCapabilities.detect()
     private let session = ARSession()
@@ -74,6 +77,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     private var analysisBarrier: UInt64 = 0 // analysisQueue only
     private var captureFPS: Double = 0
     override init() {
+        #if PRTS_DEV_CAPTURE
+        devCapture = DevCaptureRecorder(root:diagnostics.journal.directory)
+        #endif
         recorder = SessionRecorder(diagnostics:diagnostics)
         super.init(); session.delegate = self; session.delegateQueue = sessionQueue
         let mono = DepthBackendPolicy(supportsSceneDepth:capabilities.depth,requestedSimulation:UserDefaults.standard.bool(forKey:"simulateNoLiDAR") || ProcessInfo.processInfo.arguments.contains("--simulate-no-lidar")).usesMonocular
@@ -104,6 +110,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         }
     }
     func stop(reason: String = "用户停止") {
+        #if PRTS_DEV_CAPTURE
+        devCapture.stop()
+        #endif
         diagnostics.event("stop_requested",details:reason,epoch:store.read().epoch)
         // Immediately blank outputs, without waiting for background work.
         store.update { $0.running = false; $0.geometryEnabled = false; $0.frame = nil; $0.frozen = nil; $0.result = nil; $0.surfaceHistory.reset(); $0.pathUpdate = .init(reason:"invalidated"); $0.diagnosticResult = nil; $0.analyzedFrame = nil; $0.meshes = [:]; $0.monocular = nil; $0.frozenMonocular = nil; $0.nativePlanes = []; $0.nativePlaneFrameID = 0; $0.monocularStatus = "已停止；无当前预测或尺度"; $0.status = reason }
@@ -114,7 +123,13 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         diagnostics.journal.noteLifecycle(lifecycle)
         sessionQueue.async { [self] in
             analysisQueue.async { [self] in
-                meshQueue.async { [self] in diagnostics.journal.flush(completion:completion) }
+                meshQueue.async { [self] in
+                    #if PRTS_DEV_CAPTURE
+                    devCapture.stop { [self] in diagnostics.journal.flush(completion:completion) }
+                    #else
+                    diagnostics.journal.flush(completion:completion)
+                    #endif
+                }
             }
         }
     }
@@ -305,6 +320,11 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                                             captureMS:frame.captureMilliseconds,meshMS:s.meshMS,render:RenderMetricRecord(s.renderMetrics),tracking:frame.tracking,
                                             thermal:s.thermal,sourceAgeMS:(now-frame.frame.timestamp)*1000,outputEligible:s.activeGuidanceResult(now:now)?.frameID == result.frameID,displayedFrameID:s.renderMetrics.renderedFrameID,
                                             geometryOutputEligible:s.activeGeometryResult(now:now)?.frameID == result.frameID)
+                #if PRTS_DEV_CAPTURE
+                if s.running,s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion {
+                    devCapture.submit(frame:frame,result:result,path:pathUpdate,observation:observation,prediction:prediction,meshes:s.meshes,pathOptions:before.pathOptions)
+                }
+                #endif
                 diagnostics.analysis(result,frame:frame,observation:observation,metrics:metrics)
                 if s.recording,s.running,s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion { recorder.record(result,frame:frame,metrics:metrics) }
             }

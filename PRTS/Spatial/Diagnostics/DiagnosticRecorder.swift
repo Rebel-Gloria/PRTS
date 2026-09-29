@@ -5,7 +5,7 @@ import Foundation
 import SpatialCore
 import Darwin
 
-struct CaptureDiagnostic: Codable, Sendable {
+nonisolated struct CaptureDiagnostic: Codable, Sendable {
     let epoch: UInt64,frameID: UInt64,parameterVersion: UInt64
     let timestamp: Double,receivedAt: Double,captureMS: Double
     let pose: RigidPose,intrinsics: CameraIntrinsics
@@ -74,6 +74,11 @@ final class DiagnosticRecorder: @unchecked Sendable {
         #else
         let buildConfiguration = "Release"
         #endif
+        #if PRTS_DEV_CAPTURE
+        let privacy = "PRTS_DEV_CAPTURE compiled; opt-in RGB video and full analysis may exist in dev-capture-* folders. No audio/GPS/upload."
+        #else
+        let privacy = "No RGB or video saved."
+        #endif
         let metadata = ["buildConfiguration":buildConfiguration,
             "clearanceFramePixelBudget":String(VisibilityDepth.defaultFramePixelBudget),"applicationVersion":Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "unknown",
             "build":Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "unknown","bundleID":Bundle.main.bundleIdentifier ?? "unknown",
@@ -83,7 +88,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             "groundConfirmationMetric":"local plane height at camera <4cm and normal angle <3deg; 3 current confirmations",
             "groundReferencePolicy":"Confirmed measured plane; display-only reuse <=2s, <=1m translation, <=0.35m normal displacement; no cached clearance. History wireframe <=1s and <=0.75m translation. Tracking/lifecycle barriers invalidate both.",
             "coordinateConvention":"ARKit gravity world; camera forward -Z; pixel centers integer. depth_frame meters axial; relative_depth_frame inverse-relative, NOT meters.",
-            "absentSensors":"No separate raw IMU or GPS acquisition. ARKit feature count, not its private SLAM map. No RGB or video saved."]
+            "absentSensors":"No separate raw IMU or GPS acquisition. ARKit feature count, not its private SLAM map. " + privacy]
         let root = FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("Diagnostics",isDirectory:true)
         journal = DiagnosticJournal(root:root,metadata:metadata)
         event("app_launched",details:environment,epoch:0)
