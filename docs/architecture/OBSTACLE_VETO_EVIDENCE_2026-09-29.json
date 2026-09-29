@@ -1,0 +1,102 @@
+{
+  "sourceCommit": "942c22da2548718965892721943de59461647324",
+  "implementationCommit": "a3bee2b",
+  "product": {
+    "CFBundleIdentifier": "com.jingxuan.PRTS",
+    "CFBundleShortVersionString": "1.0",
+    "CFBundleVersion": "17",
+    "PRTSCommit": "942c22da2548718965892721943de59461647324"
+  },
+  "planningPolicy": "obstacle_veto_v1",
+  "compileCondition": "PRTS_DEV_CAPTURE",
+  "checks": {
+    "SpatialCore_Debug": {
+      "passed": 285,
+      "failed": 0,
+      "log": "core-final-debug.log"
+    },
+    "SpatialCore_Release": {
+      "passed": 285,
+      "failed": 0,
+      "log": "core-final-release.log"
+    },
+    "PRTSCore_contracts": {
+      "passed": 8,
+      "failed": 0,
+      "log": "contracts-final.log"
+    },
+    "Python": {
+      "passed": 46,
+      "failed": 0,
+      "log": "python-final.log"
+    },
+    "Dev_simulator_app": {
+      "passed": 14,
+      "failed": 0,
+      "log": "dev-simulator-tests.log"
+    },
+    "ordinary_iPhoneOS_Release": {
+      "result": "build_succeeded",
+      "log": "normal-release.log"
+    },
+    "signed_Dev_iPhoneOS_Release": {
+      "result": "build_succeeded_signature_verified",
+      "log": "signed-release.log"
+    }
+  },
+  "replay": {
+    "veto": {
+      "frames": 110,
+      "paths": 110,
+      "reasons": {
+        "new_forward_goal": 1,
+        "world_route_preserved": 76,
+        "replanned_around_obstacle": 2,
+        "obstacle_cleared_return_to_intent": 1,
+        "reacquired_maneuver": 27,
+        "blocked_maneuver_replanned": 3
+      },
+      "firstTimestamp": 110943.619894416,
+      "lastTimestamp": 110954.5207615
+    },
+    "verified": {
+      "frames": 110,
+      "paths": 0,
+      "reasons": {
+        "waiting_blue_ground": 11,
+        "ground_or_metric_conflict": 1,
+        "obstacle_pending_confirmation": 33,
+        "near_obstacle_no_observed_detour": 65
+      },
+      "firstTimestamp": 110943.619894416,
+      "lastTimestamp": 110954.5207615
+    }
+  },
+  "device": {
+    "name": "Gloria",
+    "model": "iPhone 15 Pro",
+    "installation": "succeeded",
+    "launch": "succeeded",
+    "existingData": "preserved",
+    "recordedAt": "2026-09-29T23:26:11+08:00"
+  },
+  "notPerformed": [
+    "controlled_walking_on_build17",
+    "continuous_thermal_test"
+  ],
+  "localEvidenceDirectory": "/tmp/prts-occupancy17",
+  "sha256": {
+    "core-final-debug.log": "66f16186e09934654fec901da5946e063d4aae3b5a20e8cb65122f302c81e303",
+    "core-final-release.log": "c3c3b861829405ff4bc1e30def1b47aae8df162bb9f4c862dfc188229142b9e9",
+    "contracts-final.log": "08969d1715753a43f5c077b384391c40a7d019aed36fae3ea2071f73f2a3ea53",
+    "python-final.log": "4a05c8691e583edc86523d5ae9e407d702ec9947d876cf0df4d4d718d249ea98",
+    "dev-simulator-tests.log": "afd5cbd47b6222ea31afe234883697ece66f9c4c8ac13bdc1ffa5e173a7719d1",
+    "normal-release.log": "0c70ae01e28df98dbf77a4556982b0dae45d3913cb2d54be76300595d50710f2",
+    "signed-release.log": "f731661cbe7d0e6f7f2342a96ba82c2a80384977c09b3eed039c4fbd4861a413",
+    "device-install.json": "d2e25981a034ac898a4e35116314dd679d130faecb4cf772b73971d5f99e1dd0",
+    "device-launch.json": "379249d876aa0ac922dbec4c49770568faaadabbc1bbcaac649df1efb496faee",
+    "product-metadata.json": "09812a2a744b440104a34a303011464b54dc6eb312fa379e6fa0db9089b4f458",
+    "replay-summary.json": "19669a845fbd46b07d4bc7f3c03170cb2a59983a41d5ceb23623fa539550778a",
+    "dev-symbols.txt": "e19ba688095e426ac35dd024b13309e11199d0f2f96095125bb08a3663ace234"
+  }
+}

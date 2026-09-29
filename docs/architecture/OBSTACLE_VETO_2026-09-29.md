@@ -120,4 +120,26 @@ swiftc -O -I Vendor/SpatialCore/.build/arm64-apple-macosx/debug/Modules \
 
 ## 交付记录
 
-待最终编译与设备安装后补充。安装保留现有应用容器，不卸载、不清除录制。
+- `a3bee2b`：核心策略、原子发布/展示、15 项新回归、App 集成及 build17。
+- `942c22d`：策略说明、回放入口和代码树；这是已安装二进制的源码提交。
+- 两笔提交已推送 origin/main，本段安装记录以独立文档提交补记。
+- Release + `PRTS_DEV_CAPTURE` 签名构建通过，`codesign --verify --deep --strict` 通过。
+- 元数据：`com.jingxuan.PRTS`，版本 **1.0 (17)**，`PRTSCommit=942c22da2548718965892721943de59461647324`。
+- Dev 二进制包含 `DevCaptureRecorder` 符号；普通 Release 不含该符号。
+- **2026-09-29 23:26:05–23:26:11 Asia/Shanghai**，安装并启动于 **Gloria / iPhone 15 Pro**。
+  现有应用容器保留；未卸载或删除录制。未执行新版本行走与持续热测试。
+- 最终普通 Release 编译、Dev 模拟器 14 项 App 测试、签名 Dev Release 均成功。
+  编译警告仅 AppIntents 元数据提取跳过（没有该依赖）。
+- [证据清单及日志 SHA256](OBSTACLE_VETO_EVIDENCE_2026-09-29.json)；完整日志本地保留于上述临时目录。
+
+```sh
+xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
+  -destination 'generic/platform=iOS' -derivedDataPath /tmp/prts-occupancy17/signed \
+  -xcconfig configs/DevCapture.xcconfig \
+  PRTS_SOURCE_COMMIT=942c22da2548718965892721943de59461647324 build
+codesign --verify --deep --strict /tmp/prts-occupancy17/signed/Build/Products/Release-iphoneos/PRTS.app
+xcrun devicectl device install app --device 32826C27-26A1-511E-997F-5AD5CF3859E9 \
+  /tmp/prts-occupancy17/signed/Build/Products/Release-iphoneos/PRTS.app
+xcrun devicectl device process launch --device 32826C27-26A1-511E-997F-5AD5CF3859E9 \
+  --terminate-existing com.jingxuan.PRTS
+```
