@@ -29,13 +29,13 @@ struct HomeDemoOverlay: View {
                         Text(String(format:"有效深度 %.0f%% · 源帧年龄 %.0f ms",result.validDepthCoverage*100,max(0,ProcessInfo.processInfo.systemUptime-result.timestamp)*1000))
                         Text("最近分析（可能过期）：\(result.status)").lineLimit(2)
                     } else { Text("等待分析") }
-                    Text(String(format:"路径宽 %.2f m · 触发区 %.1f × %.2f m",max(model.pathOptions.minimumWidth,model.parameters.bodyWidth+2*model.parameters.sideMargin),model.pathOptions.obstacleTriggerDistance,model.pathOptions.obstacleTriggerWidth))
+                    Text(String(format:"路径宽 %.2f m · 触发区 %.1f × %.2f m",model.pathOptions.minimumWidth,model.pathOptions.obstacleTriggerDistance,model.pathOptions.obstacleTriggerWidth))
                     if let strategy = s.pathUpdate.strategy {
                         Text("route \(strategy.mode.rawValue) · side \(strategy.side) · dwell \(String(format:"%.1f",strategy.turnDwell)) s")
                     }
                     if let c = s.pathUpdate.continuity {
                         Text("route \(c.status.rawValue) · map \(c.sourceMapVersion) · v\(c.geometryVersion)")
-                        Text(String(format:"剩余观测 %.2f m · 包络 %.2f m",c.remainingVerifiedLength,c.requiredWidth))
+                        Text(String(format:"规划 %.2f m · 已验 %.2f m · 宽 %.2f m",c.plannedLength ?? 0,c.remainingVerifiedLength,c.requiredWidth))
                     }
                     if let filter = s.pathUpdate.occupancyFilter {
                         Text("route occupancy · pending \(filter.pendingCells) · confirmed \(filter.confirmedCells) · 300 ms")
@@ -58,7 +58,7 @@ struct HomeDemoOverlay: View {
                     if !model.options.showCameraImage { Text("RGB画面已隐藏；采集状态见主按钮") }
                     if model.options.showOverlays {
                         Text("蓝：地面 · 红：障碍范围")
-                        if model.options.showPath { Text("黄实线：当前观测 · 橙虚线：历史证据 · 淡蓝虚线：方向投影 · 圈：局部前沿") }
+                        if model.options.showPath { Text("黄线：占用规划 · 淡蓝虚线：远向投影 · 圈：局部前沿") }
                     }
                     if model.options.layer == .depth || model.options.overlayDepth {
                         LinearGradient(colors:[.red,.yellow,.cyan,.blue],startPoint:.leading,endPoint:.trailing).frame(height:6)

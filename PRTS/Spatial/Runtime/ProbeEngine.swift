@@ -65,8 +65,8 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     private let mailbox = LatestMailbox<AnalysisJob>()
     private let meshInbox = MeshInbox()
     private let analyzer = SpatialAnalyzer()
-    // Recording is orthogonal to planning: both builds use the same verified policy.
-    private var pathPredictor = PathPredictor() // analysisQueue only
+    // Recording is orthogonal to planning: both builds use the same explicit product policy.
+    private var pathPredictor = PathPredictor(policy:PRTSRuntimeProfile.routePlanningPolicy) // analysisQueue only
     private let monocularProvider = MonocularDepthProvider()
     private var directionGate = DirectionGate()
     private var epoch: UInt64 = 0
@@ -300,9 +300,10 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 // Fast hazard publication precedes search and is not conditional on replacement
                 // freshness. Work is bounded on the serial worker; no second planner queue.
                 let hazardSnapshot = store.read()
-                if let active = hazardSnapshot.pathUpdate.path,
+                if PRTSRuntimeProfile.routePlanningPolicy == .verified,let active = hazardSnapshot.pathUpdate.path,
                    active.epoch == frame.epoch,active.parameterVersion == frame.parameterVersion,
-                   let invalidation = RouteSafety.invalidationReason(active,result:result,observation:observation) {
+                   let invalidation = RouteSafety.invalidationReason(active,result:result,observation:observation,
+                       includeCurrentObstacles:PRTSRuntimeProfile.routePlanningPolicy == .verified) {
                     store.update { s in
                         guard s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion,
                               frame.id >= s.minimumGeometryFrameID,
@@ -314,7 +315,17 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     diagnostics.event("route_hazard",details:"frame=\(frame.id) route=\(active.id) reason=\(invalidation) source=\(frame.frame.timestamp)",epoch:frame.epoch)
                 }
                 let pathUpdate = pathPredictor.update(result:result,observation:observation,options:before.pathOptions,
-                    directionStable:frame.directionStable,hazardWatermark:store.read().routeHazardWatermark)
+                    directionStable:frame.directionStable,hazardWatermark:store.read().routeHazardWatermark,
+                    committedPath:store.read().pathUpdate.path,onOccupancyConflict: { [self] watermark in
+                        store.update { s in
+                            guard s.running,s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion,
+                                  frame.id >= s.minimumGeometryFrameID else { return }
+                            s.routeHazardWatermark = max(s.routeHazardWatermark,watermark)
+                            s.pathUpdate = .init(reason:"confirmed_occupancy_conflict")
+                            s.routePublicationReason = "confirmed_occupancy_preempted_before_search"
+                        }
+                        diagnostics.event("route_hazard",details:"confirmed_occupancy frame=\(frame.id)",epoch:frame.epoch)
+                    })
                 result.stageMilliseconds["pathPrediction"] = pathUpdate.milliseconds
                 diagnostics.path(pathUpdate,frame:frame,options:before.pathOptions)
                 let now = ProcessInfo.processInfo.systemUptime
@@ -323,7 +334,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 store.update { s in
                     guard s.running,s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion else { return }
                     let decision = RoutePublicationPolicy.decide(current:s.pathUpdate,candidate:pathUpdate,
-                        gate:s.presentationGate,hazardWatermark:s.routeHazardWatermark,now:now)
+                        gate:s.presentationGate,hazardWatermark:s.routeHazardWatermark,now:now,expectedPolicy:PRTSRuntimeProfile.routePlanningPolicy)
                     s.pathUpdate = decision.update
                     s.routePublicationReason = decision.reason
                     s.routePublishTime = now
@@ -373,7 +384,11 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             if removed { diagnostics.mesh(nil,id:id,epoch:epoch,revision:0,callbackTime:ProcessInfo.processInfo.systemUptime,action:"removed"); store.update { $0.meshes.removeValue(forKey:id); $0.result = nil } }
             let submission = meshInbox.submit(.init(anchor:removed ? nil : anchor,id:id,epoch:epoch,time:ProcessInfo.processInfo.systemUptime))
             if let evicted = submission.evicted {
-                store.update { $0.meshes.removeValue(forKey:evicted); $0.result = nil; $0.surfaceHistory.reset(); $0.pathUpdate = .init(reason:"invalidated"); $0.meshDrops += 1 }
+                store.update {
+                    $0.meshes.removeValue(forKey:evicted); $0.result = nil; $0.surfaceHistory.reset()
+                    if PRTSRuntimeProfile.routePlanningPolicy == .verified { $0.pathUpdate = .init(reason:"invalidated") }
+                    $0.meshDrops += 1
+                }
                 recorder.event("mesh_update_dropped",details:evicted,epoch:epoch)
             }
             if submission.schedule { meshQueue.async { [self] in drainMeshes() } }

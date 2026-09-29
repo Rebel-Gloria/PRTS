@@ -20,9 +20,7 @@ public struct RouteProjection: Codable, Sendable {
   ) -> Self? {
     guard let grid = result.grid, let pose = result.sourcePose,
       grid.epoch == result.epoch, grid.frameID == result.frameID,
-      grid.timestamp == result.timestamp, drawDistance.isFinite, drawDistance > 0,
-      ["current_confirmed", "native_confirmed"].contains(
-        result.diagnostics?.groundReferenceMode ?? "")
+      grid.timestamp == result.timestamp, drawDistance.isFinite, drawDistance > 0
     else { return nil }
     let foot = reference.plane.project(pose.position)
     let start = reference.point(reference.coordinates(foot).y)

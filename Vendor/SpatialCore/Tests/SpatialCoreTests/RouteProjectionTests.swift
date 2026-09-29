@@ -90,7 +90,7 @@ extension ForwardRouteTests {
     XCTAssertNil(RouteProjection.make(result: r, reference: ref, options: .init()))
     r = frame()
     r.diagnostics?.groundReferenceMode = "unavailable"
-    XCTAssertNil(RouteProjection.make(result: r, reference: ref, options: .init()))
+    XCTAssertNotNil(RouteProjection.make(result: r, reference: ref, options: .init()))
   }
 
   func testProjectionAbsentDuringDetourAndCodableRoundtrip() throws {

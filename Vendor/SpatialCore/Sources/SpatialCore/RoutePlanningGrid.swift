@@ -1,9 +1,9 @@
 import Foundation
 import simd
 
-/// Planning uses measured ground samples, not the renderer's triangle edge/pixel-hole budget.
-/// This is a ground-supported route proposal; full-height clearance remains a separate grid output.
-/// No floor plane is extended into unobserved cells, and every measured obstacle takes precedence.
+/// Search raster, independent of rendered triangles. The caller selects input semantics:
+/// obstacle-veto supplies an adapted grid (all non-vetoed cells candidate); the explicit
+/// verified comparator supplies body-clear evidence. Never mutates the raw sensor result.
 public struct RoutePlanningGrid: Sendable {
     public var grid: LocalGrid
     public var mask: [Bool]

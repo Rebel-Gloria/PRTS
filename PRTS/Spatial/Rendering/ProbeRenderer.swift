@@ -256,7 +256,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 }
                 updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime))
                 if s.options.showPath,let pathBuffer,pathCount > 0 {
-                    // Locked Dev routes are annotations. A noisy floor triangle must not
+                    // World-locked routes are annotations. A noisy floor triangle must not
                     // alternately cover/reveal a fixed world line (apparent broken dashes).
                     if s.pathUpdate.occupancyFilter != nil { encoder.setDepthStencilState(noDepth) }
                     encoder.setVertexBuffer(pathBuffer,offset:0,index:0)
@@ -278,8 +278,9 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
             diagnostics.render(.init(phase:"submitted",
                 routeContext:s.pathUpdate.continuity,routePublicationReason:s.routePublicationReason,
                 routePublishTime:s.routePublishTime,
-                routePresentationReason:drawnPath == 0 ? "not_submitted_display_gate_or_no_geometry" : predictedPath != nil ? (predictedPath!.historical ? "historically_supported" : "current_supported") : (s.activeRouteProjection(now:start) != nil ? "direction_projection_only" : s.pathUpdate.reason),
+                routePresentationReason:drawnPath == 0 ? "not_submitted_display_gate_or_no_geometry" : predictedPath?.path.planningPolicy == .obstacleVeto ? "obstacle_veto" : predictedPath != nil ? (predictedPath!.historical ? "historically_supported" : "current_supported") : (s.activeRouteProjection(now:start) != nil ? "direction_projection_only" : s.pathUpdate.reason),
                 routeDisplayedVerifiedLength:drawnPath > 0 && predictedPath?.path.verifiedEvidence == true ? predictedPath?.path.length : 0,
+                routeDisplayedPlannedLength:drawnPath > 0 ? predictedPath?.path.length : 0,
                 renderID:renderID,epoch:s.epoch,frameID:snapshot?.id,uptime:start,sourceTimestamp:snapshot?.frame.timestamp,
                 analysisFrameID:s.result?.frameID,analysisTimestamp:s.result?.timestamp,geometryBlockReason:geometryReason,guidanceBlockReason:guidanceReason,
                 modelBlockReasons:s.result?.diagnostics?.modelBlockReasons ?? [],running:s.running,frozen:s.frozen != nil,options:s.options,
@@ -394,7 +395,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
             case .unknownApproach: color = SIMD4(0.1,0.85,1,0.7); pathApproachCount += mesh.vertices.count
             case .prediction: color = SIMD4(0.65,0.75,1,0.6)
             case .history: color = SIMD4(1,0.52,0.08,0.85)
-            case .observed: color = SIMD4(1,0.96,0.18,1)
+            case .observed, .planned: color = SIMD4(1,0.96,0.18,1)
             case .target: color = (presentation?.historical == true && presentation?.path.worldLocked != true) ? SIMD4(1,0.52,0.08,0.9) : SIMD4(1,0.96,0.18,1); pathTargetCount += mesh.vertices.count
             }
             vertices += mesh.vertices.map { WorldVertex($0,color) }

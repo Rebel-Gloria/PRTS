@@ -42,6 +42,7 @@ nonisolated struct RenderDiagnostic: Codable, Sendable {
     var routePublishTime: Double? = nil
     var routePresentationReason: String? = nil
     var routeDisplayedVerifiedLength: Float? = nil
+    var routeDisplayedPlannedLength: Float? = nil
     let renderID: UInt64,epoch: UInt64,frameID: UInt64?
     let uptime: Double,sourceTimestamp: Double?,analysisFrameID: UInt64?,analysisTimestamp: Double?
     let geometryBlockReason: String?,guidanceBlockReason: String?,modelBlockReasons: [String]
@@ -92,8 +93,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
             "meshDiagnosticEncoding":"mesh_frame_binary_v1; full Float32 vertices, UInt32 indices and UInt8 classifications; no mesh subsampling by recorder",
             "surfaceTriangleBudget":String(SurfaceModelBuilder.triangleBudget),
             "groundConfirmationMetric":"local plane height at camera <4cm and normal angle <3deg; 3 current confirmations",
-            "groundReferencePolicy":"Verified route world evidence: clearance TTL 0.5s, ground TTL 1s, obstacle memory 1.5s; epoch/reference conflicts invalidate.",
-            "planningPolicy":"verified_continuous_v1", "routeSchemaVersion":"2",
+            "groundReferencePolicy":"Obstacle-veto: fixed world drawing reference from plane/grid/prior or initial camera height 1.4m. Ground/evidence TTL is diagnostic only. Epoch/reset changes still invalidate.",
+            "planningPolicy":PRTSRuntimeProfile.routePlanningPolicy.rawValue, "routeSchemaVersion":"3",
+            "occupancyRule":"Only confirmed occupancy blocks search; other cells are hypothesis-searchable. Confirmation 0.3s, maximum matching gap 0.75s, missing hits reset. Raw sensor grid unchanged.",
             "routeEvidenceOptions":String(data:(try? DiagnosticJSON.encode(RouteEvidenceOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
             "routeContinuityOptions":String(data:(try? DiagnosticJSON.encode(RouteContinuityOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
             "commit":Bundle.main.object(forInfoDictionaryKey:"PRTSCommit") as? String ?? "unavailable",
@@ -116,7 +118,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
     }
     func routePublication(candidate: PathUpdate,state: SharedSnapshot,now: Double,captureEnabled: Bool,analysisStart: Double,analysisEnd: Double,previousCaptureTimestamp: Double?) {
         nonisolated struct Record: Encodable, Sendable {
-            let schemaVersion = 2
+            let schemaVersion = 3
             let phase = "publication"
             let captureEnabled: Bool
             let context: RouteContext?
@@ -138,7 +140,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
     func path(_ update: PathUpdate,frame: FrameSnapshot,options: PathOptions) {
         nonisolated struct Record: Encodable, Sendable {
             let phase = "prediction"
-            let schemaVersion = 2
+            let schemaVersion = 3
             let epoch: UInt64,frameID: UInt64,parameterVersion: UInt64
             let timestamp: Double
             let update: PathUpdate,options: PathOptions

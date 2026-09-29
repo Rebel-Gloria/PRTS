@@ -1,8 +1,9 @@
 import Foundation
 import simd
 
-/// Worker-confined state machine. World intent survives yaw and short evidence gaps; drawable
-/// geometry never survives an explicit obstacle veto, reference conflict or its evidence TTL.
+/// Worker-confined state machine. Locked-world mode retains and extends route geometry
+/// until an obstacle veto or an explicit direction/lifecycle change. The offline verified
+/// comparator additionally checks its evidence through the PathPredictor facade.
 struct ForwardRoutePlanner: Sendable {
     private struct Maneuver: Sendable {
         var id: UInt64
@@ -17,7 +18,8 @@ struct ForwardRoutePlanner: Sendable {
     var verifiedEvidence = false
     var renewalDistance: Float = 1.5
     var retainedPath: PredictedPath? { path }
-    mutating func restrictToEvidence(_ points: [V3]) {
+    var planningForward: V3? { reference?.forward }
+    mutating func replaceRetainedPrefix(_ points: [V3]) {
         guard points.count >= 2 else { path = nil; return }
         path?.points = points
     }
@@ -38,7 +40,7 @@ struct ForwardRoutePlanner: Sendable {
     func held(at time: Double, options: PathOptions, reason: String) -> PathUpdate {
         var update = PathUpdate(
             path: path.flatMap {
-                time >= $0.observedAt && time - $0.observedAt <= options.retentionSeconds ? $0 : nil
+                time >= $0.observedAt && (locksWorldGeometry || time - $0.observedAt <= options.retentionSeconds) ? $0 : nil
             }, reason: reason)
         update.goal = goal
         update.strategy = lastDiagnostics
@@ -57,12 +59,11 @@ struct ForwardRoutePlanner: Sendable {
         var reason = "waiting_blue_ground"
         var change: String?
         var invalidated = false
-        let confirmed =
-            ["current_confirmed", "native_confirmed"].contains(r.diagnostics?.groundReferenceMode ?? "")
-            && r.plane != nil
+        let confirmed = r.plane != nil && (locksWorldGeometry ||
+            ["current_confirmed", "native_confirmed"].contains(r.diagnostics?.groundReferenceMode ?? ""))
         let raster = RoutePlanningGrid(result: r, options: options, requireBodyClearance: verifiedEvidence)
 
-        if let ref = reference, let plane = r.plane, r.diagnostics?.groundConfirmed == true,
+        if !locksWorldGeometry, let ref = reference, let plane = r.plane, r.diagnostics?.groundConfirmed == true,
             abs(plane.height(ref.plane.project(pose.position))) > 0.12
                 || simd_dot(plane.normal, ref.plane.normal) < 0.97
         {
@@ -103,7 +104,7 @@ struct ForwardRoutePlanner: Sendable {
         }
         if let fixed = goal {
             let distance = simd_distance(fixed.plane.project(pose.position), fixed.point)
-            if !verifiedEvidence && distance <= options.arrivalRadius {
+            if !verifiedEvidence && (!locksWorldGeometry || maneuver?.mode == .sideRoute) && distance <= options.arrivalRadius {
                 change = "target_reached"
                 if maneuver?.mode == .sideRoute { reference = nil }
                 path = nil
@@ -116,7 +117,8 @@ struct ForwardRoutePlanner: Sendable {
 
         // Angular range exit deliberately does not release intent: a user can look to the side
         // while going around a box. Only the explicit clear-direction dwell below changes it.
-        if reference == nil, confirmed, let plane = r.plane, let basis = GroundBasis(plane: plane, pose: pose) {
+        if reference == nil, confirmed, let plane = r.plane,
+           let basis = locksWorldGeometry ? GroundBasis.geometry(plane:plane,pose:pose,previousForward:nil) : GroundBasis(plane:plane,pose:pose) {
             reference = .init(origin: basis.origin, forward: basis.forward, plane: plane)
             // Resolve at most half a raster-cell of centre quantization. This is still a
             // parallel forward line, not a far-side target search or unknown-space dilation.
@@ -138,7 +140,7 @@ struct ForwardRoutePlanner: Sendable {
 
         var previousEntry: V3?
         if var old = path {
-            let remaining = verifiedEvidence ? old.points : PathTracking.remaining(old.points, plane: old.plane, pose: pose)
+            let remaining = (verifiedEvidence || locksWorldGeometry) ? old.points : PathTracking.remaining(old.points, plane: old.plane, pose: pose)
             previousEntry = remaining.first
             if remaining.count < 2 || abs(old.requiredWidth - options.minimumWidth) > 0.001 {
                 path = nil
@@ -172,7 +174,7 @@ struct ForwardRoutePlanner: Sendable {
         var diagnostics = ForwardStrategyDiagnostics()
         if let ref = reference {
             let foot = ref.plane.project(pose.position)
-            let device = GroundBasis(plane: ref.plane, pose: pose)
+            let device = locksWorldGeometry ? GroundBasis.geometry(plane:ref.plane,pose:pose,previousForward:ref.forward) : GroundBasis(plane: ref.plane, pose: pose)
             var trigger: ForwardObstacle?
             if let raster, let device {
                 trigger = ForwardObstacleTrigger.trigger(
@@ -233,6 +235,18 @@ struct ForwardRoutePlanner: Sendable {
                 turn.reset()
                 persistence.reset()
             } else if let raster, confirmed {
+                if locksWorldGeometry, maneuver != nil, trigger == nil {
+                    let straight = ForwardPathSearch.straight(raster:raster,reference:ref,foot:foot)
+                    let proposal = PredictedPath(id:r.frameID,epoch:r.epoch,parameterVersion:r.parameterVersion,
+                        sourceFrameID:r.frameID,validatedFrameID:r.frameID,observedAt:r.timestamp,plane:ref.plane,
+                        points:straight.points,source:r.source,requiredWidth:options.minimumWidth)
+                    if straight.points.count >= 2,
+                       !PathObstacleCheck.intersects(proposal,result:r,observation:nil) {
+                        maneuver = nil
+                        accept(straight.points,result:r,options:options)
+                        reason = "obstacle_cleared_return_to_intent"
+                    }
+                }
                 if var active = maneuver {
                     let q = ref.coordinates(foot)
                     if active.mode != .sideRoute, let join = active.join {
@@ -255,7 +269,7 @@ struct ForwardRoutePlanner: Sendable {
                 }
                 // New evidence ahead is also a renewal trigger, even before the budget is
                 // exhausted. Append only on the original axis (never shortcut a side detour).
-                if verifiedEvidence, let old = path, let end = old.points.last,
+                if verifiedEvidence || locksWorldGeometry, let old = path, let end = old.points.last,
                     abs(ref.coordinates(end).x) < 0.05 {
                     let tail = ForwardPathSearch.straight(raster:raster,reference:ref,foot:end)
                     if let join = tail.points.first,let last = tail.points.last,
@@ -263,7 +277,7 @@ struct ForwardRoutePlanner: Sendable {
                         raster.supports([end,last]),
                         simd_distance(end,last) > (old.length < renewalDistance ? 0.15 : 0.3) {
                         accept(old.points+[last],result:r,options:options)
-                        reason = "verified_tail_extended"
+                        reason = verifiedEvidence ? "verified_tail_extended" : "occupancy_tail_extended"
                     }
                 }
                 if maneuver != nil {
@@ -301,6 +315,20 @@ struct ForwardRoutePlanner: Sendable {
                             }
                         }
                     }
+                    // Side commitment stabilizes a viable route, not a blocked one. Once
+                    // the same-side repair fails, reuse the existing two-side selector on
+                    // the current component instead of retrying the obsolete turn forever.
+                    if locksWorldGeometry, path == nil, let obstacle = trigger {
+                        let trace = ForwardPathSearch.straight(raster:raster,reference:ref,foot:foot)
+                        let small = obstacle.extentObserved && obstacle.width < options.smallObstacleWidth - 0.00001
+                        if let (side, plan, join) = selectManeuver(
+                            raster:raster,reference:ref,obstacle:obstacle,entry:trace.entry,small:small) {
+                            maneuver = .init(id:r.frameID,mode:join == nil ? .sideRoute : .detour,
+                                side:side,obstacle:obstacle,join:join,points:plan.points)
+                            accept(plan.points,result:r,options:options)
+                            reason = "blocked_maneuver_replanned"
+                        }
+                    }
                 } else if let obstacle = trigger {
                     diagnostics.mode = .blocked
                     let trace = ForwardPathSearch.straight(raster: raster, reference: ref, foot: foot)
@@ -336,7 +364,7 @@ struct ForwardRoutePlanner: Sendable {
                         }
                     }
                 } else if locksWorldGeometry || verifiedEvidence, path != nil {
-                    if reason != "verified_tail_extended" { reason = verifiedEvidence ? "verified_prefix_retained" : "world_route_preserved" }
+                    if reason != "verified_tail_extended" && reason != "occupancy_tail_extended" && reason != "obstacle_cleared_return_to_intent" { reason = verifiedEvidence ? "verified_prefix_retained" : "world_route_preserved" }
                 } else {
                     // Greedily extend along the reference to the farthest connected observed
                     // point. An unknown stripe truncates; no lateral exploration without a hit.
@@ -377,7 +405,9 @@ struct ForwardRoutePlanner: Sendable {
         }
         lastDiagnostics = diagnostics
         var update = held(at: r.timestamp, options: options, reason: reason)
-        if update.path == nil, goal != nil, !invalidated { update.reason = "fixed_goal_waiting_evidence" }
+        if update.path == nil, goal != nil, !invalidated {
+            update.reason = locksWorldGeometry ? "confirmed_occupancy_no_route" : "fixed_goal_waiting_evidence"
+        }
         update.goalChangeReason = change
         update.blueCells = raster?.blueCells ?? 0
         update.eligibleCells = raster?.mask.filter({ $0 }).count ?? 0
