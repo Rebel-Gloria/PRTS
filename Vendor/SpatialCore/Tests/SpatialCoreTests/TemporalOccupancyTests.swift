@@ -3,7 +3,7 @@ import simd
 
 @testable import SpatialCore
 
-// Synthetic tests of the Dev-only occupancy policy, not sensor accuracy.
+// Synthetic tests of explicitly selected occupancy policy, not sensor accuracy.
 extension ForwardRouteTests {
   func testExperimentalGhostDoesNotStopRouteOrTriggerDetour() throws {
     var planner = PathPredictor(experimentalOccupancyPlanning: true)
@@ -60,7 +60,7 @@ extension ForwardRouteTests {
   func testExperimentalGapDoesNotCountAsContinuousDetection() {
     var filter = TemporalOccupancyGrid()
     _ = filter.apply(frame(1, 1, cells: box))
-    _ = filter.apply(frame(2, 1.31, cells: box))
+    _ = filter.apply(frame(2, 1.8, cells: box))
     XCTAssertEqual(filter.diagnostics.confirmedCells, 0)
     XCTAssertEqual(filter.diagnostics.maximumAge, 0, accuracy: 0.0001)
   }
@@ -74,7 +74,7 @@ extension ForwardRouteTests {
     XCTAssertEqual(try JSONEncoder().encode(input).count, before.count)
     XCTAssertTrue(input.grid!.cells.contains { $0.state == .obstacle })
     XCTAssertTrue(input.grid!.cells.contains { $0.state == .unknown })
-    XCTAssertTrue(planned.source.contains("experimental_occupancy_300ms"))
+    XCTAssertTrue(planned.source.contains("obstacle_veto_300ms"))
   }
 
   func testGreedyBypassReturnsToReferenceWithoutCrossingObstacle() throws {
@@ -106,8 +106,8 @@ extension ForwardRouteTests {
     XCTAssertGreaterThan(filter.diagnostics.confirmedCells, 0)
   }
 
-  func testNormalPlannerStillRejectsFirstFrameObstacle() {
-    var planner = PathPredictor()
+  func testVerifiedComparatorStillRejectsFirstFrameObstacle() {
+    var planner = PathPredictor(policy:.verified)
     let r = frame(cells: box)
     let u = planner.update(result: r, observation: nil, options: .init())
     XCTAssertNil(u.occupancyFilter)

@@ -46,7 +46,7 @@ extension ForwardRouteTests {
     let meshes = PathDrawing.meshes(presentation)
     XCTAssertFalse(meshes.contains { $0.role == .unknownApproach || $0.role == .history })
     let approach = try XCTUnwrap(meshes.first)
-    XCTAssertEqual(approach.role, .observed)
+    XCTAssertEqual(approach.role, .planned)
     XCTAssertEqual(approach.vertices.count, 6)  // one solid quad, not repeated dash quads
   }
 
@@ -66,15 +66,15 @@ extension ForwardRouteTests {
     }
   }
 
-  func testLockedRouteDoesNotIgnoreRealGroundConflict() {
+  func testVetoRouteKeepsWorldPlaneDespiteGroundFitChange() {
     var planner = PathPredictor(experimentalOccupancyPlanning: true)
-    _ = planner.update(result: frame(), observation: nil, options: .init())
+    let first = planner.update(result: frame(), observation: nil, options: .init())
     var r = frame(2, 1.1)
     r.plane?.offset = 0.25
     r.diagnostics?.groundConfirmed = true
     let u = planner.update(result: r, observation: nil, options: .init())
-    XCTAssertNil(u.path)
-    XCTAssertEqual(u.reason, "ground_or_metric_conflict")
+    XCTAssertEqual(u.path?.points,first.path?.points)
+    XCTAssertEqual(u.path?.plane.offset,first.path?.plane.offset)
   }
   func testLockedSideRouteSurvivesCameraGridBoundary() throws {
     var planner = PathPredictor(experimentalOccupancyPlanning: true)
@@ -91,7 +91,7 @@ extension ForwardRouteTests {
     XCTAssertEqual(last.strategy?.mode, .sideRoute)
     // No current occupancy intersects the selected side route; only the viewport moves.
     for i in 1...6 {
-      var r = frame(UInt64(i + 4), 1.3 + Double(i) * 0.1, pose: pose(yaw: -Float(i) * 5))
+      var r = frame(UInt64(i + 4), 1.3 + Double(i) * 0.1, pose: pose(yaw: -Float(i) * 5), cells:obstacle)
       r.sourceDirectionStable = false
       let next = planner.update(result: r, observation: nil, options: .init())
       XCTAssertEqual(next.path?.points.last, original.points.last)

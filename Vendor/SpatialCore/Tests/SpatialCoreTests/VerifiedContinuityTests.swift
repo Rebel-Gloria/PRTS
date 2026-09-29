@@ -4,18 +4,18 @@ import simd
 @testable import SpatialCore
 
 extension ForwardRouteTests {
-  func testDefaultPolicyDoesNotAuthorizeGroundOnly() {
+  func testVerifiedComparatorDoesNotAuthorizeGroundOnly() {
     var r = frame(cells: { _ in .unknown })
     for i in r.grid!.cells.indices {
       r.grid!.cells[i].groundSamples = 5
       r.grid!.cells[i].observedAt = r.timestamp
     }
-    var planner = PathPredictor()
+    var planner = PathPredictor(policy:.verified)
     XCTAssertNil(planner.update(result: r, observation: nil, options: .init()).path)
   }
 
-  func testDefaultPolicyUsesBodyEnvelope() throws {
-    var planner = PathPredictor()
+  func testVerifiedComparatorUsesBodyEnvelope() throws {
+    var planner = PathPredictor(policy:.verified)
     let r = frame()
     let p = try XCTUnwrap(planner.update(result: r, observation: nil, options: .init()).path)
     XCTAssertEqual(
@@ -23,7 +23,7 @@ extension ForwardRouteTests {
   }
 
   func testPresentationDoesNotHideMerelyNearLocalEnd() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(policy:.verified)
     var path = try XCTUnwrap(
       planner.update(result: frame(), observation: nil, options: .init()).path)
     path.points = [V3(0, 0, -0.05), V3(0, 0, -0.25)]

@@ -7,8 +7,8 @@ struct StraightPathTrace: Sendable {
     var observedLength: Float = 0
 }
 
-/// These routines use the actual observed floor mesh raster, not the infinite fitted plane.
-/// The trigger triangle decides WHEN to manoeuvre; the swept body footprint decides WHERE.
+/// Reusable geometry searches on the selected policy raster. In obstacle-veto mode the
+/// facade has already opened all non-obstacle cells. Swept width checks use that same raster.
 enum ForwardPathSearch {
     static func straight(
         raster: RoutePlanningGrid, reference: ForwardRouteReference, foot: V3,

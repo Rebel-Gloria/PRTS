@@ -1,8 +1,14 @@
 import Foundation
 import simd
 
+/// Planning semantics are explicit and independent of recording/compilation flags.
+public enum RoutePlanningPolicy: String, Codable, Sendable {
+  case verified = "verified_continuous_v1"
+  case obstacleVeto = "obstacle_veto_v1"
+}
+
 public enum RouteStatus: String, Codable, Sendable {
-  case current, historical, needsObservation, hazardBlocked, trackingInvalid
+  case current, historical, needsObservation, hazardBlocked, trackingInvalid, planned
 }
 public struct RouteContinuityOptions: Codable, Sendable {
   public var minimumRenewalDistance: Float = 1.5
@@ -17,7 +23,7 @@ public struct RouteContinuityOptions: Codable, Sendable {
   }
 }
 public struct RouteContext: Codable, Sendable {
-  public var schemaVersion = 2
+  public var schemaVersion = 3
   public var planningPolicy = "verified_continuous_v1"
   public var epoch: UInt64
   public var parameterVersion: UInt64
@@ -29,6 +35,7 @@ public struct RouteContext: Codable, Sendable {
   public var routeID: UInt64?
   public var geometryVersion: UInt64
   public var status: RouteStatus
+  public var plannedLength: Float? = nil
   public var remainingVerifiedLength: Float
   public var evidenceAge: Double?
   public var renewalDistance: Float
@@ -46,7 +53,7 @@ public enum RoutePublicationPolicy {
   public static func decide(
     current: PathUpdate, candidate: PathUpdate,
     gate: ResultPresentationGate, hazardWatermark: UInt64,
-    now: Double
+    now: Double, expectedPolicy: RoutePlanningPolicy? = nil
   ) -> RoutePublicationDecision {
     guard gate.enabled, gate.trackingNormal else {
       return .init(
@@ -58,20 +65,36 @@ public enum RoutePublicationPolicy {
         kept.path =
           path.epoch == gate.epoch && path.parameterVersion == gate.parameterVersion
             && path.sourceFrameID >= gate.minimumGeometryFrameID
+            && (expectedPolicy == nil
+              || kept.continuity?.planningPolicy == expectedPolicy?.rawValue)
             && (kept.continuity?.hazardWatermark ?? 0) >= hazardWatermark
           ? RouteEvidencePresentation.validPrefix(path, now: now) : nil
       }
       return .init(update: updatedContext(kept, now: now), accepted: false, reason: why)
     }
     guard let c = candidate.continuity else { return reject("missing_route_context") }
+    guard expectedPolicy == nil || c.planningPolicy == expectedPolicy?.rawValue else {
+      return reject("planning_policy_mismatch")
+    }
     guard c.epoch == gate.epoch else { return reject("epoch_mismatch") }
     guard c.parameterVersion == gate.parameterVersion else { return reject("parameter_mismatch") }
     guard c.frameID >= gate.minimumGeometryFrameID else { return reject("before_barrier") }
     guard c.frameID >= (current.continuity?.frameID ?? 0) else { return reject("out_of_order") }
     guard c.hazardWatermark >= hazardWatermark else { return reject("hazard_watermark") }
-    guard now >= c.timestamp, now - c.timestamp <= gate.maxAge,
+    guard now.isFinite, now >= c.timestamp,
+      c.planningPolicy == RoutePlanningPolicy.obstacleVeto.rawValue
+        || now - c.timestamp <= gate.maxAge,
       c.frameID <= gate.frameID
     else { return reject("candidate_expired_or_future") }
+    // A normal replacement is a transaction, not an instruction to clear the route.
+    // Confirmed occupancy has already raised the watermark before search. Explicit
+    // lifecycle/coordinate resets remain separate from an unfinished candidate.
+    if c.planningPolicy == RoutePlanningPolicy.obstacleVeto.rawValue,
+      candidate.path == nil, current.path != nil,
+      candidate.reason != "disabled", candidate.reason != "ground_or_metric_conflict"
+    {
+      return reject("candidate_not_ready")
+    }
     var accepted = candidate
     if let path = candidate.path {
       accepted.path = RouteEvidencePresentation.validPrefix(path, now: now)
@@ -84,13 +107,18 @@ public enum RoutePublicationPolicy {
 private func updatedContext(_ update: PathUpdate, now: Double) -> PathUpdate {
   var copy = update
   copy.continuity?.routeID = copy.path?.id
-  copy.continuity?.remainingVerifiedLength = copy.path?.length ?? 0
-  let noPathStatus: RouteStatus = copy.continuity?.status == .hazardBlocked ? .hazardBlocked : .needsObservation
+  copy.continuity?.plannedLength = copy.path?.length ?? 0
+  copy.continuity?.remainingVerifiedLength =
+    copy.path?.verifiedEvidence == true ? (copy.path?.length ?? 0) : 0
+  let noPathStatus: RouteStatus =
+    copy.continuity?.status == .hazardBlocked ? .hazardBlocked : .needsObservation
   copy.continuity?.status =
     copy.path == nil
     ? noPathStatus
-    : ((copy.path?.evidenceIntervals?.contains { now - $0.observedAt > 0.2 } ?? false)
-      ? .historical : .current)
+    : (copy.path?.planningPolicy == .obstacleVeto
+      ? .planned
+      : ((copy.path?.evidenceIntervals?.contains { now - $0.observedAt > 0.2 } ?? false)
+        ? .historical : .current))
   copy.continuity?.evidenceAge = copy.path?.evidenceIntervals?.map { now - $0.observedAt }.max()
   return copy
 }
@@ -98,6 +126,7 @@ private func updatedContext(_ update: PathUpdate, now: Double) -> PathUpdate {
 public enum RouteEvidencePresentation {
   /// Evidence expiration cuts only the affected suffix. Publication never renews proof time.
   public static func validPrefix(_ path: PredictedPath, now: Double) -> PredictedPath? {
+    if path.planningPolicy == .obstacleVeto { return path }
     guard path.verifiedEvidence == true else { return path }
     guard let evidence = path.evidenceIntervals, now.isFinite else { return nil }
     var end: Float = 0
@@ -137,7 +166,8 @@ public enum RouteArc {
 /// Fast rejection reuses confidence/cluster checks. It is independent of the slow side latch.
 public enum RouteSafety {
   public static func invalidationReason(
-    _ path: PredictedPath, result: AnalysisResult, observation: DepthObservation?
+    _ path: PredictedPath, result: AnalysisResult, observation: DepthObservation?,
+    includeCurrentObstacles: Bool = true
   ) -> String? {
     if let reason = result.diagnostics?.groundReferenceInvalidation { return reason }
     if let plane = result.plane, let pose = result.sourcePose,
@@ -148,7 +178,8 @@ public enum RouteSafety {
     {
       return "ground_reference_conflict"
     }
-    return conflicts(path, result: result, observation: observation) ? "current_hazard" : nil
+    return includeCurrentObstacles && conflicts(path, result: result, observation: observation)
+      ? "current_hazard" : nil
   }
 
   public static func conflicts(
