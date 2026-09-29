@@ -32,5 +32,5 @@ python3 scripts/compare_route_replays.py /tmp/before.jsonl /tmp/after.jsonl
 脚本不操作设备、不上传数据。回放包含当前足迹/障碍一致性检查，独立真值误差仍需人工测量。
 
 `replay_route_snapshots.swift` 读取逐行 `{result: AnalysisResult, options: PathOptions}`，
-默认运行 verified_continuous_v1；历史实验比较须显式加 `--experimental-occupancy`。输入若来自compact-grid重建，必须注明缺少逐格原始样本计数，
+默认运行 obstacle_veto_v1；build16严格策略对照须显式加 `--verified`。输入若来自compact-grid重建，必须注明缺少逐格原始样本计数，
 不把结果标成完整传感器复现；保持真实时间戳，禁止给低帧率录像补造观测。

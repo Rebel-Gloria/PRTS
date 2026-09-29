@@ -1,4 +1,4 @@
-> 历史设计／实验记录。build16 默认行为以 [路线连续性第1轮](ROUTE_CONTINUITY_2026-09-29.md) 为准；Dev tag 不再自动启用实验占用规划。
+> 历史设计／实验记录。当前默认行为以 [build17 obstacle-veto](OBSTACLE_VETO_2026-09-29.md) 为准；Dev tag 仅控制开发入口与采集。
 
 # 平面预测延长线
 
