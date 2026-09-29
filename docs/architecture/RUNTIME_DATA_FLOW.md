@@ -30,3 +30,7 @@ rendered `SurfaceModel.triangles`. The original clearance grid is never mutated.
 and reacquires same-side manoeuvres when an entry or endpoint disappears.
 Plane compatibility is evaluated near the current camera, not at a distant old origin.
 UI and feedback remain consumers; neither creates another search or capture session.
+
+## build16 route handoff update
+
+Current path: raw clustered hazard → world RouteEvidenceMap → ForwardRoutePlanner → RoutePublicationPolicy → shared display/feedback. See [round-1 contracts and limits](ROUTE_CONTINUITY_2026-09-29.md). Dev compilation/recording does not select planning policy. SurfaceHistory remains display-only.

@@ -65,11 +65,8 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     private let mailbox = LatestMailbox<AnalysisJob>()
     private let meshInbox = MeshInbox()
     private let analyzer = SpatialAnalyzer()
-    #if PRTS_DEV_CAPTURE
-    private var pathPredictor = PathPredictor(experimentalOccupancyPlanning: true) // analysisQueue only
-    #else
+    // Recording is orthogonal to planning: both builds use the same verified policy.
     private var pathPredictor = PathPredictor() // analysisQueue only
-    #endif
     private let monocularProvider = MonocularDepthProvider()
     private var directionGate = DirectionGate()
     private var epoch: UInt64 = 0
@@ -77,6 +74,8 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     private var meshRevision: UInt64 = 0 // meshQueue only
     private var lastSubmitted: Double = 0
     private var lastFrameTime: Double = 0
+    private var lastAnalyzedCaptureTimestamp: Double?
+    private var lastAnalyzedEpoch: UInt64 = 0
     private var lastAnalysisCompletion: Double = 0 // analysisQueue only
     private var analysisBarrier: UInt64 = 0 // analysisQueue only
     private var captureFPS: Double = 0
@@ -103,7 +102,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             if !s.usesMonocular && s.options.smoothedDisplay && capabilities.smooth { config.frameSemantics.insert(.smoothedSceneDepth) }
             if !s.usesMonocular && capabilities.meshClassification { config.sceneReconstruction = .meshWithClassification }
             store.update {
-                $0.minimumGeometryFrameID = 0; $0.minimumGuidanceFrameID = 0
+                $0.minimumGeometryFrameID = 0; $0.minimumGuidanceFrameID = 0; $0.routeHazardWatermark = 0
                 $0.epoch = epoch; $0.running = true; $0.geometryEnabled = false; $0.frame = nil; $0.frozen = nil; $0.result = nil; $0.surfaceHistory.reset(); $0.pathUpdate = .init(reason:"invalidated"); $0.diagnosticResult = nil; $0.analyzedFrame = nil; $0.meshes = [:]; $0.monocular = nil; $0.frozenMonocular = nil; $0.nativePlanes = []; $0.nativePlaneFrameID = 0; $0.monocularStatus = "等待当前预测及尺度确认"
                 $0.status = "会话启动中；" + capabilities.description; $0.captureFPS = 0; $0.analysisFPS = 0; $0.droppedFrames = 0; $0.meshDrops = 0
             }
@@ -154,7 +153,13 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     }
     func updatePathOptions(_ options: PathOptions) {
         store.update {
-            $0.pathOptions = options.validated()
+            let next = options.validated()
+            if next.minimumWidth != $0.pathOptions.minimumWidth {
+                $0.parameterVersion &+= 1
+                $0.result = nil; $0.pathUpdate = .init(reason:"body_options_changed")
+                $0.geometryEnabled = false
+            }
+            $0.pathOptions = next
             if !options.enabled { $0.pathUpdate = .init(reason:"disabled") }
             // Feedback/display controls do not restart ground or metric-scale confirmation.
             // Geometry/body parameters retain their separate version/barrier path.
@@ -292,7 +297,24 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 if result.diagnostics?.depth == nil,let observation { result.diagnostics?.depth = DepthStatistics(observation,parameters:frame.parameters) }
                 result.stageMilliseconds[frame.usesMonocular ? "modelWorker" : "depthCopy"] = copyMS
                 result.sourcePose = frame.pose
-                let pathUpdate = pathPredictor.update(result:result,observation:observation,options:before.pathOptions,directionStable:frame.directionStable)
+                // Fast hazard publication precedes search and is not conditional on replacement
+                // freshness. Work is bounded on the serial worker; no second planner queue.
+                let hazardSnapshot = store.read()
+                if let active = hazardSnapshot.pathUpdate.path,
+                   active.epoch == frame.epoch,active.parameterVersion == frame.parameterVersion,
+                   let invalidation = RouteSafety.invalidationReason(active,result:result,observation:observation) {
+                    store.update { s in
+                        guard s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion,
+                              frame.id >= s.minimumGeometryFrameID,
+                              s.pathUpdate.path?.id == active.id else { return }
+                        s.routeHazardWatermark = max(s.routeHazardWatermark,frame.id)
+                        s.pathUpdate = .init(reason:invalidation)
+                        s.routePublicationReason = "\(invalidation)_preempted_before_search"
+                    }
+                    diagnostics.event("route_hazard",details:"frame=\(frame.id) route=\(active.id) reason=\(invalidation) source=\(frame.frame.timestamp)",epoch:frame.epoch)
+                }
+                let pathUpdate = pathPredictor.update(result:result,observation:observation,options:before.pathOptions,
+                    directionStable:frame.directionStable,hazardWatermark:store.read().routeHazardWatermark)
                 result.stageMilliseconds["pathPrediction"] = pathUpdate.milliseconds
                 diagnostics.path(pathUpdate,frame:frame,options:before.pathOptions)
                 let now = ProcessInfo.processInfo.systemUptime
@@ -300,14 +322,11 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 lastAnalysisCompletion = now
                 store.update { s in
                     guard s.running,s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion else { return }
-                    // Even a delayed obstacle/conflict may REMOVE a line; it may never publish
-                    // a delayed replacement. Safety invalidation is not tied to display freshness.
-                    if frame.id >= s.minimumGeometryFrameID,
-                       (pathUpdate.strategy?.invalidatesPreviousPath == true ||
-                        ["current_obstacle_invalidated","replanned_around_obstacle","ground_or_metric_conflict","ground_evidence_expired"].contains(pathUpdate.reason) ||
-                        ["target_reached","target_out_of_range","target_blocked"].contains(pathUpdate.goalChangeReason ?? "")) {
-                        s.pathUpdate = .init(reason:pathUpdate.reason)
-                    }
+                    let decision = RoutePublicationPolicy.decide(current:s.pathUpdate,candidate:pathUpdate,
+                        gate:s.presentationGate,hazardWatermark:s.routeHazardWatermark,now:now)
+                    s.pathUpdate = decision.update
+                    s.routePublicationReason = decision.reason
+                    s.routePublishTime = now
                     s.diagnosticResult = result; s.analyzedFrame = frame
                     if frame.usesMonocular,frame.id >= s.minimumGeometryFrameID {
                         s.monocular = prediction; s.monocularStatus = prediction?.status ?? depthRead.status
@@ -317,10 +336,19 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     // Log all results, but never publish stale, future, or out-of-order results.
                     if s.presentationGate.allowsGeometry(result,now:now),
                        result.frameID > (s.result?.frameID ?? 0) {
-                        s.result = result; s.surfaceHistory.ingest(result); s.pathUpdate = pathUpdate
+                        s.result = result; s.surfaceHistory.ingest(result)
                     }
                 }
                 let s = store.read()
+                #if PRTS_DEV_CAPTURE
+                let captureEnabled = devCapture.status().enabled
+                #else
+                let captureEnabled = false
+                #endif
+                if lastAnalyzedEpoch != frame.epoch { lastAnalyzedCaptureTimestamp = nil;lastAnalyzedEpoch = frame.epoch }
+                diagnostics.routePublication(candidate:pathUpdate,state:s,now:now,captureEnabled:captureEnabled,
+                    analysisStart:copyStart,analysisEnd:now,previousCaptureTimestamp:lastAnalyzedCaptureTimestamp)
+                lastAnalyzedCaptureTimestamp = frame.frame.timestamp
                 let metrics = MetricContext(captureFPS:s.captureFPS,analysisFPS:s.analysisFPS,droppedFrames:mailbox.dropped,meshDrops:s.meshDrops,
                                             captureMS:frame.captureMilliseconds,meshMS:s.meshMS,render:RenderMetricRecord(s.renderMetrics),tracking:frame.tracking,
                                             thermal:s.thermal,sourceAgeMS:(now-frame.frame.timestamp)*1000,outputEligible:s.activeGuidanceResult(now:now)?.frameID == result.frameID,displayedFrameID:s.renderMetrics.renderedFrameID,

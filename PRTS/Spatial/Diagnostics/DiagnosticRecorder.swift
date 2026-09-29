@@ -37,6 +37,11 @@ nonisolated struct CaptureDiagnostic: Codable, Sendable {
 // Transport values are encoded on the journal queue, not on the UI actor.
 nonisolated struct RenderDiagnostic: Codable, Sendable {
     let phase: String
+    var routeContext: RouteContext? = nil
+    var routePublicationReason: String? = nil
+    var routePublishTime: Double? = nil
+    var routePresentationReason: String? = nil
+    var routeDisplayedVerifiedLength: Float? = nil
     let renderID: UInt64,epoch: UInt64,frameID: UInt64?
     let uptime: Double,sourceTimestamp: Double?,analysisFrameID: UInt64?,analysisTimestamp: Double?
     let geometryBlockReason: String?,guidanceBlockReason: String?,modelBlockReasons: [String]
@@ -87,7 +92,11 @@ final class DiagnosticRecorder: @unchecked Sendable {
             "meshDiagnosticEncoding":"mesh_frame_binary_v1; full Float32 vertices, UInt32 indices and UInt8 classifications; no mesh subsampling by recorder",
             "surfaceTriangleBudget":String(SurfaceModelBuilder.triangleBudget),
             "groundConfirmationMetric":"local plane height at camera <4cm and normal angle <3deg; 3 current confirmations",
-            "groundReferencePolicy":"Confirmed measured plane; display-only reuse <=2s, <=1m translation, <=0.35m normal displacement; no cached clearance. History wireframe <=1s and <=0.75m translation. Tracking/lifecycle barriers invalidate both.",
+            "groundReferencePolicy":"Verified route world evidence: clearance TTL 0.5s, ground TTL 1s, obstacle memory 1.5s; epoch/reference conflicts invalidate.",
+            "planningPolicy":"verified_continuous_v1", "routeSchemaVersion":"2",
+            "routeEvidenceOptions":String(data:(try? DiagnosticJSON.encode(RouteEvidenceOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
+            "routeContinuityOptions":String(data:(try? DiagnosticJSON.encode(RouteContinuityOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
+            "commit":Bundle.main.object(forInfoDictionaryKey:"PRTSCommit") as? String ?? "unavailable",
             "coordinateConvention":"ARKit gravity world; camera forward -Z; pixel centers integer. depth_frame meters axial; relative_depth_frame inverse-relative, NOT meters.",
             "absentSensors":"No separate raw IMU or GPS acquisition. ARKit feature count, not its private SLAM map. " + privacy]
         let root = FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("Diagnostics",isDirectory:true)
@@ -105,9 +114,31 @@ final class DiagnosticRecorder: @unchecked Sendable {
         let record = CaptureDiagnostic(frame) // Scalars only: does not retain ARFrame/capturedImage buffers.
         journal.submit(.capture) { .init(json:try DiagnosticJSON.encode(record)) }
     }
+    func routePublication(candidate: PathUpdate,state: SharedSnapshot,now: Double,captureEnabled: Bool,analysisStart: Double,analysisEnd: Double,previousCaptureTimestamp: Double?) {
+        nonisolated struct Record: Encodable, Sendable {
+            let schemaVersion = 2
+            let phase = "publication"
+            let captureEnabled: Bool
+            let context: RouteContext?
+            let publishedContext: RouteContext?
+            let publicationReason: String
+            let publishTime: Double
+            let hazardWatermark: UInt64
+            let analysisStart: Double,analysisEnd: Double
+            let actualAnalysisInterval: Double?
+            let thermalState: String
+        }
+        let record = Record(captureEnabled:captureEnabled,context:candidate.continuity,publishedContext:state.pathUpdate.continuity,
+                            publicationReason:state.routePublicationReason,publishTime:now,
+                            hazardWatermark:state.routeHazardWatermark,analysisStart:analysisStart,analysisEnd:analysisEnd,
+                            actualAnalysisInterval:previousCaptureTimestamp.flatMap { previous in candidate.continuity.map { $0.timestamp-previous } },
+                            thermalState:state.thermal)
+        journal.submit(.path) { .init(json:try DiagnosticJSON.encode(record)) }
+    }
     func path(_ update: PathUpdate,frame: FrameSnapshot,options: PathOptions) {
         nonisolated struct Record: Encodable, Sendable {
             let phase = "prediction"
+            let schemaVersion = 2
             let epoch: UInt64,frameID: UInt64,parameterVersion: UInt64
             let timestamp: Double
             let update: PathUpdate,options: PathOptions
