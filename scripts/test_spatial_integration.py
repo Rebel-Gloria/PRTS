@@ -16,11 +16,9 @@ class SpatialIntegrationTests(unittest.TestCase):
 
     def test_runtime_algorithms_are_identical_except_explicit_imports(self):
         files = {
-            "ProbeEngine.swift": ROOT / "PRTS/Spatial/Runtime/ProbeEngine.swift",
             "PathHaptics.swift": ROOT / "PRTS/Feedback/PathHaptics.swift",
             "CoreMLDepthModel.swift": ROOT / "PRTS/Spatial/Runtime/CoreMLDepthModel.swift",
             "MonocularDepthProvider.swift": ROOT / "PRTS/Spatial/Runtime/MonocularDepthProvider.swift",
-            "DiagnosticRecorder.swift": ROOT / "PRTS/Spatial/Diagnostics/DiagnosticRecorder.swift",
             "SessionRecorder.swift": ROOT / "PRTS/Spatial/Diagnostics/SessionRecorder.swift",
         }
         for name,target in files.items():
@@ -66,7 +64,7 @@ class SpatialIntegrationTests(unittest.TestCase):
                          after.split("public struct FanPathPlan")[0])
         core = ROOT / "Vendor/SpatialCore/Sources/SpatialCore"
         for name in ("ForwardRoutePlanner.swift", "ForwardRouteState.swift", "ForwardPathSearch.swift", "RoutePlanningGrid.swift",
-                     "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift"):
+                     "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift", "RouteEvidenceMap.swift", "RouteContinuity.swift"):
             self.assertTrue((core / name).is_file())
             source = (core / name).read_text()
             for forbidden in ("import ARKit", "import SwiftUI", "import Metal", "import AVFoundation"):
@@ -75,11 +73,30 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertNotIn("ARSession", speech)
         self.assertNotIn("ForwardPathSearch", speech)
         runtime = (ROOT / "PRTS/Spatial/Runtime/ProbeEngine.swift").read_text()
-        self.assertIn("pathUpdate.strategy?.invalidatesPreviousPath == true", runtime)
+        self.assertIn("RoutePublicationPolicy.decide", runtime)
+        self.assertLess(runtime.index("RouteSafety.invalidationReason"), runtime.index("let pathUpdate = pathPredictor.update"))
+        self.assertNotIn("experimentalOccupancyPlanning: true", runtime)
+        self.assertIn("PathPredictor()", runtime)
+        self.assertIn("s.pathUpdate = decision.update", runtime)
+        self.assertIn("routeHazardWatermark", runtime)
         home = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         self.assertIn("feedback.suspendResultFeedback()", home)
         self.assertNotIn("ForwardPathSearch", runtime)
         self.assertNotIn("ForwardObstacleTrigger", runtime)
+
+    def test_recording_is_separate_from_planning_policy(self):
+        engine = (ROOT / "PRTS/Spatial/Runtime/ProbeEngine.swift").read_text()
+        planner = engine[engine.index("let pathUpdate = pathPredictor.update"):engine.index("result.stageMilliseconds[\"pathPrediction\"]")]
+        self.assertNotIn("captureEnabled", planner)
+        self.assertNotIn("#if", planner)
+        diagnostics = (ROOT / "PRTS/Spatial/Diagnostics/DiagnosticRecorder.swift").read_text()
+        self.assertIn("routePublication", diagnostics)
+        self.assertIn('"verified_continuous_v1"', diagnostics)
+        self.assertIn("captureEnabled", diagnostics)
+        self.assertIn("routePresentationReason", diagnostics)
+        renderer = (ROOT / "PRTS/Spatial/Rendering/ProbeRenderer.swift").read_text()
+        self.assertIn("presentation?.path.points.hashValue", renderer)
+        self.assertIn("routeDisplayedVerifiedLength:drawnPath > 0", renderer)
 
     def test_model_matches_verified_probe(self):
         sources = [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]

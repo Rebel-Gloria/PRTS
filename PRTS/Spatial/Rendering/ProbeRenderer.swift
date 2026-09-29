@@ -275,7 +275,12 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         if s.running || s.frame != nil {
             let geometryReason = s.result.map { s.presentationGate.geometryBlockReason($0,now:start) } ?? "no_analysis_result"
             let guidanceReason = s.result.map { s.presentationGate.guidanceBlockReason($0,now:start) } ?? "no_analysis_result"
-            diagnostics.render(.init(phase:"submitted",renderID:renderID,epoch:s.epoch,frameID:snapshot?.id,uptime:start,sourceTimestamp:snapshot?.frame.timestamp,
+            diagnostics.render(.init(phase:"submitted",
+                routeContext:s.pathUpdate.continuity,routePublicationReason:s.routePublicationReason,
+                routePublishTime:s.routePublishTime,
+                routePresentationReason:drawnPath == 0 ? "not_submitted_display_gate_or_no_geometry" : predictedPath != nil ? (predictedPath!.historical ? "historically_supported" : "current_supported") : (s.activeRouteProjection(now:start) != nil ? "direction_projection_only" : s.pathUpdate.reason),
+                routeDisplayedVerifiedLength:drawnPath > 0 && predictedPath?.path.verifiedEvidence == true ? predictedPath?.path.length : 0,
+                renderID:renderID,epoch:s.epoch,frameID:snapshot?.id,uptime:start,sourceTimestamp:snapshot?.frame.timestamp,
                 analysisFrameID:s.result?.frameID,analysisTimestamp:s.result?.timestamp,geometryBlockReason:geometryReason,guidanceBlockReason:guidanceReason,
                 modelBlockReasons:s.result?.diagnostics?.modelBlockReasons ?? [],running:s.running,frozen:s.frozen != nil,options:s.options,
                 surfaceVertices:drawnSurfaces,
@@ -376,7 +381,9 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         guard presentation != nil || projection != nil else {
             pathBuffer = nil; pathCount = 0; pathApproachCount = 0; pathTargetCount = 0; pathKey = ""; return
         }
-        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(String(describing: presentation?.path.points.first)):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0)"
+        // A proof suffix can expire between analysis frames. Include ALL geometry, not
+        // only the first point/frame ID, so the cached buffer cannot retain an expired tail.
+        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(presentation?.path.points.hashValue ?? 0):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0)"
         guard key != pathKey else { return }; pathKey = key
         var meshes = presentation.map { PathDrawing.meshes($0) } ?? []
         if let projection { meshes.append(PathDrawing.projectionMesh(projection, observed: presentation)) }
@@ -385,7 +392,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
             let color: SIMD4<Float>
             switch mesh.role {
             case .unknownApproach: color = SIMD4(0.1,0.85,1,0.7); pathApproachCount += mesh.vertices.count
-            case .prediction: color = SIMD4(1,0.96,0.18,1)
+            case .prediction: color = SIMD4(0.65,0.75,1,0.6)
             case .history: color = SIMD4(1,0.52,0.08,0.85)
             case .observed: color = SIMD4(1,0.96,0.18,1)
             case .target: color = (presentation?.historical == true && presentation?.path.worldLocked != true) ? SIMD4(1,0.52,0.08,0.9) : SIMD4(1,0.96,0.18,1); pathTargetCount += mesh.vertices.count

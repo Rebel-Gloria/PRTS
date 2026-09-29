@@ -16,7 +16,9 @@ struct Output: Encodable {
 let decoder = JSONDecoder()
 let encoder = JSONEncoder()
 encoder.outputFormatting = .sortedKeys
-var predictor = PathPredictor(experimentalOccupancyPlanning: true)
+// Historical experiment is explicit; Dev recording does not select a planner.
+let experimental = CommandLine.arguments.contains("--experimental-occupancy")
+var predictor = PathPredictor(experimentalOccupancyPlanning: experimental)
 let input = try String(contentsOfFile: CommandLine.arguments[1], encoding: .utf8)
 for line in input.split(separator: "\n") {
   let row = try decoder.decode(Input.self, from: Data(line.utf8))
