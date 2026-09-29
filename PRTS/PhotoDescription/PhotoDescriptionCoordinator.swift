@@ -9,47 +9,75 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     @Published private(set) var message = ""
     private var press = PhotoPressState()
     private var timer: Task<Void, Never>?
-    private var work: Task<Void, Never>?
+    private(set) var work: Task<Void, Never>?
     private var imageTask: Task<Data, Error>?
     private var generation = UUID()
-    private var snapshot: (() -> FrameSnapshot?)?
+    private var captureOperation: (() throws -> Task<Data, Error>)?
     private var key = ""
-    private let recognizer = PhotoSpeechRecognizer()
-    private let audio = PhotoAudioOutput()
+    private let recognizer: any PhotoRecognizing
+    private let audio: any PhotoAnswerAudio
+    private let services: PhotoDescriptionServices
 
-    init() {
+    convenience init() {
+        self.init(recognizer: PhotoSpeechRecognizer(), audio: PhotoAudioOutput(), services: .init())
+    }
+
+    init(recognizer: any PhotoRecognizing,
+         audio: any PhotoAnswerAudio,
+         services: PhotoDescriptionServices) {
+        self.recognizer = recognizer
+        self.audio = audio
+        self.services = services
         audio.onFinished = { [weak self] in self?.cancel(clearMessage: true) }
     }
 
     func down(snapshot: @escaping () -> FrameSnapshot?, silence: () -> Void) {
+        let now = services.now
+        down(capture: {
+            guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
+                throw PhotoChatError.emptyInput
+            }
+            return Task.detached(priority: .userInitiated) {
+                try Task.checkCancellation()
+                let data = try PhotoImageEncoder.jpeg(frame: frame)
+                try Task.checkCancellation()
+                return data
+            }
+        }, silence: silence)
+    }
+
+    func down(capture: @escaping () throws -> Task<Data, Error>, silence: () -> Void) {
         guard !busy else { return }
-        guard UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed") else {
+        guard services.uploadAllowed() else {
             message = "请在设置 → 拍照描述中允许发送图片"; return
         }
         do {
-            guard let credential = try PhotoCredentialStore.read(), !credential.isEmpty else {
+            guard let credential = try services.credential(), !credential.isEmpty else {
                 throw PhotoChatError.missingKey
             }
             key = credential
         } catch { message = error.localizedDescription; return }
         silence()
         generation = UUID()
-        self.snapshot = snapshot
+        captureOperation = capture
         busy = true; message = "松手描述，长按提问"
-        press.begin(at: ProcessInfo.processInfo.systemUptime)
+        press.begin(at: services.now())
         let id = generation
         timer = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
             guard let self, self.generation == id else { return }
-            if self.press.advance(to: ProcessInfo.processInfo.systemUptime) == .startRecording {
-                self.startRecording()
-            }
+            self.advancePress()
         }
+    }
+
+    /// Timer and deterministic tests use the same transition; the clock is authoritative.
+    func advancePress() {
+        if press.advance(to: services.now()) == .startRecording { startRecording() }
     }
 
     func up() {
         timer?.cancel(); timer = nil
-        let actions = press.release(at: ProcessInfo.processInfo.systemUptime)
+        let actions = press.release(at: services.now())
         for action in actions {
             switch action {
             case .shortCapture:
@@ -87,31 +115,23 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         work?.cancel(); work = nil
         imageTask?.cancel(); imageTask = nil
         recognizer.cancel(); audio.stop()
-        snapshot = nil; key = ""; busy = false
+        captureOperation = nil; key = ""; busy = false
         if clearMessage { message = "" }
     }
 
     private func capture() throws {
-        guard let frame = snapshot?(),
-              ProcessInfo.processInfo.systemUptime - frame.receivedAt < 1 else {
-            throw PhotoChatError.emptyInput
-        }
-        snapshot = nil
-        imageTask = Task.detached(priority: .userInitiated) {
-            try Task.checkCancellation()
-            let data = try PhotoImageEncoder.jpeg(frame: frame)
-            try Task.checkCancellation()
-            return data
-        }
+        guard let captureOperation else { throw PhotoChatError.emptyInput }
+        self.captureOperation = nil
+        imageTask = try captureOperation()
     }
 
     private func startRecording() {
-        guard PhotoSpeechRecognizer.authorized else {
+        guard services.speechAuthorized() else {
             cancel()
             message = "请允许麦克风和语音识别，然后重新长按"
             let id = generation
             work = Task { [weak self] in
-                let granted = await PhotoSpeechRecognizer.requestPermissions()
+                let granted = await self?.services.requestSpeechPermission() ?? false
                 guard let self, self.generation == id else { return }
                 self.message = granted ? "已授权，请重新长按提问" : "请在系统设置中允许麦克风和语音识别"
             }
@@ -127,13 +147,13 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     private func submit(question: String) {
         guard let imageTask else { return }
-        let id = generation, credential = key
+        let id = generation, credential = key, describe = services.describe
         key = ""; message = "正在描述"
         work = Task { [weak self] in
             do {
                 let jpeg = try await imageTask.value
                 try Task.checkCancellation()
-                let answer = try await PhotoChatClient().describe(jpeg: jpeg, text: question, key: credential)
+                let answer = try await describe(jpeg, question, credential)
                 try Task.checkCancellation()
                 guard let self, self.generation == id else { return }
                 self.imageTask = nil
