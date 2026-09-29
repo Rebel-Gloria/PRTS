@@ -49,3 +49,8 @@ Build 14 adds explicitly opt-in experimental occupancy planning for Dev Capture 
 TemporalOccupancyGrid (300ms world-position persistence), GreedyDetourSearch and independent
 filter diagnostics. Normal builds retain the evidence-aware route policy. Raw sensor/grid
 records are never overwritten by the hypothetical planning raster.
+
+World-route lock follow-up: Dev routes keep their reference plane, endpoint and bends when
+the camera-aligned raster moves away; confirmed occupancy still vetoes. Rendering uses
+solid approach/history in this mode. Normal routes retain their evidence policy.
+See docs/architecture/WORLD_ROUTE_LOCK_2026-09-29.md for the compact-grid replay limitation.
