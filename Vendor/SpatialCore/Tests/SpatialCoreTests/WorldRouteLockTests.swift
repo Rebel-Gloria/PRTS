@@ -42,7 +42,7 @@ extension ForwardRouteTests {
       planner.update(result: frame(), observation: nil, options: .init()).path)
     let presentation = PathPresentation(
       path: path, age: 0.3, historical: true,
-      approach: [V3.zero, path.points[0]])
+      approach: [path.points[0]+V3(0,0,0.2), path.points[0]])
     let meshes = PathDrawing.meshes(presentation)
     XCTAssertFalse(meshes.contains { $0.role == .unknownApproach || $0.role == .history })
     let approach = try XCTUnwrap(meshes.first)

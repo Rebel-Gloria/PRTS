@@ -142,6 +142,23 @@ public enum RouteEvidencePresentation {
   }
 }
 public enum RouteArc {
+  /// Merge only same-direction collinear vertices. No corner shortcut, obstacle query or
+  /// change to the world-space curve; repeated rolling-tail appends stay two-point lines.
+  public static func coalescingCollinear(_ points: [V3]) -> [V3] {
+    var output: [V3] = []
+    for point in points {
+      if let last = output.last,simd_distance(last,point) < 0.00001 { continue }
+      while output.count >= 2 {
+        let a = output[output.count-2],b = output[output.count-1]
+        let ab = b-a,bc = point-b
+        guard simd_dot(ab,bc) > 0,
+          simd_length(simd_cross(ab,bc)) <= 0.00001 * max(1,simd_length(ab+bc)) else { break }
+        output.removeLast()
+      }
+      output.append(point)
+    }
+    return output
+  }
   public static func length(_ points: [V3]) -> Float {
     zip(points, points.dropFirst()).reduce(0) { $0 + simd_distance($1.0, $1.1) }
   }

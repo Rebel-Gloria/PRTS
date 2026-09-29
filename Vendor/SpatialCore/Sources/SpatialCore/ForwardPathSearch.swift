@@ -19,6 +19,9 @@ enum ForwardPathSearch {
         let startProgress = max(0, reference.coordinates(foot).y)
         let limit = min(maxProgress ?? .infinity, startProgress + raster.maxDistance)
         guard limit > startProgress else { return .init() }
+        if raster.obstacleVeto {
+            return occupancyStraight(raster:raster,reference:reference,foot:foot,start:startProgress,end:limit)
+        }
         let step = grid.cellSize / 4
         var trace = StraightPathTrace()
         var last: V3?
@@ -56,6 +59,28 @@ enum ForwardPathSearch {
         return trace
     }
 
+    /// Test the full extension first. If occupied, bisect a monotonic prefix instead of
+    /// walking hundreds of 2.5cm samples. The result still uses the identical swept width.
+    private static func occupancyStraight(raster: RoutePlanningGrid,reference: ForwardRouteReference,
+                                          foot: V3,start: Float,end: Float) -> StraightPathTrace {
+        let entry = reference.point(start)
+        guard raster.supports([foot,entry]) else { return .init() }
+        var reach = end
+        if !raster.supports([entry,reference.point(end)]) {
+            var lo = start,hi = end
+            for _ in 0..<16 {
+                if hi-lo <= raster.grid.cellSize/4 { break }
+                let middle = (lo+hi)/2
+                if raster.supports([entry,reference.point(middle)]) { lo = middle }
+                else { hi = middle }
+            }
+            reach = lo
+        }
+        let length = reach-start
+        return .init(points:length >= 0.3 ? [entry,reference.point(reach)] : [],
+                     entry:entry,observedLength:length)
+    }
+
     /// Return to the earliest footprint-supported point past the obstacle, then continue along
     /// the original line. Choosing the fixed far goal alone cuts a long diagonal instead.
     static func detour(
@@ -71,7 +96,7 @@ enum ForwardPathSearch {
             guard raster.contains(join) else { continue }
             let search = FanPathSearch.plan(
                 grid: raster.grid, mask: raster.mask, width: raster.requiredWidth,
-                halfAngleDegrees: 90, maxDistance: raster.maxDistance, fixedTarget: join, start: entry,
+                halfAngleDegrees: 90, maxDistance: raster.maxDistance, fixedTarget: join, start: entry, allowUnknown:raster.obstacleVeto,
                 cellFilter: { p in
                     let q = reference.coordinates(raster.grid.basis.world(x: p.x, h: 0, z: p.y))
                     // Commit to a side only through the obstacle's longitudinal envelope.
@@ -100,7 +125,7 @@ enum ForwardPathSearch {
     ) -> FanPathPlan {
         FanPathSearch.plan(
             grid: raster.grid, mask: raster.mask, width: raster.requiredWidth,
-            halfAngleDegrees: 90, maxDistance: raster.maxDistance, start: entry,
+            halfAngleDegrees: 90, maxDistance: raster.maxDistance, start: entry, allowUnknown:raster.obstacleVeto,
             cellFilter: { p in
                 let q = reference.coordinates(raster.grid.basis.world(x: p.x, h: 0, z: p.y))
                 return q.y < obstacle.near - raster.requiredWidth / 2 || Float(side) * q.x >= -0.00001

@@ -60,8 +60,12 @@ class SpatialIntegrationTests(unittest.TestCase):
     def test_forward_strategy_preserves_clearance_math_and_module_boundaries(self):
         before = (PROBE / "Core/Sources/SpatialCore/FanPathSearch.swift").read_text()
         after = (ROOT / "Vendor/SpatialCore/Sources/SpatialCore/FanPathSearch.swift").read_text()
-        self.assertEqual(before.split("public struct FanPathPlan")[0],
-                         after.split("public struct FanPathPlan")[0])
+        # Build18 changes raster permissions, not swept segment/cell distance math.
+        # Pin the actual overlap implementation rather than freezing the old mask policy.
+        def clearance_math(text):
+            return text.split("public static func segment", 1)[1].split("public struct FanPathPlan", 1)[0]
+        self.assertEqual(clearance_math(before), clearance_math(after))
+        self.assertIn("radius: Float,allowUnknown: Bool = false", after)
         core = ROOT / "Vendor/SpatialCore/Sources/SpatialCore"
         for name in ("ForwardRoutePlanner.swift", "ForwardRouteState.swift", "ForwardPathSearch.swift", "RoutePlanningGrid.swift",
                      "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift", "RouteEvidenceMap.swift", "RouteContinuity.swift"):

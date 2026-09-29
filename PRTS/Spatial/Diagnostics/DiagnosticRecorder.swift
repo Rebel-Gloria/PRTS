@@ -95,6 +95,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             "groundConfirmationMetric":"local plane height at camera <4cm and normal angle <3deg; 3 current confirmations",
             "groundReferencePolicy":"Obstacle-veto: fixed world drawing reference from plane/grid/prior or initial camera height 1.4m. Ground/evidence TTL is diagnostic only. Epoch/reset changes still invalidate.",
             "planningPolicy":PRTSRuntimeProfile.routePlanningPolicy.rawValue, "routeSchemaVersion":"3",
+            "routeAlgorithmRevision":"turn_tail_v2; yaw dwell 3s/10deg/0.75s gap; full-segment greedy prefix; collinear tail coalescing",
             "occupancyRule":"Only confirmed occupancy blocks search; other cells are hypothesis-searchable. Confirmation 0.3s, maximum matching gap 0.75s, missing hits reset. Raw sensor grid unchanged.",
             "routeEvidenceOptions":String(data:(try? DiagnosticJSON.encode(RouteEvidenceOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
             "routeContinuityOptions":String(data:(try? DiagnosticJSON.encode(RouteContinuityOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",

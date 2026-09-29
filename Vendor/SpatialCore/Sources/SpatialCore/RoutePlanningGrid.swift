@@ -10,8 +10,10 @@ public struct RoutePlanningGrid: Sendable {
     public var blueCells: Int
     public var requiredWidth: Float
     public var maxDistance: Float
+    public var obstacleVeto: Bool
 
-    public init?(result: AnalysisResult, options: PathOptions = .init(), requireBodyClearance: Bool = false) {
+    public init?(result: AnalysisResult, options: PathOptions = .init(), requireBodyClearance: Bool = false, obstacleVeto: Bool = false) {
+        self.obstacleVeto = obstacleVeto
         guard var grid = result.grid, result.plane != nil,
             grid.epoch == result.epoch, grid.frameID == result.frameID,
             grid.timestamp == result.timestamp
@@ -32,7 +34,7 @@ public struct RoutePlanningGrid: Sendable {
         blueCells = supported
         requiredWidth = requireBodyClearance ? options.minimumWidth : options.validated().minimumWidth
         maxDistance = result.parameters.forwardRange
-        mask = PathClearance.mask(grid: grid, radius: requiredWidth / 2)
+        mask = PathClearance.mask(grid: grid, radius: requiredWidth / 2, allowUnknown: obstacleVeto)
     }
 
     public func contains(_ world: V3) -> Bool {
@@ -46,7 +48,7 @@ public struct RoutePlanningGrid: Sendable {
             let aa = grid.basis.local(a)
             let bb = grid.basis.local(b)
             return PathClearance.segment(
-                grid: grid, from: SIMD2(aa.x, aa.z), to: SIMD2(bb.x, bb.z), radius: requiredWidth / 2)
+                grid: grid, from: SIMD2(aa.x, aa.z), to: SIMD2(bb.x, bb.z), radius: requiredWidth / 2, allowUnknown: obstacleVeto)
         }
     }
 }
