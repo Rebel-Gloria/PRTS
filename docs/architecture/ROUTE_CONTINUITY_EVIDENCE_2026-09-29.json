@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "purpose": "round1_build_evidence_not_sensor_ground_truth",
+  "baselineCommit": "79f853e",
+  "sourceCommit": "e0ac3306412e293d4c111689c5f16c05322e9f94",
+  "build": "16",
+  "bundleID": "com.jingxuan.PRTS",
+  "devCaptureCompiled": true,
+  "deviceModel": "iPhone 15 Pro",
+  "installOutcome": "success",
+  "launchOutcome": "success",
+  "checks": {
+    "coreDebug": 270,
+    "coreRelease": 270,
+    "contracts": 8,
+    "python": 46,
+    "devSimulatorAppTests": 14,
+    "realSensorAcceptance": "not_performed"
+  },
+  "artifacts": {
+    "baseline-core.log": {
+      "sha256": "72e6e8ce2742cee1089569e462bd798cbb4d62019c233494ebb73cafb9096694",
+      "bytes": 62895
+    },
+    "baseline-contracts.log": {
+      "sha256": "d84f5c7cfb714912efd4cf5133c979f757f2e1669a3e204cad7171ada0819890",
+      "bytes": 3849
+    },
+    "baseline-python.log": {
+      "sha256": "fe084bea8a310bb13a8dc7c5315050129b6d1cc3eaf0ddc605ef12b38e836480",
+      "bytes": 144
+    },
+    "regression-before.log": {
+      "sha256": "00d396ab2bba159270bdc3127cbfd77f53ae044b7a30d04ea79da4c67e15f1d3",
+      "bytes": 3327
+    },
+    "core-final-debug.log": {
+      "sha256": "dc4b990a6d8edbe464989b7bf1d8aef4306920b12789fb736d88330563cac943",
+      "bytes": 68276
+    },
+    "core-final-release.log": {
+      "sha256": "96a8c2f6b458c70b180b18ab9918f94cc1a69c6f0375f00abac1ecad74b43acf",
+      "bytes": 68210
+    },
+    "contracts-final.log": {
+      "sha256": "c7d6846dfde507af2f1ec81cd75bf2d738675e31dfc350f595bdeea6502f09f4",
+      "bytes": 2887
+    },
+    "python-final.log": {
+      "sha256": "a7033ab1d0772f035fbe1d6fec5db188d6a02c44d3f9877e4bfce0815749119f",
+      "bytes": 145
+    },
+    "normal-release.log": {
+      "sha256": "c16e5c40a9bfa9f92ed84575238dd328554dba4d5d460ebf3ab1e69de3537f7a",
+      "bytes": 81242
+    },
+    "dev-simulator-tests.log": {
+      "sha256": "144e0ff2c81b7fa1c734d8638aa3202466c69984f0df8bd72c4045c475475172",
+      "bytes": 93469
+    },
+    "signed-dev-release.log": {
+      "sha256": "b8d1d95719a80f0fc58999bfb643b9ca37763bc0dcbd66a45162e685e9aad7bf",
+      "bytes": 173783
+    },
+    "signature-details.log": {
+      "sha256": "fe36c966cc7f801af6b208b08bd0e8abeb0cb0c9c845e053e8d44d6d4f1d2bdc",
+      "bytes": 1085
+    },
+    "replay-verified.jsonl": {
+      "sha256": "934038beedc84a8c26a074c60bacc41cdf0071ecbdae0b9e5cd0a9dbd1013c07",
+      "bytes": 138905
+    },
+    "device-install.json": {
+      "sha256": "625b0188ef383b35a1c929e3b587eff2b31037ccbb7531db5e75225693392b18",
+      "bytes": 1001
+    },
+    "device-launch.json": {
+      "sha256": "0253b6645e478f9323da2daeb3bb5f922b3c95de74ae99c0bb779b90bad4039e",
+      "bytes": 1233
+    },
+    "push-code.log": {
+      "sha256": "d121da9b52cac73019258027f8cff4ec237db37b96261ec46b25413b22779ee7",
+      "bytes": 78
+    }
+  },
+  "signedBinarySHA256": "fb87a4fbc37b693070a181087b1475bab3e100ff8ecab9ac881ea9da297b8373"
+}
