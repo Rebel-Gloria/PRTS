@@ -17,3 +17,35 @@ Original SHA-256 values (from `PRTSTEST/Reports/source-sha256.json`):
 
 PRTS adds `SceneContracts.swift` and `FeedbackPolicy.swift`. The copied algorithm behavior is kept unchanged; `Grid.swift` only adds synthesized `Hashable` conformances
 for `CellState` and `Sector` so they can be stable contract identifiers. Original synthetic behavior remains directly comparable.
+
+## Main-only route evolution (2026-09-29)
+
+The original hashes above are historical provenance, not hashes of the current package.
+`PathPrediction.swift` is now a stable facade over `ForwardRoutePlanner`; the new `Forward*`
+helpers implement forward-first routing, a near-field trigger, same-side avoidance/rejoining,
+and continuous user-turn dwell. `FanPathSearch` adds explicit-root and constrained-search inputs;
+its default graph-search behavior and `PathClearance` collision mathematics retain regression coverage.
+`PathObstacleCheck` extracts the existing current-depth veto and supports sample clusters straddling
+cell boundaries. It also vetoes newly generated routes. No original experiment files were overwritten.
+
+See [forward route policy](../../docs/architecture/FORWARD_ROUTE_POLICY.md) for contracts and limitations.
+All new route-policy tests use synthetic inputs; physical-device acceptance is still pending.
+
+## 2026-09-29 evening route evolution
+
+Added RoutePlanningGrid (current measured ground evidence, independent of rendered triangles),
+rolling straight horizons, swept-route preview triggers, nearest-component selection, same-side
+entry reacquisition, and locally evaluated plane compatibility. PathClearance collision math and
+the sensor/ground estimator remain unchanged. Updated synthetic fixtures to include actual
+ground evidence and changed only explicitly superseded fixed-goal/one-metre-trigger expectations.
+See docs/architecture/ROUTE_REPLAY_2026-09-29.md in the main repository for sampled replay limits.
+
+2026-09-29 projection layer: RouteProjection adds visual-only planar extrapolation on the
+current 2D occupancy grid. PathDrawing now shares ribbons with a distinct prediction role.
+The frozen experiment remains unchanged. PathUpdate stores an optional backward-compatible
+projection; measured routes, goals and feedback continue to use their existing evidence.
+
+Build 14 adds explicitly opt-in experimental occupancy planning for Dev Capture builds:
+TemporalOccupancyGrid (300ms world-position persistence), GreedyDetourSearch and independent
+filter diagnostics. Normal builds retain the evidence-aware route policy. Raw sensor/grid
+records are never overwritten by the hypothetical planning raster.
