@@ -14,6 +14,13 @@ struct ForwardRoutePlanner: Sendable {
     }
     var obstacleConfirmationSeconds: Double = 0.3
     var locksWorldGeometry = false
+    var verifiedEvidence = false
+    var renewalDistance: Float = 1.5
+    var retainedPath: PredictedPath? { path }
+    mutating func restrictToEvidence(_ points: [V3]) {
+        guard points.count >= 2 else { path = nil; return }
+        path?.points = points
+    }
     private var persistence = ObstaclePersistence()
     private var path: PredictedPath?
     private var goal: FixedPathGoal?
@@ -40,7 +47,7 @@ struct ForwardRoutePlanner: Sendable {
 
     mutating func update(
         result r: AnalysisResult, observation: DepthObservation?, options: PathOptions,
-        directionStable: Bool?
+        directionStable: Bool?, currentGrid: LocalGrid? = nil
     ) -> PathUpdate {
         let started = ProcessInfo.processInfo.systemUptime
         guard let pose = r.sourcePose ?? observation?.pose else {
@@ -53,7 +60,7 @@ struct ForwardRoutePlanner: Sendable {
         let confirmed =
             ["current_confirmed", "native_confirmed"].contains(r.diagnostics?.groundReferenceMode ?? "")
             && r.plane != nil
-        let raster = RoutePlanningGrid(result: r, options: options)
+        let raster = RoutePlanningGrid(result: r, options: options, requireBodyClearance: verifiedEvidence)
 
         if let ref = reference, let plane = r.plane, r.diagnostics?.groundConfirmed == true,
             abs(plane.height(ref.plane.project(pose.position))) > 0.12
@@ -61,14 +68,16 @@ struct ForwardRoutePlanner: Sendable {
         {
             let delay = obstacleConfirmationSeconds
             let locked = locksWorldGeometry
+            let verified = verifiedEvidence
             self = .init()
             obstacleConfirmationSeconds = delay
             locksWorldGeometry = locked
+            verifiedEvidence = verified
             return .init(reason: "ground_or_metric_conflict")
         }
         // Compare local floor heights above, not a tilted plane extrapolated to an old,
         // distant route origin. Reproject height while keeping the same world heading.
-        if !locksWorldGeometry, confirmed, let plane = r.plane, var ref = reference {
+        if !locksWorldGeometry && !verifiedEvidence, confirmed, let plane = r.plane, var ref = reference {
             let projected = ref.forward - plane.normal * simd_dot(ref.forward, plane.normal)
             if simd_length(projected) > 0.5 {
                 ref.origin = plane.project(ref.origin)
@@ -94,7 +103,7 @@ struct ForwardRoutePlanner: Sendable {
         }
         if let fixed = goal {
             let distance = simd_distance(fixed.plane.project(pose.position), fixed.point)
-            if distance <= options.arrivalRadius {
+            if !verifiedEvidence && distance <= options.arrivalRadius {
                 change = "target_reached"
                 if maneuver?.mode == .sideRoute { reference = nil }
                 path = nil
@@ -129,7 +138,7 @@ struct ForwardRoutePlanner: Sendable {
 
         var previousEntry: V3?
         if var old = path {
-            let remaining = PathTracking.remaining(old.points, plane: old.plane, pose: pose)
+            let remaining = verifiedEvidence ? old.points : PathTracking.remaining(old.points, plane: old.plane, pose: pose)
             previousEntry = remaining.first
             if remaining.count < 2 || abs(old.requiredWidth - options.minimumWidth) > 0.001 {
                 path = nil
@@ -140,7 +149,7 @@ struct ForwardRoutePlanner: Sendable {
                     path = nil
                     invalidated = true
                     reason = "current_obstacle_invalidated"
-                } else if locksWorldGeometry && confirmed {
+                } else if (locksWorldGeometry || verifiedEvidence) && confirmed {
                     // World route evidence is checked for new confirmed occupancy above.
                     // Leaving a camera-aligned raster is not a new obstacle or a reason to
                     // choose another endpoint. Keep points, plane and goal in world space.
@@ -169,7 +178,13 @@ struct ForwardRoutePlanner: Sendable {
                 trigger = ForwardObstacleTrigger.trigger(
                     raster: raster, device: device, reference: ref, options: options)
             }
-            let persistent = persistence.update(trigger, at: r.timestamp, threshold: obstacleConfirmationSeconds)
+            // Historical occupancy can block, but cannot manufacture repeated sensor hits.
+            let freshTrigger = trigger.flatMap { hit in
+                !verifiedEvidence || currentSupports(hit, reference:ref, grid:currentGrid) ? hit : nil
+            }
+            let persistent = persistence.update(freshTrigger, at:r.timestamp,
+                threshold:obstacleConfirmationSeconds,maximumGap:verifiedEvidence ? 0.75 : 0.2,
+                retainOnMissing:verifiedEvidence)
             diagnostics.obstacleAge = persistence.age
             diagnostics.obstacleConfirmed = persistent
             // Turn intention is measured relative to the NEXT route segment, not the original
@@ -179,7 +194,7 @@ struct ForwardRoutePlanner: Sendable {
             let tangent = intended.count >= 2 ? simd_normalize(intended[1] - intended[0]) : ref.forward
             var newStraight: StraightPathTrace?
             var newReference: ForwardRouteReference?
-            if confirmed, directionStable ?? r.sourceDirectionStable ?? false, let raster, let device {
+            if !verifiedEvidence, confirmed, directionStable ?? r.sourceDirectionStable ?? false, let raster, let device {
                 let proposed = ForwardRouteReference(origin: foot, forward: device.forward, plane: ref.plane)
                 newReference = proposed
                 newStraight = ForwardPathSearch.straight(raster: raster, reference: proposed, foot: foot)
@@ -236,6 +251,19 @@ struct ForwardRoutePlanner: Sendable {
                                 }
                             }
                         }
+                    }
+                }
+                // New evidence ahead is also a renewal trigger, even before the budget is
+                // exhausted. Append only on the original axis (never shortcut a side detour).
+                if verifiedEvidence, let old = path, let end = old.points.last,
+                    abs(ref.coordinates(end).x) < 0.05 {
+                    let tail = ForwardPathSearch.straight(raster:raster,reference:ref,foot:end)
+                    if let join = tail.points.first,let last = tail.points.last,
+                        simd_distance(end,join) <= raster.grid.cellSize,
+                        raster.supports([end,last]),
+                        simd_distance(end,last) > (old.length < renewalDistance ? 0.15 : 0.3) {
+                        accept(old.points+[last],result:r,options:options)
+                        reason = "verified_tail_extended"
                     }
                 }
                 if maneuver != nil {
@@ -307,8 +335,8 @@ struct ForwardRoutePlanner: Sendable {
                             reason = persistent ? "near_obstacle_no_observed_detour" : "obstacle_pending_confirmation"
                         }
                     }
-                } else if locksWorldGeometry, path != nil {
-                    reason = "world_route_preserved"
+                } else if locksWorldGeometry || verifiedEvidence, path != nil {
+                    if reason != "verified_tail_extended" { reason = verifiedEvidence ? "verified_prefix_retained" : "world_route_preserved" }
                 } else {
                     // Greedily extend along the reference to the farthest connected observed
                     // point. An unknown stripe truncates; no lateral exploration without a hit.
@@ -415,6 +443,19 @@ struct ForwardRoutePlanner: Sendable {
             let la = routeLength(a.1.points)
             let lb = routeLength(b.1.points)
             return abs(la - lb) > 0.001 ? la < lb : a.0 < b.0
+        }
+    }
+
+    private func currentSupports(_ obstacle: ForwardObstacle, reference: ForwardRouteReference,
+                                 grid: LocalGrid?) -> Bool {
+        guard let grid else { return false }
+        return grid.cells.indices.contains { i in
+            let c = grid.cells[i]
+            guard c.state == .obstacle || c.obstacleSamples >= 3 else { return false }
+            let p = grid.center(i), q = reference.coordinates(grid.basis.world(x:p.x,h:0,z:p.y))
+            let r = grid.cellSize / 2
+            return q.x+r >= obstacle.minLateral && q.x-r <= obstacle.maxLateral &&
+                q.y+r >= obstacle.near && q.y-r <= obstacle.far
         }
     }
 

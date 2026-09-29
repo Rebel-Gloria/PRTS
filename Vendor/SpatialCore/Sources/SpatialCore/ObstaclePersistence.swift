@@ -10,12 +10,16 @@ struct ObstaclePersistence: Sendable {
 
   mutating func reset() { self = .init() }
 
-  mutating func update(_ obstacle: ForwardObstacle?, at time: Double, threshold: Double = 0.3)
+  mutating func update(_ obstacle: ForwardObstacle?, at time: Double, threshold: Double = 0.3, maximumGap: Double = 0.2, retainOnMissing: Bool = false)
     -> Bool
   {
-    guard let obstacle, time.isFinite else {
-      reset()
-      return false
+    guard time.isFinite else { reset(); return false }
+    guard let obstacle else {
+      // Missing data cannot advance confirmation, nor erase a recent confirmed track.
+      if retainOnMissing, let last, time >= last, time-last <= maximumGap {
+        return age + 0.000001 >= threshold
+      }
+      reset(); return false
     }
     let same =
       previous.map {
@@ -24,7 +28,7 @@ struct ObstaclePersistence: Sendable {
           && min($0.maxLateral, obstacle.maxLateral) >= max($0.minLateral, obstacle.minLateral)
             - 0.05
       } ?? false
-    let continuous = last.map { time > $0 && time - $0 <= 0.2 + 0.000001 } ?? false
+    let continuous = last.map { time > $0 && time - $0 <= maximumGap + 0.000001 } ?? false
     if !same || !continuous { first = time }
     previous = obstacle
     last = time
