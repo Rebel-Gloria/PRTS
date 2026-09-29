@@ -1,6 +1,6 @@
 # PRTS code structure
 
-Generated/maintained on 2026-09-28. Paths below are relative to the repository root.
+Generated/maintained on 2026-09-29. Paths below are relative to the repository root.
 
 ```text
 PRTS/
@@ -19,6 +19,7 @@ PRTS/
 │   └── CameraPreview.swift            # Shared Metal camera surface
 ├── Feedback/
 │   ├── FeedbackCoordinator.swift     # Result → speech/haptic policy
+│   ├── RouteAnnouncementPolicy.swift # One cue per avoidance/rejoin stage
 │   ├── SpeechManager.swift            # TTS ownership and cancellation
 │   ├── HapticManager.swift            # General UI/obstacle haptics
 │   └── PathHaptics.swift              # Fixed-target direction haptics
@@ -37,12 +38,23 @@ PRTS/
 │   ├── Diagnostics/
 │   │   ├── DiagnosticRecorder.swift    # Automatic launch diagnostics
 │   │   └── SessionRecorder.swift       # Manual spatial sample recording
+│   ├── DevCapture/                     # Compiled only with PRTS_DEV_CAPTURE
+│   │   └── DevCaptureRecorder.swift     # Optional low-rate RGB + sensor evidence
 │   └── Models/                         # Model files and provenance
 └── Assets.xcassets/
 
 Vendor/
 ├── SpatialCore/                        # Pure Swift geometry and path algorithms
 │   ├── Sources/SpatialCore/
+│   │   ├── PathPrediction.swift         # Public path contracts, order/session facade, presentation
+│   │   ├── ForwardRoutePlanner.swift    # Straight/avoid/rejoin/user-turn state machine
+│   │   ├── RoutePlanningGrid.swift     # Current measured ground support, independent of rendering
+│   │   ├── ForwardRouteState.swift      # World reference, diagnostics and turn dwell
+│   │   ├── ForwardObstacleTrigger.swift # Near triangle and occupied-component extent
+│   │   ├── ForwardPathSearch.swift      # Straight trace, return and side-route searches
+│   │   ├── FanPathSearch.swift          # Shared graph search and footprint collision checks
+│   │   ├── PathObstacleCheck.swift      # Current grid/depth veto for every route
+│   │   └── …                            # Existing ground/depth/grid/diagnostic algorithms retained
 │   └── Tests/SpatialCoreTests/
 └── PRTSCore/                           # Optional contracts/model compatibility
 
@@ -61,3 +73,13 @@ Experiments/SpatialProbe/               # Standalone validation application snap
 6. The home screen may hide presentation layers, but must not stop capture or analysis as a side effect.
 
 The source layout is checked by `scripts/test_spatial_integration.py`. The test also verifies that presentation overlays do not create a second `ARSession` or timer and that the legacy product-home controls remain present.
+
+## Forward-route extension
+
+The 2026-09-29 strategy adds helpers inside the existing modules; no existing directories were moved.
+`PathPredictor` remains the runtime entry point. The policy, diagnostic schema and synthetic/physical validation boundary are in [Forward route policy](FORWARD_ROUTE_POLICY.md).
+
+### 平面预测扩展
+`SpatialCore/RouteProjection.swift` 负责二维占用截断与视觉预测；
+`PathDrawing` 生成独立虚线。App 的 Snapshot/Renderer 只负责展示，Feedback 不读取预测线。
+详见 [ROUTE_PROJECTION.md](ROUTE_PROJECTION.md)。

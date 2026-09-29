@@ -20,3 +20,13 @@ PRTS 当前默认运行“第一阶段完全离线基础感知”：单一 ARKit
 显式使用 `PRTS_DEV_CAPTURE` 才编译信息采集入口及录像代码，普通包不包含。
 开发包仍默认关闭，手动启用后保存低帧率压缩RGB与同帧ARKit/DA输出、分析结果。
 编译、使用、隐私及回放格式见 [开发采集说明](docs/DEV_CAPTURE.md)。
+
+### 正前方路线与局部避障（2026-09-29）
+
+默认沿正前方贪心延伸观测路线，目标随新观测滚动前移；实际通行带出现障碍即预规划绕行。小障碍尽量回归原线，宽障碍改选侧向路线；用户保持新方向 3 秒且空间证据充分时跟随切换。
+模块拆分、阈值、日志、语音及待完成实机验收见 [路线策略说明](docs/architecture/FORWARD_ROUTE_POLICY.md)。
+
+代码量与完整文件树：[CODE_INVENTORY](docs/architecture/CODE_INVENTORY.md)。
+本轮审查与验证：[CODE_AUDIT](docs/architecture/CODE_AUDIT_2026-09-29.md)。
+
+晚间录制回放与路线优化：[对照报告](docs/architecture/ROUTE_REPLAY_2026-09-29.md)。
