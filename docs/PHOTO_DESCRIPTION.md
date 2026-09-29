@@ -50,7 +50,7 @@ Key使用WhenUnlockedThisDeviceOnly，不写入UserDefaults、代码、诊断或
 ## 验证边界
 
 模拟器App测试24项通过（原有14项、新增10项），覆盖精确请求、语音文本替换、SSE正文/思考分离、断流/空正文、半秒阈值/取消、图像四方向尺寸、模拟HTTP传输和401错误。
-核心296项、契约8项、Python46项通过。普通iOS Release编译通过；最终Dev签名/安装记录另补。
+核心296项、契约8项、Python46项通过。普通iOS Release编译通过；最终Dev签名/安装记录见下文。
 没有使用真实API Key，没有上传现场图片，尚未完成真实服务、麦克风、音色、A/B音及长按实机验收。
 后续受控实测：短按描述；长按问不同问题；权限拒绝再允许；请求中取消/后台；断网；
 横竖屏照片内容；VoiceOver操作；确认导航提示与回答不重叠。无需边行走边测试。
@@ -58,3 +58,25 @@ Key使用WhenUnlockedThisDeviceOnly，不写入UserDefaults、代码、诊断或
 协议参考：[OpenAI图像输入](https://developers.openai.com/api/docs/guides/images-vision)、
 [流式响应](https://developers.openai.com/api/docs/guides/streaming-responses)、
 [Apple原生语音请求](https://developer.apple.com/documentation/speech/sfspeechaudiobufferrecognitionrequest)。
+
+## 本轮交付
+
+- 实现提交：`b2f00a4`；权限设置与普通话音色调整：`2ea95f4`。
+- Dev二进制：`1.0 (19)`，源码`2ea95f4c59e4992d304d18af6887d404734e2821`。
+- 2026-09-30 00:48，安装到Gloria iPhone 15 Pro并成功启动；不卸载、不删除历史记录。
+- 最终源码模拟器App测试24项全部通过，签名Dev Release构建及严格签名检查通过。
+- 图像测试使用合成像素缓冲，HTTP测试使用URLProtocol模拟响应；没有上传真机照片。
+- 真实API、长按录音、A/B音、不同朗读音色与摄像头方向的实机体验仍待用户测试。
+- [校验和与证据](architecture/PHOTO_DESCRIPTION_EVIDENCE_2026-09-30.json)。
+
+复验命令：
+
+```sh
+xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Debug \
+  -destination 'platform=iOS Simulator,id=C6C8584E-5D03-4F9A-8B78-DD69BCC4194C' \
+  -derivedDataPath /tmp/prts-photo19/simulator -xcconfig configs/DevCapture.xcconfig \
+  CODE_SIGNING_ALLOWED=NO -only-testing:PRTSTests test
+xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
+  -destination 'generic/platform=iOS' -derivedDataPath /tmp/prts-photo19/signed \
+  -xcconfig configs/DevCapture.xcconfig PRTS_SOURCE_COMMIT=2ea95f4c59e4992d304d18af6887d404734e2821 build
+```

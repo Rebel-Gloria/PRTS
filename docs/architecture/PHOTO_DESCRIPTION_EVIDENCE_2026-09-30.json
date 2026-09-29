@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "2ea95f4c59e4992d304d18af6887d404734e2821",
+  "build": "19",
+  "devCondition": "PRTS_DEV_CAPTURE",
+  "appTests": {
+    "result": "Passed",
+    "passedTests": 24,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "coreTests": 296,
+  "contractTests": 8,
+  "pythonTests": 46,
+  "deviceInstall": "success",
+  "deviceLaunch": "success",
+  "liveAPI": "not_tested_no_credential",
+  "deviceAudioAndGestures": "awaiting_user_test",
+  "localEvidenceDirectory": "/tmp/prts-photo19",
+  "sha256": {
+    "prts-photo19-tests-final2.log": "a2e5297db9be401befe3b7cd0eb80ea1e52298c6552d463670446a47c182e450",
+    "prts-photo19-signed-final.log": "dff79e39ca25e8b251eb8abde15dd78e570a71bd4f92c858555814611c074404",
+    "prts-photo19-normal.log": "fc84aba82ced970a169bbd629b15ccf07b08cde60bb5d0041eb9557b6d894f53",
+    "prts-photo19-core.log": "f9c6fafdee230505c4c15853203fd6cfab8125d492d8c8284331b30591c1a4c9",
+    "prts-photo19-contracts.log": "34be78b7ba6b080a5f10bc21bdc254d78b1feb021f54979f292e200b77d3551a",
+    "prts-photo19-python.log": "4540f73a8588986f91a5e6d37435c98f1a5487c1350779bc0e7f534aa29e7d54",
+    "prts-photo19-signature.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "device-install.json": "da53005ff4ffef68e3720cc26f9ae0b21662136c1ee8366e31e883be7daef33a",
+    "device-launch.json": "fd6229c46ec29d1a6e078a02997f2943e089c855bab507f80b2cd5770f33488b",
+    "prts-photo19-normal-final.log": "2999e894103be354b6c91265fbb1009bc6067645753aed8c7938d90e361f7f31"
+  },
+  "ordinaryRelease": "passed_final_source_unsigned",
+  "devRelease": "passed_signed_and_codesign_verified"
+}
