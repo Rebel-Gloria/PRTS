@@ -64,6 +64,7 @@ public struct PredictedPath: Codable, Sendable {
     public var points: [V3]
     public var source: String
     public var requiredWidth: Float
+    public var worldLocked: Bool? = nil
     public var forwardStrategy: Bool? = nil // New routes retain world intent across camera turns.
     public var footAtPlan: V3? = nil
     public var targetRange: Float? = nil
@@ -214,6 +215,7 @@ public struct PathPredictor: Sendable {
         if experimentalOccupancyPlanning {
             obstacleConfirmationSeconds = 0 // Input cells have already passed the 300ms filter.
             planner.obstacleConfirmationSeconds = 0
+            planner.locksWorldGeometry = true
         }
     }
     // Test seam for geometry-only suites. Production always uses the default 300ms.
@@ -222,7 +224,7 @@ public struct PathPredictor: Sendable {
         planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds
     }
     public mutating func reset() {
-        occupancyFilter.reset();planner = .init();planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;lastFrame = 0;lastTimestamp = 0
+        occupancyFilter.reset();planner = .init();planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;planner.locksWorldGeometry = experimentalOccupancyPlanning;lastFrame = 0;lastTimestamp = 0
     }
     public mutating func update(result: AnalysisResult,observation: DepthObservation?,options: PathOptions,
                                 directionStable: Bool? = nil) -> PathUpdate {

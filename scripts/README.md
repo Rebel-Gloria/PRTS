@@ -30,3 +30,7 @@ python3 scripts/compare_route_replays.py /tmp/before.jsonl /tmp/after.jsonl
 
 比较要求相同顺序、epoch、frameID和timestamp；旧版可执行文件应在修改算法前保存。
 脚本不操作设备、不上传数据。回放包含当前足迹/障碍一致性检查，独立真值误差仍需人工测量。
+
+`replay_route_snapshots.swift` 读取逐行 `{result: AnalysisResult, options: PathOptions}`，
+运行Dev实验占用规划。输入若来自compact-grid重建，必须注明缺少逐格原始样本计数，
+不把结果标成完整传感器复现；保持真实时间戳，禁止给低帧率录像补造观测。

@@ -256,8 +256,12 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 }
                 updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime))
                 if s.options.showPath,let pathBuffer,pathCount > 0 {
+                    // Locked Dev routes are annotations. A noisy floor triangle must not
+                    // alternately cover/reveal a fixed world line (apparent broken dashes).
+                    if s.pathUpdate.occupancyFilter != nil { encoder.setDepthStencilState(noDepth) }
                     encoder.setVertexBuffer(pathBuffer,offset:0,index:0)
                     encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:pathCount); drawnPath = pathCount
+                    encoder.setDepthStencilState(worldDepth)
                 }
                 // Legacy multi-sector diagnostics remain available only when single-path mode is off.
                 if s.options.showPath,!s.pathOptions.enabled,s.options.showChannels,s.activeGuidanceResult(now:start) != nil,let channelBuffer,channelCount > 0 { encoder.setVertexBuffer(channelBuffer,offset:0,index:0); encoder.drawPrimitives(type:.line,vertexStart:0,vertexCount:channelCount); drawnChannels = channelCount }
@@ -384,7 +388,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
             case .prediction: color = SIMD4(1,0.96,0.18,1)
             case .history: color = SIMD4(1,0.52,0.08,0.85)
             case .observed: color = SIMD4(1,0.96,0.18,1)
-            case .target: color = presentation?.historical == true ? SIMD4(1,0.52,0.08,0.9) : SIMD4(1,0.96,0.18,1); pathTargetCount += mesh.vertices.count
+            case .target: color = (presentation?.historical == true && presentation?.path.worldLocked != true) ? SIMD4(1,0.52,0.08,0.9) : SIMD4(1,0.96,0.18,1); pathTargetCount += mesh.vertices.count
             }
             vertices += mesh.vertices.map { WorldVertex($0,color) }
         }

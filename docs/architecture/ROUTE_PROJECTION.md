@@ -70,3 +70,7 @@ Apple依据：https://developer.apple.com/videos/play/wwdc2020/10611/
 - 本轮证据：/tmp/prts-dev14-{tests,release-tests,python,signed,install,launch}.log。
 - 最终补充：普通 iPhoneOS Release 无签名编译通过；Dev Tag App 模拟器14项测试通过。
   模拟器语音库出现系统fallback日志，测试成功；真机发声时机仍待现场复测。
+
+## 世界路线保持修正
+最后一次build14日志发现移动局部栅格导致侧向路线反复重搜，以及近身连接虚线遗漏。
+后续修正采用世界坐标锁定和Dev统一实线，见 [WORLD_ROUTE_LOCK_2026-09-29.md](WORLD_ROUTE_LOCK_2026-09-29.md)。

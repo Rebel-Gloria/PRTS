@@ -54,7 +54,7 @@ struct HomeDemoOverlay: View {
                     if !model.options.showCameraImage { Text("RGB画面已隐藏；采集状态见主按钮") }
                     if model.options.showOverlays {
                         Text("蓝：地面 · 红：障碍范围")
-                        if model.options.showPath { Text("黄线：路线预估 · 圈：目标 · 橙虚线：缓存 · 青虚线：近身连接") }
+                        if model.options.showPath { Text("黄线：路线预估 · 圈：目标") }
                     }
                     if model.options.layer == .depth || model.options.overlayDepth {
                         LinearGradient(colors:[.red,.yellow,.cyan,.blue],startPoint:.leading,endPoint:.trailing).frame(height:6)

@@ -13,6 +13,7 @@ struct ForwardRoutePlanner: Sendable {
         var points: [V3]
     }
     var obstacleConfirmationSeconds: Double = 0.3
+    var locksWorldGeometry = false
     private var persistence = ObstaclePersistence()
     private var path: PredictedPath?
     private var goal: FixedPathGoal?
@@ -59,13 +60,15 @@ struct ForwardRoutePlanner: Sendable {
                 || simd_dot(plane.normal, ref.plane.normal) < 0.97
         {
             let delay = obstacleConfirmationSeconds
+            let locked = locksWorldGeometry
             self = .init()
             obstacleConfirmationSeconds = delay
+            locksWorldGeometry = locked
             return .init(reason: "ground_or_metric_conflict")
         }
         // Compare local floor heights above, not a tilted plane extrapolated to an old,
         // distant route origin. Reproject height while keeping the same world heading.
-        if confirmed, let plane = r.plane, var ref = reference {
+        if !locksWorldGeometry, confirmed, let plane = r.plane, var ref = reference {
             let projected = ref.forward - plane.normal * simd_dot(ref.forward, plane.normal)
             if simd_length(projected) > 0.5 {
                 ref.origin = plane.project(ref.origin)
@@ -137,6 +140,14 @@ struct ForwardRoutePlanner: Sendable {
                     path = nil
                     invalidated = true
                     reason = "current_obstacle_invalidated"
+                } else if locksWorldGeometry && confirmed {
+                    // World route evidence is checked for new confirmed occupancy above.
+                    // Leaving a camera-aligned raster is not a new obstacle or a reason to
+                    // choose another endpoint. Keep points, plane and goal in world space.
+                    old.observedAt = r.timestamp
+                    old.validatedFrameID = r.frameID
+                    path = old
+                    reason = "world_route_preserved"
                 } else if let raster, raster.supports(remaining) {
                     old.observedAt = r.timestamp
                     old.validatedFrameID = r.frameID
@@ -296,6 +307,8 @@ struct ForwardRoutePlanner: Sendable {
                             reason = persistent ? "near_obstacle_no_observed_detour" : "obstacle_pending_confirmation"
                         }
                     }
+                } else if locksWorldGeometry, path != nil {
+                    reason = "world_route_preserved"
                 } else {
                     // Greedily extend along the reference to the farthest connected observed
                     // point. An unknown stripe truncates; no lateral exploration without a hit.
@@ -427,7 +440,7 @@ struct ForwardRoutePlanner: Sendable {
             id: fixed.id, epoch: r.epoch, parameterVersion: r.parameterVersion,
             sourceFrameID: r.frameID, validatedFrameID: r.frameID, observedAt: r.timestamp,
             plane: ref.plane, points: points, source: r.source, requiredWidth: options.minimumWidth,
-            forwardStrategy: true, footAtPlan: r.sourcePose.map { ref.plane.project($0.position) },
+            worldLocked: locksWorldGeometry, forwardStrategy: true, footAtPlan: r.sourcePose.map { ref.plane.project($0.position) },
             targetRange: r.parameters.forwardRange)
     }
 }
