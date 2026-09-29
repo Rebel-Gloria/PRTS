@@ -8,11 +8,11 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 26 | 3928 | 3738 |
-| SpatialCore | 33 | 3941 | 3820 |
-| Tests | 27 | 3583 | 3473 |
-| Scripts | 10 | 894 | 827 |
-| Total | 96 | 12346 | 11858 |
+| App | 26 | 4002 | 3812 |
+| SpatialCore | 35 | 4524 | 4388 |
+| Tests | 29 | 3923 | 3804 |
+| Scripts | 10 | 896 | 829 |
+| Total | 100 | 13345 | 12833 |
 
 ## 完整源码文件树
 
@@ -38,23 +38,23 @@ PRTS/
     DevCapture/
       DevCaptureRecorder.swift (270 lines)
     Diagnostics/
-      DiagnosticRecorder.swift (229 lines)
+      DiagnosticRecorder.swift (260 lines)
       SessionRecorder.swift (231 lines)
     Rendering/
-      ProbeRenderer.swift (440 lines)
+      ProbeRenderer.swift (447 lines)
       ProbeShaders.metal.txt (67 lines)
     Runtime/
       CoreMLDepthModel.swift (69 lines)
       MonocularDepthProvider.swift (133 lines)
-      ProbeEngine.swift (380 lines)
+      ProbeEngine.swift (408 lines)
       ProbeViewModel.swift (164 lines)
-      Snapshots.swift (282 lines)
+      Snapshots.swift (289 lines)
   UI/
     ContentView.swift (337 lines)
     DemoOptionsView.swift (54 lines)
-    HomeDemoOverlay.swift (77 lines)
+    HomeDemoOverlay.swift (81 lines)
     Localization.swift (86 lines)
-    ProbeSettingsView.swift (156 lines)
+    ProbeSettingsView.swift (153 lines)
     SettingsView.swift (61 lines)
 PRTSTests/
   DevCaptureTests.swift (125 lines)
@@ -76,7 +76,7 @@ Vendor/
         FeedbackPolicy.swift (57 lines)
         ForwardObstacleTrigger.swift (131 lines)
         ForwardPathSearch.swift (121 lines)
-        ForwardRoutePlanner.swift (446 lines)
+        ForwardRoutePlanner.swift (487 lines)
         ForwardRouteState.swift (87 lines)
         Geometry.swift (147 lines)
         GreedyDetourSearch.swift (48 lines)
@@ -86,13 +86,15 @@ Vendor/
         MeshFrameCodec.swift (57 lines)
         MetricScaleTracking.swift (113 lines)
         MonocularDepth.swift (185 lines)
-        ObstaclePersistence.swift (34 lines)
+        ObstaclePersistence.swift (38 lines)
         PathDrawing.swift (97 lines)
         PathHapticPolicy.swift (82 lines)
         PathObstacleCheck.swift (70 lines)
-        PathPrediction.swift (321 lines)
+        PathPrediction.swift (399 lines)
         PredictedGeometry.swift (36 lines)
         ResultPresentationGate.swift (53 lines)
+        RouteContinuity.swift (198 lines)
+        RouteEvidenceMap.swift (262 lines)
         RoutePlanningGrid.swift (52 lines)
         RouteProjection.swift (75 lines)
         SceneContracts.swift (156 lines)
@@ -113,10 +115,12 @@ Vendor/
         MotionPresentationTests.swift (216 lines)
         PathPredictionTests.swift (237 lines)
         RollingRouteTests.swift (135 lines)
+        RouteEvidenceTests.swift (281 lines)
         RouteProjectionTests.swift (107 lines)
         SpatialCoreTests.swift (225 lines)
         SurfaceModelTests.swift (132 lines)
         TemporalOccupancyTests.swift (117 lines)
+        VerifiedContinuityTests.swift (42 lines)
         WorldRouteLockTests.swift (103 lines)
 scripts/
   code_inventory.py (78 lines)
@@ -124,7 +128,7 @@ scripts/
   pull_diag.py (35 lines)
   read_dev_capture.py (89 lines)
   read_diag.py (324 lines)
-  replay_route_snapshots.swift (31 lines)
+  replay_route_snapshots.swift (33 lines)
   replay_routes.swift (85 lines)
   summarize_session.py (148 lines)
   sync-prts-core.sh (33 lines)
@@ -132,7 +136,7 @@ scripts/
   test_dev_capture.py (36 lines)
   test_read_diag.py (219 lines)
   test_route_replay.py (28 lines)
-  test_spatial_integration.py (140 lines)
+  test_spatial_integration.py (157 lines)
   test_summarize_session.py (39 lines)
   validate_spatial.sh (11 lines)
 ```

@@ -188,6 +188,9 @@ struct SharedSnapshot: Sendable {
     var surfaceHistory = SurfaceHistory()
     var pathOptions = PathOptions()
     var pathUpdate = PathUpdate()
+    var routeHazardWatermark: UInt64 = 0
+    var routePublicationReason = "not_running"
+    var routePublishTime: Double?
     var diagnosticResult: AnalysisResult?
     var analyzedFrame: FrameSnapshot?
     var meshes: [String:MeshSnapshot] = [:]
@@ -266,7 +269,11 @@ struct SharedSnapshot: Sendable {
         // Angle feedback follows the LIVE tracked pose during a normal turn. The fixed goal
         // is not reselected here; fresh tracking/epoch/TTL and near-vertical checks still apply.
         guard let path = activePath(now:now),let pose = frame?.pose else { return nil }
-        return PathTracking.heading(path:path.path,pose:pose,lookAhead:pathOptions.lookAhead)
+        guard presentationGate.directionStable else { return nil }
+        let heading = PathTracking.heading(path:path.path,pose:pose,lookAhead:pathOptions.lookAhead)
+        if path.path.verifiedEvidence == true,
+           (heading?.startDistance ?? .infinity) > 0.25 || (heading?.remainingLength ?? 0) < 0.25 { return nil }
+        return heading
     }
     func activeGuidanceResult(now: Double) -> AnalysisResult? {
         guard let result,presentationGate.allowsGuidance(result,now:now) else { return nil }

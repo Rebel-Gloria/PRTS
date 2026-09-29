@@ -83,3 +83,7 @@ The 2026-09-29 strategy adds helpers inside the existing modules; no existing di
 `SpatialCore/RouteProjection.swift` 负责二维占用截断与视觉预测；
 `PathDrawing` 生成独立虚线。App 的 Snapshot/Renderer 只负责展示，Feedback 不读取预测线。
 详见 [ROUTE_PROJECTION.md](ROUTE_PROJECTION.md)。
+
+### Route continuity additions (build16)
+
+Within existing `Vendor/SpatialCore`: `RouteEvidenceMap.swift` owns world-indexed evidence and proof intervals; `RouteContinuity.swift` owns atomic publication decisions, proof expiry and bounded arc progress. `PathPredictor` integrates them on the existing serial analysis worker. No new parallel runtime, package or camera session. [Contracts](ROUTE_CONTINUITY_2026-09-29.md).

@@ -96,3 +96,7 @@ python3 scripts/read_diag.py /absolute/path/to/run --verify-data
 - 录像提示独立于技术面板开关：关闭调试面板不隐藏正在录像的提示。
 
 该变化不停止普通包的空间分析、方向反馈和既有不含RGB的DIAG。
+
+## build16 policy / diagnostics
+
+`PRTS_DEV_CAPTURE` only enables developer tools and opt-in recording. Both ordinary and Dev builds use `verified_continuous_v1`; neither recording nor its compile flag selects the historical occupancy-only strategy. Route journal schema2 fields and old-format compatibility are described in [route continuity](architecture/ROUTE_CONTINUITY_2026-09-29.md). Pass `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)` to xcodebuild for traceable binary metadata (otherwise unavailable).
