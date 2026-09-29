@@ -145,9 +145,11 @@ struct ContentView: View {
     private var header: some View {
         HStack(alignment: .center) {
             HStack(spacing: 10) {
-                Image(systemName: "eye.fill")
-                    .font(.title2)
-                    .foregroundStyle(Color.appAccent)
+                Image("HomeLogo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
                     .accessibilityHidden(true)
 
                 Text("PRTS")

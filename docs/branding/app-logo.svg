@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1024" height="1024" viewBox="0 0 1024 1024"
+     role="img" aria-labelledby="title desc"
+     shape-rendering="geometricPrecision">
+  <title id="title">Abstract eye app icon</title>
+  <desc id="desc">A production-ready square app icon with a centered white abstract eye on an opaque black background.</desc>
+
+  <defs>
+    <mask id="outer-breaks" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect x="500" width="24" height="1024" fill="#000"/>
+    </mask>
+    <mask id="inner-breaks" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect y="500" width="1024" height="24" fill="#000"/>
+    </mask>
+  </defs>
+
+  <!-- Full-bleed and opaque: the operating system applies its own icon mask. -->
+  <rect width="1024" height="1024" fill="#000"/>
+  <g fill="none" stroke="#fff" stroke-width="48"
+     stroke-linejoin="miter" stroke-miterlimit="4">
+    <path d="M160 512 512 320 864 512 512 704Z"
+          mask="url(#outer-breaks)"/>
+    <path d="M412 512 512 412 612 512 512 612Z"
+          mask="url(#inner-breaks)"/>
+  </g>
+</svg>

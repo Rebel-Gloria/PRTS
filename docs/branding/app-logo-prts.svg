@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1024" height="1024" viewBox="0 0 1024 1024"
+     role="img" aria-labelledby="title desc"
+     shape-rendering="geometricPrecision">
+  <title id="title">Abstract eye logo with Noto Runic wordmark</title>
+  <desc id="desc">The abstract eye logo above a four-rune wordmark, ᚹᚱᛚᛇ, converted from Noto Sans Runic outlines.</desc>
+  <metadata>
+    Source font: Noto Sans Runic Regular, https://notofonts.github.io/runic/
+    Glyphs: U+16B9 U+16B1 U+16DA U+16C7
+  </metadata>
+
+  <defs>
+    <mask id="outer-breaks" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect x="500" width="24" height="1024" fill="#000"/>
+    </mask>
+    <mask id="inner-breaks" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect y="500" width="1024" height="24" fill="#000"/>
+    </mask>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#000"/>
+
+  <!-- The original eye mark, optically raised to make room for the wordmark. -->
+  <g transform="translate(0 -150)" fill="none" stroke="#fff" stroke-width="48"
+     stroke-linejoin="miter" stroke-miterlimit="4">
+    <path d="M160 512 512 320 864 512 512 704Z"
+          mask="url(#outer-breaks)"/>
+    <path d="M412 512 512 412 612 512 512 612Z"
+          mask="url(#inner-breaks)"/>
+  </g>
+
+  <!-- Noto Sans Runic Regular glyph outlines, scaled and centered below the mark. -->
+  <g id="noto-runic-wordmark" fill="#fff"
+     transform="translate(179 890) scale(0.32 -0.32)">
+    <!-- ᚹ U+16B9 -->
+    <path d="M97 0H187V228L404 436V520L187 714H97ZM187 336V614L330 479Z"/>
+    <!-- ᚱ U+16B1 -->
+    <path transform="translate(499 0)"
+          d="M97 0H187V612L341 525L240 350L370 0H466L335 345L417 486V584L187 714H97Z"/>
+    <!-- ᛚ U+16DA -->
+    <path transform="translate(1060 0)"
+          d="M97 0H190V630L321 553L356 615L188 714H97Z"/>
+    <!-- ᛇ U+16C7 -->
+    <path transform="translate(1517 0)"
+          d="M209 0H299V632L432 555L467 615L299 714H209V83L76 162L40 99Z"/>
+  </g>
+</svg>
