@@ -8,11 +8,11 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 26 | 3924 | 3734 |
-| SpatialCore | 33 | 3925 | 3804 |
-| Tests | 26 | 3480 | 3377 |
-| Scripts | 9 | 863 | 797 |
-| Total | 94 | 12192 | 11712 |
+| App | 26 | 3928 | 3738 |
+| SpatialCore | 33 | 3941 | 3820 |
+| Tests | 27 | 3583 | 3473 |
+| Scripts | 10 | 894 | 827 |
+| Total | 96 | 12346 | 11858 |
 
 ## 完整源码文件树
 
@@ -41,7 +41,7 @@ PRTS/
       DiagnosticRecorder.swift (229 lines)
       SessionRecorder.swift (231 lines)
     Rendering/
-      ProbeRenderer.swift (436 lines)
+      ProbeRenderer.swift (440 lines)
       ProbeShaders.metal.txt (67 lines)
     Runtime/
       CoreMLDepthModel.swift (69 lines)
@@ -76,7 +76,7 @@ Vendor/
         FeedbackPolicy.swift (57 lines)
         ForwardObstacleTrigger.swift (131 lines)
         ForwardPathSearch.swift (121 lines)
-        ForwardRoutePlanner.swift (433 lines)
+        ForwardRoutePlanner.swift (446 lines)
         ForwardRouteState.swift (87 lines)
         Geometry.swift (147 lines)
         GreedyDetourSearch.swift (48 lines)
@@ -87,10 +87,10 @@ Vendor/
         MetricScaleTracking.swift (113 lines)
         MonocularDepth.swift (185 lines)
         ObstaclePersistence.swift (34 lines)
-        PathDrawing.swift (96 lines)
+        PathDrawing.swift (97 lines)
         PathHapticPolicy.swift (82 lines)
         PathObstacleCheck.swift (70 lines)
-        PathPrediction.swift (319 lines)
+        PathPrediction.swift (321 lines)
         PredictedGeometry.swift (36 lines)
         ResultPresentationGate.swift (53 lines)
         RoutePlanningGrid.swift (52 lines)
@@ -117,12 +117,14 @@ Vendor/
         SpatialCoreTests.swift (225 lines)
         SurfaceModelTests.swift (132 lines)
         TemporalOccupancyTests.swift (117 lines)
+        WorldRouteLockTests.swift (103 lines)
 scripts/
   code_inventory.py (78 lines)
   compare_route_replays.py (60 lines)
   pull_diag.py (35 lines)
   read_dev_capture.py (89 lines)
   read_diag.py (324 lines)
+  replay_route_snapshots.swift (31 lines)
   replay_routes.swift (85 lines)
   summarize_session.py (148 lines)
   sync-prts-core.sh (33 lines)

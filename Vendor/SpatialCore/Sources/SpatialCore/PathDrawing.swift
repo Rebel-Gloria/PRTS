@@ -14,13 +14,14 @@ public enum PathDrawing {
   public static func meshes(_ p: PathPresentation) -> [PathDrawingMesh] {
     let normal = p.path.plane.normal
     let lift = normal * 0.025
+    let locked = p.path.worldLocked == true
     var result = [
       PathDrawingMesh(
-        role: .unknownApproach,
-        vertices: ribbon(p.approach, normal: normal, width: 0.024, dashed: true)),
+        role: locked ? .observed : .unknownApproach,
+        vertices: ribbon(p.approach, normal: normal, width: locked ? 0.036 : 0.024, dashed: !locked)),
       PathDrawingMesh(
-        role: p.historical ? .history : .observed,
-        vertices: ribbon(p.path.points, normal: normal, width: 0.036, dashed: p.historical)),
+        role: p.historical && !locked ? .history : .observed,
+        vertices: ribbon(p.path.points, normal: normal, width: 0.036, dashed: p.historical && !locked)),
     ]
     if let target = p.path.points.last {
       let right = simd_normalize(V3(1, 0, 0) - normal * normal.x)
