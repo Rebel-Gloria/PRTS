@@ -64,6 +64,8 @@ public struct PredictedPath: Codable, Sendable {
     public var points: [V3]
     public var source: String
     public var requiredWidth: Float
+    public var verifiedEvidence: Bool? = nil
+    public var evidenceIntervals: [RouteSegmentEvidence]? = nil
     public var worldLocked: Bool? = nil
     public var forwardStrategy: Bool? = nil // New routes retain world intent across camera turns.
     public var footAtPlan: V3? = nil
@@ -81,6 +83,7 @@ public struct FixedPathGoal: Codable, Sendable {
     public var maxDistance: Float
 }
 public struct PathUpdate: Codable, Sendable {
+    public var continuity: RouteContext? = nil
     public var projection: RouteProjection? = nil
     public var occupancyFilter: OccupancyFilterDiagnostics? = nil
     public var path: PredictedPath?
@@ -110,8 +113,8 @@ public struct PathPresentation: Sendable {
               path.sourceFrameID >= gate.minimumGeometryFrameID,path.validatedFrameID <= gate.frameID,
               now.isFinite,now >= gate.frameTimestamp,now-gate.frameTimestamp <= gate.maxAge,
               now >= path.observedAt,now-path.observedAt <= options.validated().retentionSeconds,
-              abs(path.requiredWidth-options.validated().minimumWidth) < 0.001,path.points.count >= 2 else { return nil }
-        if let goal = path.points.last {
+              (path.verifiedEvidence == true || abs(path.requiredWidth-options.validated().minimumWidth) < 0.001),path.points.count >= 2 else { return nil }
+        if path.verifiedEvidence != true,let goal = path.points.last {
             let distance = simd_distance(path.plane.project(pose.position),goal)
             guard distance > options.validated().arrivalRadius,distance <= (path.targetRange ?? 4)+0.2 else { return nil }
             if path.forwardStrategy != true,let basis = GroundBasis(plane:path.plane,pose:pose) {
@@ -121,13 +124,14 @@ public struct PathPresentation: Sendable {
         }
         // Drawing a world line must NOT depend on a reliable phone heading. Near-vertical
         // pitch pauses haptics, but visible parts still reproject correctly while tracked.
-        let points = PathTracking.remaining(path.points,plane:path.plane,pose:pose)
+        guard let evidenced = RouteEvidencePresentation.validPrefix(path,now:now) else { return nil }
+        let points = path.verifiedEvidence == true ? evidenced.points : PathTracking.remaining(path.points,plane:path.plane,pose:pose)
         guard points.count >= 2 else { return nil }
         let origin = path.plane.project(pose.position),tangent = simd_normalize(points[1]-points[0])
         let lateral = abs(simd_dot(origin-points[0],simd_cross(tangent,path.plane.normal)))
         guard lateral.isFinite,lateral <= 1.0,simd_distance(origin,points[0]) <= 5 else { return nil }
-        var visiblePath = path;visiblePath.points = points
-        return .init(path:visiblePath,age:now-path.observedAt,historical:now-path.observedAt > gate.maxAge,
+        var visiblePath = evidenced;visiblePath.points = points
+        return .init(path:visiblePath,age:now-path.observedAt,historical:path.verifiedEvidence == true ? (evidenced.evidenceIntervals?.contains { now-$0.observedAt > gate.maxAge } ?? false) : now-path.observedAt > gate.maxAge,
                      approach:simd_distance(origin,points[0]) > 0.03 ? [origin,points[0]] : [])
     }
 }
@@ -203,6 +207,13 @@ public struct BluePathGrid: Sendable {
 /// Spatial runtime and UI continue to use the same PathUpdate contract.
 public struct PathPredictor: Sendable {
     private var planner = ForwardRoutePlanner()
+    private var verifiedPolicy = true
+    private var evidenceMap = RouteEvidenceMap()
+    private var continuityOptions = RouteContinuityOptions()
+    private var geometryVersion: UInt64 = 0
+    private var previousOutput: PredictedPath?
+    private var previousPose: RigidPose?
+    private var previousPoseTime: Double?
     private var lastFrame: UInt64 = 0
     private var lastTimestamp: Double = 0
     private var epoch: UInt64 = 0
@@ -210,8 +221,14 @@ public struct PathPredictor: Sendable {
     private var obstacleConfirmationSeconds: Double = 0.3
     private var experimentalOccupancyPlanning = false
     private var occupancyFilter = TemporalOccupancyGrid()
-    public init(experimentalOccupancyPlanning: Bool = false) {
+    public init(experimentalOccupancyPlanning: Bool = false,
+                evidenceOptions: RouteEvidenceOptions = .init(),
+                continuityOptions: RouteContinuityOptions = .init()) {
+        evidenceMap = RouteEvidenceMap(options:evidenceOptions)
+        self.continuityOptions = continuityOptions
         self.experimentalOccupancyPlanning = experimentalOccupancyPlanning
+        verifiedPolicy = !experimentalOccupancyPlanning
+        planner.verifiedEvidence = verifiedPolicy
         if experimentalOccupancyPlanning {
             obstacleConfirmationSeconds = 0 // Input cells have already passed the 300ms filter.
             planner.obstacleConfirmationSeconds = 0
@@ -220,14 +237,16 @@ public struct PathPredictor: Sendable {
     }
     // Test seam for geometry-only suites. Production always uses the default 300ms.
     init(obstacleConfirmationSeconds: Double) {
+        verifiedPolicy = false
         self.obstacleConfirmationSeconds = obstacleConfirmationSeconds
         planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds
     }
     public mutating func reset() {
-        occupancyFilter.reset();planner = .init();planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;planner.locksWorldGeometry = experimentalOccupancyPlanning;lastFrame = 0;lastTimestamp = 0
+        evidenceMap.reset();previousOutput = nil;previousPose = nil;previousPoseTime = nil
+        occupancyFilter.reset();planner = .init();planner.verifiedEvidence = verifiedPolicy;planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;planner.locksWorldGeometry = experimentalOccupancyPlanning;lastFrame = 0;lastTimestamp = 0
     }
     public mutating func update(result: AnalysisResult,observation: DepthObservation?,options: PathOptions,
-                                directionStable: Bool? = nil) -> PathUpdate {
+                                directionStable: Bool? = nil, hazardWatermark: UInt64 = 0) -> PathUpdate {
         if epoch != result.epoch || version != result.parameterVersion {
             reset();epoch = result.epoch;version = result.parameterVersion
         }
@@ -236,16 +255,64 @@ public struct PathPredictor: Sendable {
             return planner.held(at:result.timestamp,options:options.validated(),reason:"out_of_order_ignored")
         }
         guard result.timestamp.isFinite,result.timestamp >= lastTimestamp else {
-            reset();return .init(reason:"ground_or_metric_conflict")
+            reset()
+            return verifiedPolicy ? verifiedEmpty(result,options:options,watermark:hazardWatermark,reason:"ground_or_metric_conflict") : .init(reason:"ground_or_metric_conflict")
         }
         lastFrame = result.frameID;lastTimestamp = result.timestamp
         if result.diagnostics?.groundReferenceInvalidation == "reference_expired_or_clock_reversed" {
             occupancyFilter.reset()
             planner.withdrawEvidence()
+            if verifiedPolicy { evidenceMap.reset();return verifiedEmpty(result,options:options,watermark:hazardWatermark,reason:"ground_evidence_expired") }
             return planner.held(at:result.timestamp,options:options.validated(),reason:"ground_evidence_expired")
         }
         if result.diagnostics?.groundReferenceInvalidation != nil {
-            reset();return .init(reason:"ground_or_metric_conflict")
+            reset()
+            return verifiedPolicy ? verifiedEmpty(result,options:options,watermark:hazardWatermark,reason:"ground_or_metric_conflict") : .init(reason:"ground_or_metric_conflict")
+        }
+        if verifiedPolicy {
+            let start = ProcessInfo.processInfo.systemUptime
+            guard evidenceMap.ingest(result) else {
+                reset()
+                return verifiedEmpty(result,options:options,watermark:hazardWatermark,reason:"ground_or_metric_conflict")
+            }
+            var bodyOptions = options.validated()
+            bodyOptions.minimumWidth = max(bodyOptions.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin)
+            let snapshot = evidenceMap.snapshot(result)
+            var speed: Float = 0
+            if let old = previousPose,let time = previousPoseTime,let pose = result.sourcePose,result.timestamp>time {
+                speed = simd_distance(old.position,pose.position)/Float(result.timestamp-time)
+            }
+            let displacement = result.sourcePose.flatMap { pose in previousPose.map { simd_distance(pose.position,$0.position) } } ?? 0
+            previousPose = result.sourcePose;previousPoseTime = result.timestamp
+            planner.renewalDistance = continuityOptions.renewalDistance(speed:speed)
+            if let old = planner.retainedPath {
+                let remaining = result.sourcePose.map { RouteProgressWindow.remaining(old.points,plane:old.plane,pose:$0,maximumAdvance:max(0.5,displacement+0.3)) } ?? old.points
+                let prefix = evidenceMap.prefix(remaining,width:bodyOptions.minimumWidth,at:result.timestamp)
+                planner.restrictToEvidence(prefix.points)
+            }
+            var update = planner.update(result:snapshot,observation:observation,options:bodyOptions,directionStable:directionStable,currentGrid:result.grid)
+            if var path = update.path {
+                let proof = evidenceMap.prefix(path.points,width:bodyOptions.minimumWidth,at:result.timestamp)
+                if proof.length >= 0.03 {
+                    path.points = proof.points;path.verifiedEvidence = true;path.worldLocked = false
+                    path.evidenceIntervals = proof.evidence
+                    update.path = path
+                    planner.restrictToEvidence(proof.points)
+                } else { update.path = nil;planner.restrictToEvidence([]) }
+            }
+            if update.path?.points != previousOutput?.points { geometryVersion &+= 1 }
+            previousOutput = update.path
+            let oldest = update.path?.evidenceIntervals?.map(\.observedAt).min()
+            update.continuity = .init(epoch:result.epoch,parameterVersion:result.parameterVersion,
+                frameID:result.frameID,timestamp:result.timestamp,requestID:result.frameID,
+                sourceMapVersion:evidenceMap.version,hazardWatermark:hazardWatermark,
+                routeID:update.path?.id,geometryVersion:geometryVersion,
+                status:update.path == nil ? (update.strategy?.mode == .blocked ? .hazardBlocked : .needsObservation) : ((oldest.map { result.timestamp-$0>0.2 } ?? false) ? .historical : .current),
+                remainingVerifiedLength:update.path?.length ?? 0,
+                evidenceAge:oldest.map { result.timestamp-$0 },renewalDistance:planner.renewalDistance,
+                requiredWidth:bodyOptions.minimumWidth)
+            update.milliseconds = (ProcessInfo.processInfo.systemUptime-start)*1000
+            return update
         }
         if experimentalOccupancyPlanning {
             let start = ProcessInfo.processInfo.systemUptime
@@ -261,6 +328,15 @@ public struct PathPredictor: Sendable {
             return update
         }
         return planner.update(result:result,observation:observation,options:options.validated(),directionStable:directionStable)
+    }
+    private func verifiedEmpty(_ result: AnalysisResult,options: PathOptions,watermark: UInt64,reason: String) -> PathUpdate {
+        var u = PathUpdate(reason:reason)
+        u.continuity = .init(epoch:result.epoch,parameterVersion:result.parameterVersion,frameID:result.frameID,
+            timestamp:result.timestamp,requestID:result.frameID,sourceMapVersion:evidenceMap.version,
+            hazardWatermark:watermark,routeID:nil,geometryVersion:geometryVersion,status:.needsObservation,
+            remainingVerifiedLength:0,evidenceAge:nil,renewalDistance:continuityOptions.minimumRenewalDistance,
+            requiredWidth:max(options.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin))
+        return u
     }
 }
 
@@ -292,7 +368,9 @@ public enum PathTracking {
     /// Pure-pursuit-style look-ahead target; this is heading feedback, NOT steering control.
     public static func heading(path: PredictedPath,pose: RigidPose,lookAhead: Float) -> PathHeading? {
         guard let basis = GroundBasis(plane:path.plane,pose:pose) else { return nil }
-        let points = remaining(path.points,plane:path.plane,pose:pose)
+        let points = path.verifiedEvidence == true
+            ? RouteProgressWindow.remaining(path.points,plane:path.plane,pose:pose,maximumAdvance:0.5)
+            : remaining(path.points,plane:path.plane,pose:pose)
         guard points.count >= 2 else { return nil }
         let length = zip(points,points.dropFirst()).reduce(Float(0)) { $0+simd_distance($1.0,$1.1) }
         guard length >= 0.25 else { return nil }
