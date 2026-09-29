@@ -8,11 +8,11 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 26 | 4026 | 3836 |
+| App | 36 | 4785 | 4540 |
 | SpatialCore | 35 | 4798 | 4660 |
-| Tests | 31 | 4385 | 4256 |
+| Tests | 32 | 4522 | 4383 |
 | Scripts | 10 | 896 | 829 |
-| Total | 102 | 14105 | 13581 |
+| Total | 113 | 15001 | 14412 |
 
 ## 完整源码文件树
 
@@ -34,6 +34,15 @@ PRTS/
     SpeechManager.swift (344 lines)
   Integration/
     PRTSBackendBridge.swift (61 lines)
+  PhotoDescription/
+    PhotoAudioOutput.swift (81 lines)
+    PhotoChatClient.swift (54 lines)
+    PhotoChatProtocol.swift (100 lines)
+    PhotoCredentialStore.swift (47 lines)
+    PhotoDescriptionCoordinator.swift (154 lines)
+    PhotoImageEncoder.swift (33 lines)
+    PhotoPressState.swift (32 lines)
+    PhotoSpeechRecognizer.swift (138 lines)
   Spatial/
     DevCapture/
       DevCaptureRecorder.swift (270 lines)
@@ -50,15 +59,18 @@ PRTS/
       ProbeViewModel.swift (164 lines)
       Snapshots.swift (289 lines)
   UI/
-    ContentView.swift (337 lines)
+    ContentView.swift (364 lines)
     DemoOptionsView.swift (54 lines)
     HomeDemoOverlay.swift (81 lines)
     Localization.swift (86 lines)
+    PhotoCaptureButton.swift (42 lines)
+    PhotoDescriptionSettingsView.swift (48 lines)
     ProbeSettingsView.swift (153 lines)
-    SettingsView.swift (61 lines)
+    SettingsView.swift (64 lines)
 PRTSTests/
   DevCaptureTests.swift (125 lines)
   PRTSTests.swift (103 lines)
+  PhotoDescriptionTests.swift (137 lines)
 PRTSUITests/
   PRTSUITests.swift (144 lines)
   PRTSUITestsLaunchTests.swift (35 lines)

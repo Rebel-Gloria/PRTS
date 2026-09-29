@@ -23,6 +23,15 @@ PRTS/
 │   ├── SpeechManager.swift            # TTS ownership and cancellation
 │   ├── HapticManager.swift            # General UI/obstacle haptics
 │   └── PathHaptics.swift              # Fixed-target direction haptics
+├── PhotoDescription/
+│   ├── PhotoDescriptionCoordinator.swift # Press → capture/question → response → speech lifetime
+│   ├── PhotoPressState.swift             # Deterministic 0.5-second threshold
+│   ├── PhotoImageEncoder.swift           # Existing ARFrame → oriented JPEG
+│   ├── PhotoSpeechRecognizer.swift       # Native push-to-talk transcription
+│   ├── PhotoChatProtocol.swift           # Exact request schema and SSE framing
+│   ├── PhotoChatClient.swift             # Ephemeral cancellable network request
+│   ├── PhotoCredentialStore.swift        # Device-only Keychain secret
+│   └── PhotoAudioOutput.swift            # A/B tones and distinct native TTS
 ├── Integration/
 │   └── PRTSBackendBridge.swift        # Future detector/provider boundary
 ├── Spatial/
