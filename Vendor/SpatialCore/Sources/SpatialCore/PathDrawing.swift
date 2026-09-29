@@ -2,7 +2,7 @@ import Foundation
 import simd
 
 public enum PathDrawingRole: String, Sendable {
-  case observed, history, unknownApproach, target, prediction
+  case observed, history, unknownApproach, target, prediction, planned
 }
 public struct PathDrawingMesh: Sendable {
   public var role: PathDrawingRole
@@ -15,12 +15,13 @@ public enum PathDrawing {
     let normal = p.path.plane.normal
     let lift = normal * 0.025
     let locked = p.path.worldLocked == true
+    let veto = p.path.planningPolicy == .obstacleVeto
     var result = [
       PathDrawingMesh(
-        role: locked ? .observed : .unknownApproach,
+        role: veto ? .planned : (locked ? .observed : .unknownApproach),
         vertices: ribbon(p.approach, normal: normal, width: locked ? 0.036 : 0.024, dashed: !locked)),
       PathDrawingMesh(
-        role: p.historical && !locked ? .history : .observed,
+        role: veto ? .planned : (p.historical && !locked ? .history : .observed),
         vertices: ribbon(p.path.points, normal: normal, width: 0.036, dashed: p.historical && !locked)),
     ]
     if let target = p.path.points.last {
