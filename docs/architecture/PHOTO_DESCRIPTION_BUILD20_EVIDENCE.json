@@ -1,0 +1,34 @@
+{
+  "sourceCommit": "9504ae89601a03fbc4ecea6c3191d75eaa508847",
+  "build": "20",
+  "devCondition": "PRTS_DEV_CAPTURE",
+  "appTests": {
+    "result": "Passed",
+    "passedTests": 34,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "otherTests": {
+    "SpatialCore": 296,
+    "Contracts": 8,
+    "Python": 46
+  },
+  "ordinaryRelease": "passed_unsigned",
+  "devRelease": "passed_signed_and_verified",
+  "installation": "success",
+  "launch": "success",
+  "verifiedRegression": "UIKit reset imageView.alpha to 1 before fix; control alpha remains 0.25 after layout/highlight",
+  "liveAPIAndPhysicalAudio": "awaiting_user_validation",
+  "sha256": {
+    "/tmp/prts-photo20-all-tests2.log": "f8f883e02f77fcca5febd661849d8704bf0668f543558e7d8df082542acdd2df",
+    "/tmp/prts-photo20-all-tests.log": "6e892d8bb4d5eb399392e41e7be8591963fc12e173ca9bc75c47c428073e3c11",
+    "/tmp/prts-photo20/signed.log": "3e1a00bccfc5b6f5d6cef8455cbd6b66870a767961ae5a9de8a493ea86fa2c29",
+    "/tmp/prts-photo20/signature.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/prts-photo20/normal.log": "4c3bb8d694d61b8b1baafa6227187e6860f4265dbc77b208951f9b48c045147b",
+    "/tmp/prts-photo20/python.log": "ded6c1bd80092a621f751dc4cc675092392ff9b9b0d25f6498f583a434b5e700",
+    "/tmp/prts-photo20/core.log": "d21aed6802e78f443220b8a573017f7478878bc8a42a1cfbdff2e21354bb5a72",
+    "/tmp/prts-photo20/contracts.log": "c07f941e7f69b89994ddd1d853d6eb44af96dfc71d91de779a359530a2381778",
+    "/tmp/prts-photo20/device-install.json": "7e7f11a2c816be17226d5b0276c86de8fcd4b80e54092a4077f25adf2c477108",
+    "/tmp/prts-photo20/device-launch.json": "48d7b5265a0871007bc3870a8169cf23eca0131f0a2c7efa4e335b6c63ae5425"
+  }
+}
