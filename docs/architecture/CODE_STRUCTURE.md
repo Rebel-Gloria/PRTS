@@ -25,6 +25,7 @@ PRTS/
 │   └── PathHaptics.swift              # Fixed-target direction haptics
 ├── PhotoDescription/
 │   ├── PhotoDescriptionCoordinator.swift # Press → capture/question → response → speech lifetime
+│   ├── PhotoDescriptionServices.swift    # Native service boundaries and deterministic test injection
 │   ├── PhotoPressState.swift             # Deterministic 0.5-second threshold
 │   ├── PhotoImageEncoder.swift           # Existing ARFrame → oriented JPEG
 │   ├── PhotoSpeechRecognizer.swift       # Native push-to-talk transcription
