@@ -17,12 +17,16 @@ final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
 
     func cue(_ cue: Cue) throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
+        if cue == .record {
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
+        } else {
+            // Short taps must not activate an input audio route or require microphone access.
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+        }
         try session.setActive(true)
         ownsSession = true
-        let frequency: Double = cue == .submit ? 880 : 440
-        player = try AVAudioPlayer(data: Self.wave(frequency: frequency))
-        player?.play()
+        player = try AVAudioPlayer(data: Self.toneData(for: cue))
+        guard player?.play() == true else { throw OutputError.cueUnavailable }
     }
 
     func speak(_ text: String) throws {
@@ -30,6 +34,12 @@ final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try session.setActive(true)
         ownsSession = true
+        let utterance = Self.answerUtterance(text)
+        activeUtterance = ObjectIdentifier(utterance)
+        synthesizer.speak(utterance)
+    }
+
+    static func answerUtterance(_ text: String) -> AVSpeechUtterance {
         let utterance = AVSpeechUtterance(string: text)
         let defaultID = AVSpeechSynthesisVoice(language: "zh-CN")?.identifier
         let alternate = AVSpeechSynthesisVoice.speechVoices()
@@ -39,8 +49,7 @@ final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         // Devices with only one Chinese voice still have a distinct lower-pitch profile.
         utterance.pitchMultiplier = 0.8
         utterance.rate = 0.46
-        activeUtterance = ObjectIdentifier(utterance)
-        synthesizer.speak(utterance)
+        return utterance
     }
 
     func stop() {
@@ -60,6 +69,15 @@ final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
             self.activeUtterance = nil
             self.onFinished?()
         }
+    }
+
+    enum OutputError: LocalizedError {
+        case cueUnavailable
+        var errorDescription: String? { "无法播放拍照提示音，请重试" }
+    }
+
+    static func toneData(for cue: Cue) -> Data {
+        wave(frequency: cue == .submit ? 880 : 440)
     }
 
     private static func wave(frequency: Double) -> Data {
