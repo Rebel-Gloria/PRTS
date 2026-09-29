@@ -356,7 +356,11 @@ public struct PathPredictor: Sendable {
         let dt = previousPoseTime.map { result.timestamp-$0 } ?? 0
         planner.renewalDistance = continuityOptions.renewalDistance(speed:dt>0 ? displacement/Float(dt) : 0)
         previousPose = result.sourcePose;previousPoseTime = result.timestamp
-        var update = planner.update(result:planning,observation:nil,options:options.validated(),directionStable:directionStable)
+        let turnPlanning = result.sourcePose.flatMap {
+            occupancyFilter.projected(result,forwardLength:options.validated().forwardBufferLength,forward:-$0.back)
+        }
+        var update = planner.update(result:planning,observation:nil,options:options.validated(),
+            directionStable:directionStable,turnResult:turnPlanning)
         update.occupancyFilter = occupancyFilter.diagnostics
         return occupancyContext(update,result:result,options:options,watermark:watermark,started:started)
     }

@@ -30,6 +30,9 @@ public struct ForwardStrategyDiagnostics: Codable, Sendable {
     public var rejoinPoint: V3?
     public var turnDwell: Double = 0
     public var turnAngle: Float?
+    public var turnCandidateLength: Float?
+    public var turnReason: String?
+    public var routePointCount: Int?
     public var obstacleAge: Double?
     public var obstacleConfirmed: Bool?
     public var obstacleVeto: String?
@@ -69,7 +72,7 @@ struct ForwardTurnDwell: Sendable {
             reset()
             return false
         }
-        let discontinuous = last.map { now <= $0 || now - $0 > 0.4 } ?? true
+        let discontinuous = last.map { now <= $0 || now - $0 > 0.75 } ?? true
         if discontinuous
             || heading.map({ simd_dot($0, forward) < cos(10 * Float.pi / 180) }) == true
         {

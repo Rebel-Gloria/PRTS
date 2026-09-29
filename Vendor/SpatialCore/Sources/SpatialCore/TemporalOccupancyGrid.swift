@@ -122,14 +122,23 @@ struct TemporalOccupancyGrid: Sendable {
       }
     }
     previous = current  // A missing detection does not carry its timer into a later sighting.
-    // Route-aligned query raster from FIXED world anchors, not the rotating camera cells.
-    // Yaw alone must not move a confirmed obstacle edge or the committed route around it.
+    return projected(result, forwardLength: forwardLength, forward: basis.forward)
+  }
+
+  /// Re-query the SAME confirmed world tracks in another direction; never ingest twice or
+  /// restart confirmation when testing a user's new heading outside the old route window.
+  func projected(_ result: AnalysisResult, forwardLength: Float, forward: V3) -> AnalysisResult? {
+    guard let pose = result.sourcePose, let plane = referencePlane,
+      let basis = GroundBasis.geometry(plane: plane,
+        pose: RigidPose(back: -forward, position: pose.position), previousForward: referenceForward)
+    else { return nil }
+    var parameters = result.parameters
+    parameters.forwardRange = forwardLength
     var planningGrid = LocalGrid(
       basis: basis, parameters: parameters, timestamp: result.timestamp, frameID: result.frameID,
       epoch: result.epoch)
-    planningGrid.cells = Array(
-      repeating: GridCell(state: .candidate), count: planningGrid.cells.count)
-    for track in current.values
+    planningGrid.cells = Array(repeating: GridCell(state: .candidate), count: planningGrid.cells.count)
+    for track in previous.values
     where result.timestamp - track.since + 0.000001 >= diagnostics.thresholdSeconds {
       let p = basis.local(track.anchor)
       if let index = planningGrid.index(x: p.x, z: p.z) {

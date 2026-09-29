@@ -35,7 +35,8 @@ enum GreedyDetourSearch {
           index = next
         }
         points = simplified
-        let tail = ForwardPathSearch.straight(raster: raster, reference: reference, foot: join)
+        let tail = ForwardPathSearch.straight(raster: raster, reference: reference, foot: join,
+            maxProgress:reference.coordinates(raster.grid.basis.origin).y+raster.maxDistance)
         if let end = tail.points.last, raster.supports([join, end]) { points.append(end) }
         var plan = FanPathPlan()
         plan.points = points
