@@ -97,6 +97,10 @@ python3 scripts/read_diag.py /absolute/path/to/run --verify-data
 
 该变化不停止普通包的空间分析、方向反馈和既有不含RGB的DIAG。
 
-## build16 policy / diagnostics
+## build17 policy / diagnostics
 
-`PRTS_DEV_CAPTURE` only enables developer tools and opt-in recording. Both ordinary and Dev builds use `verified_continuous_v1`; neither recording nor its compile flag selects the historical occupancy-only strategy. Route journal schema2 fields and old-format compatibility are described in [route continuity](architecture/ROUTE_CONTINUITY_2026-09-29.md). Pass `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)` to xcodebuild for traceable binary metadata (otherwise unavailable).
+`PRTS_DEV_CAPTURE` only enables developer tools and opt-in recording. Both ordinary and Dev builds
+use `obstacle_veto_v1`; changing recording does not change planning. Route journal schema3 adds
+`plannedLength` and the `planned` status; `remainingVerifiedLength` stays 0 for this policy.
+Missing optional fields in old records remain unavailable. See [build17 report](architecture/OBSTACLE_VETO_2026-09-29.md).
+Pass `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)` to xcodebuild for traceable binary metadata.

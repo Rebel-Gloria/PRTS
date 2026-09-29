@@ -6,7 +6,18 @@
 
 ## Analysis
 
-The worker extracts high-confidence depth points, estimates a local ground plane, validates floor priors and updates the three-state grid (`candidate`, `obstacle`, `unknown`). `PathPredictor` validates session/order, then `ForwardRoutePlanner` retains a forward world reference and selects straight, same-side avoidance/rejoin, or a side route. A small near-field triangle triggers avoidance; it is not a farthest-target selector. A fresh clear new direction held for three seconds permits user redirection. Evidence expiry hides the path but does not automatically select a new target; contradictory ground/metric data invalidates it.
+The worker produces the measured three-state grid (`candidate`, `obstacle`, `unknown`).
+`PathPredictor(policy: .obstacleVeto)` then adapts a **private** planning copy through
+`TemporalOccupancyGrid`: 300 ms confirmed occupancy vetoes cells; every other cell is searchable.
+This copy uses a session-fixed plane and retained route axis with a rolling 8 m forward window.
+Missing ground/depth/grid data and evidence TTL do not withdraw the route. If no initial floor
+reference exists, drawing starts on a horizontal plane 1.4 m below the initial camera.
+
+Confirmed conflicts raise a watermark and preempt the conflicting committed route before search.
+`ForwardRoutePlanner` retains its existing greedy extension, greedy detour and graph-search fallback.
+Normal replacements commit atomically; unfinished candidates keep the old route. A clear new
+heading held 3 seconds allows user redirection. Epoch, ordering, explicit reset and tracking checks
+remain active; recording does not select a different policy.
 
 ## Presentation
 
@@ -24,13 +35,17 @@ Route module ownership and evidence rules: [Forward route policy](FORWARD_ROUTE_
 
 ## Rolling route planning
 
-`RoutePlanningGrid` reads the current `AnalysisResult.grid` ground samples directly; no dependency on
-rendered `SurfaceModel.triangles`. The original clearance grid is never mutated.
-`ForwardRoutePlanner` advances the straight horizon greedily, detects occupied swept-route cells,
-and reacquires same-side manoeuvres when an entry or endpoint disappears.
-Plane compatibility is evaluated near the current camera, not at a distant old origin.
-UI and feedback remain consumers; neither creates another search or capture session.
+The facade advances a bounded arc-progress window, preserves the world prefix, and appends the
+straight tail without waiting for a local endpoint arrival. Renewal uses the existing speed/budget
+heuristic. Grid query bounds are computational limits; they move with the user, not an evidence
+frontier. `SurfaceHistory` never supplies planning permissions.
 
-## build16 route handoff update
+`RoutePlanningGrid`/`PathClearance` consume the adapted raster; their generic candidate checks
+therefore impose only confirmed occupancy plus the configured route width and query bounds.
+The explicit `.verified` policy remains available for offline comparison, not the app default.
 
-Current path: raw clustered hazard → world RouteEvidenceMap → ForwardRoutePlanner → RoutePublicationPolicy → shared display/feedback. See [round-1 contracts and limits](ROUTE_CONTINUITY_2026-09-29.md). Dev compilation/recording does not select planning policy. SurfaceHistory remains display-only.
+Display and feedback read the same committed `PathUpdate`. The main veto route is solid with
+no evidence-expiry or endpoint-arrival hiding. Sensor surface layers retain their own raw-data
+checks; those checks do not hide the main route.
+
+See [build17 contracts, tests and limits](OBSTACLE_VETO_2026-09-29.md).
