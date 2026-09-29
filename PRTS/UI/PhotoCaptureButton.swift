@@ -7,11 +7,16 @@ struct PhotoCaptureButton: UIViewRepresentable {
     var up: () -> Void
     var cancel: () -> Void
 
-    func makeUIView(context: Context) -> Control {
+    func makeUIView(context: Context) -> Control { Self.makeControl() }
+
+    static func makeControl() -> Control {
         let button = Control(type: .custom)
         button.setImage(UIImage(systemName: "camera.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 80)), for: .normal)
         button.tintColor = .white
-        button.imageView?.alpha = 0.25
+        // UIButton resets imageView.alpha during layout/state updates. Apply opacity
+        // to the control instead; the separate SwiftUI status overlay remains readable.
+        button.alpha = 0.25
+        button.accessibilityIdentifier = "photoCaptureButton"
         button.accessibilityLabel = "拍照描述"
         button.accessibilityCustomActions = [
             UIAccessibilityCustomAction(name: "开始语音提问", target: button, selector: #selector(Control.accessibleBegin)),
