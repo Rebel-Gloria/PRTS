@@ -98,18 +98,28 @@ private struct PathHeap {
 /// This permits sideways moves around obstacles instead of stopping at one broken forward row.
 public enum FanPathSearch {
     public static let halfAngleDegrees: Float = 45
-    public static func plan(grid: LocalGrid,mask: [Bool],width: Float,halfAngleDegrees: Float = 45,maxDistance: Float = .infinity,fixedTarget: V3? = nil) -> FanPathPlan {
+    public static func plan(grid: LocalGrid,mask: [Bool],width: Float,halfAngleDegrees: Float = 45,maxDistance: Float = .infinity,fixedTarget: V3? = nil,
+                            start: V3? = nil,cellFilter: ((SIMD2<Float>) -> Bool)? = nil,
+                            targetFilter: ((SIMD2<Float>) -> Bool)? = nil) -> FanPathPlan {
         var output = FanPathPlan()
         guard mask.count == grid.cells.count else { return output }
         let radius = width/2
-        let halfAngle = min(75,max(15,halfAngleDegrees))*Float.pi/180
+        let halfAngle = min(90,max(15,halfAngleDegrees))*Float.pi/180
         func inFan(_ p: SIMD2<Float>) -> Bool { p.y > 0 && abs(atan2(p.x,p.y)) <= halfAngle+0.00001 && simd_length(p) <= maxDistance+0.00001 }
-        let allowed = mask.indices.map { mask[$0] && inFan(grid.center($0)) }
+        let allowed = mask.indices.map { mask[$0] && inFan(grid.center($0)) && (cellFilter?(grid.center($0)) ?? true) }
         var cost = Array(repeating:Float.infinity,count:mask.count),parent = Array(repeating:-1,count:mask.count)
         var roots = Array(repeating:-1,count:mask.count),heap = PathHeap()
         // Virtual feet node connects only to the FIRST footprint-supported cell on each ray.
         // Never jump from one observed island across an unknown gap to a farther island.
         for i in allowed.indices where allowed[i] {
+            // A manoeuvre starts in the currently connected observed component. Do not use
+            // the old virtual-feet fan roots to jump to an island on the far side of a box.
+            if let start {
+                let q = grid.basis.local(start),a = SIMD2(q.x,q.z),b = grid.center(i)
+                guard simd_distance(a,b) <= grid.cellSize*1.5,
+                      PathClearance.segment(grid:grid,from:a,to:b,radius:radius) else { continue }
+                cost[i] = simd_distance(a,b);roots[i] = i;heap.push(cost[i],i);continue
+            }
             let c = grid.center(i),steps = max(1,Int(ceil(simd_length(c)/(grid.cellSize/3))))
             var first: Int?
             for n in 0...steps {
@@ -135,7 +145,7 @@ public enum FanPathSearch {
             }}
         }
         let targets = cost.indices.filter { i in
-            guard cost[i].isFinite,parent[i] >= 0,roots[i] >= 0 else { return false }
+            guard cost[i].isFinite,parent[i] >= 0,roots[i] >= 0,(targetFilter?(grid.center(i)) ?? true) else { return false }
             return simd_distance(grid.center(i),grid.center(roots[i])) >= 0.3-0.00001
         }
         output.reachableCells = cost.filter(\.isFinite).count
@@ -174,6 +184,9 @@ public enum FanPathSearch {
                 if PathClearance.segment(grid:grid,from:SIMD2(prev.x,prev.z),to:exactTarget,radius:radius) { output.points[output.points.count-1] = fixedTarget }
                 else { output.points.append(fixedTarget) }
             }
+        }
+        if let start,let first = output.points.first,simd_distance(start,first) > 0.001 {
+            output.points.insert(start,at:0)
         }
         let endpoint = exactTarget ?? grid.center(target)
         output.targetBearingDegrees = atan2(endpoint.x,endpoint.y)*180 / .pi;output.targetDistance = simd_length(endpoint)

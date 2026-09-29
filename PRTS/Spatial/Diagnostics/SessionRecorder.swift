@@ -7,7 +7,8 @@ import CoreVideo
 import UniformTypeIdentifiers
 import SpatialCore
 
-struct MetricContext: Codable, Sendable {
+// Value-only transport records must stay usable by the bounded background writer.
+nonisolated struct MetricContext: Codable, Sendable {
     var captureFPS: Double
     var analysisFPS: Double
     var droppedFrames: Int
@@ -23,11 +24,11 @@ struct MetricContext: Codable, Sendable {
     var geometryOutputEligible: Bool? = nil
     var sensorSkew: String = "not_exposed_by_API"
 }
-struct RenderMetricRecord: Codable, Sendable {
+nonisolated struct RenderMetricRecord: Codable, Sendable {
     var fps: Double; var cpuMS: Double; var gpuMS: Double; var presentAgeMS: Double?; var sourceDeltaMS: Double?
     init(_ m: RenderMetrics) { fps = m.fps; cpuMS = m.cpuMS; gpuMS = m.gpuMS; presentAgeMS = m.presentAgeMS; sourceDeltaMS = m.analysisDisplayDeltaMS }
 }
-struct CompactGrid: Codable, Sendable {
+nonisolated struct CompactGrid: Codable, Sendable {
     let columns: Int,rows: Int
     let cellSize: Float
     let halfWidth: Float
@@ -46,7 +47,7 @@ struct CompactGrid: Codable, Sendable {
         footprint = Data(mask.map { $0 ? 1 : 0 }); unknownFraction = g.unknownFraction
     }
 }
-struct FrameLog: Encodable, Sendable {
+nonisolated struct FrameLog: Encodable, Sendable {
     let schemaVersion = 1
     let source: String,epoch: UInt64,frameID: UInt64,timestamp: Double,parameterVersion: UInt64
     let sourceDirectionStable: Bool
@@ -69,7 +70,7 @@ struct FrameLog: Encodable, Sendable {
         status = r.status; validDepthCoverage = r.validDepthCoverage; unknownFraction = r.grid?.unknownFraction ?? 1; stageMilliseconds = r.stageMilliseconds; self.metrics = metrics
     }
 }
-struct RecorderStatus: Sendable {
+nonisolated struct RecorderStatus: Sendable {
     var directory: URL?
     var droppedRecords = 0
     var message = "尚无记录"

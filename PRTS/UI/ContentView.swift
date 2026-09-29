@@ -79,7 +79,7 @@ struct ContentView: View {
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsView(model:camera.model)
             }
-            .onChange(of: camera.state) { newState in
+            .onChange(of: camera.state) { _, newState in
                 guard scenePhase == .active,!isShowingSettings else { return }
                 UIAccessibility.post(notification:.announcement,argument:speechManager.accessibilityAnnouncement(for:newState))
                 speechManager.speakCameraState(newState)
@@ -89,10 +89,10 @@ struct ContentView: View {
                 camera.poll(suspendFeedback:isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
                 if !isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
                     feedback.consume(result,speech:speechManager,haptics:hapticManager,
-                                     announceCandidates:camera.model.snapshot.pathHeading(now:ProcessInfo.processInfo.systemUptime) == nil)
+                                     announceCandidates:!camera.model.snapshot.pathOptions.enabled)
                     if !isHoldingStop { feedback.consumeDirection(camera.model.snapshot,speech:speechManager) }
                 } else if !isShowingSettings,feedback.lastConsumedResultID != nil {
-                    feedback.reset(); speechManager.cancelPerceptionSpeech()
+                    feedback.suspendResultFeedback(); speechManager.cancelPerceptionSpeech()
                 }
             }
             .onChange(of:isShowingSettings) { _,shown in
@@ -101,7 +101,7 @@ struct ContentView: View {
                     speechManager.cancelPerceptionSpeech()
                 }
             }
-            .onChange(of:scenePhase) { phase in
+            .onChange(of:scenePhase) { _, phase in
                 if phase != .active {
                     stopHoldTask?.cancel(); stopHoldTask = nil
                     isHoldingStop = false; didCompleteStopHold = false

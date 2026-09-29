@@ -9,7 +9,8 @@ import SpatialCore
 /// All input pixels/depth are synthetic; these tests do not validate ARKit or real camera recording.
 @Suite(.serialized) struct DevCaptureTests {
     private func waitIdle(_ recorder: DevCaptureRecorder) async throws {
-        for _ in 0..<1000 {
+        let deadline = ContinuousClock.now + .seconds(10)
+        while ContinuousClock.now < deadline {
             if !recorder.status().busy { return }
             try await Task.sleep(for:.milliseconds(10))
         }
@@ -38,6 +39,18 @@ import SpatialCore
         recorder.submit(try packet(1,10))
         #expect(!recorder.status().enabled)
         await stop(recorder); await stop(recorder)
+        #expect(!FileManager.default.fileExists(atPath:root.path))
+    }
+    @Test func invalidTimestampDoesNotCreateRecording() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let recorder = DevCaptureRecorder(root:root)
+        recorder.enable()
+        recorder.submit(try packet(1,.infinity))
+        recorder.submit(try packet(2,.nan))
+        #expect(!recorder.status().busy)
+        #expect(recorder.status().saved == 0)
+        await stop(recorder)
         #expect(!FileManager.default.fileExists(atPath:root.path))
     }
     @Test func uncalibratedModelOutputIsSavedWithoutInventedMetricDepth() async throws {
@@ -72,6 +85,8 @@ import SpatialCore
         defer { try? FileManager.default.removeItem(at:root) }
         let recorder = DevCaptureRecorder(root:root); recorder.enable()
         recorder.submit(try packet(1,10)); try await waitIdle(recorder)
+        // Repeated enable must not reset the 5 Hz admission gate.
+        recorder.enable()
         recorder.submit(try packet(2,10.05)); try await waitIdle(recorder)
         recorder.submit(try packet(3,10.4)); try await waitIdle(recorder)
         #expect(recorder.status().saved == 2)
