@@ -1,0 +1,95 @@
+{
+  "sourceCommit": "68a913eb7fb78a77eafbf21c284157407dce1143",
+  "implementationCommit": "aa09bda",
+  "product": {
+    "CFBundleIdentifier": "com.jingxuan.PRTS",
+    "CFBundleVersion": "18",
+    "CFBundleShortVersionString": "1.0",
+    "PRTSCommit": "68a913eb7fb78a77eafbf21c284157407dce1143"
+  },
+  "compileCondition": "PRTS_DEV_CAPTURE",
+  "algorithmRevision": "turn_tail_v2",
+  "tests": {
+    "SpatialCoreDebug": 296,
+    "SpatialCoreRelease": 296,
+    "PRTSCoreContracts": 8,
+    "Python": 46,
+    "DevSimulatorApp": 14
+  },
+  "builds": {
+    "ordinaryRelease": "passed_unsigned",
+    "devSimulator": "passed",
+    "devRelease": "passed_signed_and_codesign_verified"
+  },
+  "device": {
+    "name": "Gloria",
+    "model": "iPhone 15 Pro",
+    "installation": "succeeded",
+    "launch": "blocked_device_locked",
+    "data": "preserved"
+  },
+  "previousRecording": {
+    "build": 17,
+    "capturedAnalysisRecords": 443,
+    "droppedAnalysisRecords": 1706,
+    "limitReached": true
+  },
+  "replay": {
+    "before": {
+      "frames": 443,
+      "paths": 425,
+      "turns": 0,
+      "maximumPointCount": 7,
+      "reasons": {
+        "new_forward_goal": 1,
+        "world_route_preserved": 324,
+        "replanned_around_obstacle": 12,
+        "current_obstacle_invalidated": 6,
+        "obstacle_cleared_return_to_intent": 12,
+        "near_obstacle_no_observed_detour": 11,
+        "confirmed_occupancy_no_route": 1,
+        "blocked_maneuver_replanned": 32,
+        "occupancy_tail_extended": 8,
+        "reacquired_maneuver": 36
+      }
+    },
+    "after": {
+      "frames": 443,
+      "paths": 426,
+      "turns": 1,
+      "maximumPointCount": 5,
+      "reasons": {
+        "new_forward_goal": 2,
+        "world_route_preserved": 336,
+        "replanned_around_obstacle": 8,
+        "current_obstacle_invalidated": 7,
+        "obstacle_cleared_return_to_intent": 8,
+        "near_obstacle_no_observed_detour": 9,
+        "confirmed_occupancy_no_route": 1,
+        "reacquired_maneuver": 63,
+        "occupancy_tail_extended": 7,
+        "blocked_maneuver_replanned": 2
+      }
+    }
+  },
+  "limitations": [
+    "compact_grid_reconstruction_not_full_sensor_replay",
+    "no_build18_walking_test",
+    "launch_requires_device_unlock"
+  ],
+  "localEvidenceDirectory": "/tmp/prts-route18",
+  "sha256": {
+    "core-final-debug.log": "d7263cda910346e51ebb91c39b70a4d697e470dc670d8cda574dd53669331fc9",
+    "core-final-release.log": "02302070bb0382fe47be11738ad26562c984647d2b5b3c01340ae71c00767fb7",
+    "contracts-final.log": "41f85a8dda7151a2f1d575a760d48bdb31cd349541a45dbbd617e93979f7db61",
+    "python-final.log": "4a05c8691e583edc86523d5ae9e407d702ec9947d876cf0df4d4d718d249ea98",
+    "normal-release.log": "d094c6da86406f068b7c90c61eb16cd72ddaef29f9c16995bd36d4ef8a936361",
+    "dev-simulator-tests.log": "51bd08f4523bd6f2446b22e559188709849fa225d9f4852155ee99223aee0c89",
+    "signed-release.log": "50d8119e8d53ff91bd228622a597be4372da8b3accd140b7b9a526f6f65044d5",
+    "device-install.json": "973b12b3b80ea1ea38d58031415e1ef31db81d1276386f8ac7d4e128922d1b5d",
+    "device-launch.json": "da3ff50dd32fbb01380973b75717ea5caf6f4f7cbc7b394859b5148f64a7c8e6",
+    "product-metadata.json": "abb6462cb5fc8d4a09323887c54a20c4e8e3ec02aeebf1adce410ac05f3ba929",
+    "replay-summary.json": "b6b4147686b500fb283a4db9d13f56d2e381c70174ef8d94caf41c205517c14f",
+    "regression-before.log": "2bcf478e58a5b9e3b40200d927bd828fa1bbff5b1c8b1f0a8550077c8922fda7"
+  }
+}
