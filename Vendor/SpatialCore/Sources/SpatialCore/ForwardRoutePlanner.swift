@@ -49,7 +49,7 @@ struct ForwardRoutePlanner: Sendable {
 
     mutating func update(
         result r: AnalysisResult, observation: DepthObservation?, options: PathOptions,
-        directionStable: Bool?, currentGrid: LocalGrid? = nil
+        directionStable: Bool?, currentGrid: LocalGrid? = nil, turnResult: AnalysisResult? = nil
     ) -> PathUpdate {
         let started = ProcessInfo.processInfo.systemUptime
         guard let pose = r.sourcePose ?? observation?.pose else {
@@ -61,7 +61,7 @@ struct ForwardRoutePlanner: Sendable {
         var invalidated = false
         let confirmed = r.plane != nil && (locksWorldGeometry ||
             ["current_confirmed", "native_confirmed"].contains(r.diagnostics?.groundReferenceMode ?? ""))
-        let raster = RoutePlanningGrid(result: r, options: options, requireBodyClearance: verifiedEvidence)
+        let raster = RoutePlanningGrid(result: r, options: options, requireBodyClearance: verifiedEvidence, obstacleVeto: locksWorldGeometry)
 
         if !locksWorldGeometry, let ref = reference, let plane = r.plane, r.diagnostics?.groundConfirmed == true,
             abs(plane.height(ref.plane.project(pose.position))) > 0.12
@@ -104,7 +104,7 @@ struct ForwardRoutePlanner: Sendable {
         }
         if let fixed = goal {
             let distance = simd_distance(fixed.plane.project(pose.position), fixed.point)
-            if !verifiedEvidence && (!locksWorldGeometry || maneuver?.mode == .sideRoute) && distance <= options.arrivalRadius {
+            if !verifiedEvidence && !locksWorldGeometry && distance <= options.arrivalRadius {
                 change = "target_reached"
                 if maneuver?.mode == .sideRoute { reference = nil }
                 path = nil
@@ -196,14 +196,21 @@ struct ForwardRoutePlanner: Sendable {
             let tangent = intended.count >= 2 ? simd_normalize(intended[1] - intended[0]) : ref.forward
             var newStraight: StraightPathTrace?
             var newReference: ForwardRouteReference?
-            if !verifiedEvidence, confirmed, directionStable ?? r.sourceDirectionStable ?? false, let raster, let device {
-                let proposed = ForwardRouteReference(origin: foot, forward: device.forward, plane: ref.plane)
+            // Heading dwell has its own yaw stability rule. The capture gate also includes
+            // pitch/angular speed and must not repeatedly erase a user's held new heading.
+            let horizontal = -pose.back-ref.plane.normal*simd_dot(-pose.back,ref.plane.normal)
+            let turnHeading: V3? = simd_length(horizontal) >= 0.1 ? simd_normalize(horizontal) : nil
+            if !verifiedEvidence, confirmed,
+               locksWorldGeometry || (directionStable ?? r.sourceDirectionStable ?? false),
+               let heading = turnHeading,
+               simd_dot(heading,tangent) <= cos(options.userTurnDegrees * .pi/180),
+               let turnRaster = turnResult.flatMap({ RoutePlanningGrid(result:$0,options:options,obstacleVeto:locksWorldGeometry) }) ?? raster {
+                let proposed = ForwardRouteReference(origin:foot,forward:heading,plane:ref.plane)
                 newReference = proposed
-                newStraight = ForwardPathSearch.straight(raster: raster, reference: proposed, foot: foot)
+                newStraight = ForwardPathSearch.straight(raster:turnRaster,reference:proposed,foot:foot)
             }
-            // A visible continuous segment in the NEW direction is sufficient. Do not
-            // require the near-field camera blind zone to be shorter than one metre.
-            // Missing observations still reset the continuous turn dwell.
+            // Require a usable segment in the proposed direction, not membership in the
+            // old heading's query window. Turn dwell itself owns heading/time continuity.
             var clearTurn =
                 newStraight.map {
                     $0.observedLength >= max(0.5, options.minimumWidth)
@@ -216,13 +223,17 @@ struct ForwardRoutePlanner: Sendable {
                     sourceFrameID: r.frameID, validatedFrameID: r.frameID, observedAt: r.timestamp,
                     plane: proposed.plane,
                     points: points, source: r.source, requiredWidth: options.minimumWidth)
-                clearTurn = !PathObstacleCheck.intersects(candidate, result: r, observation: observation)
+                clearTurn = !PathObstacleCheck.intersects(candidate, result: turnResult ?? r, observation: observation)
             }
             let userTurn = turn.update(
-                forward: device?.forward, routeForward: tangent, clear: clearTurn,
+                forward: turnHeading, routeForward: tangent, clear: clearTurn,
                 now: r.timestamp, options: options)
             diagnostics.turnDwell = turn.elapsed
-            diagnostics.turnAngle = turn.angle
+            diagnostics.turnAngle = turnHeading.map { acos(min(1,max(-1,simd_dot($0,tangent)))) * 180 / .pi }
+            diagnostics.turnCandidateLength = newStraight?.observedLength
+            diagnostics.turnReason = turnHeading == nil ? "heading_unavailable" :
+                ((diagnostics.turnAngle ?? 0) < options.userTurnDegrees ? "within_route_heading" :
+                    (clearTurn ? (userTurn ? "adopted" : "holding_heading") : "new_heading_blocked"))
             if userTurn, let newReference, let points = newStraight?.points, points.count >= 2 {
                 reference = newReference
                 maneuver = nil
@@ -252,8 +263,7 @@ struct ForwardRoutePlanner: Sendable {
                     if active.mode != .sideRoute, let join = active.join {
                         if q.y >= ref.coordinates(join).y - 0.1, abs(q.x) <= 0.15 {
                             maneuver = nil
-                            path = nil
-                            invalidated = true
+                            if !locksWorldGeometry { path = nil;invalidated = true }
                             reason = "original_line_rejoined"
                         } else {
                             let remaining = PathTracking.remaining(active.points, plane: ref.plane, pose: pose)
@@ -267,17 +277,27 @@ struct ForwardRoutePlanner: Sendable {
                         }
                     }
                 }
-                // New evidence ahead is also a renewal trigger, even before the budget is
-                // exhausted. Append only on the original axis (never shortcut a side detour).
-                if verifiedEvidence || locksWorldGeometry, let old = path, let end = old.points.last,
-                    abs(ref.coordinates(end).x) < 0.05 {
-                    let tail = ForwardPathSearch.straight(raster:raster,reference:ref,foot:end)
-                    if let join = tail.points.first,let last = tail.points.last,
-                        simd_distance(end,join) <= raster.grid.cellSize,
-                        raster.supports([end,last]),
-                        simd_distance(end,last) > (old.length < renewalDistance ? 0.15 : 0.3) {
-                        accept(old.points+[last],result:r,options:options)
-                        reason = verifiedEvidence ? "verified_tail_extended" : "occupancy_tail_extended"
+                // Extend before a local endpoint: the current foot, not the previous tail,
+                // bounds the rolling horizon. Side routes extend their final tangent too.
+                if verifiedEvidence || locksWorldGeometry, let old = path, let end = old.points.last {
+                    var axis: ForwardRouteReference?
+                    if abs(ref.coordinates(end).x) < 0.05 { axis = ref }
+                    else if locksWorldGeometry, maneuver?.mode == .sideRoute, old.points.count >= 2 {
+                        let delta = end-old.points[old.points.count-2]
+                        if simd_length(delta) > 0.0001 {
+                            axis = .init(origin:end,forward:simd_normalize(delta),plane:ref.plane)
+                        }
+                    }
+                    if let axis {
+                        let horizon = axis.coordinates(foot).y+raster.maxDistance
+                        let tail = ForwardPathSearch.straight(raster:raster,reference:axis,foot:end,maxProgress:horizon)
+                        if let join = tail.points.first,let last = tail.points.last,
+                            simd_distance(end,join) <= raster.grid.cellSize,
+                            raster.supports([end,last]),
+                            simd_distance(end,last) > (old.length < renewalDistance ? 0.15 : 0.3) {
+                            accept(old.points+[last],result:r,options:options)
+                            reason = verifiedEvidence ? "verified_tail_extended" : "occupancy_tail_extended"
+                        }
                     }
                 }
                 if maneuver != nil {
@@ -295,7 +315,7 @@ struct ForwardRoutePlanner: Sendable {
                                         FanPathSearch.plan(
                                             grid: raster.grid, mask: raster.mask, width: raster.requiredWidth,
                                             halfAngleDegrees: 90, maxDistance: raster.maxDistance,
-                                            start: entry,
+                                            start: entry, allowUnknown:raster.obstacleVeto,
                                             cellFilter: { p in
                                                 let q = ref.coordinates(raster.grid.basis.world(x: p.x, h: 0, z: p.y))
                                                 return Float(active.side) * q.x >= -0.00001
@@ -387,8 +407,10 @@ struct ForwardRoutePlanner: Sendable {
             persistence.reset()
         }
         // A newly generated route receives the same CURRENT raw-depth veto as an old route.
+        // A committed user turn uses the same directional query that generated it.
+        let candidateResult = change == "user_direction_adopted" ? (turnResult ?? r) : r
         if let candidate = path, candidate.sourceFrameID == r.frameID,
-            let veto = PathObstacleCheck.reason(candidate, result: r, observation: observation)
+            let veto = PathObstacleCheck.reason(candidate, result: candidateResult, observation: observation)
         {
             diagnostics.obstacleVeto = veto
             path = nil
@@ -396,6 +418,7 @@ struct ForwardRoutePlanner: Sendable {
             reason = "current_obstacle_invalidated"
         }
         diagnostics.reference = reference
+        diagnostics.routePointCount = path?.points.count ?? 0
         diagnostics.invalidatesPreviousPath = invalidated
         if let active = maneuver {
             diagnostics.mode = active.mode
@@ -510,8 +533,9 @@ struct ForwardRoutePlanner: Sendable {
         path = .init(
             id: fixed.id, epoch: r.epoch, parameterVersion: r.parameterVersion,
             sourceFrameID: r.frameID, validatedFrameID: r.frameID, observedAt: r.timestamp,
-            plane: ref.plane, points: points, source: r.source, requiredWidth: options.minimumWidth,
+            plane: ref.plane, points: locksWorldGeometry ? RouteArc.coalescingCollinear(points) : points, source: r.source, requiredWidth: options.minimumWidth,
             worldLocked: locksWorldGeometry, forwardStrategy: true, footAtPlan: r.sourcePose.map { ref.plane.project($0.position) },
             targetRange: r.parameters.forwardRange)
+        if let updated = path { maneuver?.points = updated.points }
     }
 }

@@ -3,9 +3,10 @@ import simd
 
 /// Collision checks for a swept disk against cell SQUARES. Exact tangency has no overlapping
 /// area: a measured 0.50 m corridor can support the requested 0.50 m prediction envelope.
-/// Unknown is only allowed for the explicitly dashed near-field approach, never the observed path.
+/// The caller selects unknown/boundary permissions; obstacle-veto and the verified comparator
+/// share exactly the same occupied-cell overlap calculation.
 public enum PathClearance {
-    public static func mask(grid: LocalGrid,radius: Float) -> [Bool] {
+    public static func mask(grid: LocalGrid,radius: Float,allowUnknown: Bool = false) -> [Bool] {
         let reach = Int(ceil(radius/grid.cellSize+0.5))
         var offsets: [(Int,Int)] = []
         for z in -reach...reach { for x in -reach...reach {
@@ -13,10 +14,12 @@ public enum PathClearance {
             if simd_length_squared(d) < radius*radius-0.000001 { offsets.append((x,z)) }
         }}
         return grid.cells.indices.map { i in
-            guard grid.cells[i].state == .candidate else { return false }
+            guard grid.cells[i].state == .candidate || (allowUnknown && grid.cells[i].state == .unknown) else { return false }
             return offsets.allSatisfy { dx,dz in
                 let x = i%grid.columns+dx,z = i/grid.columns+dz
-                return x >= 0 && x < grid.columns && z >= 0 && z < grid.rows && grid.cells[z*grid.columns+x].state == .candidate
+                guard x >= 0 && x < grid.columns && z >= 0 && z < grid.rows else { return allowUnknown }
+                let state = grid.cells[z*grid.columns+x].state
+                return state == .candidate || (allowUnknown && state == .unknown)
             }
         }
     }
@@ -99,7 +102,7 @@ private struct PathHeap {
 public enum FanPathSearch {
     public static let halfAngleDegrees: Float = 45
     public static func plan(grid: LocalGrid,mask: [Bool],width: Float,halfAngleDegrees: Float = 45,maxDistance: Float = .infinity,fixedTarget: V3? = nil,
-                            start: V3? = nil,cellFilter: ((SIMD2<Float>) -> Bool)? = nil,
+                            start: V3? = nil,allowUnknown: Bool = false,cellFilter: ((SIMD2<Float>) -> Bool)? = nil,
                             targetFilter: ((SIMD2<Float>) -> Bool)? = nil) -> FanPathPlan {
         var output = FanPathPlan()
         guard mask.count == grid.cells.count else { return output }
@@ -117,7 +120,7 @@ public enum FanPathSearch {
             if let start {
                 let q = grid.basis.local(start),a = SIMD2(q.x,q.z),b = grid.center(i)
                 guard simd_distance(a,b) <= grid.cellSize*1.5,
-                      PathClearance.segment(grid:grid,from:a,to:b,radius:radius) else { continue }
+                      PathClearance.segment(grid:grid,from:a,to:b,radius:radius,allowUnknown:allowUnknown) else { continue }
                 cost[i] = simd_distance(a,b);roots[i] = i;heap.push(cost[i],i);continue
             }
             let c = grid.center(i),steps = max(1,Int(ceil(simd_length(c)/(grid.cellSize/3))))
@@ -140,7 +143,7 @@ public enum FanPathSearch {
                 if dx != 0 && dz != 0 && (!allowed[z*grid.columns+xx] || !allowed[zz*grid.columns+x]) { continue }
                 let a = grid.center(i),b = grid.center(j)
                 let next = score+simd_distance(a,b)
-                guard next+0.000001 < cost[j],PathClearance.segment(grid:grid,from:a,to:b,radius:radius) else { continue }
+                guard next+0.000001 < cost[j],PathClearance.segment(grid:grid,from:a,to:b,radius:radius,allowUnknown:allowUnknown) else { continue }
                 cost[j] = next; parent[j] = i; roots[j] = roots[i]; heap.push(next,j)
             }}
         }
@@ -154,7 +157,7 @@ public enum FanPathSearch {
         if let fixedTarget {
             let q = grid.basis.local(fixedTarget),point = SIMD2(q.x,q.z)
             guard let i = grid.index(x:q.x,z:q.z),targets.contains(i),
-                  PathClearance.segment(grid:grid,from:grid.center(i),to:point,radius:radius) else { return output }
+                  PathClearance.segment(grid:grid,from:grid.center(i),to:point,radius:radius,allowUnknown:allowUnknown) else { return output }
             target = i;exactTarget = point
         } else {
             // Farthest radial ground-plane distance, NOT forward-z or heading preference.
@@ -173,7 +176,7 @@ public enum FanPathSearch {
         var compact: [Int] = [chain[0]],cursor = 0
         while cursor+1 < chain.count {
             var end = chain.count-1
-            while end > cursor+1 && !PathClearance.segment(grid:grid,from:grid.center(chain[cursor]),to:grid.center(chain[end]),radius:radius) { end -= 1 }
+            while end > cursor+1 && !PathClearance.segment(grid:grid,from:grid.center(chain[cursor]),to:grid.center(chain[end]),radius:radius,allowUnknown:allowUnknown) { end -= 1 }
             compact.append(chain[end]);cursor = end
         }
         output.points = compact.map { let c = grid.center($0);return grid.basis.world(x:c.x,h:0,z:c.y) }
@@ -181,12 +184,20 @@ public enum FanPathSearch {
             // Append the exact world goal if replacing the last cell centre would cut a corner.
             if output.points.count >= 2 {
                 let prev = grid.basis.local(output.points[output.points.count-2])
-                if PathClearance.segment(grid:grid,from:SIMD2(prev.x,prev.z),to:exactTarget,radius:radius) { output.points[output.points.count-1] = fixedTarget }
+                if PathClearance.segment(grid:grid,from:SIMD2(prev.x,prev.z),to:exactTarget,radius:radius,allowUnknown:allowUnknown) { output.points[output.points.count-1] = fixedTarget }
                 else { output.points.append(fixedTarget) }
             }
         }
         if let start,let first = output.points.first,simd_distance(start,first) > 0.001 {
             output.points.insert(start,at:0)
+        }
+        // Include the exact entry in string pulling: a virtual-foot to cell-centre hop
+        // must not survive as an unnecessary tiny turn before the real avoidance corner.
+        while output.points.count > 2 {
+            let a = grid.basis.local(output.points[0]),b = grid.basis.local(output.points[2])
+            guard PathClearance.segment(grid:grid,from:SIMD2(a.x,a.z),to:SIMD2(b.x,b.z),
+                radius:radius,allowUnknown:allowUnknown) else { break }
+            output.points.remove(at:1)
         }
         let endpoint = exactTarget ?? grid.center(target)
         output.targetBearingDegrees = atan2(endpoint.x,endpoint.y)*180 / .pi;output.targetDistance = simd_length(endpoint)
