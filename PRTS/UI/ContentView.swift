@@ -22,7 +22,10 @@ struct ContentView: View {
     @State private var stopHoldTask: Task<Void, Never>?
     @State private var didCompleteStopHold = false
     @State private var isShowingSettings = false
+    #if PRTS_DEV_CAPTURE
+    @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
     @State private var commandText = ""
+    #endif
     private let pollTimer = Timer.publish(every:0.1,on:.main,in:.common).autoconnect()
 
     var body: some View {
@@ -46,6 +49,7 @@ struct ContentView: View {
 
                     Spacer()
                         .frame(maxWidth:.infinity)
+                        #if PRTS_DEV_CAPTURE
                         .overlay(alignment:.topLeading) {
                             GeometryReader { bounds in
                                 ScrollView {
@@ -56,9 +60,18 @@ struct ContentView: View {
                             }
                         }
 
+                        #endif
+
                     cameraStatus
-                    backendStatus
-                    commandEntry
+                    if let message = camera.model.errorMessage ?? camera.model.permissionMessage {
+                        Text(message).font(.caption).foregroundStyle(.orange)
+                            .accessibilityIdentifier("homeOperationError")
+                    }
+                    #if PRTS_DEV_CAPTURE
+                    if showCommandEntry { commandEntry }
+                    #endif
+                    Text("实验验证，候选通道不等于安全路线")
+                        .font(.caption2).foregroundStyle(.orange)
                     primaryButton
                 }
                 .padding(.horizontal, 24)
@@ -202,25 +215,7 @@ struct ContentView: View {
         .accessibilityIdentifier("cameraStatus")
     }
 
-    private var backendStatus: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(camera.status)
-                .font(.caption.weight(.semibold))
-                .lineLimit(2)
-            Text("观测帧 \(camera.frameCount) · 实验验证，候选通道不等于安全路线")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            if let error = camera.model.errorMessage ?? camera.model.permissionMessage {
-                Text(error).font(.caption2).foregroundStyle(.orange)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .accessibilityElement(children: .combine)
-    }
-
+    #if PRTS_DEV_CAPTURE
     private var commandEntry: some View {
         HStack(spacing: 8) {
             TextField("home.command.placeholder", text: $commandText)
@@ -247,6 +242,8 @@ struct ContentView: View {
         }
         hapticManager.buttonTapped()
     }
+
+    #endif
 
     private var primaryButton: some View {
         Button {

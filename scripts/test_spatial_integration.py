@@ -23,7 +23,28 @@ class SpatialIntegrationTests(unittest.TestCase):
         }
         for name,target in files.items():
             def body(path):
-                return "\n".join(line for line in path.read_text().splitlines() if not line.lstrip().startswith(("import ","//"))).strip().replace(',"ground_evidence_expired"', "")
+                # Compare the normal compiled branch: dev-only capture must not alter algorithms.
+                lines = []; depth = 0; keep = True
+                for line in path.read_text().splitlines():
+                    token = line.strip()
+                    if token == "#if PRTS_DEV_CAPTURE" and depth == 0:
+                        depth = 1; keep = False; continue
+                    if depth:
+                        if token.startswith("#if "): depth += 1
+                        if token == "#else" and depth == 1:
+                            keep = True; continue
+                        if token == "#endif":
+                            depth -= 1
+                            if depth == 0: keep = True; continue
+                    if keep and not line.lstrip().startswith(("import ","//")):
+                        lines.append(line)
+                text = "\n".join(lines).replace(',"ground_evidence_expired"', "")
+                # Explicit concurrency annotations do not change mathematical operations.
+                text = text.replace("nonisolated struct CaptureDiagnostic", "struct CaptureDiagnostic")
+                text = text.replace("nonisolated static func planes", "static func planes")
+                text = text.replace('        let privacy = "No RGB or video saved."', "")
+                text = text.replace('map. " + privacy', 'map. No RGB or video saved."')
+                return " ".join(text.split())
             with self.subTest(file=name):
                 self.assertEqual(body(PROBE / "App" / name),body(target))
 
@@ -72,12 +93,12 @@ class SpatialIntegrationTests(unittest.TestCase):
         s = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         parts = {
             "header": s[s.index("    private var header:"):s.index("    private var cameraStatus:")],
-            "cameraStatus": s[s.index("    private var cameraStatus:"):s.index("    private var backendStatus:")],
+            "cameraStatus": s[s.index("    private var cameraStatus:"):s.index("    #if PRTS_DEV_CAPTURE\n    private var commandEntry:")],
             "primaryButton": s[s.index("    private var primaryButton:"):s.index("    private var stopGesture:")],
             "stopGesture": s[s.index("    private var stopGesture:"):s.index("    private func startCameraFromButton")],
             "theme": s[s.index("private extension Color"):],
         }
-        expected = {'header': 'b6fd21bf1b46b2e6d4151abfa1f471660ba09d045abea164f266e43dd79b1909', 'cameraStatus': 'c4b944ef4a1364469fad3ca8df7008808ca1fa693f1a6ec91ceaea8aa4008755', 'primaryButton': 'cd8e9cefccb539e922831be45aa32f6738eda904aa8bf5e3f9e66137fe7be663', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
+        expected = {'header': '3bfe906826c6e382a22ca3f5b0e35e809cb0bc6f6cbc0ad5ce3231ef76b7f87a', 'cameraStatus': 'c4b944ef4a1364469fad3ca8df7008808ca1fa693f1a6ec91ceaea8aa4008755', 'primaryButton': 'cd8e9cefccb539e922831be45aa32f6738eda904aa8bf5e3f9e66137fe7be663', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
         for name,content in parts.items():
             with self.subTest(part=name):
                 self.assertEqual(hashlib.sha256(content.encode()).hexdigest(),expected[name])

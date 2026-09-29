@@ -14,3 +14,9 @@ PRTS 当前默认运行“第一阶段完全离线基础感知”：单一 ARKit
 - `docs/architecture/CODE_STRUCTURE.md`
 - `docs/architecture/RUNTIME_DATA_FLOW.md`
 - `PRTS/README.md`
+
+### 可选开发信息采集包
+
+显式使用 `PRTS_DEV_CAPTURE` 才编译信息采集入口及录像代码，普通包不包含。
+开发包仍默认关闭，手动启用后保存低帧率压缩RGB与同帧ARKit/DA输出、分析结果。
+编译、使用、隐私及回放格式见 [开发采集说明](docs/DEV_CAPTURE.md)。
