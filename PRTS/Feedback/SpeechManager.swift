@@ -48,6 +48,7 @@ final class SpeechManager: NSObject, ObservableObject {
 
     private let synthesizer = AVSpeechSynthesizer()
     private var perceptionSpeechActive = false
+    var isSpeakingPerception: Bool { perceptionSpeechActive && synthesizer.isSpeaking }
     private(set) var lastSettingsAnnouncement: String?
     func speakPerception(_ message: String) {
         speak(message)

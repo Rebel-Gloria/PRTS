@@ -12,8 +12,13 @@ public struct PathOptions: Codable, Sendable, Equatable {
     public var targetHalfAngleDegrees: Float = 45
     public var arrivalRadius: Float = 0.35
     public var alignmentDegrees: Float = 5
+    public var obstacleTriggerDistance: Float = 1
+    public var obstacleTriggerWidth: Float = 0.5 // Full width at the far edge; apex at the foot projection.
+    public var smallObstacleWidth: Float = 0.5
+    public var userTurnDegrees: Float = 45
+    public var userTurnSeconds: Double = 3
     public init() {}
-    private enum CodingKeys: String, CodingKey { case enabled,haptics,deviationDegrees,retentionSeconds,lookAhead,minimumWidth,targetHalfAngleDegrees,arrivalRadius,alignmentDegrees }
+    private enum CodingKeys: String, CodingKey { case enabled,haptics,deviationDegrees,retentionSeconds,lookAhead,minimumWidth,targetHalfAngleDegrees,arrivalRadius,alignmentDegrees,obstacleTriggerDistance,obstacleTriggerWidth,smallObstacleWidth,userTurnDegrees,userTurnSeconds }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy:CodingKeys.self)
         enabled = try c.decodeIfPresent(Bool.self,forKey:.enabled) ?? true
@@ -25,6 +30,11 @@ public struct PathOptions: Codable, Sendable, Equatable {
         targetHalfAngleDegrees = try c.decodeIfPresent(Float.self,forKey:.targetHalfAngleDegrees) ?? 45
         arrivalRadius = try c.decodeIfPresent(Float.self,forKey:.arrivalRadius) ?? 0.35
         alignmentDegrees = try c.decodeIfPresent(Float.self,forKey:.alignmentDegrees) ?? 5
+        obstacleTriggerDistance = try c.decodeIfPresent(Float.self,forKey:.obstacleTriggerDistance) ?? 1
+        obstacleTriggerWidth = try c.decodeIfPresent(Float.self,forKey:.obstacleTriggerWidth) ?? 0.5
+        smallObstacleWidth = try c.decodeIfPresent(Float.self,forKey:.smallObstacleWidth) ?? 0.5
+        userTurnDegrees = try c.decodeIfPresent(Float.self,forKey:.userTurnDegrees) ?? 45
+        userTurnSeconds = try c.decodeIfPresent(Double.self,forKey:.userTurnSeconds) ?? 3
     }
     public func validated() -> Self {
         var v = self
@@ -35,6 +45,11 @@ public struct PathOptions: Codable, Sendable, Equatable {
         v.targetHalfAngleDegrees = targetHalfAngleDegrees.isFinite ? min(75,max(15,targetHalfAngleDegrees)) : 45
         v.arrivalRadius = arrivalRadius.isFinite ? min(0.75,max(0.2,arrivalRadius)) : 0.35
         v.alignmentDegrees = alignmentDegrees.isFinite ? min(v.deviationDegrees-2,max(2,alignmentDegrees)) : min(5,v.deviationDegrees-2)
+        v.obstacleTriggerDistance = obstacleTriggerDistance.isFinite ? min(2,max(0.5,obstacleTriggerDistance)) : 1
+        v.obstacleTriggerWidth = obstacleTriggerWidth.isFinite ? min(1,max(0.3,obstacleTriggerWidth)) : 0.5
+        v.smallObstacleWidth = smallObstacleWidth.isFinite ? min(1,max(0.2,smallObstacleWidth)) : 0.5
+        v.userTurnDegrees = userTurnDegrees.isFinite ? min(90,max(30,userTurnDegrees)) : 45
+        v.userTurnSeconds = userTurnSeconds.isFinite ? min(6,max(3,userTurnSeconds)) : 3
         return v
     }
 }
@@ -49,6 +64,7 @@ public struct PredictedPath: Codable, Sendable {
     public var points: [V3]
     public var source: String
     public var requiredWidth: Float
+    public var forwardStrategy: Bool? = nil // New routes retain world intent across camera turns.
     public var footAtPlan: V3? = nil
     public var targetRange: Float? = nil
     public var length: Float { zip(points,points.dropFirst()).reduce(0) { $0+simd_distance($1.0,$1.1) } }
@@ -64,11 +80,14 @@ public struct FixedPathGoal: Codable, Sendable {
     public var maxDistance: Float
 }
 public struct PathUpdate: Codable, Sendable {
+    public var projection: RouteProjection? = nil
+    public var occupancyFilter: OccupancyFilterDiagnostics? = nil
     public var path: PredictedPath?
     public var reason: String
     public var blueCells: Int
     public var eligibleCells: Int
     public var milliseconds: Double
+    public var strategy: ForwardStrategyDiagnostics? = nil
     public var goal: FixedPathGoal? = nil
     public var goalChangeReason: String? = nil
     public var reachableCells: Int? = nil
@@ -94,7 +113,7 @@ public struct PathPresentation: Sendable {
         if let goal = path.points.last {
             let distance = simd_distance(path.plane.project(pose.position),goal)
             guard distance > options.validated().arrivalRadius,distance <= (path.targetRange ?? 4)+0.2 else { return nil }
-            if let basis = GroundBasis(plane:path.plane,pose:pose) {
+            if path.forwardStrategy != true,let basis = GroundBasis(plane:path.plane,pose:pose) {
                 let p = basis.local(goal)
                 guard abs(atan2(p.x,p.z)*180 / .pi) <= options.validated().targetHalfAngleDegrees+5 else { return nil }
             }
@@ -179,146 +198,67 @@ public struct BluePathGrid: Sendable {
 
 }
 
-/// Analysis-worker owned. One world-space polyline, never a history of screen pixels.
+/// Analysis-worker owned facade: session/order validation stays outside route strategy.
+/// Spatial runtime and UI continue to use the same PathUpdate contract.
 public struct PathPredictor: Sendable {
-    private var path: PredictedPath?
-    private var goal: FixedPathGoal?
-    private var outsideSince: Double?
-    private var lastTimestamp: Double = 0
-    private var blockedGoalSince: Double?
-    private var blockedGoalLast: Double = 0
-    private var blockedGoalCount = 0
+    private var planner = ForwardRoutePlanner()
     private var lastFrame: UInt64 = 0
-    private var epoch: UInt64 = 0,version: UInt64 = 0
-    public init() {}
-    public mutating func reset() { path = nil;goal = nil;outsideSince = nil;lastFrame = 0;lastTimestamp = 0;blockedGoalSince = nil;blockedGoalCount = 0 }
-    public mutating func update(result r: AnalysisResult,observation: DepthObservation?,options raw: PathOptions,directionStable: Bool? = nil) -> PathUpdate {
-        let start = ProcessInfo.processInfo.systemUptime,options = raw.validated()
-        if epoch != r.epoch || version != r.parameterVersion { reset();epoch = r.epoch;version = r.parameterVersion }
+    private var lastTimestamp: Double = 0
+    private var epoch: UInt64 = 0
+    private var version: UInt64 = 0
+    private var obstacleConfirmationSeconds: Double = 0.3
+    private var experimentalOccupancyPlanning = false
+    private var occupancyFilter = TemporalOccupancyGrid()
+    public init(experimentalOccupancyPlanning: Bool = false) {
+        self.experimentalOccupancyPlanning = experimentalOccupancyPlanning
+        if experimentalOccupancyPlanning {
+            obstacleConfirmationSeconds = 0 // Input cells have already passed the 300ms filter.
+            planner.obstacleConfirmationSeconds = 0
+        }
+    }
+    // Test seam for geometry-only suites. Production always uses the default 300ms.
+    init(obstacleConfirmationSeconds: Double) {
+        self.obstacleConfirmationSeconds = obstacleConfirmationSeconds
+        planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds
+    }
+    public mutating func reset() {
+        occupancyFilter.reset();planner = .init();planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;lastFrame = 0;lastTimestamp = 0
+    }
+    public mutating func update(result: AnalysisResult,observation: DepthObservation?,options: PathOptions,
+                                directionStable: Bool? = nil) -> PathUpdate {
+        if epoch != result.epoch || version != result.parameterVersion {
+            reset();epoch = result.epoch;version = result.parameterVersion
+        }
         guard options.enabled else { reset();return .init(reason:"disabled") }
-        guard r.frameID > lastFrame else {
-            var u = PathUpdate(path:path.flatMap { r.timestamp >= $0.observedAt && r.timestamp-$0.observedAt <= options.retentionSeconds ? $0 : nil },reason:"out_of_order_ignored")
-            u.goal = goal;return u
+        guard result.frameID > lastFrame else {
+            return planner.held(at:result.timestamp,options:options.validated(),reason:"out_of_order_ignored")
         }
-        guard r.timestamp.isFinite,r.timestamp >= lastTimestamp else { reset();return .init(reason:"ground_or_metric_conflict") }
-        lastFrame = r.frameID;lastTimestamp = r.timestamp
-        if r.diagnostics?.groundReferenceInvalidation == "reference_expired_or_clock_reversed" {
-            // Lost evidence is not a contradictory world measurement. Keep only the goal ID;
-            // no line or haptic survives, and renewed evidence must replan to this same point.
-            path = nil;blockedGoalSince = nil;blockedGoalCount = 0
-            var update = PathUpdate(reason:"ground_evidence_expired");update.goal = goal;return update
+        guard result.timestamp.isFinite,result.timestamp >= lastTimestamp else {
+            reset();return .init(reason:"ground_or_metric_conflict")
         }
-        if r.diagnostics?.groundReferenceInvalidation != nil {
-            path = nil;goal = nil;outsideSince = nil;return .init(reason:"ground_or_metric_conflict")
+        lastFrame = result.frameID;lastTimestamp = result.timestamp
+        if result.diagnostics?.groundReferenceInvalidation == "reference_expired_or_clock_reversed" {
+            occupancyFilter.reset()
+            planner.withdrawEvidence()
+            return planner.held(at:result.timestamp,options:options.validated(),reason:"ground_evidence_expired")
         }
-        guard let pose = r.sourcePose ?? observation?.pose else { path = nil;return .init(reason:"missing_pose") }
-        var reason = "waiting_blue_ground",change: String?
-        if let fixed = goal {
-            let origin = fixed.plane.project(pose.position),distance = simd_distance(origin,fixed.point)
-            let basis = GroundBasis(plane:fixed.plane,pose:pose)
-            let bearing = basis.map { b -> Float in let q = b.local(fixed.point);return abs(atan2(q.x,q.z)*180 / .pi) }
-            let outside = distance > fixed.maxDistance+0.2 || (bearing.map{$0 > options.targetHalfAngleDegrees+5} ?? false)
-            if distance <= options.arrivalRadius { change = "target_reached" }
-            else if outside {
-                if outsideSince == nil { outsideSince = r.timestamp }
-                if r.timestamp-outsideSince! >= 0.3 { change = "target_out_of_range" }
-            } else { outsideSince = nil }
-            if let plane = r.plane,r.diagnostics?.groundConfirmed == true,abs(plane.height(fixed.point)) > 0.12 || simd_dot(plane.normal,fixed.plane.normal) < 0.97 { change = "ground_or_metric_conflict" }
-            if let change { path = nil;goal = nil;outsideSince = nil;reason = change }
+        if result.diagnostics?.groundReferenceInvalidation != nil {
+            reset();return .init(reason:"ground_or_metric_conflict")
         }
-        if reason == "ground_or_metric_conflict" { return .init(reason:reason) }
-        let raster = BluePathGrid(result:r,options:options)
-        let confirmed = ["current_confirmed","native_confirmed"].contains(r.diagnostics?.groundReferenceMode ?? "") && (directionStable ?? r.sourceDirectionStable ?? false) && r.plane != nil
-        var obstacleInvalidated = false,search: FanPathPlan?
-        if var old = path {
-            if abs(old.requiredWidth-options.minimumWidth) > 0.001 || r.timestamp < old.observedAt { path = nil }
-            else {
-                let remaining = PathTracking.remaining(old.points,plane:old.plane,pose:pose)
-                if remaining.count >= 2 { old.points = remaining }
-                if intersectsObstacle(old,result:r,observation:observation) { path = nil;obstacleInvalidated = true;reason = "current_obstacle_invalidated" }
-                else if let raster,raster.supports(old.points) {
-                    old.observedAt = r.timestamp;old.validatedFrameID = r.frameID;path = old;reason = "revalidated_world_path"
-                } else { path = old;reason = "retained_world_path" }
+        if experimentalOccupancyPlanning {
+            let start = ProcessInfo.processInfo.systemUptime
+            guard let planning = occupancyFilter.apply(result) else {
+                planner.withdrawEvidence()
+                return .init(reason: "experimental_waiting_ground")
             }
+            // No raw single-frame veto in this experimental path: doing so would reintroduce
+            // the ghosts removed above. Raw depth remains in the separate sensor/log pipeline.
+            var update = planner.update(result:planning,observation:nil,options:options.validated(),directionStable:directionStable)
+            update.occupancyFilter = occupancyFilter.diagnostics
+            update.milliseconds = (ProcessInfo.processInfo.systemUptime - start) * 1000
+            return update
         }
-        // A blocked ROUTE pauses guidance but does not move the target. Only a currently
-        // occupied goal footprint is itself invalid, rather than merely awaiting a detour.
-        var goalCurrentlyBlocked = false
-        if let fixed = goal,path == nil {
-            let endpoint = makePath([fixed.point,fixed.point],goal:fixed,result:r,width:options.minimumWidth)
-            if intersectsObstacle(endpoint,result:r,observation:observation,includeApproach:false) {
-                goalCurrentlyBlocked = true;obstacleInvalidated = true;reason = "current_obstacle_invalidated"
-                if blockedGoalSince == nil || r.timestamp-blockedGoalLast > 0.4 {
-                    blockedGoalSince = r.timestamp;blockedGoalCount = 0
-                }
-                blockedGoalLast = r.timestamp;blockedGoalCount += 1
-                if blockedGoalCount >= 3,r.timestamp-(blockedGoalSince ?? r.timestamp) >= 0.3,confirmed {
-                    goal = nil;outsideSince = nil;change = "target_blocked"
-                    blockedGoalSince = nil;blockedGoalCount = 0
-                }
-            }
-        }
-        if !goalCurrentlyBlocked { blockedGoalSince = nil;blockedGoalCount = 0 }
-        // Re-route only TO the same world point. A newly visible farther area never moves it.
-        if !goalCurrentlyBlocked,let fixed = goal,let raster,confirmed,(path == nil || reason == "retained_world_path") {
-            search = raster.search(fixedTarget:fixed.point)
-            if let points = search?.points,points.count >= 2 {
-                path = makePath(points,goal:fixed,result:r,width:options.minimumWidth)
-                reason = obstacleInvalidated ? "replanned_around_obstacle" : "reacquired_fixed_goal"
-            }
-        }
-        if goal == nil,let raster,confirmed,let plane = r.plane,GroundBasis(plane:plane,pose:pose) != nil {
-            search = raster.search()
-            if let points = search?.points,points.count >= 2,let point = points.last,
-               simd_distance(plane.project(pose.position),point) > options.arrivalRadius+0.1 {
-                let fixed = FixedPathGoal(id:r.frameID,epoch:r.epoch,point:point,plane:plane,selectedAt:r.timestamp,maxDistance:r.parameters.forwardRange)
-                goal = fixed;path = makePath(points,goal:fixed,result:r,width:options.minimumWidth)
-                reason = obstacleInvalidated ? "replanned_around_obstacle" : "new_farthest_goal"
-                if change == nil { change = "selected_farthest" }
-            } else if reason == "waiting_blue_ground" { reason = "no_reachable_fan_target" }
-        }
-        // Expire the evidence, NOT the fixed goal. A metadata-only held goal cannot vibrate or draw.
-        let visible = path.flatMap { p in r.timestamp >= p.observedAt && r.timestamp-p.observedAt <= options.retentionSeconds ? p : nil }
-        if visible == nil,goal != nil,!obstacleInvalidated { reason = "fixed_goal_waiting_evidence" }
-        var update = PathUpdate(path:visible,reason:reason,blueCells:raster?.blueCells ?? 0,eligibleCells:raster?.mask.filter({$0}).count ?? 0,milliseconds:(ProcessInfo.processInfo.systemUptime-start)*1000)
-        update.goal = goal;update.goalChangeReason = change;update.reachableCells = search?.reachableCells
-        if let fixed = goal,let basis = GroundBasis(plane:fixed.plane,pose:pose) {
-            let q = basis.local(fixed.point);update.targetBearingDegrees = atan2(q.x,q.z)*180 / .pi
-            update.targetGroundDistance = hypot(q.x,q.z);update.approachDistance = visible?.points.first.map { simd_distance(basis.origin,$0) }
-        }
-        return update
-    }
-    private func makePath(_ points: [V3],goal: FixedPathGoal,result r: AnalysisResult,width: Float) -> PredictedPath {
-        .init(id:goal.id,epoch:r.epoch,parameterVersion:r.parameterVersion,sourceFrameID:r.frameID,validatedFrameID:r.frameID,observedAt:r.timestamp,plane:goal.plane,points:points,source:r.source,requiredWidth:width,footAtPlan:r.sourcePose.map { goal.plane.project($0.position) },targetRange:goal.maxDistance)
-    }
-    private func intersectsObstacle(_ path: PredictedPath,result r: AnalysisResult,observation: DepthObservation?,includeApproach: Bool = true) -> Bool {
-        var worldSegments = Array(zip(path.points,path.points.dropFirst()))
-        if includeApproach,let pose = r.sourcePose,let first = path.points.first { worldSegments.append((path.plane.project(pose.position),first)) }
-        if let grid = r.grid {
-            for (a,b) in worldSegments {
-                let aa = grid.basis.local(a),bb = grid.basis.local(b)
-                if !PathClearance.segment(grid:grid,from:SIMD2(aa.x,aa.z),to:SIMD2(bb.x,bb.z),radius:path.requiredWidth/2,allowUnknown:true) { return true }
-            }
-        }
-        // Use CURRENT depth against the retained plane even when fitting a new ground failed.
-        // Square-distance checks agree with planning; a circle around each cell would falsely
-        // invalidate an exactly 0.50 m corridor on every following frame.
-        if let o = observation,let basis = GroundBasis.geometry(plane:path.plane,pose:o.pose,previousForward:nil) {
-            var counts: [SIMD2<Int>:Int] = [:]
-            for p in o.points(parameters:r.parameters) {
-                let q = basis.local(p)
-                guard q.y > max(0.05,r.parameters.planeTolerance),q.y < r.parameters.bodyHeight+r.parameters.depthMargin else { continue }
-                counts[SIMD2(Int(floor(q.x/0.1)),Int(floor(q.z/0.1))),default:0] += 1
-            }
-            let segments = worldSegments.map { a,b -> (SIMD2<Float>,SIMD2<Float>) in
-                let aa = basis.local(a),bb = basis.local(b);return (SIMD2(aa.x,aa.z),SIMD2(bb.x,bb.z))
-            }
-            for (key,count) in counts where count >= 3 {
-                let center = SIMD2((Float(key.x)+0.5)*0.1,(Float(key.y)+0.5)*0.1)
-                if segments.contains(where:{ PathClearance.overlapsCell(from:$0.0,to:$0.1,center:center,cellSize:0.1,radius:path.requiredWidth/2) }) { return true }
-            }
-        }
-        return false
+        return planner.update(result:result,observation:observation,options:options.validated(),directionStable:directionStable)
     }
 }
 
@@ -355,9 +295,18 @@ public enum PathTracking {
         let length = zip(points,points.dropFirst()).reduce(Float(0)) { $0+simd_distance($1.0,$1.1) }
         guard length >= 0.25 else { return nil }
         var target = points.last!,left = lookAhead
-        for (a,b) in zip(points,points.dropFirst()) {
-            let d = simd_distance(a,b)
-            if d >= left { target = a+(b-a)*(left/max(0.001,d)); break }; left -= d
+        for (index,pair) in zip(points,points.dropFirst()).enumerated() {
+            let (a,b) = pair,d = simd_distance(a,b)
+            if d >= left { target = a+(b-a)*(left/max(0.001,d));break }
+            // A long pure-pursuit carrot can point through the inside of a box even though
+            // the polyline avoids it. Stop at a significant next corner until it is reached.
+            if path.forwardStrategy == true,index+2 < points.count,d > 0.001 {
+                let next = points[index+2]-b
+                if simd_length(next) > 0.001,
+                   simd_dot((b-a)/d,simd_normalize(next)) < cos(15 * Float.pi/180),
+                   simd_distance(basis.origin,b) > 0.08 { target = b;break }
+            }
+            left -= d
         }
         let q = basis.local(target)
         guard hypot(q.x,q.z) > 0.05 else { return nil }
