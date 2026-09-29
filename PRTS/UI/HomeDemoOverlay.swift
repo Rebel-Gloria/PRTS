@@ -28,7 +28,7 @@ struct HomeDemoOverlay: View {
                     if let result {
                         Text(String(format:"有效深度 %.0f%% · 源帧年龄 %.0f ms",result.validDepthCoverage*100,max(0,ProcessInfo.processInfo.systemUptime-result.timestamp)*1000))
                         Text("最近分析（可能过期）：\(result.status)").lineLimit(2)
-                    } else { Text("暂无分析结果；零耗时不代表完成分析") }
+                    } else { Text("等待分析") }
                     Text(String(format:"路径总宽度 %.2f m · 扇形 ±%.0f°",model.pathOptions.minimumWidth,model.pathOptions.targetHalfAngleDegrees))
                     Text("DIAG \(model.diagnosticStatus.bytesWritten/1024) KB · 丢弃 \(model.diagnosticStatus.droppedTotal)")
                     if let error = model.diagnosticStatus.error { Text(error).foregroundStyle(.orange) }
@@ -47,7 +47,7 @@ struct HomeDemoOverlay: View {
                     }
                     if !model.options.showCameraImage { Text("RGB画面已隐藏；采集状态见主按钮") }
                     if model.options.showOverlays {
-                        Text("蓝：地面表面 · 红：突起／阻挡范围 · 未知不补成可通行")
+                        Text("蓝：地面 · 红：障碍范围")
                         if model.options.showPath { Text("黄线／圈：观测路径／目标 · 橙虚线：短时缓存 · 青虚线：未验证近身连接") }
                     }
                     if model.options.layer == .depth || model.options.overlayDepth {
@@ -57,7 +57,6 @@ struct HomeDemoOverlay: View {
                         } else { Text(String(format:"深度色标：红 0 m → 蓝 %.1f m",model.options.heatMax)) }
                     }
                     if model.options.layer == .confidence { Text("置信度：低＝红 · 中＝黄 · 高＝青；无效/缺失＝灰，无LiDAR无传感器置信度") }
-                    Text("实验验证，候选通道不等于安全路线").foregroundStyle(.orange)
                 }
                 .accessibilityIdentifier("homeDemoLegend")
                 .padding(10).background(.black.opacity(0.65),in:RoundedRectangle(cornerRadius:12))

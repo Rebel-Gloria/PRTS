@@ -32,7 +32,7 @@ struct ProbeSettingsView: View {
                     Slider(value:$model.pathOptions.arrivalRadius,in:0.2...0.75,step:0.05)
                     Text(String(format:"路径最小总宽度 %.2f m",model.pathOptions.minimumWidth))
                     Slider(value:$model.pathOptions.minimumWidth,in:0.5...1.2,step:0.05)
-                    Text("0.50m仅是预测线的通道宽度要求，不额外叠加身体宽度/余量，也不代表所有人的身体都能通过。原有净空检查参数不变。").font(.caption).foregroundStyle(.orange)
+                    Text("通道宽度 0.50 m；净空按下方参数检查。").font(.caption).foregroundStyle(.orange)
                     Text(String(format:"对准后偏离 %.0f° 才重新提示",model.pathOptions.deviationDegrees))
                     Slider(value:$model.pathOptions.deviationDegrees,in:6...30,step:1)
                     Text(String(format:"失去证据时连线最长显示 %.1f 秒",model.pathOptions.retentionSeconds))
@@ -41,7 +41,7 @@ struct ProbeSettingsView: View {
                     Slider(value:$model.pathOptions.lookAhead,in:0.4...1.5,step:0.1)
                     Text(String(format:"对准角度范围 ±%.0f°",model.pathOptions.validated().alignmentDegrees))
                     Slider(value:$model.pathOptions.alignmentDegrees,in:2...max(2,model.pathOptions.deviationDegrees-2),step:1)
-                    Text("连线偏左：重复双短振；偏右：重复长振。偏差越大越强、越密。进入对准范围稳定0.3秒强振一次，之后保持静默；达到重新提示角度并持续0.25秒才恢复。只有单个振动器，靠节奏区分左右，不是在手机左右两侧发振。强振只确认角度，不确认位置或安全。").font(.caption)
+                    Text("左：双短振；右：长振，首次语音提示方向。对准稳定 0.3 秒后强振一次；偏离阈值持续 0.25 秒后恢复提示。").font(.caption)
                     Text("目标位置与连线证据分开保留。证据过期时隐藏连线并停振，但不另换一个目标；恢复后仍尝试连接同一世界点。").font(.caption)
                     Text("黄圈：远端目标；黄实线：已观测区连线；橙虚线：短时缓存。青虚线：估计脚下至观测起点的未验证连接，不能据此确认盲区可通行。已观测路线不跨未知缺口；蓝地面并不证明头部净空、台阶或落差安全。无LiDAR使用已校准预测几何，误差更大。").font(.caption).foregroundStyle(.orange)
                     Text(model.hapticStatus).font(.caption2)
@@ -57,14 +57,14 @@ struct ProbeSettingsView: View {
                 Section("几何叠加") {
                     Toggle("表面建模：蓝地面／红突起",isOn:$model.options.showSurfaceModel)
                     Toggle("障碍及上方阻挡柱（红色）",isOn:$model.options.showBlockingColumns).disabled(!model.options.showSurfaceModel)
-                    Text(String(format:"有体积支持的障碍占地向上标红至 %.2f m（身体检查高度）。上方半透明红色是禁入范围，不是实测实体。至少2个相邻障碍格、6个有效点、1 L几何包络；不跨未知空隙。",model.parameters.bodyHeight)).font(.caption).foregroundStyle(.secondary)
-                    Text("仅当前深度的可见表面；高出已确认地面至少5 cm并有空间支持时标红。不补遮挡背面，不保证物体与地面接触。蓝色表示地面表面，不代表可通行。启用时替代历史floor填色和二维栅格投影，俯视图仍保留未知状态。").font(.caption).foregroundStyle(.secondary)
+                    Text(String(format:"有体积支持的障碍占地向上标红至 %.2f m（身体检查高度）。上方半透明红色：垂直阻挡范围。至少2个相邻障碍格、6个有效点、1 L几何包络；不跨未知空隙。",model.parameters.bodyHeight)).font(.caption).foregroundStyle(.secondary)
+                    Text("仅当前深度的可见表面；高出已确认地面至少5 cm并有空间支持时标红。不补遮挡背面，不保证物体与地面接触。蓝色：地面表面。启用时替代历史floor填色和二维栅格投影，俯视图仍保留未知状态。").font(.caption).foregroundStyle(.secondary)
                     Toggle("分类网格线框",isOn:$model.options.showMesh).disabled(model.snapshot.usesMonocular)
                     Toggle("ARKit floor 分类填色",isOn:$model.options.showFloor).disabled(model.options.showSurfaceModel)
                     Toggle("局部栅格投影：未知／障碍／候选",isOn:$model.options.showGrid).disabled(model.options.showSurfaceModel)
                     Toggle("旧版多方向候选段（关闭预测线后显示）",isOn:$model.options.showChannels).disabled(model.pathOptions.enabled)
                     Text("主页面画面、叠加层和指标栏请在“演示模式选项”中设置。").font(.caption)
-                    Text("floor 分类不是地面真值；候选区域不代表安全。关闭面板可检查图像四角，底部仍保留实验警告。").font(.caption).foregroundStyle(.secondary)
+                    Text("floor：ARKit 表面分类。").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("几何参数（更改会撤销旧结果）") {
                     valueSlider("人体宽度",value:$model.parameters.bodyWidth,range:0.3...1.2,step:0.05)
@@ -98,9 +98,9 @@ struct ProbeSettingsView: View {
                 }
                 Section("能力与边界") {
                     Text(model.capabilities.description).font(.caption)
-                    Text("参考方向是相机朝向的地面投影，不等于人体前进方向。近身盲区不连接到候选段。不能宣称可靠台阶、落差、玻璃或细小障碍检测。").font(.caption)
+                    Text("参考方向：相机朝向的地面投影。近身盲区保留未知。台阶、落差、玻璃及细小障碍检测待验证。").font(.caption)
                     Text("所有行走测试由视力正常人员在受控环境完成，不进行无保护盲行。真机能力须实测，模拟器不构成 LiDAR 验收。").font(.caption).foregroundStyle(.orange)
-                    Text("实验验证，候选通道不等于安全路线").font(.caption.weight(.bold))
+                    Text("实验模式").font(.caption.weight(.bold))
                 }
             }
             .navigationTitle("验证参数").navigationBarTitleDisplayMode(.inline)

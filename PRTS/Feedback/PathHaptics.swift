@@ -38,7 +38,7 @@ import SpatialCore
         else if !supported { status = "设备不支持触觉反馈" }
         else if now < unavailableUntil { status = "触觉错误退避中，未确认振动完成" }
         else if heading == nil { status = "振动暂停：无有效路径或方向不可用" }
-        else { status = CHHapticEngine.capabilitiesForHardware().supportsHaptics ? (policy.mode == "aligned_latched" ? "已对准，静默至明显偏离（非安全确认）" : (policy.mode == "left_double" ? "连线偏左：双短振" : (policy.mode == "right_long" ? "连线偏右：长振" : "对准确认中"))) : "设备不支持触觉反馈" }
+        else { status = CHHapticEngine.capabilitiesForHardware().supportsHaptics ? (policy.mode == "aligned_latched" ? "已对准" : (policy.mode == "left_double" ? "连线偏左：双短振" : (policy.mode == "right_long" ? "连线偏右：长振" : "对准确认中"))) : "设备不支持触觉反馈" }
         if let pulse {
             status = play(pulse,now:now)
             if !status.hasPrefix("submitted_") { policy.reject(pulse) }
