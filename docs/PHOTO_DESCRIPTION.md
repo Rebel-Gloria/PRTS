@@ -1,4 +1,4 @@
-# 拍照描述（build 19）
+# 拍照描述（build 19 起）
 
 ## 交互与数据流
 
@@ -80,3 +80,25 @@ xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath /tmp/prts-photo19/signed \
   -xcconfig configs/DevCapture.xcconfig PRTS_SOURCE_COMMIT=2ea95f4c59e4992d304d18af6887d404734e2821 build
 ```
+
+
+## Build 20：交互链路与显示回归
+
+本轮验证发现：UIButton布局将`imageView.alpha`重置为1，build19图标透明度设置实际失效。
+现在在按钮本身设置0.25，不改变160pt触摸区域，独立状态文字仍保持可读。
+回归测试先复现布局后alpha=1，再验证修复后的布局及按下/松手状态。
+
+A提示音使用纯播放音频会话，不再为短按启用输入音频路由；B提示音与录音使用playAndRecord。
+保留原频率、0.1秒时长和普通话独立音色。提示音播放失败会明确报错。
+
+`PhotoDescriptionServices`仅隔离时钟、权限、原生音频与网络依赖，默认实现与原接口相同。
+应用不提供模拟模式。新增6项可控时间/异步响应测试证明：
+
+- 短按在松手取图，使用固定提示词。
+- 长按到0.5秒取图并播放B，再开始采音；松手先停采音再播放A；只提交识别文字。
+- 取消的按压不拍照、不提交；迟到的旧响应不能朗读或结束新交互。
+- 缺少上传许可/Key不拍照；缺少语音权限不退回固定提示词。
+
+另有3项原生UIKit/音频数据测试（透明度/触摸及VoiceOver动作、A/B WAV解码与时长、TTS音色配置）
+和1项四象限合成图测试（四方向旋转、无镜像/裁切）。测试不播放音频、不调用真实麦克风或接口。
+最终App测试34项全部通过。真实服务、实际音色与手机触摸/采音仍需用户配合确认。
