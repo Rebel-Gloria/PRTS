@@ -11,9 +11,11 @@ import SwiftUI
 import SpatialCore
 import Combine
 import UIKit
+import AVFoundation
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
+    @StateObject private var photo = PhotoDescriptionCoordinator()
     @StateObject private var feedback = FeedbackCoordinator()
     @EnvironmentObject private var speechManager: SpeechManager
     @EnvironmentObject private var hapticManager: HapticManager
@@ -74,20 +76,36 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
+
+                if camera.state == .running && !isShowingSettings {
+                    PhotoCaptureButton(
+                        down: { photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() }) },
+                        up: { photo.up() }, cancel: { photo.cancel() })
+                        .frame(width: 160, height: 160)
+                        .overlay(alignment: .bottom) {
+                            if !photo.message.isEmpty {
+                                VStack(spacing: 8) {
+                                    Text(photo.message).font(.caption).padding(6).background(.black.opacity(0.7))
+                                    if photo.busy { Button("取消") { photo.cancel() } }
+                                }.offset(y: 70)
+                            }
+                        }
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsView(model:camera.model)
             }
             .onChange(of: camera.state) { _, newState in
-                guard scenePhase == .active,!isShowingSettings else { return }
+                if newState != .running { photo.cancel() }
+                guard scenePhase == .active,!isShowingSettings, !photo.busy else { return }
                 UIAccessibility.post(notification:.announcement,argument:speechManager.accessibilityAnnouncement(for:newState))
                 speechManager.speakCameraState(newState)
                 if newState == .running { hapticManager.cameraStarted() }
             }
             .onReceive(pollTimer) { _ in
-                camera.poll(suspendFeedback:isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
-                if !isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
+                camera.poll(suspendFeedback:photo.busy || isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
+                if !photo.busy,!isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
                     feedback.consume(result,speech:speechManager,haptics:hapticManager,
                                      announceCandidates:!camera.model.snapshot.pathOptions.enabled)
                     if !isHoldingStop { feedback.consumeDirection(camera.model.snapshot,speech:speechManager) }
@@ -97,12 +115,14 @@ struct ContentView: View {
             }
             .onChange(of:isShowingSettings) { _,shown in
                 if shown {
+                    photo.cancel()
                     feedback.reset()
                     speechManager.cancelPerceptionSpeech()
                 }
             }
             .onChange(of:scenePhase) { _, phase in
                 if phase != .active {
+                    photo.cancel()
                     stopHoldTask?.cancel(); stopHoldTask = nil
                     isHoldingStop = false; didCompleteStopHold = false
                     hapticManager.stopHoldFeedback()
@@ -114,6 +134,13 @@ struct ContentView: View {
                 camera.poll(suspendFeedback:true)
                 speechManager.speakHomeScreen(cameraState:camera.state)
             }
+            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
+                if let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                   AVAudioSession.InterruptionType(rawValue: raw) == .began {
+                    photo.cancel()
+                }
+            }
+            .onDisappear { photo.cancel() }
             .onReceive(NotificationCenter.default.publisher(for:UIApplication.didReceiveMemoryWarningNotification)) { _ in
                 camera.model.engine.diagnostics.event("memory_warning",details:"iOS notification",epoch:camera.model.snapshot.epoch)
             }
