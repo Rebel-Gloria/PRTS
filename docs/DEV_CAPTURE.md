@@ -104,3 +104,10 @@ use `obstacle_veto_v1`; changing recording does not change planning. Route journ
 `plannedLength` and the `planned` status; `remainingVerifiedLength` stays 0 for this policy.
 Missing optional fields in old records remain unavailable. See [build17 report](architecture/OBSTACLE_VETO_2026-09-29.md).
 Pass `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)` to xcodebuild for traceable binary metadata.
+
+### Build18 optional route diagnostics
+
+The schema3 strategy object adds optional `turnCandidateLength`, `turnReason` and
+`routePointCount`. `turnAngle` records the actual projected-heading deviation even when
+turning is blocked. The launch manifest records `routeAlgorithmRevision=turn_tail_v2…`.
+Old records omit these fields; no fake inferred dwell or waypoint count is added.

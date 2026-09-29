@@ -13,4 +13,6 @@ The architecture is intentionally split into product UI, capture ownership, spat
 
 - [build16 路线续接、世界证据与发布机制](ROUTE_CONTINUITY_2026-09-29.md) — 历史实现、测试和未完成项。
 
-- [build17 obstacle-veto](OBSTACLE_VETO_2026-09-29.md) — 当前默认策略、滚动续接、测试与安装记录。
+- [build17 obstacle-veto](OBSTACLE_VETO_2026-09-29.md) — obstacle-veto 基础策略、滚动续接、测试与安装记录。
+
+- [build18 转向与尾部续接](TURN_TAIL_2026-09-29.md) — 当前修复、回归测试和交付。
