@@ -30,11 +30,19 @@ final class PRTSUITests: XCTestCase {
         let camera = app.buttons["cameraButton"]
         XCTAssertTrue(settings.waitForExistence(timeout:10))
         XCTAssertTrue(camera.exists)
-        XCTAssertTrue(app.textFields["backendCommandField"].exists)
+        #if PRTS_DEV_CAPTURE
+        // Developer visibility is persisted and tested separately.
+        #else
+        XCTAssertFalse(app.textFields["backendCommandField"].exists)
+        XCTAssertFalse(app.otherElements["homeDemoMetrics"].exists)
+        #endif
         XCTAssertLessThan(settings.frame.midY,camera.frame.midY)
         let home = XCTAttachment(screenshot:app.screenshot()); home.name = "Restored dark-teal home"; home.lifetime = .keepAlways; add(home)
         settings.tap()
         XCTAssertEqual(app.navigationBars.buttons.count,1,"Settings must have only the system Back button")
+        #if PRTS_DEV_CAPTURE
+        let technical = app.switches["devTechnicalOverlayToggle"]
+        if technical.value as? String != "1" { technical.coordinate(withNormalizedOffset:CGVector(dx:0.9,dy:0.5)).tap() }
         let demo = app.buttons["demoOptionsLink"]
         if !demo.isHittable { app.swipeUp() }
         XCTAssertTrue(demo.waitForExistence(timeout:5))
@@ -64,7 +72,56 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(metricTitle.waitForExistence(timeout:5))
         XCTAssertGreaterThan(metricTitle.frame.width,10)
         let overlayImage = XCTAttachment(screenshot:app.screenshot()); overlayImage.name = "Home metrics overlay"; overlayImage.lifetime = .keepAlways; add(overlayImage)
+        #else
+        XCTAssertFalse(app.buttons["demoOptionsLink"].exists)
+        XCTAssertFalse(app.buttons["spatialSettingsButton"].exists)
+        XCTAssertFalse(app.switches["devTechnicalOverlayToggle"].exists)
+        app.navigationBars.buttons.element(boundBy:0).tap()
+        XCTAssertTrue(app.buttons["cameraButton"].exists)
+        #endif
     }
+
+    @MainActor
+    func testDevCaptureBuildGate() throws {
+        let app = XCUIApplication(); app.launch()
+        let settings = app.buttons["settingsButton"]
+        XCTAssertTrue(settings.waitForExistence(timeout:10)); settings.tap()
+        #if PRTS_DEV_CAPTURE
+        app.swipeUp()
+        let toggle = app.switches["devCaptureToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout:5))
+        XCTAssertEqual(toggle.value as? String,"0")
+        toggle.coordinate(withNormalizedOffset:CGVector(dx:0.9,dy:0.5)).tap()
+        XCTAssertEqual(toggle.value as? String,"1")
+        // Relaunch must never silently restart RGB recording.
+        app.terminate(); app.launch(); app.buttons["settingsButton"].tap(); app.swipeUp()
+        XCTAssertTrue(app.switches["devCaptureToggle"].waitForExistence(timeout:5))
+        XCTAssertEqual(app.switches["devCaptureToggle"].value as? String,"0")
+        #else
+        XCTAssertFalse(app.switches["devCaptureToggle"].exists)
+        #endif
+    }
+
+    #if PRTS_DEV_CAPTURE
+    @MainActor
+    func testDeveloperHomeVisibilitySwitches() throws {
+        let app = XCUIApplication(); app.launch(); app.buttons["settingsButton"].tap()
+        func set(_ id: String,_ enabled: Bool) {
+            let toggle = app.switches[id]; XCTAssertTrue(toggle.waitForExistence(timeout:5))
+            if toggle.value as? String != (enabled ? "1" : "0") { toggle.coordinate(withNormalizedOffset:CGVector(dx:0.9,dy:0.5)).tap() }
+        }
+        set("devTechnicalOverlayToggle",false); set("devCommandEntryToggle",false)
+        app.navigationBars.buttons.element(boundBy:0).tap()
+        XCTAssertFalse(app.staticTexts["空间感知 · 参数指标"].exists)
+        XCTAssertFalse(app.textFields["backendCommandField"].exists)
+        app.terminate(); app.launch()
+        XCTAssertFalse(app.textFields["backendCommandField"].exists)
+        app.buttons["settingsButton"].tap()
+        set("devTechnicalOverlayToggle",true); set("devCommandEntryToggle",true)
+        app.navigationBars.buttons.element(boundBy:0).tap()
+        XCTAssertTrue(app.textFields["backendCommandField"].waitForExistence(timeout:5))
+    }
+    #endif
 
     @MainActor
     func testExample() throws {

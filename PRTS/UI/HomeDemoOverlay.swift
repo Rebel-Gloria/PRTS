@@ -1,3 +1,4 @@
+#if PRTS_DEV_CAPTURE
 /// Read-only home overlay driven by the same `ProbeViewModel` as the renderer.
 
 import SwiftUI
@@ -5,10 +6,17 @@ import SpatialCore
 
 /// Read-only overlay of the same snapshot used by the home renderer; no session or timer.
 struct HomeDemoOverlay: View {
+    @AppStorage("developer.showTechnicalOverlay") private var showTechnicalOverlay = true
     @ObservedObject var model: ProbeViewModel
     var body: some View {
         VStack(alignment:.leading,spacing:8) {
-            if model.options.showHUD {
+            #if PRTS_DEV_CAPTURE
+            if model.devCaptureStatus.enabled || model.devCaptureStatus.busy {
+                Text("● 开发信息采集 · 摄像机视频正在保存或结束中")
+                    .font(.caption.bold()).foregroundStyle(.red).padding(8).background(.black.opacity(0.8))
+            }
+            #endif
+            if showTechnicalOverlay && model.options.showHUD {
                 VStack(alignment:.leading,spacing:4) {
                     let s = model.snapshot
                     let result = s.diagnosticResult
@@ -28,7 +36,7 @@ struct HomeDemoOverlay: View {
                 .accessibilityIdentifier("homeDemoMetrics")
                 .padding(10).background(.black.opacity(0.65),in:RoundedRectangle(cornerRadius:12))
             }
-            if model.options.showLegends {
+            if showTechnicalOverlay && model.options.showLegends {
                 VStack(alignment:.leading,spacing:4) {
                     if !model.capabilities.world {
                         Text("当前设备无世界追踪；仅显示界面，不提供实测空间数据")
@@ -60,3 +68,5 @@ struct HomeDemoOverlay: View {
         .frame(maxWidth:.infinity,alignment:.leading)
     }
 }
+
+#endif

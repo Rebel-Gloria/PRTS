@@ -1,3 +1,4 @@
+#if PRTS_DEV_CAPTURE
 /// Advanced spatial parameters, layer controls, diagnostics and export.
 
 import SpatialCore
@@ -149,3 +150,5 @@ struct ExportDocumentPicker: UIViewControllerRepresentable {
         func documentPicker(_ controller: UIDocumentPickerViewController,didPickDocumentsAt urls: [URL]) { onFinish() }
     }
 }
+
+#endif

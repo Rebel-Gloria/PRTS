@@ -1,3 +1,4 @@
+#if PRTS_DEV_CAPTURE
 /// Presentation-only switches for the home-screen demonstration overlays.
 
 import SwiftUI
@@ -49,3 +50,5 @@ struct DemoOptionsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
+#endif

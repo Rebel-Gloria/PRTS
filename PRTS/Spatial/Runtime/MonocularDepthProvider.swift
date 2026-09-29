@@ -73,7 +73,7 @@ final class MonocularDepthProvider {
     private var epoch: UInt64 = 0,version: UInt64 = 0
     private var previousOrientation: ImageOrientation?
     func reset() { groundTracker.reset(); scaleTracker.reset(); previousOrientation = nil }
-    static func planes(_ frame: FrameSnapshot) -> [NativePlaneObservation] {
+    nonisolated static func planes(_ frame: FrameSnapshot) -> [NativePlaneObservation] {
         frame.frame.anchors.compactMap { anchor -> NativePlaneObservation? in
             guard let plane = anchor as? ARPlaneAnchor,plane.alignment == .horizontal else { return nil }
             let classification: String

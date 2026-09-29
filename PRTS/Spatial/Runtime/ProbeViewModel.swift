@@ -17,6 +17,9 @@ final class ProbeViewModel: ObservableObject {
     }
     @Published var parameters = ProbeParameters()
     @Published var pathOptions = PathOptions()
+    #if PRTS_DEV_CAPTURE
+    @Published var devCaptureStatus = DevCaptureRecorder.Status()
+    #endif
     @Published var hapticStatus = "等待路径"
     var feedbackSuspended = false
     private let pathHaptics = PathHaptics()
@@ -32,7 +35,9 @@ final class ProbeViewModel: ObservableObject {
     private var lastHeartbeat: Double = 0
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     init() {
+        #if PRTS_DEV_CAPTURE
         if let data = UserDefaults.standard.data(forKey:"homeRenderOptions.v1"),let saved = try? JSONDecoder().decode(RenderOptions.self,from:data) { options = saved }
+        #endif
         engine.updateOptions(options)
         if let data = UserDefaults.standard.data(forKey:"pathOptions"),let options = try? JSONDecoder().decode(PathOptions.self,from:data) { pathOptions = options.validated() }
         engine.store.update { $0.pathOptions = pathOptions }
@@ -60,6 +65,15 @@ final class ProbeViewModel: ObservableObject {
     }
     func exportDiagnostics(runID: String? = nil) {
         guard !exporting else { return }; exporting = true
+        #if PRTS_DEV_CAPTURE
+        engine.devCapture.stop { [weak self] in
+            Task { @MainActor in self?.performDiagnosticExport(runID:runID) }
+        }
+        #else
+        performDiagnosticExport(runID:runID)
+        #endif
+    }
+    private func performDiagnosticExport(runID: String?) {
         engine.diagnostics.journal.export(runID:runID,to:FileManager.default.temporaryDirectory.appendingPathComponent("DiagExports",isDirectory:true)) { [weak self] result in
             Task { @MainActor in
                 self?.exporting = false
@@ -69,6 +83,9 @@ final class ProbeViewModel: ObservableObject {
     }
     var capabilities: DeviceCapabilities { engine.capabilities }
     func poll() {
+        #if PRTS_DEV_CAPTURE
+        devCaptureStatus = engine.devCapture.status()
+        #endif
         let thermal = ProcessInfo.processInfo.thermalState
         if thermal.rawValue != lastThermal {
             lastThermal = thermal.rawValue
