@@ -49,3 +49,15 @@ no evidence-expiry or endpoint-arrival hiding. Sensor surface layers retain thei
 checks; those checks do not hide the main route.
 
 See [build17 contracts, tests and limits](OBSTACLE_VETO_2026-09-29.md).
+
+## build18 heading query and tail update
+
+`TemporalOccupancyGrid.projected` reuses confirmed world tracks to query the user's new
+heading without ingesting observations twice. `ForwardTurnDwell` uses projected-heading
+stability rather than the capture-wide pitch/angular-speed gate. It accepts normal 2 Hz
+intervals; epoch/tracking invalidation still belongs to the runtime.
+
+Straight extension tests a full swept segment, then bisects only if occupied.
+`RouteArc.coalescingCollinear` removes redundant rolling nodes without changing the curve.
+Side-route tails extend along their terminal tangent before arrival; local goals no longer
+clear the product route. Details: [build18](TURN_TAIL_2026-09-29.md).
