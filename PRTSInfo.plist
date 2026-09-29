@@ -22,6 +22,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>长按拍照按钮时使用麦克风录入您的提问。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>将您的语音提问转为文字，随拍摄图片发送给图片描述服务。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>PRTS uses the camera to understand and describe your surroundings.</string>
 	<key>UIApplicationSceneManifest</key>
