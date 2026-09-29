@@ -30,6 +30,28 @@ struct PRTSTests {
         #expect(policy.update(heading:left,now:2,threshold:12,alignment:5) == -1)
     }
 
+    @Test func routeSpeechStaysOncePerStageAndDoesNotSpeakWithoutPath() {
+        var policy = RouteAnnouncementPolicy(),state = ForwardStrategyDiagnostics()
+        state.mode = .detour;state.maneuverID = 10;state.side = -1
+        #expect(policy.cue(strategy:state,side:-1,hasHeading:false) == nil)
+        #expect(policy.cue(strategy:state,side:-1,hasHeading:true) == .detour(-1))
+        // Re-arming the angular policy must not repeat a manoeuvre-stage instruction.
+        #expect(policy.cue(strategy:state,side:-1,hasHeading:true) == nil)
+        #expect(policy.cue(strategy:state,side:1,hasHeading:true) == nil)
+        state.mode = .returning
+        #expect(policy.cue(strategy:state,side:nil,hasHeading:true) == nil)
+        #expect(policy.cue(strategy:state,side:1,hasHeading:true) == .rejoin(1))
+        #expect(policy.cue(strategy:state,side:1,hasHeading:true) == nil)
+        state.mode = .straight;state.maneuverID = nil
+        #expect(policy.cue(strategy:state,side:nil,hasHeading:true) == .straight)
+        #expect(policy.cue(strategy:state,side:nil,hasHeading:true) == nil)
+        state.mode = .sideRoute;state.maneuverID = 20
+        #expect(policy.cue(strategy:state,side:1,hasHeading:true) == .turn(1))
+        #expect(policy.cue(strategy:state,side:1,hasHeading:true) == nil)
+        policy.reset()
+        #expect(policy.cue(strategy:state,side:1,hasHeading:true) == .turn(1))
+    }
+
     @Test func phaseOneRuntimeHasNoLargeModelProfiles() {
         #expect(PRTSRuntimeProfile.offlineGeometry.rawValue == "offlineGeometry")
     }

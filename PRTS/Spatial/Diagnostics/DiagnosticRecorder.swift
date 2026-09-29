@@ -34,7 +34,8 @@ nonisolated struct CaptureDiagnostic: Codable, Sendable {
         confidencePixelFormat = s.frame.sceneDepth?.confidenceMap.map { CVPixelBufferGetPixelFormatType($0) }
     }
 }
-struct RenderDiagnostic: Codable, Sendable {
+// Transport values are encoded on the journal queue, not on the UI actor.
+nonisolated struct RenderDiagnostic: Codable, Sendable {
     let phase: String
     let renderID: UInt64,epoch: UInt64,frameID: UInt64?
     let uptime: Double,sourceTimestamp: Double?,analysisFrameID: UInt64?,analysisTimestamp: Double?
@@ -96,7 +97,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
     func event(_ name: String,details: String,epoch: UInt64) {
         if name == "scene_phase" { journal.noteLifecycle(details) }
         if name == "will_terminate" { journal.noteLifecycle("will_terminate") }
-        struct Event: Encodable, Sendable { let name: String,details: String,epoch: UInt64,uptime: Double,wallTime: String }
+        nonisolated struct Event: Encodable, Sendable { let name: String,details: String,epoch: UInt64,uptime: Double,wallTime: String }
         let event = Event(name:name,details:details,epoch:epoch,uptime:ProcessInfo.processInfo.systemUptime,wallTime:ISO8601DateFormatter().string(from:Date()))
         journal.submit(.events) { .init(json:try DiagnosticJSON.encode(event)) }
     }
@@ -105,7 +106,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         journal.submit(.capture) { .init(json:try DiagnosticJSON.encode(record)) }
     }
     func path(_ update: PathUpdate,frame: FrameSnapshot,options: PathOptions) {
-        struct Record: Encodable, Sendable {
+        nonisolated struct Record: Encodable, Sendable {
             let phase = "prediction"
             let epoch: UInt64,frameID: UInt64,parameterVersion: UInt64
             let timestamp: Double
@@ -115,7 +116,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         journal.submit(.path,estimatedBytes:16*1024) { .init(json:try DiagnosticJSON.encode(record)) }
     }
     func pathFeedback(epoch: UInt64,frameID: UInt64,pathID: UInt64?,heading: PathHeading?,pulse: PathHapticPulse?,status: String) {
-        struct Record: Encodable, Sendable {
+        nonisolated struct Record: Encodable, Sendable {
             let phase = "feedback"
             let epoch: UInt64,frameID: UInt64,pathID: UInt64?
             let uptime: Double,heading: PathHeading?,pulse: PathHapticPulse?,status: String
@@ -124,7 +125,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         journal.submit(.path) { .init(json:try DiagnosticJSON.encode(record)) }
     }
     func analysis(_ result: AnalysisResult,frame: FrameSnapshot,observation: DepthObservation?,metrics: MetricContext) {
-        struct Record: Encodable, Sendable {
+        nonisolated struct Record: Encodable, Sendable {
             let frame: FrameLog,capture: CaptureDiagnostic,diagnostics: AnalysisDiagnostics?
             let depthAttachmentExpected: Bool
             let depthAttachmentKind = "depth_frame"
@@ -138,7 +139,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         }
     }
     func monocular(_ prediction: MonocularFrame,manual: Bool = false) {
-        struct Header: Encodable, Sendable {
+        nonisolated struct Header: Encodable, Sendable {
             let schemaVersion = 1,kind = "relative_depth_frame"
             let model = "apple/coreml-depth-anything-v2-small/DepthAnythingV2SmallF16"
             let modelRevision = "cfef6f6f2a70783dedc0bfae40cecbc2052285d3"
@@ -167,7 +168,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         }
     }
     func mesh(_ mesh: MeshSnapshot?,id: String,epoch: UInt64,revision: UInt64,callbackTime: Double,action: String) {
-        struct Record: Encodable, Sendable {
+        nonisolated struct Record: Encodable, Sendable {
             let id: String,epoch: UInt64,revision: UInt64,callbackTime: Double,processedUptime: Double,action: String
             let vertices: Int,faces: Int,classificationCounts: [String:Int]
             let attachmentKind = "mesh_frame_binary_v1"
@@ -185,23 +186,23 @@ final class DiagnosticRecorder: @unchecked Sendable {
     }
     func renderSkipped(renderID: UInt64,state: SharedSnapshot,reason: String) {
         guard state.running else { return }
-        struct Skip: Encodable, Sendable { let phase = "skipped"; let renderID: UInt64,epoch: UInt64,frameID: UInt64?,uptime: Double,reason: String }
+        nonisolated struct Skip: Encodable, Sendable { let phase = "skipped"; let renderID: UInt64,epoch: UInt64,frameID: UInt64?,uptime: Double,reason: String }
         let value = Skip(renderID:renderID,epoch:state.epoch,frameID:state.frame?.id,uptime:ProcessInfo.processInfo.systemUptime,reason:reason)
         journal.submit(.render) { .init(json:try DiagnosticJSON.encode(value)) }
     }
     func render(_ record: RenderDiagnostic) { journal.submit(.render) { .init(json:try DiagnosticJSON.encode(record)) } }
     func gpu(renderID: UInt64,epoch: UInt64,frameID: UInt64?,status: String,error: String?,gpuMS: Double) {
-        struct GPU: Encodable, Sendable { let phase = "gpu_completed"; let renderID: UInt64,epoch: UInt64,frameID: UInt64?,uptime: Double,status: String,error: String?,gpuMS: Double }
+        nonisolated struct GPU: Encodable, Sendable { let phase = "gpu_completed"; let renderID: UInt64,epoch: UInt64,frameID: UInt64?,uptime: Double,status: String,error: String?,gpuMS: Double }
         let record = GPU(renderID:renderID,epoch:epoch,frameID:frameID,uptime:ProcessInfo.processInfo.systemUptime,status:status,error:error,gpuMS:gpuMS)
         journal.submit(.render) { .init(json:try DiagnosticJSON.encode(record)) }
     }
     func presented(renderID: UInt64,epoch: UInt64,frameID: UInt64?,time: Double,sourceTime: Double?) {
-        struct Presented: Encodable, Sendable { let phase = "drawable_presented"; let renderID: UInt64,epoch: UInt64,frameID: UInt64?,presentedTime: Double,sourceTimestamp: Double? }
+        nonisolated struct Presented: Encodable, Sendable { let phase = "drawable_presented"; let renderID: UInt64,epoch: UInt64,frameID: UInt64?,presentedTime: Double,sourceTimestamp: Double? }
         let record = Presented(renderID:renderID,epoch:epoch,frameID:frameID,presentedTime:time,sourceTimestamp:sourceTime)
         journal.submit(.render) { .init(json:try DiagnosticJSON.encode(record)) }
     }
     func heartbeat(_ state: SharedSnapshot,permission: String,batteryLevel: Float,batteryState: Int,lowPower: Bool,appState: String) {
-        struct Heartbeat: Encodable, Sendable {
+        nonisolated struct Heartbeat: Encodable, Sendable {
             let uptime: Double,epoch: UInt64,running: Bool,permission: String,appState: String
             let frameID: UInt64?,frameAge: Double?,analysisFrameID: UInt64?,analysisAge: Double?
             let tracking: String?,thermal: String,thermalRaw: Int,lowPower: Bool,batteryLevel: Float,batteryState: Int

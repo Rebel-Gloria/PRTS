@@ -17,7 +17,7 @@ final class FanPathTests: XCTestCase {
     }
     func result(_ g: LocalGrid,id: UInt64 = 1,time: Double = 1) -> AnalysisResult {
         var r = AnalysisResult(epoch:1,frameID:id,timestamp:time,parameters:.init(),status:"synthetic",source:"synthetic")
-        r.grid = g;r.sourcePose = .init(position:V3(0,1.4,0));r.sourceDirectionStable = true
+        r.grid = g;r.grid?.epoch = 1;r.grid?.frameID = id;r.grid?.timestamp = time;r.sourcePose = .init(position:V3(0,1.4,0));r.sourceDirectionStable = true
         r.plane = .init(normal:V3(0,1,0),offset:0,floorPriorConfirmed:true)
         r.diagnostics = .init();r.diagnostics?.groundReferenceMode = "current_confirmed"
         var triangles: [SurfaceTriangle] = []
@@ -54,10 +54,10 @@ final class FanPathTests: XCTestCase {
             let aa = g.basis.local(a),bb = g.basis.local(b)
             XCTAssertTrue(PathClearance.segment(grid:g,from:SIMD2(aa.x,aa.z),to:SIMD2(bb.x,bb.z),radius:0.25))
         }
-        var predictor = PathPredictor()
+        var predictor = PathPredictor(obstacleConfirmationSeconds: 0)
         let first = predictor.update(result:result(g),observation:nil,options:.init())
         let next = predictor.update(result:result(g,id:2,time:1.1),observation:nil,options:.init())
-        XCTAssertNotNil(first.path);XCTAssertEqual(next.reason,"revalidated_world_path")
+        XCTAssertNotNil(first.path);XCTAssertEqual(next.reason,"reacquired_forward_line")
         XCTAssertEqual(first.path?.id,next.path?.id)
     }
     func testFarthestRadialTargetAndSimplification() {
@@ -108,7 +108,7 @@ final class FanPathTests: XCTestCase {
     }
     func testUnknownApproachIsSeparateAndDoesNotPromoteGrid() {
         let g = grid { p,_,_ in p.y >= 1 ? .candidate : .unknown },r = result(g)
-        var predictor = PathPredictor();let path = predictor.update(result:r,observation:nil,options:.init()).path!
+        var predictor = PathPredictor(obstacleConfirmationSeconds: 0);let path = predictor.update(result:r,observation:nil,options:.init()).path!
         var gate = ResultPresentationGate();gate.enabled = true;gate.trackingNormal = true
         gate.epoch = 1;gate.frameID = 1;gate.frameTimestamp = 1
         let presentation = PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:.init(),now:1)!
@@ -121,16 +121,16 @@ final class FanPathTests: XCTestCase {
     }
     func testNewObstacleInFootApproachInvalidatesRetainedPath() {
         let g = grid { p,_,_ in p.y >= 1 ? .candidate : .unknown }
-        var predictor = PathPredictor()
+        var predictor = PathPredictor(obstacleConfirmationSeconds: 0)
         XCTAssertNotNil(predictor.update(result:result(g),observation:nil,options:.init()).path)
         let blocked = grid { p,_,_ in p.y > 0.4 && p.y < 0.7 ? .obstacle : .unknown }
         var r = result(blocked,id:2,time:1.1);r.surfaceModel = nil
         let update = predictor.update(result:r,observation:nil,options:.init())
-        XCTAssertNil(update.path);XCTAssertEqual(update.reason,"current_obstacle_invalidated")
+        XCTAssertNil(update.path);XCTAssertEqual(update.reason,"near_obstacle_no_observed_detour")
     }
     func testWidthIncreaseImmediatelyHidesOldPathAndInvalidatesCache() {
         let g = grid { _,x,z in z >= 2 && (13...17).contains(x) ? .candidate : .unknown }
-        var predictor = PathPredictor();let r = result(g),path = predictor.update(result:r,observation:nil,options:.init()).path!
+        var predictor = PathPredictor(obstacleConfirmationSeconds: 0);let r = result(g),path = predictor.update(result:r,observation:nil,options:.init()).path!
         var gate = ResultPresentationGate();gate.enabled = true;gate.trackingNormal = true
         gate.epoch = 1;gate.frameID = 1;gate.frameTimestamp = 1
         var wide = PathOptions();wide.minimumWidth = 0.8
@@ -138,7 +138,7 @@ final class FanPathTests: XCTestCase {
         XCTAssertNil(predictor.update(result:result(g,id:2,time:1.1),observation:nil,options:wide).path)
     }
     func testDrawingHasMetricDashesAndGoalAtObservedEndpoint() {
-        let g = grid();var predictor = PathPredictor()
+        let g = grid();var predictor = PathPredictor(obstacleConfirmationSeconds: 0)
         let path = predictor.update(result:result(g),observation:nil,options:.init()).path!
         let p = PathPresentation(path:path,age:1,historical:true,approach:[.zero,path.points[0]])
         let meshes = PathDrawing.meshes(p)

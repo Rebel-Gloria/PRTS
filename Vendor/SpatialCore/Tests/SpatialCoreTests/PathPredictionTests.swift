@@ -8,9 +8,11 @@ final class PathPredictionTests: XCTestCase {
         let p = ProbeParameters(),pose = RigidPose(position:V3(0,1.4,0))
         let plane = GroundPlane(normal:V3(0,1,0),offset:0,floorPriorConfirmed:true)
         var r = AnalysisResult(epoch:1,frameID:id,timestamp:time,parameters:p,status:"synthetic test",source:"synthetic")
-        let grid = LocalGrid(basis:GroundBasis(plane:plane,pose:pose)!,parameters:p,timestamp:time,frameID:id,epoch:1)
+        var grid = LocalGrid(basis:GroundBasis(plane:plane,pose:pose)!,parameters:p,timestamp:time,frameID:id,epoch:1)
         var triangles: [SurfaceTriangle] = []
         for z in 2..<grid.rows { for x in 0..<grid.columns where hole?(x,z) != true {
+            grid.cells[z*grid.columns+x].groundSamples = 8
+            grid.cells[z*grid.columns+x].observedAt = time
             let c = grid.center(z*grid.columns+x),s = grid.cellSize/2
             let a = grid.basis.world(x:c.x-s,h:0,z:c.y-s),b = grid.basis.world(x:c.x+s,h:0,z:c.y-s)
             let d = grid.basis.world(x:c.x-s,h:0,z:c.y+s),e = grid.basis.world(x:c.x+s,h:0,z:c.y+s)
@@ -22,7 +24,7 @@ final class PathPredictionTests: XCTestCase {
         return r
     }
     func missing(id: UInt64,time: Double) -> AnalysisResult { var r = result(id:id,time:time); r.surfaceModel = nil; r.grid = nil; r.plane = nil; return r }
-    func path() -> PredictedPath { var p = PathPredictor(); return p.update(result:result(),observation:nil,options:.init()).path! }
+    func path() -> PredictedPath { var p = PathPredictor(obstacleConfirmationSeconds: 0); return p.update(result:result(),observation:nil,options:.init()).path! }
     func gate() -> ResultPresentationGate {
         var g = ResultPresentationGate(); g.enabled = true; g.trackingNormal = true; g.directionStable = true
         g.epoch = 1; g.frameID = 10; g.frameTimestamp = 1.1; return g
@@ -33,7 +35,7 @@ final class PathPredictionTests: XCTestCase {
     func testSingleForwardLineStaysInsideBlueFootprint() {
         let r = result(),raster = BluePathGrid(result:r)!,p = path()
         XCTAssertGreaterThan(p.length,2); XCTAssertTrue(raster.supports(p.points))
-        XCTAssertGreaterThan(abs(p.points.last!.x),1.0) // Farthest radial point, no centre preference.
+        XCTAssertLessThan(abs(p.points.last!.x),0.001) // Clear area stays on the forward axis.
         XCTAssertLessThan(p.points[0].z,-0.3) // Observed path still excludes the separately drawn unknown approach.
         XCTAssertTrue(r.grid!.cells.allSatisfy { $0.state == .unknown }) // No clearance inflation.
     }
@@ -69,30 +71,32 @@ final class PathPredictionTests: XCTestCase {
         XCTAssertTrue(BluePathGrid(result:r)!.plan().isEmpty)
     }
     func testWorldPathDoesNotRotateWithPhoneWhenBlueUnavailable() {
-        var tracker = PathPredictor();let old = tracker.update(result:result(),observation:nil,options:.init()).path!
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let old = tracker.update(result:result(),observation:nil,options:.init()).path!
         var r = missing(id:2,time:1.2);r.sourcePose = .init(right:V3(0,0,-1),up:V3(0,1,0),back:V3(1,0,0),position:V3(0,1.4,0))
         let retained = tracker.update(result:r,observation:nil,options:.init())
         XCTAssertEqual(retained.reason,"retained_world_path");XCTAssertEqual(retained.path?.points,old.points)
     }
     func testShortDropoutRetainsButExpiresWithoutEvidence() {
-        var tracker = PathPredictor();_ = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);_ = tracker.update(result:result(),observation:nil,options:.init())
         XCTAssertNotNil(tracker.update(result:missing(id:2,time:2.9),observation:nil,options:.init()).path)
         XCTAssertNil(tracker.update(result:missing(id:3,time:3.01),observation:nil,options:.init()).path)
     }
     func testRevalidationDoesNotCreateNewPathIdentity() {
-        var tracker = PathPredictor();let p = tracker.update(result:result(),observation:nil,options:.init()).path!
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let p = tracker.update(result:result(),observation:nil,options:.init()).path!
         let next = tracker.update(result:result(id:2,time:1.2),observation:nil,options:.init()).path!
         XCTAssertEqual(next.id,p.id);XCTAssertEqual(next.points,p.points);XCTAssertEqual(next.observedAt,1.2)
     }
-    func testCurrentObstacleRevokesRetainedPathBeforeTimeout() {
-        var tracker = PathPredictor();let p = tracker.update(result:result(),observation:nil,options:.init()).path!
+    func testCurrentObstacleReplacesOldPathWithObservedPrefixImmediately() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let p = tracker.update(result:result(),observation:nil,options:.init()).path!
         var r = result(id:2,time:1.1);let c = r.grid!.basis.local(p.points[p.points.count/2]),i = r.grid!.index(x:c.x,z:c.z)!
         r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 5;r.surfaceModel = nil
         let update = tracker.update(result:r,observation:nil,options:.init())
-        XCTAssertNil(update.path);XCTAssertEqual(update.reason,"current_obstacle_invalidated")
+        XCTAssertNotNil(update.path);XCTAssertEqual(update.reason,"obstacle_ahead_truncated")
+        XCTAssertTrue(RoutePlanningGrid(result:r)!.supports(update.path!.points))
+        XCTAssertNotEqual(update.path?.points.last,p.points.last)
     }
     func testRawCurrentDepthVetoesHistoryWithoutAnyNewGroundFit() {
-        var tracker = PathPredictor();let route = tracker.update(result:result(),observation:nil,options:.init()).path!
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let route = tracker.update(result:result(),observation:nil,options:.init()).path!
         let a = route.points.first!,b = route.points.last!,x = a.x+(b.x-a.x)*(-1.5-a.z)/(b.z-a.z)
         let r = missing(id:2,time:1.1),k = CameraIntrinsics(fx:200,fy:200,cx:1.5-x*200/1.5,cy:1.5,width:4,height:4)
         let o = DepthObservation(width:4,height:4,depth:Array(repeating:1.5,count:16),confidence:Array(repeating:2,count:16),intrinsics:k,pose:r.sourcePose!,timestamp:1.1,frameID:2,epoch:1)
@@ -100,7 +104,7 @@ final class PathPredictionTests: XCTestCase {
         XCTAssertNil(update.path);XCTAssertEqual(update.reason,"current_obstacle_invalidated")
     }
     func testLowConfidenceRawDepthCannotFabricateConfirmedObstacle() {
-        var tracker = PathPredictor();let route = tracker.update(result:result(),observation:nil,options:.init()).path!
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let route = tracker.update(result:result(),observation:nil,options:.init()).path!
         let a = route.points.first!,b = route.points.last!,x = a.x+(b.x-a.x)*(-1.5-a.z)/(b.z-a.z)
         let r = missing(id:2,time:1.1),k = CameraIntrinsics(fx:200,fy:200,cx:1.5-x*200/1.5,cy:1.5,width:4,height:4)
         let o = DepthObservation(width:4,height:4,depth:Array(repeating:1.5,count:16),confidence:Array(repeating:0,count:16),intrinsics:k,pose:r.sourcePose!,timestamp:1.1,frameID:2,epoch:1)
@@ -122,30 +126,30 @@ final class PathPredictionTests: XCTestCase {
         XCTAssertTrue(drive(&policy,angle:0,from:1.6,to:2.2).isEmpty)
     }
     func testGroundConflictClearsWithoutReplanningSameFrame() {
-        var tracker = PathPredictor();_ = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);_ = tracker.update(result:result(),observation:nil,options:.init())
         var r = result(id:2,time:1.1);r.diagnostics?.groundReferenceInvalidation = "ground_conflict"
         XCTAssertNil(tracker.update(result:r,observation:nil,options:.init()).path)
     }
     func testEpochParameterAndResetIsolation() {
         for mode in 0..<3 {
-            var tracker = PathPredictor();_ = tracker.update(result:result(),observation:nil,options:.init())
+            var tracker = PathPredictor(obstacleConfirmationSeconds: 0);_ = tracker.update(result:result(),observation:nil,options:.init())
             var r = missing(id:2,time:1.1)
             if mode == 0 { r.epoch = 2 } else if mode == 1 { r.parameterVersion = 1 } else { tracker.reset() }
             XCTAssertNil(tracker.update(result:r,observation:nil,options:.init()).path)
         }
     }
     func testOutOfOrderCannotOverwriteNewerPath() {
-        var tracker = PathPredictor();let p = tracker.update(result:result(id:4,time:1),observation:nil,options:.init()).path!
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let p = tracker.update(result:result(id:4,time:1),observation:nil,options:.init()).path!
         XCTAssertEqual(tracker.update(result:missing(id:2,time:1.2),observation:nil,options:.init()).path?.validatedFrameID,p.validatedFrameID)
     }
     func testMonocularConfirmedBlueGetsExperimentalLineButNoVerifiedGrid() {
         var r = result();r.source = "apple_coreml_relative_depth_arkit_alignment";r.diagnostics?.groundReferenceMode = "native_confirmed"
-        var tracker = PathPredictor();XCTAssertNotNil(tracker.update(result:r,observation:nil,options:.init()).path)
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);XCTAssertNotNil(tracker.update(result:r,observation:nil,options:.init()).path)
         XCTAssertTrue(r.grid!.cells.allSatisfy{$0.state == .unknown});XCTAssertTrue(r.segments.isEmpty)
     }
     func testProvisionalPlaneDoesNotStartNewPath() {
         var r = result();r.diagnostics?.groundReferenceMode = "native_provisional_ground"
-        var tracker = PathPredictor();XCTAssertNil(tracker.update(result:r,observation:nil,options:.init()).path)
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);XCTAssertNil(tracker.update(result:r,observation:nil,options:.init()).path)
     }
     func testPresentationRejectsBackgroundStaleFramesBarriersAndEpoch() {
         let p = path(),pose = result().sourcePose!
@@ -227,7 +231,7 @@ final class PathPredictionTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(PathOptions.self,from:JSONEncoder().encode(v)),v)
     }
     func testDisabledClearsRetainedRoute() {
-        var tracker = PathPredictor();_ = tracker.update(result:result(),observation:nil,options:.init());var o = PathOptions();o.enabled = false
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);_ = tracker.update(result:result(),observation:nil,options:.init());var o = PathOptions();o.enabled = false
         XCTAssertNil(tracker.update(result:result(id:2,time:1.1),observation:nil,options:o).path)
     }
 }

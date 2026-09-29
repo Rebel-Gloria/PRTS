@@ -20,14 +20,16 @@ struct ProbeSettingsView: View {
                     Text("Apple Depth Anything V2 Small FP16 · 相对深度。结合ARKit原生平面/稀疏特征校验尺度；无法确认时只显示相对深度。没有传感器置信度，可绘实验预测线，但不授权已验证净空通道。").font(.caption).foregroundStyle(.secondary)
                     if model.snapshot.usesMonocular { Text(model.snapshot.monocularStatus).font(.caption).foregroundStyle(.orange) }
                 }
-                Section("扇形目标路径与偏航振动") {
-                    Toggle("绘制脚下到扇形目标的预测线",isOn:$model.pathOptions.enabled)
+                Section("直行与避障") {
+                    Toggle("绘制路径",isOn:$model.pathOptions.enabled)
                         .accessibilityIdentifier("pathPrediction")
                     Toggle("振动提示方向偏差",isOn:$model.pathOptions.haptics).disabled(!model.pathOptions.enabled)
                         .accessibilityIdentifier("pathHaptics")
-                    Text(String(format:"选点范围：正前方左右各 %.0f°",model.pathOptions.targetHalfAngleDegrees))
-                    Slider(value:$model.pathOptions.targetHalfAngleDegrees,in:15...75,step:5)
-                    Text("只按沿地面距离选择最远可达点，不偏好正前方。选中后固定世界位置，不因新出现更远点而移动。范围边缘有5°/0.2m余量，持续越界0.3秒后重选。新障碍、追踪异常和地面冲突仍优先撤销提示。").font(.caption)
+                    Text(String(format:"近距触发：前方 %.1f m，末端宽 %.2f m",model.pathOptions.obstacleTriggerDistance,model.pathOptions.obstacleTriggerWidth))
+                    Text("直行目标随观测向前延伸；路径内障碍提前绕行，小障碍优先回原线。未知区域截断实线。").font(.caption)
+                    Text(String(format:"局部绕行宽度上限 %.2f m",model.pathOptions.smallObstacleWidth))
+                    Text(String(format:"主动转向：偏离路线 %.0f°，持续 %.1f 秒",model.pathOptions.userTurnDegrees,model.pathOptions.userTurnSeconds))
+                    Text("新方向需有连续地面证据。绕行期间保持侧向选择，转头不立即换线。").font(.caption)
                     Text(String(format:"到达目标半径 %.2f m（相机地面投影）",model.pathOptions.arrivalRadius))
                     Slider(value:$model.pathOptions.arrivalRadius,in:0.2...0.75,step:0.05)
                     Text(String(format:"路径最小总宽度 %.2f m",model.pathOptions.minimumWidth))
@@ -42,7 +44,7 @@ struct ProbeSettingsView: View {
                     Text(String(format:"对准角度范围 ±%.0f°",model.pathOptions.validated().alignmentDegrees))
                     Slider(value:$model.pathOptions.alignmentDegrees,in:2...max(2,model.pathOptions.deviationDegrees-2),step:1)
                     Text("左：双短振；右：长振，首次语音提示方向。对准稳定 0.3 秒后强振一次；偏离阈值持续 0.25 秒后恢复提示。").font(.caption)
-                    Text("目标位置与连线证据分开保留。证据过期时隐藏连线并停振，但不另换一个目标；恢复后仍尝试连接同一世界点。").font(.caption)
+                    Text("证据过期时隐藏连线并停振；恢复后重验原路线。绕行与回归各提示一次。").font(.caption)
                     Text("黄圈：远端目标；黄实线：已观测区连线；橙虚线：短时缓存。青虚线：估计脚下至观测起点的未验证连接，不能据此确认盲区可通行。已观测路线不跨未知缺口；蓝地面并不证明头部净空、台阶或落差安全。无LiDAR使用已校准预测几何，误差更大。").font(.caption).foregroundStyle(.orange)
                     Text(model.hapticStatus).font(.caption2)
                 }

@@ -40,9 +40,10 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
     init(root: URL) { self.root = root }
     func status() -> Status { lock.lock(); defer { lock.unlock() }; return state }
     private func update(_ body: (inout Status) -> Void) { lock.lock(); defer { lock.unlock() }; body(&state) }
+    /// Idempotent while armed: repeated UI calls cannot bypass the sample-rate limit.
     func enable() {
         lock.lock(); defer { lock.unlock() }
-        guard !state.busy, !state.finalizing else { return }
+        guard !state.enabled, !state.busy, !state.finalizing else { return }
         state.enabled = true; state.text = "已开启：5 FPS 上限，最长边 960，H.264；等待分析帧"
         lastTimestamp = -.infinity
     }
@@ -107,7 +108,7 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
         lock.lock()
         guard state.enabled else { lock.unlock(); return }
         let timestamp = packet.timestamp
-        guard timestamp-lastTimestamp >= 0.2 else { lock.unlock(); return }
+        guard timestamp.isFinite, timestamp-lastTimestamp >= 0.2 else { lock.unlock(); return }
         guard !state.busy else { state.dropped += 1; lock.unlock(); return }
         lastTimestamp = timestamp; state.busy = true
         // Enqueue under the admission lock so stop cannot overtake an accepted sample.

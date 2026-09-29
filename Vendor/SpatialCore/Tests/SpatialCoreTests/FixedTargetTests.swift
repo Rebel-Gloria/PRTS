@@ -8,40 +8,40 @@ extension PathPredictionTests {
         let t = degrees*Float.pi/180
         return .init(right:V3(cos(t),0,-sin(t)),up:V3(0,1,0),back:V3(sin(t),0,cos(t)),position:V3(0,1.4,0))
     }
-    func testFixedTargetDoesNotMoveWhenFartherAreaAppears() {
-        var tracker = PathPredictor()
+    func testStraightTargetExtendsWhenFartherGroundAppearsWithoutChangingIdentity() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0)
         let a = tracker.update(result:result(hole:{_,z in z > 27}),observation:nil,options:.init())
         let b = tracker.update(result:result(id:2,time:1.1),observation:nil,options:.init())
-        XCTAssertNotNil(a.goal);XCTAssertEqual(a.goal?.point,b.goal?.point);XCTAssertEqual(a.goal?.id,b.goal?.id)
-        XCTAssertEqual(b.path?.points.last,a.goal?.point)
+        XCTAssertNotNil(a.goal);XCTAssertNotEqual(a.goal?.point,b.goal?.point);XCTAssertEqual(a.goal?.id,b.goal?.id)
+        XCTAssertEqual(b.path?.points.last,b.goal?.point)
         XCTAssertGreaterThan(BluePathGrid(result:result())!.search().targetDistance!,a.targetGroundDistance!+0.5)
     }
-    func testExpiredEvidenceKeepsGoalAndReacquiresSameWorldPoint() {
-        var tracker = PathPredictor()
+    func testExpiredEvidenceKeepsIntentThenExtendsWithNewGround() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0)
         let a = tracker.update(result:result(hole:{_,z in z > 27}),observation:nil,options:.init())
         let b = tracker.update(result:missing(id:2,time:4),observation:nil,options:.init())
         XCTAssertNil(b.path);XCTAssertEqual(b.goal?.point,a.goal?.point);XCTAssertEqual(b.reason,"fixed_goal_waiting_evidence")
         let c = tracker.update(result:result(id:3,time:4.1),observation:nil,options:.init())
-        XCTAssertNotNil(c.path);XCTAssertEqual(c.goal?.id,a.goal?.id);XCTAssertEqual(c.path?.points.last,a.goal?.point)
+        XCTAssertNotNil(c.path);XCTAssertEqual(c.goal?.id,a.goal?.id);XCTAssertEqual(c.path?.points.last,c.goal?.point)
         XCTAssertEqual(c.path?.observedAt,4.1)
     }
     func testArrivalReleasesGoalUsingGroundDistanceNotCameraHeight() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var r = missing(id:2,time:1.1);r.sourcePose!.position = a.goal!.point+V3(0,1.4,0)
         let b = tracker.update(result:r,observation:nil,options:.init())
         XCTAssertNil(b.goal);XCTAssertNil(b.path);XCTAssertEqual(b.goalChangeReason,"target_reached")
     }
-    func testRangeExitHasDwellButStopsPresentationImmediately() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+    func testAngularExitKeepsIntentAndWorldDrawingWithoutClearNewDirection() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var r = missing(id:2,time:1.1);r.sourcePose = yawPose(100)
         let b = tracker.update(result:r,observation:nil,options:.init());XCTAssertEqual(b.goal?.id,a.goal?.id)
-        XCTAssertNil(PathPresentation.make(path:a.path!,gate:gate(),pose:r.sourcePose!,options:.init(),now:1.1))
+        XCTAssertNotNil(PathPresentation.make(path:a.path!,gate:gate(),pose:r.sourcePose!,options:.init(),now:1.1))
         r.frameID = 3;r.timestamp = 1.5
         let c = tracker.update(result:r,observation:nil,options:.init())
-        XCTAssertNil(c.goal);XCTAssertEqual(c.goalChangeReason,"target_out_of_range")
+        XCTAssertEqual(c.goal?.id,a.goal?.id);XCTAssertNil(c.goalChangeReason)
     }
     func testFanBoundaryNoiseDoesNotChangeGoal() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         let bearing = a.targetBearingDegrees!
         for (n,angle) in [Float(49),51,49,51,49].enumerated() {
             var r = missing(id:UInt64(n+2),time:1.1+Double(n)*0.1);r.sourcePose = yawPose(angle-bearing)
@@ -49,46 +49,54 @@ extension PathPredictionTests {
             XCTAssertEqual(u.goal?.id,a.goal?.id)
         }
     }
-    func testRadialRangeExitReleasesEvenWhenHeadingIsVertical() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+    func testRadialRangeExitWithVerticalHeadingHidesLineWithoutAdoptingNewDirection() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var r = missing(id:2,time:1.1)
         r.sourcePose = .init(right:V3(1,0,0),up:V3(0,0,-1),back:V3(0,1,0),position:V3(0,1.4,5))
         XCTAssertEqual(tracker.update(result:r,observation:nil,options:.init()).goal?.id,a.goal?.id)
         r.frameID = 3;r.timestamp = 1.5
-        XCTAssertEqual(tracker.update(result:r,observation:nil,options:.init()).goalChangeReason,"target_out_of_range")
+        let b = tracker.update(result:r,observation:nil,options:.init())
+        XCTAssertEqual(b.goal?.id,a.goal?.id);XCTAssertNil(b.goalChangeReason)
+        XCTAssertNil(PathPresentation.make(path:a.path!,gate:gate(),pose:r.sourcePose!,options:.init(),now:1.1))
     }
-    func testNewObstacleReRoutesToExactlySameGoalWhenPossible() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init()),points = a.path!.points
+    func testDistantNewObstacleDetoursAndKeepsIntent() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init()),points = a.path!.points
         let middle = points[0]+(points.last!-points[0])*0.5
         var r = result(id:2,time:1.1);let q = r.grid!.basis.local(middle),i = r.grid!.index(x:q.x,z:q.z)!
         r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 6
         let b = tracker.update(result:r,observation:nil,options:.init())
         XCTAssertEqual(b.reason,"replanned_around_obstacle");XCTAssertEqual(b.goal?.id,a.goal?.id)
-        XCTAssertEqual(b.path?.points.last,a.goal?.point);XCTAssertTrue(BluePathGrid(result:r)!.supports(b.path!.points))
+        XCTAssertEqual(b.path?.points.last,a.goal?.point);XCTAssertTrue(RoutePlanningGrid(result:r)!.supports(b.path!.points))
+        XCTAssertNotNil(b.strategy?.maneuverID)
+        XCTAssertEqual(b.strategy?.mode,.detour)
+        XCTAssertGreaterThan(b.path!.points.map { abs($0.x) }.max()!,0.2)
     }
     func testBlockedRouteWithoutNewGroundKeepsGoalButWithdrawsCue() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         let points = a.path!.points,middle = points[0]+(points.last!-points[0])*0.5
         var r = result(id:2,time:1.1);let q = r.grid!.basis.local(middle),i = r.grid!.index(x:q.x,z:q.z)!
         r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 6;r.surfaceModel = nil
+        for j in r.grid!.cells.indices { r.grid!.cells[j].groundSamples = 0 }
         let b = tracker.update(result:r,observation:nil,options:.init())
-        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id);XCTAssertEqual(b.reason,"current_obstacle_invalidated")
+        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id);XCTAssertEqual(b.reason,"near_obstacle_no_observed_detour")
         let c = tracker.update(result:result(id:3,time:1.2),observation:nil,options:.init())
         XCTAssertEqual(c.path?.points.last,a.goal?.point);XCTAssertEqual(c.goal?.id,a.goal?.id)
     }
-    func testBlockedGoalCanBeRevokedAndNeverContinuesOldCue() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+    func testDistantBlockedGoalPreservesStraightIntentButDrawsOnlyValidPrefix() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var r = result(id:2,time:1.1);let q = r.grid!.basis.local(a.goal!.point),i = r.grid!.index(x:q.x,z:q.z)!
         r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 6
         let b = tracker.update(result:r,observation:nil,options:.init())
-        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        XCTAssertNotNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        XCTAssertNotEqual(b.path?.points.last,a.goal?.point)
+        XCTAssertTrue(BluePathGrid(result:r)!.supports(b.path!.points))
         var latest = b
         for j in 3...6 { r.frameID = UInt64(j);r.timestamp = 1+Double(j-1)*0.1;latest = tracker.update(result:r,observation:nil,options:.init()) }
-        XCTAssertNotEqual(latest.goal?.id,a.goal?.id)
+        XCTAssertEqual(latest.goal?.id,a.goal?.id)
         XCTAssertNotEqual(latest.path?.points.last,a.goal?.point)
     }
     func testGroundEvidenceExpiryHidesPathButPreservesFixedGoal() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var lost = missing(id:2,time:3.1)
         lost.diagnostics = AnalysisDiagnostics();lost.diagnostics?.groundReferenceInvalidation = "reference_expired_or_clock_reversed"
         let b = tracker.update(result:lost,observation:nil,options:.init())
@@ -97,17 +105,19 @@ extension PathPredictionTests {
         XCTAssertEqual(c.goal?.id,a.goal?.id);XCTAssertEqual(c.path?.points.last,a.goal?.point)
     }
     func testClockReversalStillClearsFixedGoal() {
-        var tracker = PathPredictor();_ = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);_ = tracker.update(result:result(),observation:nil,options:.init())
         let b = tracker.update(result:result(id:2,time:0.5),observation:nil,options:.init())
         XCTAssertNil(b.path);XCTAssertNil(b.goal)
     }
-    func testTransientBlockedGoalNeverDrawsOldPathOrSelectsNewGoal() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+    func testTransientDistantBlockedGoalRestoresPrefixWithoutSelectingSideGoal() {
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var r = result(id:2,time:1.1);let q = r.grid!.basis.local(a.goal!.point),i = r.grid!.index(x:q.x,z:q.z)!
         r.grid!.cells[i].state = .obstacle;r.grid!.cells[i].obstacleSamples = 6
         let b = tracker.update(result:r,observation:nil,options:.init())
-        XCTAssertNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        XCTAssertNotNil(b.path);XCTAssertEqual(b.goal?.id,a.goal?.id)
+        XCTAssertNotEqual(b.path?.points.last,a.goal?.point)
         let c = tracker.update(result:result(id:3,time:1.2),observation:nil,options:.init())
+        XCTAssertEqual(c.path?.points.last,a.goal?.point)
         XCTAssertEqual(c.goal?.id,a.goal?.id)
     }
     func testReRouteEndpointIsExactWorldGoalNotRoundedGridCentre() {
@@ -118,13 +128,14 @@ extension PathPredictionTests {
     }
     func testPredictionBranchDoesNotNeedOrAlterVerifiedGuidanceFlag() {
         var r = result();r.sourceDirectionStable = false;r.diagnostics?.groundReferenceMode = "native_confirmed"
-        var tracker = PathPredictor()
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0)
         XCTAssertNotNil(tracker.update(result:r,observation:nil,options:.init(),directionStable:true).path)
         XCTAssertEqual(r.sourceDirectionStable,false) // strict verified guidance remains disabled
-        tracker.reset();XCTAssertNil(tracker.update(result:r,observation:nil,options:.init(),directionStable:false).path)
+        // Geometry can extend while rotating; heading feedback retains its separate gate.
+        tracker.reset();XCTAssertNotNil(tracker.update(result:r,observation:nil,options:.init(),directionStable:false).path)
     }
     func testGoalWidthChangePreservesIntentButDoesNotRenderUnvalidatedWidth() {
-        var tracker = PathPredictor();let a = tracker.update(result:result(),observation:nil,options:.init())
+        var tracker = PathPredictor(obstacleConfirmationSeconds: 0);let a = tracker.update(result:result(),observation:nil,options:.init())
         var options = PathOptions();options.minimumWidth = 1.2
         let b = tracker.update(result:missing(id:2,time:1.1),observation:nil,options:options)
         XCTAssertEqual(b.goal?.id,a.goal?.id);XCTAssertNil(b.path)

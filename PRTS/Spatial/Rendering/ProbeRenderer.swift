@@ -254,7 +254,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                         encoder.drawPrimitives(type:.line,vertexStart:0,vertexCount:blockingLineCount)
                     }
                 }
-                updatePathBuffer(predictedPath)
+                updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime))
                 if s.options.showPath,let pathBuffer,pathCount > 0 {
                     encoder.setVertexBuffer(pathBuffer,offset:0,index:0)
                     encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:pathCount); drawnPath = pathCount
@@ -368,18 +368,23 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         blockingBuffer = buffer(triangles); blockingCount = triangles.count
         blockingLines = buffer(lines); blockingLineCount = lines.count
     }
-    private func updatePathBuffer(_ presentation: PathPresentation?) {
-        guard let p = presentation else { pathBuffer = nil; pathCount = 0; pathApproachCount = 0; pathTargetCount = 0;pathKey = ""; return }
-        let key = "\(p.path.epoch):\(p.path.parameterVersion):\(p.path.id):\(p.path.validatedFrameID):\(p.path.points.first!):\(p.approach.first ?? .zero):\(p.historical)"
+    private func updatePathBuffer(_ presentation: PathPresentation?, projection: RouteProjection?) {
+        guard presentation != nil || projection != nil else {
+            pathBuffer = nil; pathCount = 0; pathApproachCount = 0; pathTargetCount = 0; pathKey = ""; return
+        }
+        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(String(describing: presentation?.path.points.first)):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0)"
         guard key != pathKey else { return }; pathKey = key
-        var vertices: [WorldVertex] = [];pathApproachCount = 0;pathTargetCount = 0
-        for mesh in PathDrawing.meshes(p) {
+        var meshes = presentation.map { PathDrawing.meshes($0) } ?? []
+        if let projection { meshes.append(PathDrawing.projectionMesh(projection, observed: presentation)) }
+        var vertices: [WorldVertex] = []; pathApproachCount = 0; pathTargetCount = 0
+        for mesh in meshes {
             let color: SIMD4<Float>
             switch mesh.role {
-            case .unknownApproach: color = SIMD4(0.1,0.85,1,0.7);pathApproachCount += mesh.vertices.count
+            case .unknownApproach: color = SIMD4(0.1,0.85,1,0.7); pathApproachCount += mesh.vertices.count
+            case .prediction: color = SIMD4(1,0.96,0.18,1)
             case .history: color = SIMD4(1,0.52,0.08,0.85)
             case .observed: color = SIMD4(1,0.96,0.18,1)
-            case .target: color = p.historical ? SIMD4(1,0.52,0.08,0.9) : SIMD4(1,0.96,0.18,1);pathTargetCount += mesh.vertices.count
+            case .target: color = presentation?.historical == true ? SIMD4(1,0.52,0.08,0.9) : SIMD4(1,0.96,0.18,1); pathTargetCount += mesh.vertices.count
             }
             vertices += mesh.vertices.map { WorldVertex($0,color) }
         }

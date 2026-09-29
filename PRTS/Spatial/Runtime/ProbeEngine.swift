@@ -65,7 +65,11 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     private let mailbox = LatestMailbox<AnalysisJob>()
     private let meshInbox = MeshInbox()
     private let analyzer = SpatialAnalyzer()
+    #if PRTS_DEV_CAPTURE
+    private var pathPredictor = PathPredictor(experimentalOccupancyPlanning: true) // analysisQueue only
+    #else
     private var pathPredictor = PathPredictor() // analysisQueue only
+    #endif
     private let monocularProvider = MonocularDepthProvider()
     private var directionGate = DirectionGate()
     private var epoch: UInt64 = 0
@@ -299,7 +303,8 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     // Even a delayed obstacle/conflict may REMOVE a line; it may never publish
                     // a delayed replacement. Safety invalidation is not tied to display freshness.
                     if frame.id >= s.minimumGeometryFrameID,
-                       (["current_obstacle_invalidated","replanned_around_obstacle","ground_or_metric_conflict","ground_evidence_expired"].contains(pathUpdate.reason) ||
+                       (pathUpdate.strategy?.invalidatesPreviousPath == true ||
+                        ["current_obstacle_invalidated","replanned_around_obstacle","ground_or_metric_conflict","ground_evidence_expired"].contains(pathUpdate.reason) ||
                         ["target_reached","target_out_of_range","target_blocked"].contains(pathUpdate.goalChangeReason ?? "")) {
                         s.pathUpdate = .init(reason:pathUpdate.reason)
                     }

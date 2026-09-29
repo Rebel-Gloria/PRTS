@@ -6,7 +6,7 @@ import SpatialCore
 import simd
 
 extension RigidPose {
-    init(_ matrix: simd_float4x4) {
+    nonisolated init(_ matrix: simd_float4x4) {
         self.init(right:V3(matrix.columns.0.x,matrix.columns.0.y,matrix.columns.0.z),
                   up:V3(matrix.columns.1.x,matrix.columns.1.y,matrix.columns.1.z),
                   back:V3(matrix.columns.2.x,matrix.columns.2.y,matrix.columns.2.z),
@@ -95,7 +95,7 @@ final class FrameSnapshot: @unchecked Sendable {
     }
 }
 
-struct MeshSnapshot: Codable, Sendable {
+nonisolated struct MeshSnapshot: Codable, Sendable {
     let id: String
     let epoch: UInt64
     let revision: UInt64
@@ -147,7 +147,7 @@ enum SensorLayer: Int, CaseIterable, Identifiable, Codable, Sendable { case rgb,
     var id: Int { rawValue }
     var title: String { switch self { case .rgb: "RGB"; case .depth: "深度"; case .confidence: "置信度" } }
 }
-struct RenderOptions: Codable, Sendable, Equatable {
+nonisolated struct RenderOptions: Codable, Sendable, Equatable {
     // Optional backing keys preserve decoding of older diagnostic records.
     var cameraImageVisible: Bool? = nil
     var geometryOverlaysVisible: Bool? = nil
@@ -170,7 +170,7 @@ struct RenderOptions: Codable, Sendable, Equatable {
     var showHUD = true
     var heatMax: Float = 5
 }
-struct RenderMetrics: Sendable {
+nonisolated struct RenderMetrics: Sendable {
     var fps: Double = 0; var cpuMS: Double = 0; var gpuMS: Double = 0; var presentAgeMS: Double?
     var analysisDisplayDeltaMS: Double?; var renderedFrameID: UInt64 = 0
 }
@@ -252,6 +252,11 @@ struct SharedSnapshot: Sendable {
     }
     func activeSurfacePresentation(now: Double) -> SurfacePresentation? {
         surfaceHistory.presentation(current:activeGeometryResult(now:now),gate:presentationGate,pose:frame?.pose,now:now)
+    }
+    func activeRouteProjection(now: Double) -> RouteProjection? {
+        guard pathOptions.enabled, let projection = pathUpdate.projection,
+              projection.visible(gate: presentationGate, now: now) else { return nil }
+        return projection
     }
     func activePath(now: Double) -> PathPresentation? {
         guard pathOptions.enabled,let path = pathUpdate.path,let frame else { return nil }

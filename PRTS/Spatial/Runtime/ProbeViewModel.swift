@@ -52,7 +52,7 @@ final class ProbeViewModel: ObservableObject {
             endBackgroundFlush()
             backgroundTask = UIApplication.shared.beginBackgroundTask(withName:"Flush diagnostic measurements") { [weak self] in self?.endBackgroundFlush() }
             let requestedTask = backgroundTask
-            engine.flushDiagnostics(lifecycle:"background") { [weak self] in Task { @MainActor in
+            engine.flushDiagnostics(lifecycle:"background") { [weak self] in Task { @MainActor [weak self] in
                 if self?.backgroundTask == requestedTask { self?.endBackgroundFlush() }
             } }
         } else if phase == .active { poll() }
@@ -61,13 +61,13 @@ final class ProbeViewModel: ObservableObject {
         if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask); backgroundTask = .invalid }
     }
     func refreshDiagnostics() {
-        engine.diagnostics.journal.listRuns { [weak self] runs in Task { @MainActor in self?.diagnosticRuns = runs } }
+        engine.diagnostics.journal.listRuns { [weak self] runs in Task { @MainActor [weak self] in self?.diagnosticRuns = runs } }
     }
     func exportDiagnostics(runID: String? = nil) {
         guard !exporting else { return }; exporting = true
         #if PRTS_DEV_CAPTURE
         engine.devCapture.stop { [weak self] in
-            Task { @MainActor in self?.performDiagnosticExport(runID:runID) }
+            Task { @MainActor [weak self] in self?.performDiagnosticExport(runID:runID) }
         }
         #else
         performDiagnosticExport(runID:runID)
@@ -75,7 +75,7 @@ final class ProbeViewModel: ObservableObject {
     }
     private func performDiagnosticExport(runID: String?) {
         engine.diagnostics.journal.export(runID:runID,to:FileManager.default.temporaryDirectory.appendingPathComponent("DiagExports",isDirectory:true)) { [weak self] result in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.exporting = false
                 switch result { case .success(let url): self?.exportURL = url; case .failure(let error): self?.errorMessage = error.localizedDescription }
             }
@@ -155,7 +155,7 @@ final class ProbeViewModel: ObservableObject {
     func export() {
         guard !exporting else { return }; exporting = true
         engine.recorder.export { [weak self] result in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.exporting = false
                 switch result { case .success(let url): self?.exportURL = url; case .failure(let error): self?.errorMessage = error.localizedDescription }
             }
