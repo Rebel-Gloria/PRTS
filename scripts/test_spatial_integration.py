@@ -8,7 +8,9 @@ PROBE = ROOT / "Experiments/SpatialProbe"
 class SpatialIntegrationTests(unittest.TestCase):
     def test_all_verified_algorithms_are_identical(self):
         for source in (PROBE / "Core/Sources/SpatialCore").glob("*.swift"):
-            if source.name == "PathPrediction.swift": continue # Main-specific stability policy has deterministic tests.
+            # These files are intentionally evolved in main; Swift suites cover both the
+            # legacy graph defaults and forward/maneuver behavior. Clearance math stays pinned below.
+            if source.name in {"PathPrediction.swift", "FanPathSearch.swift", "PathDrawing.swift"}: continue
             with self.subTest(file=source.name):
                 self.assertEqual(source.read_bytes(), (ROOT / "Vendor/SpatialCore/Sources/SpatialCore" / source.name).read_bytes())
 
@@ -40,13 +42,44 @@ class SpatialIntegrationTests(unittest.TestCase):
                         lines.append(line)
                 text = "\n".join(lines).replace(',"ground_evidence_expired"', "")
                 # Explicit concurrency annotations do not change mathematical operations.
-                text = text.replace("nonisolated struct CaptureDiagnostic", "struct CaptureDiagnostic")
+                # Value records explicitly opt out of the app's MainActor default.
+                for record in ("CaptureDiagnostic", "RenderDiagnostic", "Event", "Record",
+                               "Header", "Skip", "GPU", "Presented", "Heartbeat",
+                               "MetricContext", "RenderMetricRecord", "CompactGrid",
+                               "FrameLog", "RecorderStatus"):
+                    text = text.replace(f"nonisolated struct {record}", f"struct {record}")
+                # Main consumes the route module's explicit withdrawal bit; no strategy in runtime.
+                text = text.replace("pathUpdate.strategy?.invalidatesPreviousPath == true ||\n                        ", "")
+                # Previously approved user-facing copy change; haptic policy remains pinned.
+                text = text.replace("已对准，静默至明显偏离（非安全确认）", "已对准")
                 text = text.replace("nonisolated static func planes", "static func planes")
                 text = text.replace('        let privacy = "No RGB or video saved."', "")
                 text = text.replace('map. " + privacy', 'map. No RGB or video saved."')
                 return " ".join(text.split())
             with self.subTest(file=name):
                 self.assertEqual(body(PROBE / "App" / name),body(target))
+
+    def test_forward_strategy_preserves_clearance_math_and_module_boundaries(self):
+        before = (PROBE / "Core/Sources/SpatialCore/FanPathSearch.swift").read_text()
+        after = (ROOT / "Vendor/SpatialCore/Sources/SpatialCore/FanPathSearch.swift").read_text()
+        self.assertEqual(before.split("public struct FanPathPlan")[0],
+                         after.split("public struct FanPathPlan")[0])
+        core = ROOT / "Vendor/SpatialCore/Sources/SpatialCore"
+        for name in ("ForwardRoutePlanner.swift", "ForwardRouteState.swift", "ForwardPathSearch.swift", "RoutePlanningGrid.swift",
+                     "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift"):
+            self.assertTrue((core / name).is_file())
+            source = (core / name).read_text()
+            for forbidden in ("import ARKit", "import SwiftUI", "import Metal", "import AVFoundation"):
+                self.assertNotIn(forbidden, source)
+        speech = (ROOT / "PRTS/Feedback/RouteAnnouncementPolicy.swift").read_text()
+        self.assertNotIn("ARSession", speech)
+        self.assertNotIn("ForwardPathSearch", speech)
+        runtime = (ROOT / "PRTS/Spatial/Runtime/ProbeEngine.swift").read_text()
+        self.assertIn("pathUpdate.strategy?.invalidatesPreviousPath == true", runtime)
+        home = (ROOT / "PRTS/UI/ContentView.swift").read_text()
+        self.assertIn("feedback.suspendResultFeedback()", home)
+        self.assertNotIn("ForwardPathSearch", runtime)
+        self.assertNotIn("ForwardObstacleTrigger", runtime)
 
     def test_model_matches_verified_probe(self):
         sources = [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]
