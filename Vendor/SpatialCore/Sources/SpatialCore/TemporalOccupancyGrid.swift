@@ -21,6 +21,9 @@ struct TemporalOccupancyGrid: Sendable {
     var last: Double
   }
   private var previous: [SIMD3<Int>: Track] = [:]
+  // Multiple measured squares may quantize to one association bin. Keep ALL confirmed
+  // squares for collision geometry; choosing one timer must not discard the other area.
+  private var confirmedFootprints: [OccupancyFootprint] = []
   private var referencePlane: GroundPlane?
   private var referenceForward: V3?
   private var epoch: UInt64?
@@ -80,6 +83,7 @@ struct TemporalOccupancyGrid: Sendable {
     diagnostics.referenceSource = referenceSource
     diagnostics.forwardBufferLength = forwardLength
     var current: [SIMD3<Int>: Track] = [:]
+    confirmedFootprints.removeAll(keepingCapacity:true)
     func key(_ p: V3) -> SIMD3<Int> {
       SIMD3(Int(floor(p.x / 0.1)), Int(floor(p.y / 0.1)), Int(floor(p.z / 0.1)))
     }
@@ -116,7 +120,10 @@ struct TemporalOccupancyGrid: Sendable {
         let age = result.timestamp - track.since
         confirmed = age + 0.000001 >= diagnostics.thresholdSeconds
         diagnostics.maximumAge = max(diagnostics.maximumAge, age)
-        if confirmed { diagnostics.confirmedCells += 1 } else { diagnostics.pendingCells += 1 }
+        if confirmed {
+          diagnostics.confirmedCells += 1
+          confirmedFootprints.append(.init(center:world,right:grid.basis.right,forward:grid.basis.forward,size:grid.cellSize))
+        } else { diagnostics.pendingCells += 1 }
         // Keep the older matching track when multiple samples quantize to one bin.
         if current[k].map({ $0.since > track.since }) ?? true { current[k] = track }
       }
@@ -138,16 +145,15 @@ struct TemporalOccupancyGrid: Sendable {
       basis: basis, parameters: parameters, timestamp: result.timestamp, frameID: result.frameID,
       epoch: result.epoch)
     planningGrid.cells = Array(repeating: GridCell(state: .candidate), count: planningGrid.cells.count)
-    for track in previous.values
-    where result.timestamp - track.since + 0.000001 >= diagnostics.thresholdSeconds {
-      let p = basis.local(track.anchor)
-      if let index = planningGrid.index(x: p.x, z: p.z) {
-        planningGrid.cells[index].state = .obstacle
-        planningGrid.cells[index].obstacleSamples = 3
-      }
+    let footprints = confirmedFootprints.sorted {
+      if $0.center.x != $1.center.x { return $0.center.x < $1.center.x }
+      if $0.center.z != $1.center.z { return $0.center.z < $1.center.z }
+      return $0.center.y < $1.center.y
     }
+    for footprint in footprints { footprint.stamp(into: &planningGrid) }
     var planning = result
     planning.grid = planningGrid
+    planning.planningObstacles = footprints
     planning.plane = plane
     planning.parameters = parameters
     planning.source = result.source + ":obstacle_veto_300ms"

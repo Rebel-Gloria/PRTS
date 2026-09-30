@@ -54,3 +54,13 @@ World-route lock follow-up: Dev routes keep their reference plane, endpoint and 
 the camera-aligned raster moves away; confirmed occupancy still vetoes. Rendering uses
 solid approach/history in this mode. Normal routes retain their evidence policy.
 See docs/architecture/WORLD_ROUTE_LOCK_2026-09-29.md for the compact-grid replay limitation.
+
+## Build25 geometry correction (2026-09-30)
+
+`AnalysisResult` gains an optional planning-only `planningObstacles` payload; the
+`SpatialAnalyzer` implementation remains identical to the frozen experiment (parity test
+strips exactly that field declaration, not the analyzer). `OccupancyFootprint` separates
+current measured cell area from its temporal association anchor. Collision checks retain
+world footprints even outside a rotated search window. No original experiment is edited.
+`WaypointTransitionState` adds product-state hysteresis, without changing the 300ms
+obstacle admission rule. See `docs/architecture/WAYPOINT_STABILITY_2026-09-30.md`.

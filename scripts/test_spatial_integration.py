@@ -12,7 +12,14 @@ class SpatialIntegrationTests(unittest.TestCase):
             # legacy graph defaults and forward/maneuver behavior. Clearance math stays pinned below.
             if source.name in {"PathPrediction.swift", "FanPathSearch.swift", "PathDrawing.swift"}: continue
             with self.subTest(file=source.name):
-                self.assertEqual(source.read_bytes(), (ROOT / "Vendor/SpatialCore/Sources/SpatialCore" / source.name).read_bytes())
+                current = (ROOT / "Vendor/SpatialCore/Sources/SpatialCore" / source.name).read_text()
+                if source.name == "Analysis.swift":
+                    # Build25 extends the record only. Keep the ENTIRE sensor analyzer
+                    # byte-for-byte pinned rather than exempting Analysis.swift wholesale.
+                    current = current.replace(
+                        "    /// Present only on an adapted planning snapshot; nil in raw/older recordings.\n"
+                        "    public var planningObstacles: [OccupancyFootprint]?\n", "")
+                self.assertEqual(source.read_text(), current)
 
     def test_runtime_algorithms_are_identical_except_explicit_imports(self):
         files = {
@@ -68,7 +75,7 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn("radius: Float,allowUnknown: Bool = false", after)
         core = ROOT / "Vendor/SpatialCore/Sources/SpatialCore"
         for name in ("ForwardRoutePlanner.swift", "ForwardRouteState.swift", "ForwardPathSearch.swift", "RoutePlanningGrid.swift",
-                     "ObstacleWaypointPlanner.swift", "ObstacleWaypointSearch.swift", "ObstacleWaypointState.swift", "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift", "RouteEvidenceMap.swift", "RouteContinuity.swift"):
+                     "OccupancyFootprint.swift", "ObstacleWaypointPlanner.swift", "ObstacleWaypointSearch.swift", "ObstacleWaypointState.swift", "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift", "RouteEvidenceMap.swift", "RouteContinuity.swift"):
             self.assertTrue((core / name).is_file())
             source = (core / name).read_text()
             for forbidden in ("import ARKit", "import SwiftUI", "import Metal", "import AVFoundation"):
