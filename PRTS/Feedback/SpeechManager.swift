@@ -138,10 +138,37 @@ final class SpeechManager: NSObject, ObservableObject {
         prepareAudioSession()
         stopCurrentSpeech()
 
-        let utterance = AVSpeechUtterance(string: message)
-        utterance.rate = rateOption.avSpeechRate
-        utterance.voice = AVSpeechSynthesisVoice(language: activeLanguage.localeIdentifier)
+        let utterance = Self.announcementUtterance(message, rate: rateOption, language: activeLanguage)
         synthesizer.speak(utterance)
+    }
+
+    /// Shared voice profile for announcements and manually requested photo answers.
+    /// Keep the system pitch/volume; only the existing language and rate settings vary.
+    static func announcementUtterance(
+        _ message: String, rate: SpeechRateOption, language: SpeechLanguage
+    ) -> AVSpeechUtterance {
+        let utterance = AVSpeechUtterance(string: message)
+        utterance.rate = rate.avSpeechRate
+        utterance.voice = AVSpeechSynthesisVoice(language: language.localeIdentifier)
+        return utterance
+    }
+
+    /// Photo responses read preferences at playback time without creating another
+    /// SpeechManager or sharing announcement cancellation/queue ownership.
+    static func announcementUtterance(
+        _ message: String, defaults: UserDefaults = .standard
+    ) -> AVSpeechUtterance {
+        let rate = SpeechRateOption(
+            rawValue: defaults.string(forKey: DefaultsKey.speechRateOption) ?? ""
+        ) ?? .normal
+        let followSystem = defaults.object(
+            forKey: DefaultsKey.followSystemLanguageEnabled
+        ) as? Bool ?? true
+        let selected = SpeechLanguage(
+            rawValue: defaults.string(forKey: DefaultsKey.selectedLanguage) ?? ""
+        ) ?? .english
+        let language = followSystem ? SpeechLanguage.fromSystemLanguage() : selected
+        return announcementUtterance(message, rate: rate, language: language)
     }
 
     /// Enqueue a real backend speech_request. Playback feedback is emitted only from
@@ -189,9 +216,7 @@ final class SpeechManager: NSObject, ObservableObject {
         let request = backendQueue.remove(at: index)
         guard voiceAnnouncementsEnabled else { speakNextBackendRequest(); return }
         prepareAudioSession()
-        let utterance = AVSpeechUtterance(string: request.text)
-        utterance.rate = rateOption.avSpeechRate
-        utterance.voice = AVSpeechSynthesisVoice(language: activeLanguage.localeIdentifier)
+        let utterance = Self.announcementUtterance(request.text, rate: rateOption, language: activeLanguage)
         activeBackendRequest = request
         activeBackendUtteranceID = ObjectIdentifier(utterance)
         synthesizer.speak(utterance)
