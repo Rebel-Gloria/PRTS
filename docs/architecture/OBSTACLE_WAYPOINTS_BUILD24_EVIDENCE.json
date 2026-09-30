@@ -1,0 +1,131 @@
+{
+  "sourceCommit": "b28d112d1886902cfa2f513ed23e0bbe699be7f6",
+  "build": "24",
+  "devCondition": "PRTS_DEV_CAPTURE",
+  "deliveryRecordedAt": "2026-09-30T14:45:54+08:00",
+  "algorithmRevision": "obstacle_waypoints_v1",
+  "routeSchemaVersion": 4,
+  "baseline": {
+    "sourceCommit": "71d4f9a2591d94672c6ab1e88bb84d8936d5f253",
+    "coreTests": 296,
+    "failedTests": 0
+  },
+  "initialNewRegression": {
+    "cases": 2,
+    "failedCases": 2,
+    "assertionFailures": 5,
+    "result": "failed_on_old_implementation"
+  },
+  "coreTests": {
+    "debug": 317,
+    "release": 317,
+    "failedTests": 0,
+    "newProductWaypointTests": 21,
+    "note": "Legacy continuous-route tests explicitly use internal comparison entry; they do not validate new clear-space product semantics."
+  },
+  "appTests": {
+    "result": "Passed",
+    "passedTests": 47,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "otherTests": {
+    "contracts": 8,
+    "python": 46
+  },
+  "replay": {
+    "source": "synthetic_build24_smoke",
+    "samples": 18,
+    "scenarios": {
+      "clear": 12,
+      "distantObstacle": 3,
+      "nearObstacle": 3
+    },
+    "result": "passed",
+    "realDevice": false
+  },
+  "ordinaryRelease": "passed_unsigned",
+  "devRelease": "passed_signed_and_verified",
+  "binaryChecks": {
+    "signed": {
+      "build": "24",
+      "version": "1.0",
+      "bundleID": "com.jingxuan.PRTS",
+      "sourceCommit": "b28d112d1886902cfa2f513ed23e0bbe699be7f6",
+      "devCaptureRecorderPresent": true,
+      "waypointPlannerPresent": true,
+      "waypointSpeechPresent": true
+    },
+    "normal": {
+      "build": "24",
+      "version": "1.0",
+      "bundleID": "com.jingxuan.PRTS",
+      "sourceCommit": "b28d112d1886902cfa2f513ed23e0bbe699be7f6",
+      "devCaptureRecorderPresent": false,
+      "waypointPlannerPresent": true,
+      "waypointSpeechPresent": true
+    }
+  },
+  "device": {
+    "model": "iPhone 15 Pro",
+    "osVersion": "27.0",
+    "bundleID": "com.jingxuan.PRTS",
+    "installedVersion": "1.0",
+    "installedBundleVersion": "24"
+  },
+  "installation": "success_without_uninstall",
+  "launch": "success",
+  "warnings": [
+    "AppIntents metadata extraction skipped; no AppIntents dependency"
+  ],
+  "physicalWalkingAndSpeechTiming": "awaiting_user_validation",
+  "privacy": "No sensor session, real photo/question request, key access or recording upload was initiated during automated validation/deployment.",
+  "sha256": {
+    "/tmp/prts-route24/baseline-core.log": "cfb2eee0644ae92201af70d0da326f434f5c41b238968c8cc5bc3f7a2fd16714",
+    "/tmp/prts-route24/waypoints-before.log": "0fd6e358c9cfe9bd51a044985fe6af26cbd43c91e0416cf3aed23ab5913f7284",
+    "/tmp/prts-route24/core-final.log": "a28193d01315a6200ae05bcb11c3c19a18a491f512e4b196692e46ae38577fe8",
+    "/tmp/prts-route24/core-release-final.log": "e669341c6b232f2f3aaaf85e6003780f3843b8aa4af7b4012f395d12c479655c",
+    "/tmp/prts-route24/contract-final.log": "5420d88c123b4d726b68f0fa78299a773d713e6c101833b510830e0350e09516",
+    "/tmp/prts-route24/python-final.log": "f52d7cdd4064b9e2aae4114c2ece794e96cdd50ca02469e7c6fc0cea61f6102a",
+    "/tmp/prts-route24/app-verified.log": "12585919d77d5571c20a859b1337cf4607114d52765ee0140aa418cd73ef8540",
+    "/tmp/prts-route24/app-verified-summary.json": "7ffa1883adcb883814ccb690227a9f361a3fa61269faaa61492a5c540576a592",
+    "/tmp/prts-route24/replay-checks.json": "ca06c342c3fc14aed1f9dc73cd91c5009b21b231d113fab402bbb561280f3bf9",
+    "/tmp/prts-route24/synthetic-input.jsonl": "af82a0e697df80e3a86a4391e28186d697658fb4efc1f2aa04146be46410e524",
+    "/tmp/prts-route24/synthetic-replay.jsonl": "e09d6877bab0169d7ee7777fee3a3efb98ce58915287f5fcdfc873e6a4adbc9d",
+    "/tmp/prts-route24/signed-build.log": "6bdcece78f4a5d5cc712c199f2a11f14f98125200a9a07debf6518ee42cf803f",
+    "/tmp/prts-route24/normal-build.log": "426020392991e4a7514fa3b6defbde8a4d3458469e20578d759a7b8230dd0be6",
+    "/tmp/prts-route24/signature.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/prts-route24/binary-checks.json": "1db285fb093694d256e11141139fb0e486892118b6175a67db5a3263a76a784b",
+    "/tmp/prts-route24/device-install.json": "32dd43d434af2965645569dfb27458abaeda51d97f9698637df03b248fbe20f2",
+    "/tmp/prts-route24/device-launch.json": "383ef1b1f89d4cc7accdfc8867743071948f0cef24219cd3024f618a84478e25",
+    "/tmp/prts-route24/device-installed-app.json": "7e277d73aebd90eff7307d4676f6e0e93dcddeafc7e10d66638e1402c945e4a2"
+  },
+  "sourceFilesSha256": {
+    "PRTS.xcodeproj/project.pbxproj": "9d2cf1a7864be20a8f37a5d48466ffc81abb5e88ac689dd1a277cad7e000a00d",
+    "PRTS/Feedback/FeedbackCoordinator.swift": "9c2c4224d9cbb59aa2a4ba492e7623f379d25ee7de9f4e0dd108a96c7413eeeb",
+    "PRTS/Feedback/ObstacleRouteAnnouncementPolicy.swift": "fef84186c28120bb0dd394142f413cf3969ff96ee4084c635113478a921f3246",
+    "PRTS/Spatial/Diagnostics/DiagnosticRecorder.swift": "aea053b1cd84dbd13f00bdbde4393404174cabbee182c0b3c23c2d31bde5dcad",
+    "PRTS/Spatial/Rendering/ProbeRenderer.swift": "a256cefa09b983f8fe7f8f5d1d1f27a38ad24ec7faa78ab6e9082fafde491e26",
+    "PRTS/Spatial/Runtime/ProbeEngine.swift": "fe29ad1be02f0fcb509c8c56cac4efd68f8d8c78715235b7971bf47f734347cc",
+    "PRTS/Spatial/Runtime/Snapshots.swift": "c4ad112314a65d6617954d45d42b3c97a78016024b82812bbdc7920eb59ed891",
+    "PRTS/UI/ContentView.swift": "a3e4c5523b5356c191851281bc289131a67cd2b94c809404cade1d49b97a867f",
+    "PRTS/UI/HomeDemoOverlay.swift": "216cf2d346df901b81b91df7e0eeccefa027e50309bd87e85130c70deac16eb0",
+    "PRTS/UI/ProbeSettingsView.swift": "23328c8d718325642ec1e29a8d7e4600420e02f1bb0fc092d82ed2d6445a31a8",
+    "PRTSTests/ObstacleRouteSpeechTests.swift": "b5883dc2de5d0bf11106698a97644fd83ebce0d7b4047ba4d28d6ee29ccaff00",
+    "Vendor/SpatialCore/Sources/SpatialCore/ForwardObstacleTrigger.swift": "8d93ccb53edb810f2fc65c383452451764a4dfdb40f1455223c1fad4dcc43020",
+    "Vendor/SpatialCore/Sources/SpatialCore/ForwardRouteState.swift": "30d997bff6eb41186a484a560b91c0eb7cd3c3d2f2adfe9a7625f760e308cd25",
+    "Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift": "2c45a3ea24f667a86380892388cbb934d4c00c2d34aab078824df778158d18cd",
+    "Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointSearch.swift": "572c5bcd1add327123846d201462e7df039d99d5ca693cd89d4632a0b78b235d",
+    "Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointState.swift": "f6636241c953e843fb980fa6dac8738dee8aafdce0e2919229902c38c9012197",
+    "Vendor/SpatialCore/Sources/SpatialCore/PathPrediction.swift": "049d9946ee00582061ee1e780af0f23470920bcd7e72f359a3d69d2f94bd694c",
+    "Vendor/SpatialCore/Sources/SpatialCore/RouteContinuity.swift": "edb55d227cf9db85e8a4c46c90ec78d8d57c5075fadb77db0c549b28fb4613c4",
+    "Vendor/SpatialCore/Tests/SpatialCoreTests/ObstacleWaypointTests.swift": "37c90246610a23fa225e85be10d05e19cc6992f51489a591d789580424ec4e5f",
+    "Vendor/SpatialCore/Tests/SpatialCoreTests/OccupancyContinuityTests.swift": "0d74227ab1e4b930072de4625ba0ff37f6ff206d513a08e9665e09045ae2c9f4",
+    "Vendor/SpatialCore/Tests/SpatialCoreTests/TemporalOccupancyTests.swift": "3fe6ade94e6cd84a6abfe481dc43126626985e7bcb204d6cab370fcd64bef9a0",
+    "Vendor/SpatialCore/Tests/SpatialCoreTests/TurnAndTailTests.swift": "f8673f3524b3a3443ec476572df7fc95d65603cc57c3a4e437a0c2ca9bd31573",
+    "Vendor/SpatialCore/Tests/SpatialCoreTests/WorldRouteLockTests.swift": "786e7be0afe4cc6b4799289c12cfff23909c40fb5b9b2865c25bdf0b30670cb4",
+    "scripts/replay_route_snapshots.swift": "470449d8bf6ed990830acf800dcbe9c063e1cd41910e18b9c9874934bb97d6f4",
+    "scripts/replay_routes.swift": "a322713f28bc7265bb4c789d86a244eecd61bce24d05784e4db07d3adfd4b133",
+    "scripts/test_spatial_integration.py": "53015588c75bd4925549dc508e1a9e634a053dd35a795892e589ed06ee5ea0d9"
+  }
+}
