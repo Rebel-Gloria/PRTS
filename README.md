@@ -45,6 +45,7 @@ build24默认按空旷、远障（>2m）、近障（≤2m）三态引导：空�
 模块拆分、阈值、日志、语音及待完成实机验收见 [路线策略说明](docs/architecture/FORWARD_ROUTE_POLICY.md)。
 
 代码量与完整文件树：[CODE_INVENTORY](docs/architecture/CODE_INVENTORY.md)。
-本轮审查与验证：[CODE_AUDIT](docs/architecture/CODE_AUDIT_2026-09-29.md)。
+当前审查与验证：[CODE_AUDIT 2026-09-30](docs/architecture/CODE_AUDIT_2026-09-30.md)。
+历史审计：[2026-09-29](docs/architecture/CODE_AUDIT_2026-09-29.md)。
 
 晚间录制回放与路线优化：[对照报告](docs/architecture/ROUTE_REPLAY_2026-09-29.md)。
