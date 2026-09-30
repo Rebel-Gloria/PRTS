@@ -6,6 +6,7 @@ import SpatialCore
 struct Input: Decodable {
   var result: AnalysisResult
   var options: PathOptions
+  var cameraView: RouteCameraView?
 }
 struct Output: Encodable {
   var epoch: UInt64
@@ -22,7 +23,7 @@ var predictor = PathPredictor(policy:policy)
 let input = try String(contentsOfFile: CommandLine.arguments[1], encoding: .utf8)
 for line in input.split(separator: "\n") {
   let row = try decoder.decode(Input.self, from: Data(line.utf8))
-  let update = predictor.update(result: row.result, observation: nil, options: row.options)
+  let update = predictor.update(result: row.result, observation: nil, options: row.options, cameraView: row.cameraView)
   print(
     String(
       decoding: try encoder.encode(

@@ -105,12 +105,21 @@ struct ContentView: View {
             }
             .onReceive(pollTimer) { _ in
                 camera.poll(suspendFeedback:photo.busy || isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
-                if !photo.busy,!isShowingSettings,scenePhase == .active,let result = camera.latestSceneResult {
-                    feedback.consume(result,speech:speechManager,haptics:hapticManager,
-                                     announceCandidates:!camera.model.snapshot.pathOptions.enabled)
-                    if !isHoldingStop { feedback.consumeDirection(camera.model.snapshot,speech:speechManager) }
-                } else if !isShowingSettings,feedback.lastConsumedResultID != nil {
-                    feedback.suspendResultFeedback(); speechManager.cancelPerceptionSpeech()
+                if !photo.busy, !isShowingSettings, !isHoldingStop, scenePhase == .active {
+                    let snapshot = camera.model.snapshot
+                    if snapshot.pathOptions.enabled && snapshot.pathUpdate.waypointGuidance != nil {
+                        // One committed route state owns open/far/near speech. Do not also
+                        // announce the raw centre sector or wait for a rendered floor.
+                        feedback.consumeDirection(snapshot, speech: speechManager)
+                    } else if let result = camera.latestSceneResult {
+                        feedback.consume(result, speech:speechManager, haptics:hapticManager,
+                                         announceCandidates:!snapshot.pathOptions.enabled)
+                        feedback.consumeDirection(snapshot, speech:speechManager)
+                    } else {
+                        feedback.reset(); speechManager.cancelPerceptionSpeech()
+                    }
+                } else if !isShowingSettings {
+                    feedback.reset(); speechManager.cancelPerceptionSpeech()
                 }
             }
             .onChange(of:isShowingSettings) { _,shown in

@@ -29,7 +29,11 @@ struct HomeDemoOverlay: View {
                         Text(String(format:"有效深度 %.0f%% · 源帧年龄 %.0f ms",result.validDepthCoverage*100,max(0,ProcessInfo.processInfo.systemUptime-result.timestamp)*1000))
                         Text("最近分析（可能过期）：\(result.status)").lineLimit(2)
                     } else { Text("等待分析") }
-                    Text(String(format:"路径宽 %.2f m · 触发区 %.1f × %.2f m",model.pathOptions.minimumWidth,model.pathOptions.obstacleTriggerDistance,model.pathOptions.obstacleTriggerWidth))
+                    Text(String(format:"路径宽 %.2f m · 近障 ≤%.1f m · 接近间距 %.2f m",model.pathOptions.minimumWidth,model.pathOptions.waypoints.nearDistance,model.pathOptions.waypoints.standOff))
+                    if let guidance = s.pathUpdate.waypointGuidance {
+                        Text("scene \(guidance.scenario.rawValue) · goal \(s.pathUpdate.goal?.id.description ?? "none") · next \(guidance.nextTarget == nil ? "none" : "draft")")
+                        Text("replan \(guidance.replanReason ?? "hold") · inView \(guidance.targetInView.map(String.init) ?? "unavailable")")
+                    }
                     if let strategy = s.pathUpdate.strategy {
                         Text("route \(strategy.mode.rawValue) · side \(strategy.side) · dwell \(String(format:"%.1f",strategy.turnDwell)) s")
                     }

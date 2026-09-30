@@ -94,8 +94,8 @@ final class DiagnosticRecorder: @unchecked Sendable {
             "surfaceTriangleBudget":String(SurfaceModelBuilder.triangleBudget),
             "groundConfirmationMetric":"local plane height at camera <4cm and normal angle <3deg; 3 current confirmations",
             "groundReferencePolicy":"Obstacle-veto: fixed world drawing reference from plane/grid/prior or initial camera height 1.4m. Ground/evidence TTL is diagnostic only. Epoch/reset changes still invalidate.",
-            "planningPolicy":PRTSRuntimeProfile.routePlanningPolicy.rawValue, "routeSchemaVersion":"3",
-            "routeAlgorithmRevision":"turn_tail_v2; yaw dwell 3s/10deg/0.75s gap; full-segment greedy prefix; collinear tail coalescing",
+            "planningPolicy":PRTSRuntimeProfile.routePlanningPolicy.rawValue, "routeSchemaVersion":"4",
+            "routeAlgorithmRevision":"obstacle_waypoints_v1; open=no_line; near=2m; standOff=0.55m; mutable_preview=1.2m; stationary_yaw=3s",
             "occupancyRule":"Only confirmed occupancy blocks search; other cells are hypothesis-searchable. Confirmation 0.3s, maximum matching gap 0.75s, missing hits reset. Raw sensor grid unchanged.",
             "routeEvidenceOptions":String(data:(try? DiagnosticJSON.encode(RouteEvidenceOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
             "routeContinuityOptions":String(data:(try? DiagnosticJSON.encode(RouteContinuityOptions())) ?? Data(),encoding:.utf8) ?? "unavailable",
@@ -119,11 +119,13 @@ final class DiagnosticRecorder: @unchecked Sendable {
     }
     func routePublication(candidate: PathUpdate,state: SharedSnapshot,now: Double,captureEnabled: Bool,analysisStart: Double,analysisEnd: Double,previousCaptureTimestamp: Double?) {
         nonisolated struct Record: Encodable, Sendable {
-            let schemaVersion = 3
+            let schemaVersion = 4
             let phase = "publication"
             let captureEnabled: Bool
             let context: RouteContext?
             let publishedContext: RouteContext?
+            let candidateGuidance: ObstacleWaypointGuidance?
+            let publishedGuidance: ObstacleWaypointGuidance?
             let publicationReason: String
             let publishTime: Double
             let hazardWatermark: UInt64
@@ -132,6 +134,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             let thermalState: String
         }
         let record = Record(captureEnabled:captureEnabled,context:candidate.continuity,publishedContext:state.pathUpdate.continuity,
+                            candidateGuidance:candidate.waypointGuidance,publishedGuidance:state.pathUpdate.waypointGuidance,
                             publicationReason:state.routePublicationReason,publishTime:now,
                             hazardWatermark:state.routeHazardWatermark,analysisStart:analysisStart,analysisEnd:analysisEnd,
                             actualAnalysisInterval:previousCaptureTimestamp.flatMap { previous in candidate.continuity.map { $0.timestamp-previous } },
@@ -141,12 +144,13 @@ final class DiagnosticRecorder: @unchecked Sendable {
     func path(_ update: PathUpdate,frame: FrameSnapshot,options: PathOptions) {
         nonisolated struct Record: Encodable, Sendable {
             let phase = "prediction"
-            let schemaVersion = 3
+            let schemaVersion = 4
             let epoch: UInt64,frameID: UInt64,parameterVersion: UInt64
             let timestamp: Double
             let update: PathUpdate,options: PathOptions
+            let cameraView: RouteCameraView
         }
-        let record = Record(epoch:frame.epoch,frameID:frame.id,parameterVersion:frame.parameterVersion,timestamp:frame.frame.timestamp,update:update,options:options)
+        let record = Record(epoch:frame.epoch,frameID:frame.id,parameterVersion:frame.parameterVersion,timestamp:frame.frame.timestamp,update:update,options:options,cameraView:RouteCameraView(intrinsics:frame.intrinsics))
         journal.submit(.path,estimatedBytes:16*1024) { .init(json:try DiagnosticJSON.encode(record)) }
     }
     func pathFeedback(epoch: UInt64,frameID: UInt64,pathID: UInt64?,heading: PathHeading?,pulse: PathHapticPulse?,status: String) {

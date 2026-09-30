@@ -154,7 +154,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     func updatePathOptions(_ options: PathOptions) {
         store.update {
             let next = options.validated()
-            if next.minimumWidth != $0.pathOptions.minimumWidth {
+            if next.minimumWidth != $0.pathOptions.minimumWidth || next.waypoints != $0.pathOptions.waypoints {
                 $0.parameterVersion &+= 1
                 $0.result = nil; $0.pathUpdate = .init(reason:"body_options_changed")
                 $0.geometryEnabled = false
@@ -315,7 +315,8 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     diagnostics.event("route_hazard",details:"frame=\(frame.id) route=\(active.id) reason=\(invalidation) source=\(frame.frame.timestamp)",epoch:frame.epoch)
                 }
                 let pathUpdate = pathPredictor.update(result:result,observation:observation,options:before.pathOptions,
-                    directionStable:frame.directionStable,hazardWatermark:store.read().routeHazardWatermark,
+                    directionStable:frame.directionStable,cameraView:RouteCameraView(intrinsics:frame.intrinsics),
+                    hazardWatermark:store.read().routeHazardWatermark,
                     committedPath:store.read().pathUpdate.path,onOccupancyConflict: { [self] watermark in
                         store.update { s in
                             guard s.running,s.epoch == frame.epoch,s.parameterVersion == frame.parameterVersion,

@@ -8,7 +8,7 @@ enum ForwardObstacleTrigger {
     /// small-object certificate. No semantic label or single minimum depth pixel is used.
     static func trigger(
         raster: RoutePlanningGrid, device: GroundBasis, reference: ForwardRouteReference,
-        options: PathOptions
+        options: PathOptions, laneOnly: Bool = false
     ) -> ForwardObstacle? {
         let grid = raster.grid
         let half = grid.cellSize / 2
@@ -43,6 +43,7 @@ enum ForwardObstacleTrigger {
                     SIMD2(c.x + half, c.y + half), SIMD2(c.x - half, c.y + half),
                 ]
                 var polygon: [SIMD2<Float>] = []
+                var cellNear = Float.infinity
                 for corner in corners {
                     let world = grid.basis.world(x: corner.x, h: 0, z: corner.y)
                     let d = device.local(world)
@@ -54,15 +55,15 @@ enum ForwardObstacleTrigger {
                     maxX = max(maxX, r.x)
                     near = min(near, r.y)
                     far = max(far, r.y)
-                    if d.z >= 0 { distance = min(distance, d.z) }
+                    cellNear = min(cellNear, d.z)
+                    if !laneOnly, d.z >= 0 { distance = min(distance, d.z) }
                 }
-                hit =
-                    hit
-                    || PathClearance.overlapsCell(
-                        from: laneStart, to: laneEnd, center: c, cellSize: grid.cellSize,
-                        radius: raster.requiredWidth / 2)
-                    || intersectsTrigger(
-                        polygon, distance: options.obstacleTriggerDistance, width: options.obstacleTriggerWidth)
+                let laneHit = PathClearance.overlapsCell(
+                    from: laneStart, to: laneEnd, center: c, cellSize: grid.cellSize,
+                    radius: raster.requiredWidth / 2)
+                if laneOnly && laneHit { distance = min(distance, max(0, cellNear)) }
+                hit = hit || laneHit || (!laneOnly && intersectsTrigger(
+                    polygon, distance: options.obstacleTriggerDistance, width: options.obstacleTriggerWidth))
                 let x = i % grid.columns
                 let z = i / grid.columns
                 for dz in -1...1 {

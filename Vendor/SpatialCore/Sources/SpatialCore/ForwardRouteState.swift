@@ -85,6 +85,6 @@ struct ForwardTurnDwell: Sendable {
         }
         last = now
         elapsed = now - (since ?? now)
-        return elapsed >= options.userTurnSeconds
+        return elapsed + 0.000001 >= options.userTurnSeconds
     }
 }
