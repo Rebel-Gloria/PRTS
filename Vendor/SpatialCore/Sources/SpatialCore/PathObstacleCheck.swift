@@ -16,6 +16,11 @@ enum PathObstacleCheck {
         if includeApproach, let pose = r.sourcePose ?? observation?.pose, let first = path.points.first {
             worldSegments.append((path.plane.project(pose.position), first))
         }
+        if let footprints = r.planningObstacles {
+            return worldSegments.contains { a,b in
+                footprints.contains { $0.overlaps(from:a,to:b,radius:path.requiredWidth/2) }
+            } ? "confirmed_world_occupancy" : nil
+        }
         if let grid = r.grid {
             for (a, b) in worldSegments {
                 let aa = grid.basis.local(a)

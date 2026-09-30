@@ -99,7 +99,10 @@ extension ForwardRouteTests {
       let next = planner.update(result: r, observation: nil, options: .init())
       XCTAssertEqual(next.path?.points.last, original.points.last)
       XCTAssertEqual(next.strategy?.side, last.strategy?.side)
-      XCTAssertEqual(next.reason, "world_route_preserved")
+      // Full occupied squares can touch a raster boundary that old centre-only stamping
+      // dropped. A revalidation/reacquisition is allowed; the world endpoint and side must
+      // remain unchanged (asserted above), rather than requiring a particular reason string.
+      XCTAssertTrue(["world_route_preserved", "reacquired_maneuver"].contains(next.reason))
     }
   }
 

@@ -11,9 +11,11 @@ public struct RoutePlanningGrid: Sendable {
     public var requiredWidth: Float
     public var maxDistance: Float
     public var obstacleVeto: Bool
+    public var obstacles: [OccupancyFootprint]?
 
     public init?(result: AnalysisResult, options: PathOptions = .init(), requireBodyClearance: Bool = false, obstacleVeto: Bool = false) {
         self.obstacleVeto = obstacleVeto
+        obstacles = obstacleVeto ? result.planningObstacles : nil
         guard var grid = result.grid, result.plane != nil,
             grid.epoch == result.epoch, grid.frameID == result.frameID,
             grid.timestamp == result.timestamp
@@ -42,8 +44,21 @@ public struct RoutePlanningGrid: Sendable {
         return grid.index(x: q.x, z: q.z).map { mask[$0] } ?? false
     }
 
+    func supportsDisk(at point: V3, radius: Float) -> Bool {
+        if let obstacles { return !obstacles.contains { $0.overlaps(from:point,to:point,radius:radius) } }
+        let p = grid.basis.local(point)
+        return PathClearance.segment(grid:grid,from:SIMD2(p.x,p.z),to:SIMD2(p.x,p.z),radius:radius,allowUnknown:obstacleVeto)
+    }
+
     public func supports(_ points: [V3]) -> Bool {
         guard points.count >= 2 else { return false }
+        // Exact world geometry is authoritative, including occupied cells outside this
+        // search window. Unknown/boundary permission never erases a known obstacle.
+        if let obstacles {
+            return zip(points,points.dropFirst()).allSatisfy { a,b in
+                !obstacles.contains { $0.overlaps(from:a,to:b,radius:requiredWidth/2) }
+            }
+        }
         return zip(points, points.dropFirst()).allSatisfy { a, b in
             let aa = grid.basis.local(a)
             let bb = grid.basis.local(b)
