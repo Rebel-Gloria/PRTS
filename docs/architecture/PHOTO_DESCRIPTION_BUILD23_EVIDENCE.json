@@ -1,0 +1,90 @@
+{
+  "sourceCommit": "99be8b06513072f7960d6d9a6a7f2d9733b201ba",
+  "build": "23",
+  "devCondition": "PRTS_DEV_CAPTURE",
+  "deliveredAt": "2026-09-30T12:35:30+08:00",
+  "promptChange": "Completed long-press transcript is prefixed exactly once; short-press prompt and shared announcement voice unchanged",
+  "spokenQuestionPrefix": "请面向盲人，用简短、凝练、易理解的语言回答用户提出的请求，内容如下：",
+  "baseline": {
+    "result": "Passed",
+    "totalTestCount": 12,
+    "passedTests": 12,
+    "failedTests": 0
+  },
+  "prefixRegressionBefore": {
+    "result": "Failed",
+    "totalTestCount": 7,
+    "passedTests": 5,
+    "failedTests": 2
+  },
+  "appTests": {
+    "result": "Passed",
+    "passedTests": 38,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "otherTests": {
+    "SpatialCore": 296,
+    "Contracts": 8,
+    "Python": 46
+  },
+  "ordinaryRelease": "passed_unsigned",
+  "devRelease": "passed_signed_and_verified",
+  "binaryChecks": {
+    "signed": {
+      "build": "23",
+      "bundleID": "com.jingxuan.PRTS",
+      "version": "1.0",
+      "sourceCommit": "99be8b06513072f7960d6d9a6a7f2d9733b201ba",
+      "devCaptureRecorderPresent": true,
+      "spokenQuestionPrefixPresent": true,
+      "microphoneUsagePresent": true,
+      "speechRecognitionUsagePresent": true
+    },
+    "normal": {
+      "build": "23",
+      "bundleID": "com.jingxuan.PRTS",
+      "version": "1.0",
+      "sourceCommit": "99be8b06513072f7960d6d9a6a7f2d9733b201ba",
+      "devCaptureRecorderPresent": false,
+      "spokenQuestionPrefixPresent": true,
+      "microphoneUsagePresent": true,
+      "speechRecognitionUsagePresent": true
+    }
+  },
+  "device": {
+    "model": "iPhone 15 Pro",
+    "osVersion": "27.0",
+    "bundleID": "com.jingxuan.PRTS",
+    "installedBundleVersion": "23"
+  },
+  "installation": "success_without_uninstall",
+  "launch": "success",
+  "previousBuildUserFeedback": "build22 short-press narration acceptable, long-press answer overly verbose",
+  "build23LiveAnswerBrevityAndPhysicalAudio": "awaiting_user_validation",
+  "privacy": "Tests use synthetic images/transcripts and mock services; no actual key read or photo/API request triggered by deployment",
+  "sha256": {
+    "/tmp/prts-photo23/baseline.log": "2612066911d51d86034aaa04bd8b960390e1bbe5f77e436a0fdf1f30ef5587a9",
+    "/tmp/prts-photo23/baseline-summary.json": "8e2a006120d98cf19d6a355809ef102181d3b8c9a9c0896933ebe78224815da9",
+    "/tmp/prts-photo23/prefix-before.log": "ffefd455c42124f153da51258a8c188e7224e708fe4b8363f7275159ae721578",
+    "/tmp/prts-photo23/prefix-before-summary.json": "0570f04b8985bbcc810ff5238fea10ba68118ef2cc14e0e31403d38ff2ddacbf",
+    "/tmp/prts-photo23/app-tests.log": "16e69be00ecbc469ede59e9d55399f9e88b4419021f12299dcc5751392fccee6",
+    "/tmp/prts-photo23/app-tests-summary.json": "576f314ffb9ef98aa49d42700cbd56cfafd43cc32643a1d1cc053547f943b70d",
+    "/tmp/prts-photo23/core-tests.log": "7849dcc1970282b15f2c11e049c22cd7bc1929504a8d62630ab05932253ecb47",
+    "/tmp/prts-photo23/contract-tests.log": "343acad79bf08fd260bdacd7edfbbde5b4173bef2535e633baa5780dee01b095",
+    "/tmp/prts-photo23/python-tests.log": "25427c32297cad356ad0dd4dfa0269c7039ac3a2607f872215999cce89d42c1a",
+    "/tmp/prts-photo23/signed-build.log": "c385f0e365d0065a549c8878708db9494259f250c0fd4e93575ebf0e38f93cac",
+    "/tmp/prts-photo23/normal-build.log": "8927ffde55bc6ab8a3de2056fae2da69afc2ab77948a217b5122e6f047167a41",
+    "/tmp/prts-photo23/signature.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/prts-photo23/binary-checks.json": "0cc1b6d87b8a4e782523273ef874f0a3c1b06899c3c2d1dfeeaf3f0228427d52",
+    "/tmp/prts-photo23/device-install.json": "03e0bfe62e55b6d7eb98b504e2b70aa7700767228286e505e964bd3bed34cde0",
+    "/tmp/prts-photo23/device-launch.json": "f178e18e187d9a569e1038e28d1b35a386de79864b9c7fedfda88b4499f5a1eb",
+    "/tmp/prts-photo23/device-installed-app.json": "b5b714178d0dde1d6aca063fd990474850012e0bf7736611595b079ba1c429e3"
+  },
+  "sourceFilesSha256": {
+    "PRTS/PhotoDescription/PhotoChatProtocol.swift": "0e2a58ec4950021948385b5e8b035ef547067bae6aa45a7589756f7e02d9e57b",
+    "PRTS/PhotoDescription/PhotoDescriptionCoordinator.swift": "6256d4477945af3dbfe467c610646185e2577c8fad1d1e80584ba6b2c100d6e5",
+    "PRTSTests/PhotoLifecycleTests.swift": "f5e9c7c90fa962eae6b51ea8b4e2a6218d5938bae759b0bd16f019dcc8023781",
+    "PRTS.xcodeproj/project.pbxproj": "6e162d8bcc5c0ce7279012eb62c2e2bcc72ce910630d94e79463cc51d49b310e"
+  }
+}

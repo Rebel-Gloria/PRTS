@@ -191,3 +191,10 @@ Dev包包含该类型。2026-09-30 10:59在Gloria iPhone 15 Pro（iOS27.0）上�
 验证：修改前短按/长按基线12项通过；将新前缀要求写入回归测试后，旧实现的2项长按
 测试失败，其余5项通过。实现拼接后完整App测试38项通过，SpatialCore 296项、
 PRTSCore契约8项、Python 46项通过。未改目录结构；代码清单已重新生成。
+
+普通iOS Release及签名Dev Release构建通过，严格签名校验通过。两种二进制均包含指定
+前缀，Dev包包含DevCaptureRecorder，普通包不包含。2026-09-30 12:30在Gloria
+iPhone 15 Pro（iOS27.0）上成功安装并启动，设备应用列表确认`1.0 (23)`，
+未卸载或清除历史数据，也未自动发起拍照/语音请求。新版真实长按回答的简洁程度待用户复测。
+应用构建的源码提交：`99be8b06513072f7960d6d9a6a7f2d9733b201ba`；随后交付证据的文档提交不改变该构建源码。
+[Build23构建、测试与设备证据](architecture/PHOTO_DESCRIPTION_BUILD23_EVIDENCE.json)。
