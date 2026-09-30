@@ -26,15 +26,26 @@ enum ObstacleWaypointSearch {
     }
 
     static func hasStandOff(_ point: V3, raster: RoutePlanningGrid, distance: Float) -> Bool {
-        let local = raster.grid.basis.local(point)
-        let center = SIMD2(local.x, local.z)
-        return PathClearance.segment(grid: raster.grid, from: center, to: center,
-            radius: distance, allowUnknown: true)
+        raster.supportsDisk(at:point,radius:distance)
     }
 
     static func avoid(raster: RoutePlanningGrid, reference: ForwardRouteReference,
                       obstacle: ForwardObstacle, foot: V3, preferredSide: Int) -> Plan? {
-        let sides = preferredSide == 0 ? [-1, 1] : [preferredSide, -preferredSide]
+        // Prefer a little separation from the measured edge to avoid immediate replan on
+        // the next raster phase. This is a preference: retry the exact requested width so
+        // a 0.50m passage stays admissible. All shortcuts use the same selected width.
+        var comfortable = raster
+        comfortable.requiredWidth += 0.16
+        comfortable.mask = PathClearance.mask(grid:comfortable.grid,radius:comfortable.requiredWidth/2,allowUnknown:true)
+        if preferredSide != 0, let retained = search(raster:comfortable,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide,onlyPreferred:true)
+            ?? search(raster:raster,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide,onlyPreferred:true) { return retained }
+        return search(raster:comfortable,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide)
+            ?? search(raster:raster,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide)
+    }
+
+    private static func search(raster: RoutePlanningGrid, reference: ForwardRouteReference,
+                               obstacle: ForwardObstacle, foot: V3, preferredSide: Int, onlyPreferred: Bool = false) -> Plan? {
+        let sides = onlyPreferred ? [preferredSide] : preferredSide == 0 ? [-1, 1] : [preferredSide, -preferredSide]
         var choices: [Plan] = []
         for side in sides {
             let points: [V3]?
@@ -57,6 +68,28 @@ enum ObstacleWaypointSearch {
             let a = RouteArc.length($0.points), b = RouteArc.length($1.points)
             return abs(a-b) > 0.001 ? a < b : $0.side < $1.side
         }
+    }
+
+    /// If all bend vertices are outside the image, a segment may still cross the view.
+    /// Select a point ON that checked segment instead of rejecting the entire route or
+    /// connecting across a corner. The suffix starts at the same inserted point.
+    static func visiblePlan(_ plan: Plan, pose: RigidPose, view: RouteCameraView?, normal: V3,
+                            minimumDistance: Float) -> (Plan, Int)? {
+        if let index = targetIndex(in:plan.points,pose:pose,view:view,normal:normal) { return (plan,index) }
+        guard let view, let start = plan.points.first else { return nil }
+        for index in 1..<plan.points.count {
+            let a=plan.points[index-1], b=plan.points[index]
+            let steps=max(1,Int(ceil(simd_distance(a,b)/0.1)))
+            for step in stride(from:steps-1,through:1,by:-1) {
+                let point=a+(b-a)*Float(step)/Float(steps)
+                guard simd_distance(start,point) >= minimumDistance,
+                      view.contains(point+normal*0.025,pose:pose,margin:-0.04) else { continue }
+                var copy=plan
+                copy.points.insert(point,at:index)
+                return (copy,index)
+            }
+        }
+        return nil
     }
 
     /// Usually the first bend is the current goal. If it is outside the actual image,
