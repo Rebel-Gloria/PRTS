@@ -109,7 +109,9 @@ extension ForwardRouteTests {
     func testWaypointDisappearingObstacleClearsLineAndPreview() throws {
         var planner = ObstacleWaypointPlanner()
         XCTAssertNotNil(planner.update(result:waypointModel(cells:box),cameraResult:nil,options:.init(),view:nil).path)
-        let empty = planner.update(result:waypointModel(2,1.1,cells:{ _ in .unknown }),cameraResult:nil,options:.init(),view:nil)
+        let pending = planner.update(result:waypointModel(2,1.1,cells:{ _ in .unknown }),cameraResult:nil,options:.init(),view:nil)
+        XCTAssertEqual(pending.goal?.id,1) // Brief clear classification does not churn the route.
+        let empty = planner.update(result:waypointModel(3,1.7,cells:{ _ in .unknown }),cameraResult:nil,options:.init(),view:nil)
         XCTAssertNil(empty.path);XCTAssertNil(empty.goal);XCTAssertNil(empty.waypointGuidance?.nextTarget)
         XCTAssertEqual(empty.waypointGuidance?.scenario,.clear)
     }
@@ -184,13 +186,14 @@ extension ForwardRouteTests {
         var predictor = PathPredictor(), before = PathUpdate()
         for i in 0...3 { before = predictor.update(result:frame(UInt64(i+1),1+Double(i)*0.1,cells:box),observation:nil,options:.init()) }
         XCTAssertNotNil(before.path)
-        let clear = predictor.update(result:frame(5,1.4,cells:{ _ in .unknown }),observation:nil,options:.init())
+        _ = predictor.update(result:frame(5,1.4,cells:{ _ in .unknown }),observation:nil,options:.init())
+        let clear = predictor.update(result:frame(6,2.0,cells:{ _ in .unknown }),observation:nil,options:.init())
         var gate = ResultPresentationGate();gate.enabled = true;gate.trackingNormal = true
-        gate.epoch = 1;gate.frameID = 5;gate.frameTimestamp = 1.4
-        let commit = RoutePublicationPolicy.decide(current:before,candidate:clear,gate:gate,hazardWatermark:0,now:1.4,expectedPolicy:.obstacleVeto)
+        gate.epoch = 1;gate.frameID = 6;gate.frameTimestamp = 2.0
+        let commit = RoutePublicationPolicy.decide(current:before,candidate:clear,gate:gate,hazardWatermark:0,now:2.0,expectedPolicy:.obstacleVeto)
         XCTAssertTrue(commit.accepted);XCTAssertNil(commit.update.path)
         XCTAssertEqual(commit.update.continuity?.status,.clear)
-        let late = RoutePublicationPolicy.decide(current:clear,candidate:before,gate:gate,hazardWatermark:0,now:1.4,expectedPolicy:.obstacleVeto)
+        let late = RoutePublicationPolicy.decide(current:clear,candidate:before,gate:gate,hazardWatermark:0,now:2.0,expectedPolicy:.obstacleVeto)
         XCTAssertFalse(late.accepted);XCTAssertNil(late.update.path)
     }
 
@@ -236,8 +239,11 @@ extension ForwardRouteTests {
             else { XCTAssertEqual(u.waypointGuidance?.scenario,.nearObstacle);XCTAssertNotNil(u.path) }
         }
         let clear = planner.update(result:frame(5,1.4,cells:{ _ in .unknown }),observation:nil,options:.init())
-        XCTAssertEqual(clear.waypointGuidance?.scenario,.clear)
-        XCTAssertNil(clear.path)
+        XCTAssertEqual(clear.occupancyFilter?.confirmedCells,0)
+        XCTAssertNotNil(clear.path)
+        let settled = planner.update(result:frame(6,2.0,cells:{ _ in .unknown }),observation:nil,options:.init())
+        XCTAssertEqual(settled.waypointGuidance?.scenario,.clear)
+        XCTAssertNil(settled.path)
     }
 
     func testWaypointNoGroundDoesNotPreventClearDecision() {

@@ -15,6 +15,10 @@ struct ObstacleWaypointPlanner: Sendable {
     private var turn = StationaryRouteTurn()
     private var previousFoot: V3?
     private var outOfViewLatched = false
+    private var visibility = WaypointVisibilityLatch()
+    private var scenarios = WaypointScenarioLatch()
+    private var selectedReason: String?
+    private var transitionPending = false
     private var lastUpdate = PathUpdate()
 
     var retainedPath: PredictedPath? { current }
@@ -35,7 +39,8 @@ struct ObstacleWaypointPlanner: Sendable {
         let arrived = goal.map { simd_distance(foot, $0.point) <= options.arrivalRadius } ?? false
         let targetVisible = goal.flatMap { target in view.map { $0.contains(target.point + plane.normal * 0.025, pose: pose) } }
         if targetVisible != false { outOfViewLatched = false }
-        let outOfView = !arrived && targetVisible == false && !outOfViewLatched
+        let exited = visibility.exited(target: goal.map { $0.point+plane.normal*0.025 }, view:view, pose:pose, now:r.timestamp)
+        let outOfView = !arrived && exited && !outOfViewLatched
         var replan: String?
         if reference == nil { reference = .init(origin: foot, forward: device.forward, plane: plane) }
         let routeForward = current.flatMap { path -> V3? in
@@ -45,6 +50,7 @@ struct ObstacleWaypointPlanner: Sendable {
         let redirect = turn.update(foot: foot, forward: device.forward, routeForward: routeForward,
                                    now: r.timestamp, options: options)
         if redirect || outOfView {
+            scenarios = .init()
             replan = redirect ? "stationary_heading_changed" : "target_out_of_view"
             reference = .init(origin: foot, forward: device.forward, plane: plane)
             if let cameraResult, let cameraRaster = RoutePlanningGrid(result: cameraResult, options: options, obstacleVeto: true) {
@@ -61,8 +67,16 @@ struct ObstacleWaypointPlanner: Sendable {
         // The held intent, not every small camera yaw, defines the lane during a manoeuvre.
         let laneBasis = GroundBasis.geometry(plane: plane,
             pose: .init(back: -ref.forward, position: pose.position), previousForward: ref.forward)!
-        let obstacle = ForwardObstacleTrigger.trigger(raster: raster, device: laneBasis, reference: ref, options: options, laneOnly: true)
-        guard let obstacle, obstacle.distance.isFinite else {
+        let measuredObstacle = ForwardObstacleTrigger.trigger(raster: raster, device: laneBasis, reference: ref, options: options, laneOnly: true)
+        let (measuredScenario, retainedObstacle) = scenarios.update(measuredObstacle, now:r.timestamp, nearDistance:options.waypoints.nearDistance)
+        // Once a bypass is committed, a farther component replacing the nearest detection
+        // must not switch us back to an approach target halfway around the current bend.
+        let continuingBypass = scenario == .nearObstacle && current != nil && side != 0
+            && !arrived && !redirect && !outOfView
+        let newScenario: ObstacleRouteScenario = measuredScenario == .distantObstacle && continuingBypass
+            ? .nearObstacle : measuredScenario
+        transitionPending = scenarios.isPending
+        guard newScenario != .clear, let obstacle = retainedObstacle, obstacle.distance.isFinite else {
             current = nil; goal = nil; preview = nil; previewAt = nil; continuation = []; side = 0
             scenario = .clear
             reference = .init(origin: foot, forward: device.forward, plane: plane)
@@ -71,9 +85,6 @@ struct ObstacleWaypointPlanner: Sendable {
                           reason: "front_clear", replan: replan, view: view)
         }
 
-        let newScenario: ObstacleRouteScenario = obstacle.distance <= options.waypoints.nearDistance
-            || (scenario == .nearObstacle && obstacle.distance <= options.waypoints.nearDistance + 0.15)
-            ? .nearObstacle : .distantObstacle
         let stageChanged = scenario != newScenario
         scenario = newScenario
         if let path = current {
@@ -107,6 +118,7 @@ struct ObstacleWaypointPlanner: Sendable {
                         foot: foot, preferredSide: side)
             }
             if let plan, commit(plan, result: r, options: options, pose: pose, view: view) {
+                selectedReason = replan ?? "initial_target"
                 preview = nil; previewAt = nil
             } else if blocked || arrived || outOfView || redirect || current == nil {
                 current = nil; goal = nil; continuation = []; preview = nil; previewAt = nil
@@ -128,7 +140,8 @@ struct ObstacleWaypointPlanner: Sendable {
     private mutating func commit(_ plan: ObstacleWaypointSearch.Plan, result r: AnalysisResult,
                                  options: PathOptions, pose: RigidPose, view: RouteCameraView?) -> Bool {
         guard let ref = reference,
-              let index = ObstacleWaypointSearch.targetIndex(in: plan.points, pose: pose, view: view, normal: ref.plane.normal) else { return false }
+              let (visiblePlan,index) = ObstacleWaypointSearch.visiblePlan(plan,pose:pose,view:view,normal:ref.plane.normal,minimumDistance:options.arrivalRadius+0.2) else { return false }
+        let plan = visiblePlan
         let points = Array(plan.points.prefix(index+1))
         let target = points[index]
         goal = .init(id: r.frameID, epoch: r.epoch, point: target, plane: ref.plane,
@@ -177,6 +190,8 @@ struct ObstacleWaypointPlanner: Sendable {
             nextTarget: preview.flatMap { $0.points.count >= 2 ? $0.points[1] : nil }, nextPreparedAt: previewAt,
             replanReason: replan, targetInView: visible, stationaryTurnSeconds: turn.elapsed,
             referenceForward: reference?.forward ?? V3(0,0,-1))
+        update.waypointGuidance?.goalSelectedReason = goal == nil ? nil : selectedReason
+        update.waypointGuidance?.transitionPending = transitionPending
         if let target = goal, let pose = r.sourcePose, let basis = GroundBasis(plane: target.plane, pose: pose) {
             let local = basis.local(target.point)
             update.targetBearingDegrees = atan2(local.x, local.z)*180 / .pi
