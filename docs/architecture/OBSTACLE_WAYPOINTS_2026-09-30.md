@@ -1,5 +1,7 @@
 # Build24：三态障碍引导与逐点交接
 
+> 本文记录build24。build25调整状态／播报迟滞并修复障碍几何，见[本轮修复](WAYPOINT_STABILITY_2026-09-30.md)。
+
 ## 范围和基线
 
 基线 `71d4f9a`（main / build23）。沿用单一 ARSession、LiDAR/DA 输入、现有
