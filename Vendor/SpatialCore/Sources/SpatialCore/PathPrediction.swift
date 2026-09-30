@@ -93,6 +93,8 @@ public struct PathUpdate: Codable, Sendable {
     public var waypointGuidance: ObstacleWaypointGuidance? = nil
     public var continuity: RouteContext? = nil
     public var projection: RouteProjection? = nil
+    /// Same-frame confirmed geometry used for planning, retained in Dev samples for replay.
+    public var confirmedObstacles: [OccupancyFootprint]? = nil
     public var occupancyFilter: OccupancyFilterDiagnostics? = nil
     public var path: PredictedPath?
     public var reason: String
@@ -372,6 +374,7 @@ public struct PathPredictor: Sendable {
             var update = waypointPlanner.update(result: planning, cameraResult: cameraResult,
                 options: options.validated(), view: cameraView)
             update.occupancyFilter = occupancyFilter.diagnostics
+            update.confirmedObstacles = planning.planningObstacles
             return occupancyContext(update, result: result, options: options, watermark: watermark, started: started)
         }
         let displacement = result.sourcePose.flatMap { pose in previousPose.map { simd_distance(pose.position,$0.position) } } ?? 0

@@ -30,6 +30,7 @@ struct ReplayRow: Encodable {
     let fresh: Bool
     let supportedByCurrentGrid: Bool?
     let currentObstacleFree: Bool?
+    let confirmedModelFree: Bool?
 }
 let decoder = JSONDecoder()
 decoder.nonConformingFloatDecodingStrategy = .convertFromString(
@@ -82,6 +83,13 @@ for path in CommandLine.arguments.dropFirst() {
             },
             currentObstacleFree: update.path.map {
                 !PathObstacleCheck.intersects($0, result: result, observation: observation)
+            },
+            confirmedModelFree: update.path.flatMap { path in
+                update.confirmedObstacles.map { model in
+                    zip(path.points,path.points.dropFirst()).allSatisfy { a,b in
+                        !model.contains { $0.overlaps(from:a,to:b,radius:path.requiredWidth/2) }
+                    }
+                }
             })
         print(String(decoding: try encoder.encode(row), as: UTF8.self))
     }

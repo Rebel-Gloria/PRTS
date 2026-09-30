@@ -23,6 +23,18 @@ class RouteReplayTests(unittest.TestCase):
         self.assertEqual(result["freshUnsupported"], 1)
         self.assertEqual(result["currentObstacleConflicts"], 1)
 
+    def test_veto_policy_distinguishes_raw_pending_from_confirmed_model(self):
+        row = self.row()
+        row["update"]["continuity"] = {"planningPolicy": "obstacle_veto_v1"}
+        row.update(fresh=True, supportedByCurrentGrid=False, currentObstacleFree=False)
+        result = compare([row], [row])["total"]["after"]
+        self.assertEqual(result["confirmedModelChecksPresent"], 0)
+        self.assertEqual(result["planningViolations"], 0)
+        row["confirmedModelFree"] = False
+        result = compare([row], [row])["total"]["after"]
+        self.assertEqual(result["confirmedModelChecksPresent"], 1)
+        self.assertEqual(result["planningViolations"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
