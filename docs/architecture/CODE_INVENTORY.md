@@ -10,9 +10,9 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 |---|---:|---:|---:|
 | App | 37 | 4874 | 4618 |
 | SpatialCore | 35 | 4798 | 4660 |
-| Tests | 35 | 4828 | 4672 |
+| Tests | 35 | 4842 | 4685 |
 | Scripts | 10 | 896 | 829 |
-| Total | 117 | 15396 | 14779 |
+| Total | 117 | 15410 | 14792 |
 
 ## 完整源码文件树
 
@@ -71,7 +71,7 @@ PRTS/
 PRTSTests/
   DevCaptureTests.swift (125 lines)
   PRTSTests.swift (103 lines)
-  PhotoDescriptionTests.swift (137 lines)
+  PhotoDescriptionTests.swift (151 lines)
   PhotoImageAlignmentTests.swift (59 lines)
   PhotoLifecycleTests.swift (190 lines)
   PhotoPresentationTests.swift (57 lines)
