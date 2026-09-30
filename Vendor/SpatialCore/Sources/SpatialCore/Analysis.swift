@@ -10,6 +10,8 @@ public struct AnalysisResult: Codable, Sendable {
     public var sourcePose: RigidPose?
     public var plane: GroundPlane?
     public var grid: LocalGrid?
+    /// Present only on an adapted planning snapshot; nil in raw/older recordings.
+    public var planningObstacles: [OccupancyFootprint]?
     public var surfaceModel: SurfaceModel?
     public var footprintMask: [Bool]
     public var distances: [ObstacleDistance]
