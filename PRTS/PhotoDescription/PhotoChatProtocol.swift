@@ -7,6 +7,9 @@ nonisolated enum PhotoChatProtocol {
     static let model = "qwen3.8-flash"
     static let prompt = "请面向盲人，用简短、凝练、易理解的语言描述这张图片。重点说明图片中的主要物体、人物或场景，以及它们之间的空间位置、方向、距离和几何关系。不要加入无关细节控制在一句到两句话内。"
 
+    /// Applied only to a completed long-press transcript; short taps keep `prompt`.
+    static let spokenQuestionPrefix = "请面向盲人，用简短、凝练、易理解的语言回答用户提出的请求，内容如下："
+
     static func request(jpeg: Data, text: String, key: String) throws -> URLRequest {
         let credential = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !credential.isEmpty, !credential.contains("\r"), !credential.contains("\n") else {
