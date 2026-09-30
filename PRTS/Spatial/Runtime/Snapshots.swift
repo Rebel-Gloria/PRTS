@@ -265,6 +265,16 @@ struct SharedSnapshot: Sendable {
         guard pathOptions.enabled,let path = pathUpdate.path,let frame else { return nil }
         return PathPresentation.make(path:path,gate:presentationGate,pose:frame.pose,options:pathOptions,now:now)
     }
+    /// Open-space guidance has no path by design; it must not depend on the ground-render result.
+    func activeWaypointUpdate(now: Double) -> PathUpdate? {
+        let gate = presentationGate
+        guard pathOptions.enabled, pathUpdate.waypointGuidance != nil, let context = pathUpdate.continuity,
+              gate.enabled, gate.trackingNormal, context.epoch == gate.epoch,
+              context.parameterVersion == gate.parameterVersion, context.frameID >= gate.minimumGeometryFrameID,
+              context.frameID <= gate.frameID, context.hazardWatermark >= routeHazardWatermark,
+              now >= gate.frameTimestamp, now-gate.frameTimestamp <= gate.maxAge else { return nil }
+        return pathUpdate
+    }
     func pathHeading(now: Double) -> PathHeading? {
         // Angle feedback follows the LIVE tracked pose during a normal turn. The fixed goal
         // is not reselected here; fresh tracking/epoch/TTL and near-vertical checks still apply.

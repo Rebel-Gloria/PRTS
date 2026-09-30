@@ -68,7 +68,7 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn("radius: Float,allowUnknown: Bool = false", after)
         core = ROOT / "Vendor/SpatialCore/Sources/SpatialCore"
         for name in ("ForwardRoutePlanner.swift", "ForwardRouteState.swift", "ForwardPathSearch.swift", "RoutePlanningGrid.swift",
-                     "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift", "RouteEvidenceMap.swift", "RouteContinuity.swift"):
+                     "ObstacleWaypointPlanner.swift", "ObstacleWaypointSearch.swift", "ObstacleWaypointState.swift", "ForwardObstacleTrigger.swift", "PathObstacleCheck.swift", "RouteProjection.swift", "TemporalOccupancyGrid.swift", "GreedyDetourSearch.swift", "ObstaclePersistence.swift", "RouteEvidenceMap.swift", "RouteContinuity.swift"):
             self.assertTrue((core / name).is_file())
             source = (core / name).read_text()
             for forbidden in ("import ARKit", "import SwiftUI", "import Metal", "import AVFoundation"):
@@ -84,7 +84,11 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn("s.pathUpdate = decision.update", runtime)
         self.assertIn("routeHazardWatermark", runtime)
         home = (ROOT / "PRTS/UI/ContentView.swift").read_text()
-        self.assertIn("feedback.suspendResultFeedback()", home)
+        self.assertIn("snapshot.pathUpdate.waypointGuidance != nil", home)
+        self.assertIn("feedback.consumeDirection(snapshot, speech: speechManager)", home)
+        # Open-space speech is independent of whether a fresh measured floor exists.
+        self.assertLess(home.index("snapshot.pathUpdate.waypointGuidance != nil"),
+                        home.index("else if let result = camera.latestSceneResult"))
         self.assertNotIn("ForwardPathSearch", runtime)
         self.assertNotIn("ForwardObstacleTrigger", runtime)
 
@@ -144,7 +148,7 @@ class SpatialIntegrationTests(unittest.TestCase):
         home = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         self.assertNotIn('Button("返回")',settings)
         self.assertIn('speech.speakSettingsScreen',settings)
-        self.assertIn('else if !isShowingSettings,feedback.lastConsumedResultID',home)
+        self.assertIn('else if !isShowingSettings {',home)
         self.assertIn('speechManager.cancelPerceptionSpeech()',home)
 
     def test_original_home_controls_and_theme_are_preserved(self):

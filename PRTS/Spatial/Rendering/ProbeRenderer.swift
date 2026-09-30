@@ -278,7 +278,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
             diagnostics.render(.init(phase:"submitted",
                 routeContext:s.pathUpdate.continuity,routePublicationReason:s.routePublicationReason,
                 routePublishTime:s.routePublishTime,
-                routePresentationReason:drawnPath == 0 ? "not_submitted_display_gate_or_no_geometry" : predictedPath?.path.planningPolicy == .obstacleVeto ? "obstacle_veto" : predictedPath != nil ? (predictedPath!.historical ? "historically_supported" : "current_supported") : (s.activeRouteProjection(now:start) != nil ? "direction_projection_only" : s.pathUpdate.reason),
+                routePresentationReason:drawnPath == 0 ? (s.pathUpdate.waypointGuidance?.scenario == .clear ? "front_clear_no_route" : "not_submitted_display_gate_or_no_geometry") : predictedPath?.path.planningPolicy == .obstacleVeto ? "obstacle_veto" : predictedPath != nil ? (predictedPath!.historical ? "historically_supported" : "current_supported") : (s.activeRouteProjection(now:start) != nil ? "direction_projection_only" : s.pathUpdate.reason),
                 routeDisplayedVerifiedLength:drawnPath > 0 && predictedPath?.path.verifiedEvidence == true ? predictedPath?.path.length : 0,
                 routeDisplayedPlannedLength:drawnPath > 0 ? predictedPath?.path.length : 0,
                 renderID:renderID,epoch:s.epoch,frameID:snapshot?.id,uptime:start,sourceTimestamp:snapshot?.frame.timestamp,

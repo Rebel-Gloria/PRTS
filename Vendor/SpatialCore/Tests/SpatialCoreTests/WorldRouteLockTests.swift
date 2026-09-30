@@ -3,9 +3,12 @@ import simd
 
 @testable import SpatialCore
 
+// Build18 continuous-route comparison. Product three-state/waypoint scheduling is tested
+// in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
+
 extension ForwardRouteTests {
   func testExperimentalRouteSurvivesRotatingLocalGridWithoutReselection() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let initial = planner.update(result: frame(), observation: nil, options: .init())
     let original = try XCTUnwrap(initial.path)
     for i in 1...12 {
@@ -23,7 +26,7 @@ extension ForwardRouteTests {
   }
 
   func testExperimentalRoutePlaneDoesNotFollowFitNoise() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let first = planner.update(result: frame(), observation: nil, options: .init())
     for i in 1...10 {
       var r = frame(UInt64(i + 1), 1 + Double(i) * 0.1)
@@ -37,7 +40,7 @@ extension ForwardRouteTests {
   }
 
   func testLockedApproachAndRetainedRouteAreSolidMeshes() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let path = try XCTUnwrap(
       planner.update(result: frame(), observation: nil, options: .init()).path)
     let presentation = PathPresentation(
@@ -51,7 +54,7 @@ extension ForwardRouteTests {
   }
 
   func testLockedRouteStillWithdrawsForConfirmedNewObstacle() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let initial = planner.update(result: frame(), observation: nil, options: .init())
     for i in 1...4 {
       let u = planner.update(
@@ -67,7 +70,7 @@ extension ForwardRouteTests {
   }
 
   func testVetoRouteKeepsWorldPlaneDespiteGroundFitChange() {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let first = planner.update(result: frame(), observation: nil, options: .init())
     var r = frame(2, 1.1)
     r.plane?.offset = 0.25
@@ -77,7 +80,7 @@ extension ForwardRouteTests {
     XCTAssertEqual(u.path?.plane.offset,first.path?.plane.offset)
   }
   func testLockedSideRouteSurvivesCameraGridBoundary() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let obstacle: (V3) -> CellState = {
       abs($0.x) < 0.5 && -$0.z > 0.8 && -$0.z < 1.1 ? .obstacle : .candidate
     }

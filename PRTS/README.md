@@ -30,3 +30,10 @@ ARSession
 ```
 
 The home screen and the presentation overlay consume the same runtime snapshot. Hiding RGB, overlays or metrics changes presentation only; it does not stop capture or analysis.
+
+## Build24 local guidance
+
+`PathPredictor` delegates the product obstacle-veto branch to `ObstacleWaypointPlanner`:
+clear space has no route; distant obstacles have a stand-off goal; nearby obstacles have
+a current bypass goal and a mutable preview. Rendering and feedback consume only the
+committed current leg. See [algorithm and validation](../docs/architecture/OBSTACLE_WAYPOINTS_2026-09-30.md).
