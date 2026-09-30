@@ -99,7 +99,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                         let text = try await self.recognizer.finish()
                         try Task.checkCancellation()
                         guard self.generation == id else { return }
-                        self.submit(question: text)
+                        self.submit(question: PhotoChatProtocol.spokenQuestionPrefix + text)
                     } catch {
                         if self.generation == id { self.fail(error) }
                     }

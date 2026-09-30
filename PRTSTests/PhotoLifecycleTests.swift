@@ -126,12 +126,41 @@ struct PhotoLifecycleTests {
         #expect(f.state.events.suffix(2) == ["stop-mic", "A"])
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
-        #expect(requests[0].text == "门在哪里？")
+        #expect(requests[0].text == "请面向盲人，用简短、凝练、易理解的语言回答用户提出的请求，内容如下：门在哪里？")
         #expect(f.state.events.filter { $0 == "capture" }.count == 1)
         await f.network.reply(0, "门在左侧。")
         await f.coordinator.work?.value
         #expect(f.audio.spoken == ["门在左侧。"])
         f.coordinator.cancel()
+    }
+
+    @Test func repeatedLongPressPrefixesOnlyTheCurrentTranscript() async throws {
+        let f = PhotoFixture()
+        let prefix = "请面向盲人，用简短、凝练、易理解的语言回答用户提出的请求，内容如下："
+        let questions = ["请告诉我\n门的“颜色”是什么？", "路牌上写了什么？"]
+        for (index, question) in questions.enumerated() {
+            f.recognizer.question = question
+            let start = Double(index) * 2
+            f.state.time = start; f.down()
+            f.state.time = start + 0.5; f.coordinator.advancePress()
+            f.state.time = start + 1; f.coordinator.up()
+            await f.network.waitForRequests(index + 1)
+            let sent = await f.network.requests[index]
+            #expect(sent.text == prefix + question)
+            #expect(!sent.text.contains(PhotoChatProtocol.prompt))
+            // Verify the prepared question survives JSON encoding without changing
+            // the transcript's punctuation/newlines or accumulating prior prompts.
+            let request = try PhotoChatProtocol.request(jpeg: sent.image, text: sent.text, key: sent.key)
+            let data = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let messages = try #require(body["messages"] as? [[String: Any]])
+            let content = try #require(messages.first?["content"] as? [[String: Any]])
+            #expect(content[0]["text"] as? String == prefix + question)
+            await f.network.reply(index, "测试回答")
+            await f.coordinator.work?.value
+            f.audio.onFinished?()
+            #expect(!f.coordinator.busy)
+        }
     }
 
     @Test func cancelledPressDoesNotCaptureOrUpload() async {
