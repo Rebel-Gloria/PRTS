@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// Separate answer voice and deterministic A/B tones, all synthesized locally.
+/// App announcement voice profile and deterministic A/B tones, synthesized locally.
 @MainActor
 final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     enum Cue { case submit, record }
@@ -39,17 +39,12 @@ final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.speak(utterance)
     }
 
-    static func answerUtterance(_ text: String) -> AVSpeechUtterance {
-        let utterance = AVSpeechUtterance(string: text)
-        let defaultID = AVSpeechSynthesisVoice(language: "zh-CN")?.identifier
-        let alternate = AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language == "zh-CN" && $0.identifier != defaultID }
-            .sorted { $0.identifier < $1.identifier }.first
-        utterance.voice = alternate ?? AVSpeechSynthesisVoice(language: "zh-CN")
-        // Devices with only one Chinese voice still have a distinct lower-pitch profile.
-        utterance.pitchMultiplier = 0.8
-        utterance.rate = 0.46
-        return utterance
+    /// Share the announcement voice, not its queue or cancellation ownership.
+    /// Read the latest preferences for each answer rather than caching at startup.
+    static func answerUtterance(
+        _ text: String, defaults: UserDefaults = .standard
+    ) -> AVSpeechUtterance {
+        SpeechManager.announcementUtterance(text, defaults: defaults)
     }
 
     func stop() {
