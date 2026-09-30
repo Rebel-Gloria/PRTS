@@ -26,7 +26,7 @@ public struct ObstacleWaypointOptions: Codable, Sendable, Equatable {
 
 /// Diagnostic preview has no goal identity or feedback authority. It can change every update.
 public struct ObstacleWaypointGuidance: Codable, Sendable {
-    public var schemaVersion = 1
+    public var schemaVersion = 2
     public var scenario: ObstacleRouteScenario
     public var obstacleDistance: Float?
     public var nextTarget: V3?
@@ -35,6 +35,8 @@ public struct ObstacleWaypointGuidance: Codable, Sendable {
     public var targetInView: Bool?
     public var stationaryTurnSeconds: Double = 0
     public var referenceForward: V3
+    public var goalSelectedReason: String? = nil
+    public var transitionPending: Bool? = nil
 }
 
 /// RGB intrinsics use the unrotated full camera image. Aspect-fit screen rotation preserves
@@ -42,10 +44,10 @@ public struct ObstacleWaypointGuidance: Codable, Sendable {
 public struct RouteCameraView: Codable, Sendable {
     public var intrinsics: CameraIntrinsics
     public init(intrinsics: CameraIntrinsics) { self.intrinsics = intrinsics }
-    public func contains(_ world: V3, pose: RigidPose) -> Bool {
+    public func contains(_ world: V3, pose: RigidPose, margin: Float = 0) -> Bool {
         guard let pixel = intrinsics.project(pose.camera(world)) else { return false }
-        return pixel.x.isFinite && pixel.y.isFinite && pixel.x >= -0.5 && pixel.y >= -0.5
-            && pixel.x < Float(intrinsics.width)-0.5 && pixel.y < Float(intrinsics.height)-0.5
+        return pixel.x.isFinite && pixel.y.isFinite && pixel.x >= -0.5-Float(intrinsics.width)*margin && pixel.y >= -0.5-Float(intrinsics.height)*margin
+            && pixel.x < Float(intrinsics.width)*(1+margin)-0.5 && pixel.y < Float(intrinsics.height)*(1+margin)-0.5
     }
 }
 
