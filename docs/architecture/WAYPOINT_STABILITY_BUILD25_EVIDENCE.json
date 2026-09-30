@@ -1,0 +1,219 @@
+{
+  "build": 25,
+  "compileTag": "PRTS_DEV_CAPTURE",
+  "sourceCommit": "d0cb1430a2c4e0b008c56e75466f9a0f2aa64038",
+  "tests": {
+    "baselineCore": 317,
+    "coreDebug": 326,
+    "coreRelease": 326,
+    "contracts": 8,
+    "python": 47,
+    "appInitial": {
+      "passed": 51,
+      "failed": 0
+    },
+    "appFinalCompleted": {
+      "passed": 50,
+      "failed": 1,
+      "skipped": 0,
+      "failure": "DevCaptureTests.uncalibratedModelOutputIsSavedWithoutInventedMetricDepth: recorder did not drain within 10 seconds"
+    },
+    "extendedRetry": "Interrupted after prolonged test completion; not counted as passed. No production recorder changes or test timeout relaxation."
+  },
+  "binaries": {
+    "signed": {
+      "build": "25",
+      "bundleID": "com.jingxuan.PRTS",
+      "sourceCommit": "d0cb1430a2c4e0b008c56e75466f9a0f2aa64038",
+      "devCaptureRecorderPresent": true,
+      "worldFootprintPresent": true,
+      "speechPolicyPresent": true,
+      "sha256": "1a6b4ff519e43dcab0b6abbb4228c2cb83b7c1e25bd6b34b155c44e1a5588fb0"
+    },
+    "normal": {
+      "build": "25",
+      "bundleID": "com.jingxuan.PRTS",
+      "sourceCommit": "d0cb1430a2c4e0b008c56e75466f9a0f2aa64038",
+      "devCaptureRecorderPresent": false,
+      "worldFootprintPresent": true,
+      "speechPolicyPresent": true,
+      "sha256": "9ffe0ad8545d0ff4db8927d96c34d0f183c59b7e886a3a4197b07465834cf7ce"
+    }
+  },
+  "device": {
+    "model": "iPhone 15 Pro",
+    "os": "27.0",
+    "bundleID": "com.jingxuan.PRTS",
+    "version": "1.0 (25)",
+    "installed": true,
+    "launched": true,
+    "localLaunchTime": "2026-09-30 15:28:40 Asia/Shanghai",
+    "physicalRouteRetest": false
+  },
+  "pairedSampledReplay": {
+    "note": "Same low-rate recorded inputs; no new on-device run. Raw grid/depth conflicts are diagnostics, not confirmed-model failures. Missing model checks are unavailable; no human ground truth.",
+    "epochs": {
+      "2": {
+        "before": {
+          "samples": 187,
+          "goalChanges": 36,
+          "confirmedModelChecksPresent": 0,
+          "confirmedModelConflicts": 0,
+          "planningViolations": 0,
+          "pathSamples": 126,
+          "pathFraction": 0.6737967914438503,
+          "lengthMeters": {
+            "n": 126,
+            "mean": 1.9739700003628493,
+            "p50": 1.6568043476786594,
+            "p95": 2.838517810123627,
+            "max": 3.2108890746705168
+          },
+          "planningMilliseconds": {
+            "n": 187,
+            "mean": 0.36564526860328284,
+            "p50": 0.29595824889838696,
+            "p95": 0.8703958243131636,
+            "max": 2.7692082803696394
+          },
+          "modes": {
+            "straight": 106,
+            "detour": 78,
+            "blocked": 3
+          },
+          "reasons": {
+            "front_clear": 58,
+            "avoid_obstacle": 78,
+            "approach_obstacle": 48,
+            "no_visible_target": 2,
+            "no_detour": 1
+          },
+          "freshUnsupported": 126,
+          "currentObstacleConflicts": 32,
+          "invariantChecksPresent": 187
+        },
+        "after": {
+          "samples": 187,
+          "goalChanges": 29,
+          "confirmedModelChecksPresent": 159,
+          "confirmedModelConflicts": 0,
+          "planningViolations": 0,
+          "pathSamples": 159,
+          "pathFraction": 0.8502673796791443,
+          "lengthMeters": {
+            "n": 159,
+            "mean": 2.1619995727394756,
+            "p50": 2.142381636303444,
+            "p95": 3.2968155954732543,
+            "max": 4.049392387621676
+          },
+          "planningMilliseconds": {
+            "n": 187,
+            "mean": 1.9853792282787555,
+            "p50": 1.0985415428876877,
+            "p95": 6.020016595721243,
+            "max": 22.56616670638323
+          },
+          "modes": {
+            "straight": 86,
+            "blocked": 15,
+            "detour": 86
+          },
+          "reasons": {
+            "front_clear": 13,
+            "approach_obstacle": 73,
+            "no_visible_target": 15,
+            "avoid_obstacle": 86
+          },
+          "freshUnsupported": 159,
+          "currentObstacleConflicts": 7,
+          "invariantChecksPresent": 187
+        }
+      }
+    },
+    "total": {
+      "before": {
+        "samples": 187,
+        "goalChanges": 36,
+        "confirmedModelChecksPresent": 0,
+        "confirmedModelConflicts": 0,
+        "planningViolations": 0,
+        "pathSamples": 126,
+        "pathFraction": 0.6737967914438503,
+        "lengthMeters": {
+          "n": 126,
+          "mean": 1.9739700003628493,
+          "p50": 1.6568043476786594,
+          "p95": 2.838517810123627,
+          "max": 3.2108890746705168
+        },
+        "planningMilliseconds": {
+          "n": 187,
+          "mean": 0.36564526860328284,
+          "p50": 0.29595824889838696,
+          "p95": 0.8703958243131636,
+          "max": 2.7692082803696394
+        },
+        "modes": {
+          "straight": 106,
+          "detour": 78,
+          "blocked": 3
+        },
+        "reasons": {
+          "front_clear": 58,
+          "avoid_obstacle": 78,
+          "approach_obstacle": 48,
+          "no_visible_target": 2,
+          "no_detour": 1
+        },
+        "freshUnsupported": 126,
+        "currentObstacleConflicts": 32,
+        "invariantChecksPresent": 187
+      },
+      "after": {
+        "samples": 187,
+        "goalChanges": 29,
+        "confirmedModelChecksPresent": 159,
+        "confirmedModelConflicts": 0,
+        "planningViolations": 0,
+        "pathSamples": 159,
+        "pathFraction": 0.8502673796791443,
+        "lengthMeters": {
+          "n": 159,
+          "mean": 2.1619995727394756,
+          "p50": 2.142381636303444,
+          "p95": 3.2968155954732543,
+          "max": 4.049392387621676
+        },
+        "planningMilliseconds": {
+          "n": 187,
+          "mean": 1.9853792282787555,
+          "p50": 1.0985415428876877,
+          "p95": 6.020016595721243,
+          "max": 22.56616670638323
+        },
+        "modes": {
+          "straight": 86,
+          "blocked": 15,
+          "detour": 86
+        },
+        "reasons": {
+          "front_clear": 13,
+          "approach_obstacle": 73,
+          "no_visible_target": 15,
+          "avoid_obstacle": 86
+        },
+        "freshUnsupported": 159,
+        "currentObstacleConflicts": 7,
+        "invariantChecksPresent": 187
+      }
+    }
+  },
+  "limitations": [
+    "Automatic DIAG full (2GiB); analysis relies on opt-in sampled Dev Capture and session metrics. Old data not deleted.",
+    "Real-time cadence and audio/display trace unavailable; no interpolation of missing observations.",
+    "Raw depth intersection is not confirmed model collision or independent ground truth.",
+    "One simulator recording test remains intermittent/unresolved; initial pass does not erase later failures."
+  ],
+  "localEvidenceDirectory": "/tmp/prts-route25"
+}

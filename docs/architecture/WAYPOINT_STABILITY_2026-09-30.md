@@ -7,7 +7,7 @@
 
 - 14:49:57、14:52:18 两次 Sessions；
 - 14:44:34 启动目录中的 Dev Capture（epoch2，187个配对样本，约57.6秒）；
-- manifest明确为 `arkit_scene_depth`，187份深度附件和校验和完整，非DA输出。
+- 采样的capture标记为 `arkit_scene_depth`，187份深度附件和校验和完整，非DA输出。
 
 自动 DIAG 已触及2 GiB总配额：path、render、analysis等记录全部丢弃。
 Dev Capture使用独立限额，仍保留低频RGB、深度、原始栅格及当时规划结果。
@@ -83,7 +83,7 @@ Dev样本仍低频保存，不伪称包含每个实际处理帧。
 
 ## 验证与交付
 
-最终命令、数量、回放摘要和设备安装结果在本文件末尾补齐。
+最终命令、数量、回放摘要和设备安装结果见本文件末尾。
 修改前核心基线317项通过；两个碰撞回归先失败再修复。
 一个旧测试强制要求`world_route_preserved`原因串，现允许几何重采样后重新取得同一目标；
 仍要求世界目标位置和绕行侧不变。三项“消失立即清空”测试改为检查模型立即清空、
@@ -100,8 +100,9 @@ Dev样本仍低频保存，不伪称包含每个实际处理帧。
 
 - 核心Debug、Release各326项通过（原317项＋本轮9项）；契约8项通过。
 - Python47项通过。传感器分析器仍有逐字节一致性测试，只剥离新增可选记录字段。
-- App首轮51项通过；最终重跑过程中，录制测试曾触发10秒排空超时，正在单独复验。
-  不放宽其等待阈值；此前一次Release编译还因测试源码在编译期间修改而中止，已重跑通过。
+- App首轮51项通过；之后两轮完整串行回归各50通过、1失败：未标定DA录制测试触发10秒排空超时。
+  延长的隔离重试未正常收尾，已中止，不计为通过。采集器代码未改、不放宽等待阈值；
+  保留此间歇性失败，不能写成App最终全部通过。此前一次Release编译因测试源码在编译期间修改而中止，已重跑通过。
 - 相同187帧稀疏回放：目标身份变化36→29；带路线样本126→159；确认模型检查159项，冲突0。
   修改前没有该模型字段，计为不可用，不能宣称原来检查通过。
 - 原始深度占用诊断冲突32→7；这些数据包括尚未通过300ms确认的命中，不作为真值。
@@ -111,3 +112,34 @@ Dev样本仍低频保存，不伪称包含每个实际处理帧。
 回放命令：编译 `scripts/replay_routes.swift`，以同一个Dev目录分别运行修改前保存的
 可执行文件与当前文件，再执行 `python3 scripts/compare_route_replays.py before.jsonl after.jsonl`。
 不重新运行传感器、不补造中间帧；回放耗时来自Mac，不作为iPhone性能。
+
+### 构建、提交与设备
+
+- 源码提交 `d0cb1430a2c4e0b008c56e75466f9a0f2aa64038`，包含分开的障碍几何、
+  目标稳定性、语义播报、诊断及版本提交，已推送main。
+- 普通iOS Release、签名Dev Release构建通过；签名严格校验通过。
+  二进制检查确认两者都有修复，只有Dev包含DevCaptureRecorder。
+- 2026-09-30 15:28:40已安装启动于Gloria iPhone 15 Pro（iOS27.0），设备确认1.0(25)。
+  未卸载、擦除历史记录或自动启动摄像头。App内嵌上述源码commit；本交付文档晚于构建。
+- 主路线真实墙体表现与语音体验仍待复测；模拟器录制超时仍为已知未解决项。
+
+[校验记录](WAYPOINT_STABILITY_BUILD25_EVIDENCE.json)。
+
+实际执行：
+
+```sh
+swift test --package-path Vendor/SpatialCore --scratch-path /tmp/prts-photo21/core-tests
+swift test -c release --package-path Vendor/SpatialCore --scratch-path /tmp/prts-route24/core-release
+PRTS_CONTRACTS_ONLY=1 swift test --package-path Vendor/PRTSCore --scratch-path /tmp/prts-photo21/contract-tests
+python3 -m unittest discover -s scripts -p 'test_*.py'
+xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Debug \
+  -destination 'platform=iOS Simulator,id=C6C8584E-5D03-4F9A-8B78-DD69BCC4194C' \
+  -xcconfig configs/DevCapture.xcconfig CODE_SIGNING_ALLOWED=NO -only-testing:PRTSTests test
+xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
+  -destination 'generic/platform=iOS' -jobs 2 -xcconfig configs/DevCapture.xcconfig \
+  PRTS_SOURCE_COMMIT=d0cb1430a2c4e0b008c56e75466f9a0f2aa64038 build
+```
+
+构建使用既有DerivedData目录，日志归档在`/tmp/prts-route25/`。普通包省略xcconfig、
+增加`CODE_SIGNING_ALLOWED=NO`；App重试另含`-parallel-testing-enabled NO`的完整结果。
+首次冷构建因主机负载主动中断，随后使用缓存和`-jobs 2`成功，并非编译错误被忽略。
