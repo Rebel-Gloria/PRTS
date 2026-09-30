@@ -3,6 +3,7 @@ import simd
 
 /// Experimental geometric line, NOT a free-space/safe-route certificate. Never promotes LocalGrid cells.
 public struct PathOptions: Codable, Sendable, Equatable {
+    public var waypoints = ObstacleWaypointOptions()
     public var enabled = true
     public var haptics = true
     public var deviationDegrees: Float = 12
@@ -19,9 +20,10 @@ public struct PathOptions: Codable, Sendable, Equatable {
     public var userTurnDegrees: Float = 45
     public var userTurnSeconds: Double = 3
     public init() {}
-    private enum CodingKeys: String, CodingKey { case forwardBufferLength,enabled,haptics,deviationDegrees,retentionSeconds,lookAhead,minimumWidth,targetHalfAngleDegrees,arrivalRadius,alignmentDegrees,obstacleTriggerDistance,obstacleTriggerWidth,smallObstacleWidth,userTurnDegrees,userTurnSeconds }
+    private enum CodingKeys: String, CodingKey { case waypoints,forwardBufferLength,enabled,haptics,deviationDegrees,retentionSeconds,lookAhead,minimumWidth,targetHalfAngleDegrees,arrivalRadius,alignmentDegrees,obstacleTriggerDistance,obstacleTriggerWidth,smallObstacleWidth,userTurnDegrees,userTurnSeconds }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy:CodingKeys.self)
+        waypoints = try c.decodeIfPresent(ObstacleWaypointOptions.self, forKey: .waypoints) ?? .init()
         enabled = try c.decodeIfPresent(Bool.self,forKey:.enabled) ?? true
         haptics = try c.decodeIfPresent(Bool.self,forKey:.haptics) ?? true
         deviationDegrees = try c.decodeIfPresent(Float.self,forKey:.deviationDegrees) ?? 12
@@ -40,6 +42,7 @@ public struct PathOptions: Codable, Sendable, Equatable {
     }
     public func validated() -> Self {
         var v = self
+        v.waypoints = waypoints.validated()
         v.deviationDegrees = deviationDegrees.isFinite ? min(30,max(6,deviationDegrees)) : 12
         v.retentionSeconds = retentionSeconds.isFinite ? min(5,max(0.5,retentionSeconds)) : 2
         v.lookAhead = lookAhead.isFinite ? min(1.5,max(0.4,lookAhead)) : 0.8
@@ -87,6 +90,7 @@ public struct FixedPathGoal: Codable, Sendable {
     public var maxDistance: Float
 }
 public struct PathUpdate: Codable, Sendable {
+    public var waypointGuidance: ObstacleWaypointGuidance? = nil
     public var continuity: RouteContext? = nil
     public var projection: RouteProjection? = nil
     public var occupancyFilter: OccupancyFilterDiagnostics? = nil
@@ -213,7 +217,9 @@ public struct BluePathGrid: Sendable {
 /// Analysis-worker owned facade: session/order validation stays outside route strategy.
 /// Spatial runtime and UI continue to use the same PathUpdate contract.
 public struct PathPredictor: Sendable {
-    private var planner = ForwardRoutePlanner()
+    private var planner = ForwardRoutePlanner() // Explicit verified/legacy comparisons only.
+    private var waypointPlanner = ObstacleWaypointPlanner()
+    private var usesWaypoints = true
     private var verifiedPolicy = true
     private var evidenceMap = RouteEvidenceMap()
     private var continuityOptions = RouteContinuityOptions()
@@ -245,6 +251,12 @@ public struct PathPredictor: Sendable {
             planner.locksWorldGeometry = true
         }
     }
+    /// Internal regression seam: retain build18 continuous geometry comparisons without
+    /// exposing the retired product behaviour through settings or compile flags.
+    init(legacyContinuousOccupancy: Bool) {
+        self.init(experimentalOccupancyPlanning: true)
+        usesWaypoints = !legacyContinuousOccupancy
+    }
     // Test seam for geometry-only suites. Production always uses the default 300ms.
     init(obstacleConfirmationSeconds: Double) {
         verifiedPolicy = false
@@ -253,10 +265,11 @@ public struct PathPredictor: Sendable {
     }
     public mutating func reset() {
         evidenceMap.reset();previousOutput = nil;previousPose = nil;previousPoseTime = nil
+        waypointPlanner = .init()
         occupancyFilter.reset();planner = .init();planner.verifiedEvidence = verifiedPolicy;planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;planner.locksWorldGeometry = experimentalOccupancyPlanning;lastFrame = 0;lastTimestamp = 0
     }
     public mutating func update(result: AnalysisResult,observation: DepthObservation?,options: PathOptions,
-                                directionStable: Bool? = nil, hazardWatermark: UInt64 = 0,
+                                directionStable: Bool? = nil, cameraView: RouteCameraView? = nil, hazardWatermark: UInt64 = 0,
                                 committedPath: PredictedPath? = nil,
                                 onOccupancyConflict: ((UInt64) -> Void)? = nil) -> PathUpdate {
         if epoch != result.epoch || version != result.parameterVersion {
@@ -264,7 +277,9 @@ public struct PathPredictor: Sendable {
         }
         guard options.enabled else { reset();return .init(reason:"disabled") }
         guard result.frameID > lastFrame else {
-            return planner.held(at:result.timestamp,options:options.validated(),reason:"out_of_order_ignored")
+            return experimentalOccupancyPlanning && usesWaypoints
+                ? waypointPlanner.held(reason: "out_of_order_ignored")
+                : planner.held(at:result.timestamp,options:options.validated(),reason:"out_of_order_ignored")
         }
         guard result.timestamp.isFinite,result.timestamp >= lastTimestamp else {
             reset()
@@ -327,6 +342,7 @@ public struct PathPredictor: Sendable {
         }
         if experimentalOccupancyPlanning {
             return occupancyUpdate(result:result,options:options,directionStable:directionStable,
+                cameraView: cameraView ?? observation.map { RouteCameraView(intrinsics: $0.intrinsics) },
                 hazardWatermark:hazardWatermark,committedPath:committedPath,onConflict:onOccupancyConflict)
         }
         return planner.update(result:result,observation:observation,options:options.validated(),directionStable:directionStable)
@@ -334,19 +350,29 @@ public struct PathPredictor: Sendable {
     /// Occupancy-only search uses a PRIVATE transformed grid. The measured result is never
     /// rewritten, and published length is not labeled as body-clear evidence.
     private mutating func occupancyUpdate(result: AnalysisResult,options: PathOptions,
-        directionStable: Bool?,hazardWatermark: UInt64,committedPath: PredictedPath?,
+        directionStable: Bool?,cameraView: RouteCameraView?,hazardWatermark: UInt64,committedPath: PredictedPath?,
         onConflict: ((UInt64) -> Void)?) -> PathUpdate {
         let started = ProcessInfo.processInfo.systemUptime
-        guard let planning = occupancyFilter.apply(result,forwardLength:options.validated().forwardBufferLength,routeForward:planner.planningForward) else {
-            let held = planner.held(at:result.timestamp,options:options.validated(),reason:"occupancy_waiting_reference")
+        guard let planning = occupancyFilter.apply(result,forwardLength:options.validated().forwardBufferLength,routeForward:usesWaypoints ? waypointPlanner.planningForward : planner.planningForward) else {
+            let held = usesWaypoints ? waypointPlanner.held(reason: "occupancy_waiting_reference")
+                : planner.held(at:result.timestamp,options:options.validated(),reason:"occupancy_waiting_reference")
             return occupancyContext(held,result:result,options:options,watermark:hazardWatermark,started:started)
         }
         var watermark = hazardWatermark
-        if let active = committedPath ?? planner.retainedPath,
+        if let active = committedPath ?? (usesWaypoints ? waypointPlanner.retainedPath : planner.retainedPath),
            active.epoch == result.epoch, active.parameterVersion == result.parameterVersion,
            RouteSafety.conflicts(active,result:planning,observation:nil) {
             watermark = max(watermark,result.frameID)
             onConflict?(watermark) // Preempt BEFORE search, even if the candidate is later rejected.
+        }
+        if usesWaypoints {
+            let cameraResult = result.sourcePose.flatMap {
+                occupancyFilter.projected(result, forwardLength: options.validated().forwardBufferLength, forward: -$0.back)
+            }
+            var update = waypointPlanner.update(result: planning, cameraResult: cameraResult,
+                options: options.validated(), view: cameraView)
+            update.occupancyFilter = occupancyFilter.diagnostics
+            return occupancyContext(update, result: result, options: options, watermark: watermark, started: started)
         }
         let displacement = result.sourcePose.flatMap { pose in previousPose.map { simd_distance(pose.position,$0.position) } } ?? 0
         if let old = planner.retainedPath,let pose = result.sourcePose {
@@ -378,9 +404,10 @@ public struct PathPredictor: Sendable {
             frameID:result.frameID,timestamp:result.timestamp,requestID:result.frameID,
             sourceMapVersion:result.frameID,hazardWatermark:watermark,routeID:update.path?.id,
             geometryVersion:geometryVersion,status:update.path == nil ?
-                (occupancyFilter.diagnostics.confirmedCells > 0 ? .hazardBlocked : .needsObservation) : .planned,
-            remainingVerifiedLength:0,evidenceAge:nil,renewalDistance:planner.renewalDistance,
+                (update.waypointGuidance?.scenario == .clear ? .clear : occupancyFilter.diagnostics.confirmedCells > 0 ? .hazardBlocked : .needsObservation) : .planned,
+            remainingVerifiedLength:0,evidenceAge:nil,renewalDistance:usesWaypoints ? options.waypoints.previewDistance : planner.renewalDistance,
             requiredWidth:options.validated().minimumWidth)
+        if usesWaypoints { context.schemaVersion = 4 }
         context.planningPolicy = RoutePlanningPolicy.obstacleVeto.rawValue
         context.plannedLength = update.path?.length ?? 0
         update.continuity = context

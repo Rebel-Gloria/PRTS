@@ -3,10 +3,13 @@ import simd
 
 @testable import SpatialCore
 
+// Build18 continuous-route comparison. Product three-state/waypoint scheduling is tested
+// in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
+
 /// Deterministic synthetic inputs for the product obstacle-veto policy.
 extension ForwardRouteTests {
   func testOccupancyUnknownSearchHasAtomicContextButNoVerifiedLength() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let raw = frame(cells: { _ in .unknown })
     let update = planner.update(result: raw, observation: nil, options: .init())
     let path = try XCTUnwrap(update.path)
@@ -17,7 +20,7 @@ extension ForwardRouteTests {
     XCTAssertTrue(raw.grid!.cells.allSatisfy { $0.state == .unknown })
   }
   func testOccupancyRollingTailExtendsBeforeReachingHorizon() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let first = try XCTUnwrap(
       planner.update(result: frame(cells: { _ in .unknown }), observation: nil, options: .init())
         .path)
@@ -34,7 +37,7 @@ extension ForwardRouteTests {
     XCTAssertGreaterThan(furthest, -first.points.last!.z + 1.5)
   }
   func testDefaultVetoKeepsExtendingFastWalkAcrossManyOldEndpoints() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     var id: UInt64?
     for i in 0...150 {
       let raw = frame(
@@ -50,7 +53,7 @@ extension ForwardRouteTests {
     }
   }
   func testMissingGroundAndExpiredEvidenceDoNotGateVeto() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let first = try XCTUnwrap(
       planner.update(result: frame(), observation: nil, options: .init()).path)
     var missing = frame(2, 100, cells: { _ in .unknown })
@@ -71,7 +74,7 @@ extension ForwardRouteTests {
         path: first, gate: gate, pose: missing.sourcePose!, options: .init(), now: 200.1))
   }
   func testNoInitialPlaneOrGridStillPlansOnFixedDrawingReference() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     var r = frame()
     r.plane = nil
     r.grid = nil
@@ -86,7 +89,7 @@ extension ForwardRouteTests {
     XCTAssertEqual(next.path?.points, first.path?.points)
   }
   func testVetoPublicationDoesNotRequireEvidenceOrResultTTL() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let a = planner.update(result: frame(), observation: nil, options: .init())
     let b = planner.update(result: frame(2, 1.1), observation: nil, options: .init())
     var gate = ResultPresentationGate()
@@ -108,7 +111,7 @@ extension ForwardRouteTests {
     XCTAssertEqual(late.reason, "out_of_order")
   }
   func testConfirmedVetoPreemptsBeforeSearchAndRejectsOlderCandidate() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let before = planner.update(result: frame(), observation: nil, options: .init())
     var watermark: UInt64 = 0
     var last = before
@@ -136,7 +139,7 @@ extension ForwardRouteTests {
       ).update.path)
   }
   func testDisappearingVetoRestoresStraightRouteWithoutFreeCertification() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     var blocked = PathUpdate()
     for i in 0...3 {
       blocked = planner.update(
@@ -159,7 +162,7 @@ extension ForwardRouteTests {
     XCTAssertGreaterThan(filter.diagnostics.confirmedCells, 0)
   }
   func testVetoStillHonorsEpochTrackingAndExplicitStop() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let u = planner.update(result: frame(), observation: nil, options: .init())
     var gate = ResultPresentationGate()
     gate.enabled = true
@@ -181,7 +184,7 @@ extension ForwardRouteTests {
     XCTAssertNil(planner.update(result: frame(2, 1.1), observation: nil, options: options).path)
   }
   func testBodyEvidenceDoesNotOverrideConfiguredVetoWidth() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     var r = frame(cells: { abs($0.x) < 0.301 ? .unknown : .obstacle })
     r.parameters.bodyWidth = 1.2
     r.parameters.sideMargin = 0.5
@@ -204,7 +207,7 @@ extension ForwardRouteTests {
   }
 
   func testUnfinishedReplacementKeepsCommittedVetoUntilHazardOrReset() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let current = planner.update(result: frame(), observation: nil, options: .init())
     var pending = planner.update(result: frame(2, 1.1), observation: nil, options: .init())
     pending.path = nil
@@ -235,7 +238,7 @@ extension ForwardRouteTests {
   }
 
   func testConfirmedFullBlockCannotPublishAPathThroughIt() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let before = planner.update(result: frame(), observation: nil, options: .init())
     var after = before
     var watermark: UInt64 = 0
@@ -261,7 +264,7 @@ extension ForwardRouteTests {
   }
 
   func testBlockedCommittedDetourCanChangeSideInsteadOfWaitingForever() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     var update = PathUpdate()
     for i in 0...3 {
       update = planner.update(

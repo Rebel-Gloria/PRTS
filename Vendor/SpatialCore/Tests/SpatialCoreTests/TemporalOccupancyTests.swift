@@ -3,10 +3,13 @@ import simd
 
 @testable import SpatialCore
 
+// Build18 continuous-route comparison. Product three-state/waypoint scheduling is tested
+// in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
+
 // Synthetic tests of explicitly selected occupancy policy, not sensor accuracy.
 extension ForwardRouteTests {
   func testExperimentalGhostDoesNotStopRouteOrTriggerDetour() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let first = planner.update(result: frame(cells: box), observation: nil, options: .init())
     XCTAssertNotNil(first.path)
     XCTAssertNil(first.strategy?.maneuverID)
@@ -20,7 +23,7 @@ extension ForwardRouteTests {
   }
 
   func testExperimentalPersistentObstacleActivatesAt300ms() throws {
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     for index in 0..<4 {
       let r = frame(UInt64(index + 1), 1 + Double(index) * 0.1, cells: box)
       let u = planner.update(result: r, observation: nil, options: .init())
@@ -43,7 +46,7 @@ extension ForwardRouteTests {
     _ = filter.apply(frame(5, 1.3, cells: box))
     XCTAssertEqual(filter.diagnostics.confirmedCells, 0)
     XCTAssertEqual(filter.diagnostics.maximumAge, 0, accuracy: 0.0001)
-    var planner = PathPredictor(experimentalOccupancyPlanning: true)
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     for i in 0..<4 {
       _ = planner.update(
         result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box), observation: nil,

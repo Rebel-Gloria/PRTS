@@ -1,6 +1,6 @@
 # PRTS code structure
 
-Generated/maintained on 2026-09-29. Paths below are relative to the repository root.
+Generated/maintained on 2026-09-30. Paths below are relative to the repository root.
 
 ```text
 PRTS/
@@ -19,7 +19,8 @@ PRTS/
 │   └── CameraPreview.swift            # Shared Metal camera surface
 ├── Feedback/
 │   ├── FeedbackCoordinator.swift     # Result → speech/haptic policy
-│   ├── RouteAnnouncementPolicy.swift # One cue per avoidance/rejoin stage
+│   ├── ObstacleRouteAnnouncementPolicy.swift # Product clear/far/near speech, current goal only
+│   ├── RouteAnnouncementPolicy.swift # Legacy stage policy and shared turn hysteresis
 │   ├── SpeechManager.swift            # TTS ownership and cancellation
 │   ├── HapticManager.swift            # General UI/obstacle haptics
 │   └── PathHaptics.swift              # Fixed-target direction haptics
@@ -57,7 +58,10 @@ Vendor/
 ├── SpatialCore/                        # Pure Swift geometry and path algorithms
 │   ├── Sources/SpatialCore/
 │   │   ├── PathPrediction.swift         # Public path contracts, order/session facade, presentation
-│   │   ├── ForwardRoutePlanner.swift    # Straight/avoid/rejoin/user-turn state machine
+│   │   ├── ObstacleWaypointPlanner.swift # Product three-state/current/preview lifecycle
+│   │   ├── ObstacleWaypointState.swift   # Options, diagnostics, image bounds, stationary turn
+│   │   ├── ObstacleWaypointSearch.swift  # Stand-off target and reusable detour searches
+│   │   ├── ForwardRoutePlanner.swift    # Verified/legacy continuous-route comparator
 │   │   ├── RoutePlanningGrid.swift     # Search raster, independent of rendering
 │   │   ├── ForwardRouteState.swift      # World reference, diagnostics and turn dwell
 │   │   ├── ForwardObstacleTrigger.swift # Near triangle and occupied-component extent
@@ -104,3 +108,10 @@ No directory or module moves. `TemporalOccupancyGrid.swift` adapts confirmed wor
 into the rolling search raster; `RouteContinuity.swift` keeps publication/order/epoch contracts and
 diagnostic lengths. `PathPredictor` selects the product policy explicitly through `RuntimeProfile`.
 `RouteEvidenceMap` remains only the offline verified comparator. See [build17 report](OBSTACLE_VETO_2026-09-29.md).
+
+### Obstacle waypoints (build24)
+
+The product now uses `ObstacleWaypointPlanner` on the same worker and obstacle-veto raster.
+`PathUpdate.goal`/`path` contain only the current committed leg; `waypointGuidance.nextTarget`
+is a replaceable diagnostic preview. No directory moves or new dependency.
+See [three-state scheduling and delivery](OBSTACLE_WAYPOINTS_2026-09-30.md).

@@ -9,7 +9,9 @@ struct Sample: Decodable {
     let evidence: Reference
     let depth: Reference?
 }
+struct RecordedCapture: Decodable { let intrinsics: CameraIntrinsics? }
 struct Evidence: Decodable {
+    let capture: RecordedCapture?
     let analysis: AnalysisResult
     let pathOptions: PathOptions
 }
@@ -70,7 +72,8 @@ for path in CommandLine.arguments.dropFirst() {
                 epoch: header.epoch)
         }
         let result = evidence.analysis
-        let update = predictor.update(result: result, observation: observation, options: evidence.pathOptions)
+        let update = predictor.update(result: result, observation: observation, options: evidence.pathOptions,
+            cameraView: evidence.capture?.intrinsics.map { RouteCameraView(intrinsics: $0) })
         let row = ReplayRow(
             epoch: result.epoch, frameID: result.frameID, timestamp: result.timestamp, update: update,
             fresh: update.path?.validatedFrameID == result.frameID,

@@ -8,7 +8,7 @@ public enum RoutePlanningPolicy: String, Codable, Sendable {
 }
 
 public enum RouteStatus: String, Codable, Sendable {
-  case current, historical, needsObservation, hazardBlocked, trackingInvalid, planned
+  case current, historical, needsObservation, hazardBlocked, trackingInvalid, planned, clear
 }
 public struct RouteContinuityOptions: Codable, Sendable {
   public var minimumRenewalDistance: Float = 1.5
@@ -70,6 +70,7 @@ public enum RoutePublicationPolicy {
             && (kept.continuity?.hazardWatermark ?? 0) >= hazardWatermark
           ? RouteEvidencePresentation.validPrefix(path, now: now) : nil
       }
+      if current.path != nil && kept.path == nil { kept.goal = nil; kept.waypointGuidance = nil }
       return .init(update: updatedContext(kept, now: now), accepted: false, reason: why)
     }
     guard let c = candidate.continuity else { return reject("missing_route_context") }
@@ -91,6 +92,7 @@ public enum RoutePublicationPolicy {
     // lifecycle/coordinate resets remain separate from an unfinished candidate.
     if c.planningPolicy == RoutePlanningPolicy.obstacleVeto.rawValue,
       candidate.path == nil, current.path != nil,
+      candidate.waypointGuidance?.scenario != .clear, candidate.waypointGuidance?.scenario != .blocked,
       candidate.reason != "disabled", candidate.reason != "ground_or_metric_conflict"
     {
       return reject("candidate_not_ready")
@@ -111,7 +113,7 @@ private func updatedContext(_ update: PathUpdate, now: Double) -> PathUpdate {
   copy.continuity?.remainingVerifiedLength =
     copy.path?.verifiedEvidence == true ? (copy.path?.length ?? 0) : 0
   let noPathStatus: RouteStatus =
-    copy.continuity?.status == .hazardBlocked ? .hazardBlocked : .needsObservation
+    copy.waypointGuidance?.scenario == .clear ? .clear : copy.continuity?.status == .hazardBlocked ? .hazardBlocked : .needsObservation
   copy.continuity?.status =
     copy.path == nil
     ? noPathStatus

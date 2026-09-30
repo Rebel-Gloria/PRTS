@@ -3,11 +3,14 @@ import simd
 
 @testable import SpatialCore
 
+// Build18 continuous-route comparison. Product three-state/waypoint scheduling is tested
+// in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
+
 /// Synthetic clocks and poses: checks turn intent and rolling geometry, not device measurements.
 extension ForwardRouteTests {
   func testVetoCanAdoptSideAndReverseHeadingsAfterThreeSeconds() throws {
     for yaw: Float in [-180, -135, -90, 90, 135, 180] {
-      var planner = PathPredictor()
+      var planner = PathPredictor(legacyContinuousOccupancy: true)
       let first = planner.update(
         result: frame(cells: { _ in .unknown }), observation: nil, options: .init())
       var next = first
@@ -25,7 +28,7 @@ extension ForwardRouteTests {
     }
   }
   func testTurnDwellUsesHeadingRatherThanGlobalPitchStability() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     _ = planner.update(result: frame(), observation: nil, options: .init())
     var next = PathUpdate()
     for i in 1...35 {
@@ -38,7 +41,7 @@ extension ForwardRouteTests {
       simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), -pose(yaw: 70).back), 0.99)
   }
   func testTurnDwellWorksAtTwoHz() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     _ = planner.update(result: frame(), observation: nil, options: .init())
     var next = PathUpdate()
     for i in 1...8 {
@@ -50,7 +53,7 @@ extension ForwardRouteTests {
       simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), -pose(yaw: 65).back), 0.99)
   }
   func testStraightRollingTailDoesNotAccumulateGreedyWaypoints() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     for i in 0...150 {
       let r = frame(
         UInt64(i + 1), 1 + Double(i) * 0.1, pose: .init(position: V3(0, 1.4, -Float(i) * 0.2)),
@@ -62,7 +65,7 @@ extension ForwardRouteTests {
     }
   }
   func testSideRouteTailExtendsBeforeItsLocalGoalWithoutChangingIdentity() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     let obstacle: (V3) -> CellState = {
       abs($0.x) < 0.4 && -$0.z > 0.8 ? .obstacle : .unknown
     }
@@ -90,7 +93,7 @@ extension ForwardRouteTests {
     XCTAssertNotNil(planner.update(result: moved, observation: nil, options: .init()).path)
   }
   func testNewHeadingChecksObstaclesOutsideOriginalRouteWindow() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     _ = planner.update(result: frame(), observation: nil, options: .init())
     var update = PathUpdate()
     for i in 1...40 {
@@ -106,7 +109,7 @@ extension ForwardRouteTests {
     XCTAssertEqual(update.strategy?.turnReason, "new_heading_blocked")
   }
   func testStationaryVetoDoesNotAppendEightMetresEveryFrame() throws {
-    var planner = PathPredictor()
+    var planner = PathPredictor(legacyContinuousOccupancy: true)
     for i in 0...60 {
       let p = try XCTUnwrap(
         planner.update(

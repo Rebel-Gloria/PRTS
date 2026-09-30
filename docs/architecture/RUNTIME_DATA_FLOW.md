@@ -1,3 +1,6 @@
+> **Current product: build24.** The continuous-route descriptions below are build17/18 history.
+> [Obstacle waypoints](OBSTACLE_WAYPOINTS_2026-09-30.md) defines current clear/far/near scheduling, atomic current-goal handoff, and schema4.
+
 # Runtime data flow
 
 ## Capture
