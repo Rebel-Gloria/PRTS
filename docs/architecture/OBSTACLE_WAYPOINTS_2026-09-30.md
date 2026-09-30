@@ -136,6 +136,18 @@ xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Debug \
 - PRTSCore契约8项、Python46项通过；代码清单重新生成，未改变目录树。
 - 两个 Swift 回放工具编译通过；18帧明确标识的合成输入产生 clear 12帧、远障3帧、近障3帧，
   并验证空旷无路径和远障目标间距。该分布只是夹具测试，不是真机连续性指标。
-- 普通/Dev iOS Release构建与设备安装记录将在成功后追加；以上测试没有启动真机传感器。
+- 普通/Dev iOS Release构建与安装成功，详情如下；自动测试没有启动真机传感器。
 
 本地命令、XCResult与合成回放保存在 `/tmp/prts-route24/`，不将现场影像、密钥或传感器原始文件提交到Git。
+
+### 构建、签名与设备交付
+
+- 功能源码提交：`b28d112d1886902cfa2f513ed23e0bbe699be7f6`，已推送远端main。
+- 普通iOS Release及签名Dev Release构建通过，`codesign --verify --deep --strict`通过。
+- 两种包均包含新版规划器与播报策略；仅Dev包包含DevCaptureRecorder。
+- 2026-09-30 14:44在Gloria iPhone 15 Pro（iOS 27.0）成功启动；设备列表确认`1.0 (24)`。
+- 保留原bundle `com.jingxuan.PRTS`，未卸载、清除应用数据或自动开启采集。
+- 实际行走、持机变化和扬声器播报节奏仍待用户复测。
+
+[构建、测试、二进制与设备校验记录](OBSTACLE_WAYPOINTS_BUILD24_EVIDENCE.json)。
+此交付文档提交晚于源码提交；App内嵌commit保持上述实际构建源码版本。
