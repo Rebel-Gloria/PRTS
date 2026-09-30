@@ -27,6 +27,23 @@ class InventoryTests(unittest.TestCase):
             self.assertIn("| Total | 4 | 6 | 5 |", report(rows))
             self.assertEqual(rows, sorted(rows))
 
+    def test_contracts_optional_models_and_pruned_trees(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            paths = {
+                "Vendor/PRTSCore/Sources/PRTSContracts/A.swift": "Contracts",
+                "Vendor/PRTSCore/Sources/PRTSAppleModels/A.swift": "OptionalModels",
+                "Vendor/PRTSCore/Sources/PRTSAppleModelsLite/A.swift": "OptionalModels",
+                "Vendor/PRTSCore/Tests/PRTSContractsTests/A.swift": "Tests",
+            }
+            for name in (*paths, "PRTS/.build/Ignore.swift", "PRTS/build/Ignore.swift"):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("// fixture\n")
+            (root / "PRTS/Linked.swift").symlink_to(root / next(iter(paths)))
+            rows = inventory(root)
+            self.assertEqual({row[0]: row[1] for row in rows}, paths)
+
     def test_empty_is_valid(self):
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(inventory(Path(folder)), [])
