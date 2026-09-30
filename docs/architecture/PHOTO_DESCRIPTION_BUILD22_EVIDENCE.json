@@ -1,0 +1,77 @@
+{
+  "sourceCommit": "261c01a8fe5ca41fc643a25af85e59882c64abfc",
+  "build": "22",
+  "devCondition": "PRTS_DEV_CAPTURE",
+  "deliveredAt": "2026-09-30T10:59:52+08:00",
+  "voiceChange": "PhotoAudioOutput and both announcement paths share SpeechManager.announcementUtterance; persisted language/rate, default pitch/volume",
+  "voiceRegressionBefore": {
+    "result": "Failed",
+    "totalTestCount": 5,
+    "passedTests": 2,
+    "failedTests": 3
+  },
+  "appTests": {
+    "result": "Passed",
+    "passedTests": 37,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "otherTests": {
+    "SpatialCore": 296,
+    "Contracts": 8,
+    "Python": 46
+  },
+  "ordinaryRelease": "passed_unsigned",
+  "devRelease": "passed_signed_and_verified",
+  "binaryChecks": {
+    "signed": {
+      "build": "22",
+      "bundleID": "com.jingxuan.PRTS",
+      "version": "1.0",
+      "sourceCommit": "261c01a8fe5ca41fc643a25af85e59882c64abfc",
+      "devCaptureRecorderPresent": true,
+      "microphoneUsagePresent": true,
+      "speechRecognitionUsagePresent": true
+    },
+    "normal": {
+      "build": "22",
+      "bundleID": "com.jingxuan.PRTS",
+      "version": "1.0",
+      "sourceCommit": "261c01a8fe5ca41fc643a25af85e59882c64abfc",
+      "devCaptureRecorderPresent": false,
+      "microphoneUsagePresent": true,
+      "speechRecognitionUsagePresent": true
+    }
+  },
+  "device": {
+    "model": "iPhone 15 Pro",
+    "osVersion": "27.0",
+    "bundleID": "com.jingxuan.PRTS",
+    "installedBundleVersion": "22"
+  },
+  "installation": "success_without_uninstall",
+  "launch": "success",
+  "liveAPIAndPhysicalAudio": "awaiting_user_validation",
+  "sha256": {
+    "/tmp/prts-photo22/voice-before.log": "f56f12b40f3799a31bfc4401554a65f26ebc3bd08451ad1195d5d754c2986727",
+    "/tmp/prts-photo22/voice-before-summary.json": "5d7cd96f6b812fbc349290726d8a437d2d7ee0b7cc48f4fdc20f46ec0749750d",
+    "/tmp/prts-photo22/app-tests.log": "5d8c49116c663c2e58b917a610ff8f693af10b283b021320baefafa8d502e301",
+    "/tmp/prts-photo22/app-tests-summary.json": "a023a9ac565a9752334fabd2c15ccccca13f4baf62050e0c04db3cb2b6c5e32a",
+    "/tmp/prts-photo22/core-tests.log": "a0dd6ea99965a2860a534422f1b282b25b1e9a73c4026e0bf662961758e0ded0",
+    "/tmp/prts-photo22/contract-tests.log": "8af3418e10620db9720da23ab2e3a6f12eecc432b00ba863d0e371462730db01",
+    "/tmp/prts-photo22/python-tests.log": "c53f6d1438ec81428b790e24d493404db1fbb1d7cf8878852af3f83e994ce348",
+    "/tmp/prts-photo22/signed-build.log": "59defe7edb8126ed60c74359956035c3b4615ecebf9759626f1351328104409b",
+    "/tmp/prts-photo22/normal-build.log": "dbdc5d876be527bed757332c7724aed24749e545c1b485a2822cf64e48fe999d",
+    "/tmp/prts-photo22/signature.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/prts-photo22/binary-checks.json": "d7bc7a0185f92af80d0452be5ecf8c31c0031ba41c714e727260e56bf7a24d36",
+    "/tmp/prts-photo22/device-install.json": "2f9d65a04e94b087c39aac70a1cd942e84e3f26da11f805b9e4fc0ee072619cb",
+    "/tmp/prts-photo22/device-launch.json": "b9e0c86aa8b0c32976998b96912c208e4bc709efeb896404e9f48c8829d34d02",
+    "/tmp/prts-photo22/device-installed-app.json": "e5d763c929b939c54f8571ed370650ce16a925975275d756137464ad8091e118"
+  },
+  "sourceFilesSha256": {
+    "PRTS/Feedback/SpeechManager.swift": "a68d464972732aa92bdf2e7048cb3b515bb30fa1b638a36697aac77866244996",
+    "PRTS/PhotoDescription/PhotoAudioOutput.swift": "872a93d14119e9e683a12420f1c7019ceba17c3f9f5004a806ba481f88989909",
+    "PRTSTests/PhotoPresentationTests.swift": "77ed5cd78e6a1d631756b569d19fdfa017f5479fd86d56255b1471a53697316c",
+    "PRTS.xcodeproj/project.pbxproj": "1fb6d11a6af8bbb2d13f48c10069eb77153fd65d74d0720fb82e8d7ce437bdc9"
+  }
+}

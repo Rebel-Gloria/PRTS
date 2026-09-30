@@ -163,4 +163,8 @@ A/B提示音、0.5秒长按、语音识别、提示词、网络请求与路线�
 检查两种语言×三档语速的音色标识、rate/pitch/volume与播报配置一致；检查设置即时变更和跟随系统。
 三个配置回归测试先在旧回答配置上失败，修复后App测试37项全部通过；
 本轮SpatialCore 296项、PRTSCore契约8项、Python 46项全部通过。
-普通/Dev构建、签名及设备安装结果在操作完成后补充。
+普通iOS Release及签名Dev Release构建通过，严格签名校验通过；普通包不包含DevCaptureRecorder，
+Dev包包含该类型。2026-09-30 10:59在Gloria iPhone 15 Pro（iOS27.0）上成功启动，
+设备应用列表确认`1.0 (22)`，未卸载或清除历史数据。实际听感和真实服务调用仍待用户验证。
+源码提交：`261c01a8fe5ca41fc643a25af85e59882c64abfc`。
+[Build22构建、测试与设备证据](architecture/PHOTO_DESCRIPTION_BUILD22_EVIDENCE.json)。
