@@ -8,11 +8,11 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 37 | 4874 | 4618 |
+| App | 37 | 4894 | 4636 |
 | SpatialCore | 35 | 4798 | 4660 |
-| Tests | 35 | 4842 | 4685 |
+| Tests | 35 | 4893 | 4731 |
 | Scripts | 10 | 896 | 829 |
-| Total | 117 | 15410 | 14792 |
+| Total | 117 | 15481 | 14856 |
 
 ## 完整源码文件树
 
@@ -31,11 +31,11 @@ PRTS/
     HapticManager.swift (78 lines)
     PathHaptics.swift (81 lines)
     RouteAnnouncementPolicy.swift (58 lines)
-    SpeechManager.swift (344 lines)
+    SpeechManager.swift (369 lines)
   Integration/
     PRTSBackendBridge.swift (61 lines)
   PhotoDescription/
-    PhotoAudioOutput.swift (99 lines)
+    PhotoAudioOutput.swift (94 lines)
     PhotoChatClient.swift (54 lines)
     PhotoChatProtocol.swift (100 lines)
     PhotoCredentialStore.swift (47 lines)
@@ -74,7 +74,7 @@ PRTSTests/
   PhotoDescriptionTests.swift (151 lines)
   PhotoImageAlignmentTests.swift (59 lines)
   PhotoLifecycleTests.swift (190 lines)
-  PhotoPresentationTests.swift (57 lines)
+  PhotoPresentationTests.swift (108 lines)
 PRTSUITests/
   PRTSUITests.swift (144 lines)
   PRTSUITestsLaunchTests.swift (35 lines)
