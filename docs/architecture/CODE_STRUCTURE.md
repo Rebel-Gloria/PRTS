@@ -58,6 +58,8 @@ Vendor/
 ├── SpatialCore/                        # Pure Swift geometry and path algorithms
 │   ├── Sources/SpatialCore/
 │   │   ├── PathPrediction.swift         # Public path contracts, order/session facade, presentation
+│   │   ├── OccupancyFootprint.swift      # Current confirmed squares, including outside search raster
+│   │   ├── WaypointTransitionState.swift # Scenario / image-edge hysteresis
 │   │   ├── ObstacleWaypointPlanner.swift # Product three-state/current/preview lifecycle
 │   │   ├── ObstacleWaypointState.swift   # Options, diagnostics, image bounds, stationary turn
 │   │   ├── ObstacleWaypointSearch.swift  # Stand-off target and reusable detour searches

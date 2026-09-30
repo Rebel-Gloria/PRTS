@@ -8,11 +8,11 @@ App 包含 Swift 和 Metal 文本源码；算法单独统计。Tests 包含 Swif
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 38 | 5025 | 4763 |
-| SpatialCore | 38 | 5151 | 4994 |
-| Tests | 37 | 5312 | 5119 |
-| Scripts | 10 | 900 | 833 |
-| Total | 123 | 16388 | 15709 |
+| App | 38 | 5042 | 4779 |
+| SpatialCore | 40 | 5325 | 5161 |
+| Tests | 39 | 5521 | 5317 |
+| Scripts | 10 | 924 | 855 |
+| Total | 127 | 16812 | 16112 |
 
 ## 完整源码文件树
 
@@ -27,9 +27,9 @@ PRTS/
     CameraManager.swift (143 lines)
     CameraPreview.swift (11 lines)
   Feedback/
-    FeedbackCoordinator.swift (120 lines)
+    FeedbackCoordinator.swift (119 lines)
     HapticManager.swift (78 lines)
-    ObstacleRouteAnnouncementPolicy.swift (71 lines)
+    ObstacleRouteAnnouncementPolicy.swift (89 lines)
     PathHaptics.swift (81 lines)
     RouteAnnouncementPolicy.swift (58 lines)
     SpeechManager.swift (369 lines)
@@ -71,7 +71,7 @@ PRTS/
     SettingsView.swift (64 lines)
 PRTSTests/
   DevCaptureTests.swift (125 lines)
-  ObstacleRouteSpeechTests.swift (95 lines)
+  ObstacleRouteSpeechTests.swift (134 lines)
   PRTSTests.swift (103 lines)
   PhotoDescriptionTests.swift (151 lines)
   PhotoImageAlignmentTests.swift (59 lines)
@@ -84,7 +84,7 @@ Vendor/
   SpatialCore/
     Sources/
       SpatialCore/
-        Analysis.swift (180 lines)
+        Analysis.swift (182 lines)
         AppendFile.swift (15 lines)
         BlockingVolume.swift (66 lines)
         Depth.swift (146 lines)
@@ -105,23 +105,25 @@ Vendor/
         MetricScaleTracking.swift (113 lines)
         MonocularDepth.swift (185 lines)
         ObstaclePersistence.swift (38 lines)
-        ObstacleWaypointPlanner.swift (188 lines)
-        ObstacleWaypointSearch.swift (69 lines)
-        ObstacleWaypointState.swift (66 lines)
+        ObstacleWaypointPlanner.swift (203 lines)
+        ObstacleWaypointSearch.swift (102 lines)
+        ObstacleWaypointState.swift (68 lines)
+        OccupancyFootprint.swift (46 lines)
         PathDrawing.swift (98 lines)
         PathHapticPolicy.swift (82 lines)
-        PathObstacleCheck.swift (70 lines)
-        PathPrediction.swift (486 lines)
+        PathObstacleCheck.swift (75 lines)
+        PathPrediction.swift (489 lines)
         PredictedGeometry.swift (36 lines)
         ResultPresentationGate.swift (53 lines)
         RouteContinuity.swift (248 lines)
         RouteEvidenceMap.swift (262 lines)
-        RoutePlanningGrid.swift (54 lines)
+        RoutePlanningGrid.swift (69 lines)
         RouteProjection.swift (73 lines)
         SceneContracts.swift (156 lines)
         SurfaceHistory.swift (41 lines)
         SurfaceModel.swift (108 lines)
-        TemporalOccupancyGrid.swift (156 lines)
+        TemporalOccupancyGrid.swift (162 lines)
+        WaypointTransitionState.swift (47 lines)
     Tests/
       SpatialCoreTests/
         BlockingVolumeTests.swift (79 lines)
@@ -134,8 +136,9 @@ Vendor/
         MetricScaleTrackingTests.swift (142 lines)
         MonocularTests.swift (161 lines)
         MotionPresentationTests.swift (216 lines)
-        ObstacleWaypointTests.swift (279 lines)
+        ObstacleWaypointTests.swift (285 lines)
         OccupancyContinuityTests.swift (289 lines)
+        OccupancyFootprintTests.swift (66 lines)
         PathPredictionTests.swift (237 lines)
         RollingRouteTests.swift (135 lines)
         RouteEvidenceTests.swift (281 lines)
@@ -145,22 +148,23 @@ Vendor/
         TemporalOccupancyTests.swift (120 lines)
         TurnAndTailTests.swift (170 lines)
         VerifiedContinuityTests.swift (42 lines)
-        WorldRouteLockTests.swift (106 lines)
+        WaypointStabilityTests.swift (76 lines)
+        WorldRouteLockTests.swift (109 lines)
 scripts/
   code_inventory.py (78 lines)
-  compare_route_replays.py (60 lines)
+  compare_route_replays.py (76 lines)
   pull_diag.py (35 lines)
   read_dev_capture.py (89 lines)
   read_diag.py (324 lines)
   replay_route_snapshots.swift (34 lines)
-  replay_routes.swift (88 lines)
+  replay_routes.swift (96 lines)
   summarize_session.py (148 lines)
   sync-prts-core.sh (33 lines)
   test_code_inventory.py (37 lines)
   test_dev_capture.py (36 lines)
   test_read_diag.py (219 lines)
-  test_route_replay.py (28 lines)
-  test_spatial_integration.py (170 lines)
+  test_route_replay.py (40 lines)
+  test_spatial_integration.py (177 lines)
   test_summarize_session.py (39 lines)
   validate_spatial.sh (11 lines)
 ```
