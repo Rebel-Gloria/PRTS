@@ -53,26 +53,29 @@ struct ObstacleRouteSpeechTests {
         u.waypointGuidance?.nextTarget = SIMD3(-3,0,-2)
         u.waypointGuidance?.nextPreparedAt = 1.2
         #expect(policy.cue(update:u,heading:try heading(-25),now:1.2,deviationDegrees:12) == nil)
-        // Only promotion to a new committed identity allows its turn instruction.
-        #expect(policy.cue(update:try update("nearObstacle",goal:11),heading:try heading(25),now:1.3,deviationDegrees:12) == .obstacle(1.4,1))
+        // Promotion does not bypass the cooldown; the latest current direction is used later.
+        #expect(policy.cue(update:try update("nearObstacle",goal:11),heading:try heading(25),now:1.3,deviationDegrees:12) == nil)
+        #expect(policy.cue(update:try update("nearObstacle",goal:11),heading:try heading(25),now:3.5,deviationDegrees:12) == .obstacle(1.4,1))
     }
     @Test func unavailableHeadingCannotSpeakAPreviewDirection() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         #expect(policy.cue(update:try update("nearObstacle"),heading:nil,now:1,deviationDegrees:12) == .obstacle(1.4,nil))
-        #expect(policy.cue(update:try update("nearObstacle"),heading:try heading(25),now:1.1,deviationDegrees:12) == .obstacle(1.4,1))
+        #expect(policy.cue(update:try update("nearObstacle"),heading:try heading(25),now:1.1,deviationDegrees:12) == nil)
+        #expect(policy.cue(update:try update("nearObstacle"),heading:try heading(25),now:3.5,deviationDegrees:12) == .obstacle(1.4,1))
     }
     @Test func distanceUpdatesHaveAMinimumInterval() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         _ = policy.cue(update:try update("distantObstacle",distance:4),heading:nil,now:1,deviationDegrees:12)
         #expect(policy.cue(update:try update("distantObstacle",distance:3.4),heading:nil,now:2,deviationDegrees:12) == nil)
-        #expect(policy.cue(update:try update("distantObstacle",distance:3.4),heading:nil,now:4,deviationDegrees:12) == .obstacle(3.4,nil))
+        #expect(policy.cue(update:try update("distantObstacle",distance:3.4),heading:nil,now:5,deviationDegrees:12) == .obstacle(3.4,nil))
     }
     @Test func blockedAndRecoveryHaveDistinctCues() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         let cue = policy.cue(update:try update("blocked"),heading:try heading(-40),now:1,deviationDegrees:12)
         #expect(cue == .blocked(1.4))
         #expect(cue?.chinese.contains("暂无绕行路径") == true)
-        #expect(policy.cue(update:try update("clear"),heading:nil,now:2,deviationDegrees:12) == .clear)
+        #expect(policy.cue(update:try update("clear"),heading:nil,now:2,deviationDegrees:12) == nil)
+        #expect(policy.cue(update:try update("clear"),heading:nil,now:3.5,deviationDegrees:12) == .clear)
     }
     @Test func resetRearmsOpenSpaceAnnouncement() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
@@ -91,5 +94,41 @@ extension ObstacleRouteSpeechTests {
         let cue = policy.cue(update:u,heading:nil,now:1,deviationDegrees:12)
         #expect(cue == .adjustCamera(1.4))
         #expect(cue?.chinese == "前方障碍，约 1.4 米，请调整手机方向")
+    }
+}
+
+extension ObstacleRouteSpeechTests {
+    @Test func RepeatedGoalIDsOnSameSideDoNotRearmSpeech() throws {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        _ = policy.cue(update:try update("nearObstacle"),heading:try heading(-25),now:1,deviationDegrees:12)
+        for i in 1...40 {
+            let u = try update("nearObstacle",goal:UInt64(10+i))
+            #expect(!policy.interruptIfObsolete(update:u,heading:try heading(-25),threshold:12))
+            #expect(policy.cue(update:u,heading:try heading(-25),now:1+Double(i)*0.1,deviationDegrees:12) == nil)
+        }
+    }
+    @Test func transientScenarioChangesDoNotRestartAudio() throws {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        _ = policy.cue(update:try update("nearObstacle"),heading:try heading(-25),now:1,deviationDegrees:12)
+        for i in 1...30 {
+            let scenario = i.isMultiple(of:2) ? "nearObstacle" : "clear"
+            #expect(policy.cue(update:try update(scenario),heading:try heading(-25),now:1+Double(i)*0.1,deviationDegrees:12) == nil)
+        }
+    }
+    @Test func obsoleteTurnCancelsButDoesNotResetCooldownOrQueueOldDirection() throws {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        let old = try update("nearObstacle")
+        _ = policy.cue(update:old,heading:try heading(-25),now:1,deviationDegrees:12)
+        let next = try update("nearObstacle",goal:11)
+        #expect(policy.interruptIfObsolete(update:next,heading:try heading(25),threshold:12))
+        #expect(policy.cue(update:next,heading:try heading(25),now:1.1,deviationDegrees:12) == nil)
+        // Back to the original side before the cooldown expires: no queued right instruction.
+        #expect(policy.cue(update:next,heading:try heading(-25),now:3.5,deviationDegrees:12) == nil)
+    }
+    @Test func audioBusyDoesNotConsumeAnUnspokenTurn() throws {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        let u = try update("nearObstacle")
+        #expect(policy.cue(update:u,heading:try heading(-25),now:1,deviationDegrees:12,canSpeak:false) == nil)
+        #expect(policy.cue(update:u,heading:try heading(25),now:2,deviationDegrees:12) == .obstacle(1.4,1))
     }
 }

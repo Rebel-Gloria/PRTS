@@ -1,41 +1,59 @@
 import Foundation
 import SpatialCore
 
-/// Current committed goal only. A preview edit cannot re-arm or change turn speech.
+/// Rate-limit semantic instructions, not frame/goal IDs. A tiny replan to the same side
+/// neither interrupts nor re-arms speech. Suppressed turns are evaluated again from the
+/// LIVE current heading; no queue can replay a preview/obsolete target instruction.
 struct ObstacleRouteAnnouncementPolicy {
-    private var scenario: ObstacleRouteScenario?
-    private var goalID: UInt64?
+    private var observedScenario: ObstacleRouteScenario?
+    private var scenarioSince: Double = 0
+    private var spokenScenario: ObstacleRouteScenario?
     private var turns = TurnAnnouncementPolicy()
     private var distance: Float?
     private var spokenAt: Double = -.infinity
+    private var spokenTurn: Int?
+    static let minimumInterval: Double = 2.5
     mutating func reset() { self = .init() }
 
+    /// Cancel only a semantically obsolete turn, not every geometry revision. Cancellation
+    /// does not clear the cooldown, so rapid state changes cannot repeatedly restart audio.
+    mutating func interruptIfObsolete(update: PathUpdate, heading: PathHeading?, threshold: Float) -> Bool {
+        guard let side = spokenTurn else { return false }
+        let opposite = heading.map { $0.angleDegrees * Float(side) < -threshold } ?? false
+        guard update.path == nil || update.waypointGuidance?.scenario != .nearObstacle || opposite else { return false }
+        spokenTurn = nil
+        return true
+    }
+
     mutating func cue(update: PathUpdate, heading: PathHeading?, now: Double,
-                      deviationDegrees: Float) -> ObstacleRouteSpeech? {
+                      deviationDegrees: Float, canSpeak: Bool = true) -> ObstacleRouteSpeech? {
         guard let state = update.waypointGuidance else { return nil }
-        let entered = scenario != state.scenario
-        let changedGoal = goalID != update.goal?.id
-        if changedGoal || entered { turns.reset() }
-        scenario = state.scenario; goalID = update.goal?.id
-        if state.scenario == .clear {
-            distance = nil; turns.reset()
-            guard entered else { return nil }
-            spokenAt = now
-            return .clear
-        }
+        if observedScenario != state.scenario { observedScenario = state.scenario; scenarioSince = now }
+        let first = spokenScenario == nil
+        let entered = spokenScenario != state.scenario
+        // Initial cue is immediate. Subsequent transient clear/blocked/stage changes settle
+        // for 0.6s; all subsequent speech has a minimum spacing, including goal handoffs.
+        guard first || !entered || now-scenarioSince+0.000001 >= 0.6 else { return nil }
+        var proposedTurns = turns
         let turn = state.scenario == .nearObstacle && update.path != nil
-            ? turns.update(heading: heading, now: now, threshold: deviationDegrees, alignment: 5) : nil
-        let newTurn = turn != nil
+            ? proposedTurns.update(heading:heading,now:now,threshold:deviationDegrees,alignment:5) : nil
         let changedDistance = state.obstacleDistance.map { value in
             distance.map { abs(value-$0) >= 0.5 } ?? true
         } ?? false
-        guard entered || (changedGoal && state.scenario == .nearObstacle) || newTurn
-                || (changedDistance && now-spokenAt >= 3) else { return nil }
-        spokenAt = now; distance = state.obstacleDistance
-        if state.scenario == .blocked {
+        let distanceDue = state.scenario != .clear && changedDistance && now-spokenAt >= 4
+        // Keep alignment/re-arm observations while muted, but don't consume an unsaid turn.
+        if turn == nil { turns = proposedTurns }
+        guard canSpeak, first || now-spokenAt+0.000001 >= Self.minimumInterval,
+              first || entered || turn != nil || distanceDue else { return nil }
+        turns = proposedTurns
+        spokenAt = now; distance = state.obstacleDistance; spokenScenario = state.scenario
+        spokenTurn = turn
+        switch state.scenario {
+        case .clear: turns.reset(); return .clear
+        case .blocked:
             return update.reason == "no_visible_target" ? .adjustCamera(state.obstacleDistance) : .blocked(state.obstacleDistance)
+        case .nearObstacle, .distantObstacle: return .obstacle(state.obstacleDistance,turn)
         }
-        return .obstacle(state.obstacleDistance, turn)
     }
 }
 

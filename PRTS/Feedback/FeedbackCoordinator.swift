@@ -10,7 +10,7 @@ final class FeedbackCoordinator: ObservableObject {
     private var turnPolicy = TurnAnnouncementPolicy()
     private var routeSpeech = RouteAnnouncementPolicy()
     private var waypointSpeech = ObstacleRouteAnnouncementPolicy()
-    private var waypointSpeechIdentity: String?
+    private var hasWaypointFeedback = false
     private var turnEpoch: UInt64?
     private var turnGoal: UInt64?
     private var turnVersion: UInt64?
@@ -21,27 +21,26 @@ final class FeedbackCoordinator: ObservableObject {
         guard speech.voiceAnnouncementsEnabled else { turnPolicy.reset();routeSpeech.reset();waypointSpeech.reset();return }
         if snapshot.pathUpdate.waypointGuidance != nil {
             if turnEpoch != snapshot.epoch || turnVersion != snapshot.parameterVersion {
-                waypointSpeech.reset(); turnEpoch = snapshot.epoch; turnVersion = snapshot.parameterVersion
+                waypointSpeech.reset(); speech.cancelPerceptionSpeech(); turnEpoch = snapshot.epoch; turnVersion = snapshot.parameterVersion
             }
-            guard let update = snapshot.activeWaypointUpdate(now: now), let state = update.waypointGuidance else {
-                speech.cancelPerceptionSpeech(); waypointSpeech.reset(); waypointSpeechIdentity = nil
+            hasWaypointFeedback = true
+            guard let update = snapshot.activeWaypointUpdate(now: now) else {
+                // A dropped/stale frame pauses speech without re-arming its one-shot latch.
+                speech.cancelPerceptionSpeech()
                 return
             }
-            let identity = "\(snapshot.epoch):\(snapshot.parameterVersion):\(update.goal?.id ?? 0):\(state.scenario.rawValue)"
-            if waypointSpeechIdentity != identity {
-                // A queued/spoken turn from the old goal must not survive an atomic handoff.
+            let heading = snapshot.pathHeading(now: now)
+            if waypointSpeech.interruptIfObsolete(update:update,heading:heading,threshold:snapshot.pathOptions.deviationDegrees) {
                 speech.cancelPerceptionSpeech()
-                waypointSpeechIdentity = identity
             }
-            guard !speech.isSpeakingPerception else { return }
-            if let cue = waypointSpeech.cue(update: update, heading: snapshot.pathHeading(now: now),
-                now: now, deviationDegrees: snapshot.pathOptions.deviationDegrees) {
+            if let cue = waypointSpeech.cue(update:update,heading:heading,now:now,
+                deviationDegrees:snapshot.pathOptions.deviationDegrees,canSpeak:!speech.isSpeakingPerception) {
                 speech.speakPerception(cue.chinese, english: cue.english)
             }
             return
         }
-        if waypointSpeechIdentity != nil {
-            speech.cancelPerceptionSpeech(); waypointSpeech.reset(); waypointSpeechIdentity = nil
+        if hasWaypointFeedback {
+            speech.cancelPerceptionSpeech(); waypointSpeech.reset(); hasWaypointFeedback = false
         }
         if turnEpoch != snapshot.epoch || turnVersion != snapshot.parameterVersion { routeSpeech.reset() }
         // Do not interrupt an obstacle warning, or consume the one-shot latch before it can
@@ -62,7 +61,7 @@ final class FeedbackCoordinator: ObservableObject {
     private(set) var lastConsumedResultID: String?
     private(set) var lastSpokenResultID: String?
 
-    func reset() { waypointSpeech.reset(); waypointSpeechIdentity = nil; policy.reset(); turnPolicy.reset(); routeSpeech.reset(); turnEpoch = nil; turnGoal = nil; turnVersion = nil; lastConsumedResultID = nil; lastSpokenResultID = nil }
+    func reset() { waypointSpeech.reset(); hasWaypointFeedback = false; policy.reset(); turnPolicy.reset(); routeSpeech.reset(); turnEpoch = nil; turnGoal = nil; turnVersion = nil; lastConsumedResultID = nil; lastSpokenResultID = nil }
 
     /// A missing result pauses output, not the identity of a held manoeuvre. Lifecycle,
     /// settings, epoch and parameter changes still use the explicit full reset above.
