@@ -72,7 +72,7 @@ Vendor/
 │   │   ├── PathObstacleCheck.swift      # Shared occupancy/optional depth intersection
 │   │   └── …                            # Existing ground/depth/grid/diagnostic algorithms retained
 │   └── Tests/SpatialCoreTests/
-└── PRTSCore/                           # Optional contracts/model compatibility
+└── PRTSCore/                           # Linked PRTSContracts + unlinked optional model sources
 
 docs/                                   # Design, validation and release notes
 scripts/                                # Validation, DIAG reading and maintenance tools
@@ -95,7 +95,7 @@ The source layout is checked by `scripts/test_spatial_integration.py`. The test 
 The 2026-09-29 strategy adds helpers inside the existing modules; no existing directories were moved.
 `PathPredictor` remains the runtime entry point. The policy, diagnostic schema and synthetic/physical validation boundary are in [Forward route policy](FORWARD_ROUTE_POLICY.md).
 
-### 平面预测扩展
+### 历史平面预测扩展（非build24/25默认产品链）
 `SpatialCore/RouteProjection.swift` 负责二维占用截断与视觉预测；
 `PathDrawing` 生成独立虚线。App 的 Snapshot/Renderer 只负责展示，Feedback 不读取预测线。
 详见 [ROUTE_PROJECTION.md](ROUTE_PROJECTION.md)。
@@ -117,3 +117,9 @@ The product now uses `ObstacleWaypointPlanner` on the same worker and obstacle-v
 `PathUpdate.goal`/`path` contain only the current committed leg; `waypointGuidance.nextTarget`
 is a replaceable diagnostic preview. No directory moves or new dependency.
 See [three-state scheduling and delivery](OBSTACLE_WAYPOINTS_2026-09-30.md).
+
+## 审计边界（2026-09-30）
+
+当前产品调用链、无调用入口与优化建议见 [build25代码审计](CODE_AUDIT_2026-09-30.md)。
+Xcode实际链接 `PRTSContracts` 与 `SpatialCore`；PRTSAppleModels完整/Lite源码和Experiments不进入当前产品链。
+完整树分别列出契约与可选模型，不能把全部源码行数当作App编译量。

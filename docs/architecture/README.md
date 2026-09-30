@@ -16,3 +16,5 @@ The architecture is intentionally split into product UI, capture ownership, spat
 - [build17 obstacle-veto](OBSTACLE_VETO_2026-09-29.md) — obstacle-veto 基础策略、滚动续接、测试与安装记录。
 
 - [build18 转向与尾部续接](TURN_TAIL_2026-09-29.md) — 当前修复、回归测试和交付。
+
+- [build25当前代码审计](CODE_AUDIT_2026-09-30.md) — 悬空入口、启停时序、性能机会和本轮测试边界。
