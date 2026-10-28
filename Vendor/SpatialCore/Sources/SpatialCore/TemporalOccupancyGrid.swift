@@ -42,6 +42,14 @@ struct TemporalOccupancyGrid: Sendable {
       epoch = result.epoch
       parameterVersion = result.parameterVersion
     }
+    // Only confirmed local ground may replace an existing reference. Association tracks
+    // stay in measured world coordinates; changing this plane must never reset their age.
+    if result.diagnostics?.groundConfirmed == true, let next = result.plane,
+      LocalGroundRebase.accepts(next),
+      referencePlane.map({ LocalGroundRebase.needed(from: $0, to: next, at: pose.position) }) ?? true {
+      referencePlane = next
+      referenceSource = "confirmed_local_plane"
+    }
     if referencePlane == nil {
       if let plane = result.plane {
         referencePlane = plane
