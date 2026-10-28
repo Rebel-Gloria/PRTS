@@ -63,15 +63,8 @@ final class FeedbackCoordinator: ObservableObject {
 
     func reset() { waypointSpeech.reset(); hasWaypointFeedback = false; policy.reset(); turnPolicy.reset(); routeSpeech.reset(); turnEpoch = nil; turnGoal = nil; turnVersion = nil; lastConsumedResultID = nil; lastSpokenResultID = nil }
 
-    /// A missing result pauses output, not the identity of a held manoeuvre. Lifecycle,
-    /// settings, epoch and parameter changes still use the explicit full reset above.
-    func suspendResultFeedback(now: Double = ProcessInfo.processInfo.systemUptime) {
-        policy.reset();lastConsumedResultID = nil;lastSpokenResultID = nil
-        _ = turnPolicy.update(heading:nil,now:now,threshold:12,alignment:5)
-    }
-
     func consume(_ result: SceneResult, now: Double = ProcessInfo.processInfo.systemUptime,
-                 speech: SpeechManager, haptics: HapticManager, announceCandidates: Bool = true) {
+                 speech: SpeechManager, announceCandidates: Bool = true) {
         lastConsumedResultID = result.id
         for event in policy.evaluate(result, now: now) {
             lastSpokenResultID = event.resultID

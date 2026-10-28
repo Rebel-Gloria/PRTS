@@ -6,7 +6,7 @@
 //
 
 import AVFoundation
-@preconcurrency import PRTSContracts
+import UIKit
 import Combine
 
 enum SpeechRateOption: String, CaseIterable, Identifiable, Hashable {
@@ -40,7 +40,7 @@ enum SpeechRateOption: String, CaseIterable, Identifiable, Hashable {
 }
 
 @MainActor
-final class SpeechManager: NSObject, ObservableObject {
+final class SpeechManager: ObservableObject {
     @Published private(set) var voiceAnnouncementsEnabled: Bool
     @Published private(set) var rateOption: SpeechRateOption
     @Published private(set) var followSystemLanguageEnabled: Bool
@@ -58,11 +58,6 @@ final class SpeechManager: NSObject, ObservableObject {
         guard perceptionSpeechActive else { return }
         stopCurrentSpeech()
     }
-    private var backendQueue: [SpeechRequest] = []
-    private var activeBackendRequest: SpeechRequest?
-    private var activeBackendUtteranceID: ObjectIdentifier?
-    private var backendExpiryTimer: Timer?
-    var backendPlaybackChanged: ((Bool) -> Void)?
 
     private enum DefaultsKey {
         static let voiceAnnouncementsEnabled = "voiceAnnouncementsEnabled"
@@ -71,7 +66,7 @@ final class SpeechManager: NSObject, ObservableObject {
         static let selectedLanguage = "selectedLanguage"
     }
 
-    override init() {
+    init() {
         let defaults = UserDefaults.standard
         voiceAnnouncementsEnabled = defaults.object(
             forKey: DefaultsKey.voiceAnnouncementsEnabled
@@ -85,15 +80,17 @@ final class SpeechManager: NSObject, ObservableObject {
         selectedLanguage = SpeechLanguage(
             rawValue: defaults.string(forKey: DefaultsKey.selectedLanguage) ?? ""
         ) ?? .english
-
-        super.init()
-        synthesizer.delegate = self
     }
 
     /// The locale used by SwiftUI for the entire app. For unsupported system
     /// languages, English is the supported fallback.
     var interfaceLocale: Locale {
         Locale(identifier: activeLanguage.resourceIdentifier)
+    }
+
+    /// UIKit and status strings in the same language as the SwiftUI interface.
+    func interfaceString(_ key: String) -> String {
+        localized(key)
     }
 
     func speakHomeScreen(cameraState: CameraState = .idle) {
@@ -104,7 +101,7 @@ final class SpeechManager: NSObject, ObservableObject {
             ? "speech.camera.stopAction"
             : "speech.camera.startAction"
 
-        speak(localized(
+        announce(localized(
             "speech.home",
             arguments: [localized(cameraStatusKey), localized(cameraActionKey)]
         ))
@@ -121,11 +118,11 @@ final class SpeechManager: NSObject, ObservableObject {
             ]
         )
         lastSettingsAnnouncement = message
-        speak(message)
+        announce(message)
     }
 
     func speakHapticFeedbackState(_ enabled: Bool) {
-        speak(localized(
+        announce(localized(
             "speech.haptic.changed",
             arguments: [localized(enabled ? "speech.value.on" : "speech.value.off")]
         ))
@@ -150,6 +147,8 @@ final class SpeechManager: NSObject, ObservableObject {
         let utterance = AVSpeechUtterance(string: message)
         utterance.rate = rate.avSpeechRate
         utterance.voice = AVSpeechSynthesisVoice(language: language.localeIdentifier)
+        // With VoiceOver on, cues and photo answers use its voice and rate instead.
+        utterance.prefersAssistiveTechnologySettings = true
         return utterance
     }
 
@@ -171,73 +170,27 @@ final class SpeechManager: NSObject, ObservableObject {
         return announcementUtterance(message, rate: rate, language: language)
     }
 
-    /// Enqueue a real backend speech_request. Playback feedback is emitted only from
-    /// AVSpeechSynthesizerDelegate callbacks, never when a request is merely received.
-    func enqueueBackendSpeech(_ request: SpeechRequest) {
-        let now = ProcessInfo.processInfo.systemUptime
-        guard request.expires_s > now, !request.text.isEmpty else { return }
-        backendQueue.removeAll { $0.expires_s <= now || $0.replace_group == request.replace_group }
-        if backendQueue.count >= 16 {
-            if let lowest = backendQueue.indices.min(by: { backendQueue[$0].priority < backendQueue[$1].priority }),
-               backendQueue[lowest].priority < request.priority {
-                backendQueue.remove(at: lowest)
-            } else if backendQueue.count >= 16 {
-                return
-            }
-        }
-        backendQueue.append(request)
-        if let activeBackendRequest,
-           request.replace_group == activeBackendRequest.replace_group || request.priority > activeBackendRequest.priority {
-            synthesizer.stopSpeaking(at: .immediate)
-        } else if activeBackendRequest == nil {
-            speakNextBackendRequest()
+    /// Interface status. With VoiceOver running it is handed to VoiceOver and queued behind
+    /// what VoiceOver is reading, so it is never spoken twice or on top of the screen reader.
+    func announce(_ message: String) {
+        guard UIAccessibility.isVoiceOverRunning else { speak(message); return }
+        perceptionSpeechActive = false
+        guard voiceAnnouncementsEnabled else { return }
+        Self.postQueuedAnnouncement(message)
+    }
+
+    /// Camera state used to go to both VoiceOver and the synthesizer; now it uses one channel.
+    func announceCameraState(_ state: CameraState) {
+        if UIAccessibility.isVoiceOverRunning {
+            Self.postQueuedAnnouncement(accessibilityAnnouncement(for: state))
+        } else {
+            speakCameraState(state)
         }
     }
 
-    func cancelBackendSpeech() {
-        backendQueue.removeAll()
-        backendExpiryTimer?.invalidate()
-        backendExpiryTimer = nil
-        guard activeBackendRequest != nil else { return }
-        synthesizer.stopSpeaking(at: .immediate)
-    }
-
-    private func speakNextBackendRequest() {
-        let now = ProcessInfo.processInfo.systemUptime
-        backendQueue.removeAll { $0.expires_s <= now }
-        guard let index = backendQueue.indices.max(by: {
-            backendQueue[$0].priority == backendQueue[$1].priority
-                ? backendQueue[$0].sequence > backendQueue[$1].sequence
-                : backendQueue[$0].priority < backendQueue[$1].priority
-        }) else {
-            backendPlaybackChanged?(false)
-            return
-        }
-        let request = backendQueue.remove(at: index)
-        guard voiceAnnouncementsEnabled else { speakNextBackendRequest(); return }
-        prepareAudioSession()
-        let utterance = Self.announcementUtterance(request.text, rate: rateOption, language: activeLanguage)
-        activeBackendRequest = request
-        activeBackendUtteranceID = ObjectIdentifier(utterance)
-        synthesizer.speak(utterance)
-        backendExpiryTimer?.invalidate()
-        let requestSequence = request.sequence
-        backendExpiryTimer = Timer.scheduledTimer(withTimeInterval: max(0.01, request.expires_s - now), repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, self.activeBackendRequest?.sequence == requestSequence else { return }
-                self.synthesizer.stopSpeaking(at: .immediate)
-            }
-        }
-    }
-
-    private func finishBackendUtterance(_ utteranceID: ObjectIdentifier) {
-        guard activeBackendUtteranceID == utteranceID else { return }
-        activeBackendRequest = nil
-        activeBackendUtteranceID = nil
-        backendExpiryTimer?.invalidate()
-        backendExpiryTimer = nil
-        backendPlaybackChanged?(false)
-        speakNextBackendRequest()
+    static func postQueuedAnnouncement(_ message: String) {
+        UIAccessibility.post(notification: .announcement, argument: NSAttributedString(
+            string: message, attributes: [.accessibilitySpeechQueueAnnouncement: true]))
     }
 
     func speakCameraState(_ state: CameraState) {
@@ -264,16 +217,12 @@ final class SpeechManager: NSObject, ObservableObject {
         }
     }
 
-    func localizedInterfaceString(_ key: String) -> String {
-        localized(key)
-    }
-
     func setVoiceAnnouncementsEnabled(_ enabled: Bool) {
         voiceAnnouncementsEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: DefaultsKey.voiceAnnouncementsEnabled)
 
         if enabled {
-            speak(localized("speech.voice.enabled"))
+            announce(localized("speech.voice.enabled"))
         } else {
             stopCurrentSpeech()
         }
@@ -283,7 +232,7 @@ final class SpeechManager: NSObject, ObservableObject {
         rateOption = option
         UserDefaults.standard.set(option.rawValue, forKey: DefaultsKey.speechRateOption)
 
-        speak(localized("speech.rate.changed", arguments: [localized(option.localizationKey)]))
+        announce(localized("speech.rate.changed", arguments: [localized(option.localizationKey)]))
     }
 
     func setFollowSystemLanguageEnabled(_ enabled: Bool) {
@@ -302,9 +251,6 @@ final class SpeechManager: NSObject, ObservableObject {
 
     func stopCurrentSpeech() {
         perceptionSpeechActive = false
-        backendQueue.removeAll()
-        backendExpiryTimer?.invalidate()
-        backendExpiryTimer = nil
         guard synthesizer.isSpeaking else { return }
         synthesizer.stopSpeaking(at: .immediate)
     }
@@ -325,7 +271,7 @@ final class SpeechManager: NSObject, ObservableObject {
     }
 
     private func speakLanguageSetting() {
-        speak(languageSettingAnnouncement)
+        announce(languageSettingAnnouncement)
     }
 
     private func localized(_ key: String) -> String {
@@ -345,25 +291,5 @@ final class SpeechManager: NSObject, ObservableObject {
         } catch {
             // Speech synthesis can still work when another audio session owns the audio route.
         }
-    }
-}
-
-extension SpeechManager: AVSpeechSynthesizerDelegate {
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        let utteranceID = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in
-            guard let self, self.activeBackendUtteranceID == utteranceID else { return }
-            self.backendPlaybackChanged?(true)
-        }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        let utteranceID = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.finishBackendUtterance(utteranceID) }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        let utteranceID = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.finishBackendUtterance(utteranceID) }
     }
 }

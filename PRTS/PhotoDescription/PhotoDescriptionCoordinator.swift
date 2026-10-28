@@ -128,7 +128,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private func startRecording() {
         guard services.speechAuthorized() else {
             cancel()
-            message = "请允许麦克风和语音识别，然后重新长按"
+            message = "需要麦克风权限，允许后再长按"
             let id = generation
             work = Task { [weak self] in
                 let granted = await self?.services.requestSpeechPermission() ?? false

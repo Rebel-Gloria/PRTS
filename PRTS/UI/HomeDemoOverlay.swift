@@ -10,12 +10,12 @@ struct HomeDemoOverlay: View {
     @ObservedObject var model: ProbeViewModel
     var body: some View {
         VStack(alignment:.leading,spacing:8) {
-            #if PRTS_DEV_CAPTURE
             if model.devCaptureStatus.enabled || model.devCaptureStatus.busy {
-                Text("● 开发信息采集 · 摄像机视频正在保存或结束中")
-                    .font(.caption.bold()).foregroundStyle(.red).padding(8).background(.black.opacity(0.8))
+                Text("● 正在录制开发数据")
+                    .font(.caption.bold()).foregroundStyle(.red)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(.black.opacity(0.8), in: Capsule())
             }
-            #endif
             if showTechnicalOverlay && model.options.showHUD {
                 VStack(alignment:.leading,spacing:4) {
                     let s = model.snapshot
@@ -48,18 +48,18 @@ struct HomeDemoOverlay: View {
                     if let error = model.diagnosticStatus.error { Text(error).foregroundStyle(.orange) }
                 }
                 .accessibilityIdentifier("homeDemoMetrics")
-                .padding(10).background(.black.opacity(0.65),in:RoundedRectangle(cornerRadius:12))
+                .padding(12).readableGlassPanel()
             }
             if showTechnicalOverlay && model.options.showLegends {
                 VStack(alignment:.leading,spacing:4) {
                     if !model.capabilities.world {
-                        Text("当前设备无世界追踪；仅显示界面，不提供实测空间数据")
+                        Text("此设备不支持空间追踪，仅显示界面")
                     } else if !model.snapshot.running {
                         Text("未采集；无当前传感器数据")
                     } else {
-                        Text(model.snapshot.usesMonocular ? "来源：Core ML 预测＋原生尺度校准（非LiDAR实测）" : "来源：ARKit LiDAR")
+                        Text(model.snapshot.usesMonocular ? "来源：Core ML 预测（已校准尺度）" : "来源：ARKit LiDAR")
                     }
-                    if !model.options.showCameraImage { Text("RGB画面已隐藏；采集状态见主按钮") }
+                    if !model.options.showCameraImage { Text("画面已隐藏") }
                     if model.options.showOverlays {
                         Text("蓝：地面 · 红：障碍范围")
                         if model.options.showPath { Text("黄线：占用规划 · 淡蓝虚线：远向投影 · 圈：局部前沿") }
@@ -73,7 +73,7 @@ struct HomeDemoOverlay: View {
                     if model.options.layer == .confidence { Text("置信度：低＝红 · 中＝黄 · 高＝青；无效/缺失＝灰，无LiDAR无传感器置信度") }
                 }
                 .accessibilityIdentifier("homeDemoLegend")
-                .padding(10).background(.black.opacity(0.65),in:RoundedRectangle(cornerRadius:12))
+                .padding(12).readableGlassPanel()
             }
         }
         .font(.system(.caption2,design:.monospaced))

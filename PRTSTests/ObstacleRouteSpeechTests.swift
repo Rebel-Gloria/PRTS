@@ -93,7 +93,7 @@ extension ObstacleRouteSpeechTests {
         u.reason = "no_visible_target"
         let cue = policy.cue(update:u,heading:nil,now:1,deviationDegrees:12)
         #expect(cue == .adjustCamera(1.4))
-        #expect(cue?.chinese == "前方障碍，约 1.4 米，请调整手机方向")
+        #expect(cue?.chinese == "前方障碍，约 1.4 米，请转动手机")
     }
 }
 

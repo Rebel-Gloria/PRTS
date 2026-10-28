@@ -167,19 +167,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         diagnostics.event("path_options",details:String(data:(try? DiagnosticJSON.encode(options.validated())) ?? Data(),encoding:.utf8) ?? "",epoch:store.read().epoch)
     }
     func updateOptions(_ options: RenderOptions) { store.update { $0.options = options }; diagnostics.event("render_options",details:String(data:(try? DiagnosticJSON.encode(options)) ?? Data(),encoding:.utf8) ?? "encode_failed",epoch:store.read().epoch) }
-    func freeze() {
-        diagnostics.event("freeze_toggle",details:store.read().frozen == nil ? "frozen" : "live",epoch:store.read().epoch)
-        store.update { s in
-            if s.frozen != nil { s.frozen = nil; s.frozenMonocular = nil } else {
-                let prediction = s.activeMonocular
-                s.frozen = s.usesMonocular ? (prediction?.frame ?? s.frame) : s.frame
-                s.frozenMonocular = prediction
-            }
-            s.result = nil; s.surfaceHistory.reset(); s.pathUpdate = .init(reason:"invalidated")
-            s.minimumGeometryFrameID = (s.frame?.id ?? 0) + 1
-            s.minimumGuidanceFrameID = s.minimumGeometryFrameID
-        }
-    }
     func manualSample(display: [String:String]) {
         let s = store.read()
         if s.usesMonocular {
