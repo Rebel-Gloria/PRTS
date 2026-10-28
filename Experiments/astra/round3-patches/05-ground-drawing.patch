@@ -1,0 +1,238 @@
+Subject: 修剪近身折返并绘制可回退的圆角
+
+Co-Authored-By: GPT-6 Astra <noreply@openai.com>
+
+--- a/PRTS/Spatial/Rendering/ProbeRenderer.swift
++++ b/PRTS/Spatial/Rendering/ProbeRenderer.swift
+@@ -256,3 +256,4 @@
+                 }
+-                updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime))
++                updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime),
++                                 obstacles:s.pathUpdate.confirmedObstacles,obstacleFrameID:s.pathUpdate.continuity?.frameID ?? 0,bodyWidth:s.parameters.bodyWidth)
+                 if s.options.showPath,let pathBuffer,pathCount > 0 {
+@@ -380,3 +381,4 @@
+     }
+-    private func updatePathBuffer(_ presentation: PathPresentation?, projection: RouteProjection?) {
++    private func updatePathBuffer(_ presentation: PathPresentation?, projection: RouteProjection?,
++                                  obstacles:[OccupancyFootprint]?,obstacleFrameID:UInt64,bodyWidth:Float) {
+         guard presentation != nil || projection != nil else {
+@@ -386,5 +388,5 @@
+         // only the first point/frame ID, so the cached buffer cannot retain an expired tail.
+-        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(presentation?.path.points.hashValue ?? 0):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0)"
++        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(presentation?.path.points.hashValue ?? 0):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0):\(obstacleFrameID):\(bodyWidth)"
+         guard key != pathKey else { return }; pathKey = key
+-        var meshes = presentation.map { PathDrawing.meshes($0) } ?? []
++        var meshes = presentation.map { PathDrawing.meshes($0,obstacles:obstacles,bodyWidth:bodyWidth) } ?? []
+         if let projection { meshes.append(PathDrawing.projectionMesh(projection, observed: presentation)) }
+--- /dev/null
++++ b/Vendor/SpatialCore/Sources/SpatialCore/GroundRouteDrawing.swift
+@@ -0,0 +1,89 @@
++import Foundation
++import simd
++
++/// Display-only centerline. A fallback is still drawn and is never promoted to route authority.
++public struct GroundRouteShape: Sendable {
++    public var points: [V3]
++    public var usedFallback: Bool
++    public var reason: String?
++}
++public enum GroundRouteDrawing {
++    public static func make(_ presentation: PathPresentation, obstacles: [OccupancyFootprint]?,
++                            bodyWidth: Float? = nil) -> GroundRouteShape {
++        let original = Array(presentation.approach.dropLast()) + presentation.path.points
++        func fallback(_ reason: String) -> GroundRouteShape {
++            .init(points:original,usedFallback:true,reason:reason)
++        }
++        let plane = presentation.path.plane
++        let width = max(presentation.path.requiredWidth,bodyWidth ?? presentation.path.requiredWidth)
++        guard LocalGroundRebase.accepts(plane), width.isFinite, width > 0,
++              original.count >= 2, original.count <= 256,
++              original.allSatisfy({$0.x.isFinite && $0.y.isFinite && $0.z.isFinite}),
++              let obstacles else { return fallback("drawing_constraints_unavailable") }
++        var source = original.map { LocalGroundRebase.lift($0,to:plane) }
++        // The retained planning tail may be behind the feet. Join its nearest entry
++        // projection without touching any planning vertex, goal, or following corner.
++        if !presentation.approach.isEmpty, source.count >= 3 {
++            let a=source[1], v=source[2]-a
++            let t=max(0,min(1,simd_dot(source[0]-a,v)/max(0.000001,simd_length_squared(v))))
++            source=[source[0],a+v*t]+Array(source.dropFirst(2))
++        }
++        source=coalesced(source)
++        for trim:Float in [0.12,0.06] {
++            let candidate=rounded(source,trim:trim)
++            guard candidate.count >= 2, candidate.count <= 1024,
++                  withinDeviation(candidate,original:original),
++                  // Check EVERY final rendered chord after all geometric operations.
++                  zip(candidate,candidate.dropFirst()).allSatisfy({a,b in
++                      !obstacles.contains{$0.overlaps(from:a,to:b,radius:width/2+0.001)}
++                  }) else { continue }
++            return .init(points:candidate,usedFallback:false,reason:nil)
++        }
++        // Display coverage must never depend on smoothing success. The original may
++        // intersect today's model; keeping its visualization is not a safety certificate.
++        return fallback("smoothing_constraints_rejected")
++    }
++
++    private static func coalesced(_ points:[V3])->[V3] {
++        var result:[V3]=[]
++        for p in points where result.last.map({simd_distance($0,p)>0.00001}) ?? true {result.append(p)}
++        return result
++    }
++    static func rounded(_ points:[V3],trim:Float)->[V3] {
++        guard points.count >= 3, trim > 0 else {return points}
++        var result=[points[0]]
++        for i in 1..<points.count-1 {
++            let a=points[i-1], b=points[i], c=points[i+1]
++            let d0=simd_distance(a,b),d1=simd_distance(b,c)
++            guard min(d0,d1)>0.00001 else{continue}
++            let v=(b-a)/d0,w=(c-b)/d1,dot=simd_dot(v,w)
++            if dot>0.9999 || dot < -0.95 {result.append(b);continue}
++            let t=min(trim,min(d0,d1)*0.25),p0=b-v*t,p2=b+w*t
++            result.append(p0)
++            // Bound the quadratic-to-chord deviation to 1mm. Keep these exact chords
++            // for collision validation and tessellation (no unchecked resampling later).
++            let n=max(2,Int(ceil(sqrt(simd_length(p0-2*b+p2)/0.004))))
++            for j in 1...n {
++                let u=Float(j)/Float(n)
++                result.append((1-u)*(1-u)*p0+2*u*(1-u)*b+u*u*p2)
++            }
++        }
++        result.append(points.last!)
++        return coalesced(result)
++    }
++    private static func withinDeviation(_ points:[V3],original:[V3])->Bool {
++        let flat=original.map{V3($0.x,0,$0.z)}
++        for (a,b) in zip(points,points.dropFirst()) {
++            let length=simd_distance(a,b)
++            guard length.isFinite,length<30 else{return false}
++            let n=max(1,Int(ceil(length/0.01)))
++            for i in 0...n {
++                let p=a+(b-a)*Float(i)/Float(n),q=V3(p.x,0,p.z)
++                let distance=zip(flat,flat.dropFirst()).map{PathTracking.distance(q,to:$0,end:$1)}.min() ?? .infinity
++                // Distance to the original union is 1-Lipschitz: reserve half a sample.
++                if distance>0.045 {return false}
++            }
++        }
++        return true
++    }
++}
+--- a/Vendor/SpatialCore/Sources/SpatialCore/PathDrawing.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/PathDrawing.swift
+@@ -13,3 +13,3 @@
+ public enum PathDrawing {
+-  public static func meshes(_ p: PathPresentation) -> [PathDrawingMesh] {
++  public static func meshes(_ p: PathPresentation, obstacles: [OccupancyFootprint]? = nil, bodyWidth: Float? = nil) -> [PathDrawingMesh] {
+     let normal = p.path.plane.normal
+@@ -18,10 +18,14 @@
+     let veto = p.path.planningPolicy == .obstacleVeto
+-    var result = [
+-      PathDrawingMesh(
+-        role: veto ? .planned : (locked ? .observed : .unknownApproach),
+-        vertices: ribbon(p.approach, normal: normal, width: locked ? 0.036 : 0.024, dashed: !locked)),
+-      PathDrawingMesh(
+-        role: veto ? .planned : (p.historical && !locked ? .history : .observed),
+-        vertices: ribbon(p.path.points, normal: normal, width: 0.036, dashed: p.historical && !locked)),
+-    ]
++    var result: [PathDrawingMesh]
++    if veto {
++      let shape = GroundRouteDrawing.make(p,obstacles:obstacles,bodyWidth:bodyWidth)
++      result = [.init(role:.planned,vertices:ribbon(shape.points,normal:normal,width:0.036,dashed:false,roundJoins:true))]
++    } else {
++      result = [
++        .init(role:locked ? .observed : .unknownApproach,
++              vertices:ribbon(p.approach,normal:normal,width:locked ? 0.036 : 0.024,dashed:!locked)),
++        .init(role:p.historical && !locked ? .history : .observed,
++              vertices:ribbon(p.path.points,normal:normal,width:0.036,dashed:p.historical && !locked))
++      ]
++    }
+     if let target = p.path.points.last {
+@@ -64,3 +68,3 @@
+   }
+-  private static func ribbon(_ points: [V3], normal: V3, width: Float, dashed: Bool) -> [V3] {
++  private static func ribbon(_ points: [V3], normal: V3, width: Float, dashed: Bool, roundJoins: Bool = false) -> [V3] {
+     let lift = normal * 0.025
+@@ -94,2 +98,18 @@
+     }
++    if roundJoins && !dashed && points.count >= 3 {
++      for i in 1..<points.count-1 {
++        let v=points[i]-points[i-1], w=points[i+1]-points[i]
++        guard simd_length(v)>0.00001,simd_length(w)>0.00001 else {continue}
++        let a=simd_normalize(simd_cross(v,normal)),b=simd_normalize(simd_cross(w,normal))
++        let angle=atan2(simd_dot(normal,simd_cross(a,b)),simd_dot(a,b))
++        guard angle.isFinite,abs(angle)>0.001 else{continue}
++        let side=a*(angle>0 ? width/2 : -width/2),center=points[i]+lift
++        let steps=max(1,Int(ceil(abs(angle)/(.pi/12))))
++        func arc(_ j:Int)->V3 {
++          let t=angle*Float(j)/Float(steps)
++          return center+side*cos(t)+simd_cross(normal,side)*sin(t)
++        }
++        for j in 0..<steps {vertices += [center,arc(j),arc(j+1)]}
++      }
++    }
+     return vertices
+--- /dev/null
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/GroundRouteDrawingTests.swift
+@@ -0,0 +1,56 @@
++import XCTest
++import simd
++@testable import SpatialCore
++
++final class GroundRouteDrawingTests: XCTestCase {
++    func presentation(_ points:[V3],approach:[V3]=[],width:Float=0.6)->PathPresentation {
++        let path=PredictedPath(id:1,epoch:1,parameterVersion:0,sourceFrameID:1,validatedFrameID:1,
++            observedAt:1,plane:.init(normal:V3(0,1,0),offset:0),points:points,source:"test",
++            requiredWidth:width,planningPolicy:.obstacleVeto,worldLocked:true)
++        return .init(path:path,age:0,historical:false,approach:approach)
++    }
++    func testNearestEntryProjectionRemovesHookWithoutChangingPlan() {
++        let points=[V3.zero,V3(0,0,-2)],foot=V3(0,0,-0.3)
++        let p=presentation(points,approach:[foot,.zero])
++        let shape=GroundRouteDrawing.make(p,obstacles:[])
++        XCTAssertEqual(shape.points,[foot,V3(0,0,-2)])
++        XCTAssertEqual(p.path.points,points)
++        XCTAssertFalse(shape.usedFallback)
++    }
++    func testMissingModelAndFailedCollisionStillDrawOriginalPolyline() {
++        let p=presentation([V3(-1,0,0),.zero,V3(0,0,-1)])
++        let wall=OccupancyFootprint(center:.zero,right:V3(1,0,0),forward:V3(0,0,1),size:4)
++        for model:[OccupancyFootprint]? in [nil,[wall]] {
++            let shape=GroundRouteDrawing.make(p,obstacles:model)
++            XCTAssertTrue(shape.usedFallback)
++            XCTAssertEqual(shape.points,p.path.points)
++            XCTAssertTrue(PathDrawing.meshes(p,obstacles:model).contains{$0.role == .planned && !$0.vertices.isEmpty})
++        }
++    }
++    func testEveryFinalChordIsCheckedAndRoundJoinIsFinite() {
++        let p=presentation([V3(-1,0,0),.zero,V3(0,0,-1)],width:0.02)
++        let obstacle=OccupancyFootprint(center:V3(-0.03,0,-0.03),right:V3(1,0,0),forward:V3(0,0,1),size:0.004)
++        let rounded=GroundRouteDrawing.rounded(p.path.points,trim:0.12)
++        XCTAssertTrue(zip(rounded,rounded.dropFirst()).contains{obstacle.overlaps(from:$0,to:$1,radius:0.011)})
++        let smaller=OccupancyFootprint(center:V3(-0.015,0,-0.015),right:V3(1,0,0),forward:V3(0,0,1),size:0.004)
++        let shape=GroundRouteDrawing.make(p,obstacles:[obstacle,smaller])
++        XCTAssertTrue(shape.usedFallback)
++        XCTAssertEqual(shape.points,p.path.points) // Both radii fail: exactly the original polyline.
++        XCTAssertFalse(zip(shape.points,shape.points.dropFirst()).contains{a,b in
++            [obstacle,smaller].contains{$0.overlaps(from:a,to:b,radius:0.011)}
++        })
++        let mesh=PathDrawing.meshes(p,obstacles:nil).first{$0.role == .planned}!.vertices
++        XCTAssertGreaterThan(mesh.count,12) // The original two ribbons now have a round seam.
++        XCTAssertTrue(mesh.allSatisfy{$0.x.isFinite && $0.y.isFinite && $0.z.isFinite})
++    }
++    func testHeightFollowsPlanningLocalGroundAndDeviationFailureFallsBack() {
++        var p=presentation([V3(-1,0,0),.zero,V3(0,0,-1)],approach:[V3(0.5,0,0.5),V3(-1,0,0)])
++        p.path.plane = .init(normal:V3(0,1,0),offset:-0.2)
++        p.path.points=p.path.points.map{V3($0.x,0.2,$0.z)}
++        p.approach=p.approach.map{V3($0.x,0.2,$0.z)}
++        let shape=GroundRouteDrawing.make(p,obstacles:[])
++        XCTAssertTrue(shape.usedFallback)
++        XCTAssertEqual(shape.points,Array(p.approach.dropLast())+p.path.points)
++        XCTAssertTrue(shape.points.allSatisfy{abs(p.path.plane.height($0))<0.00001})
++    }
++}
+--- a/Vendor/SpatialCore/Tests/SpatialCoreTests/WorldRouteLockTests.swift
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/WorldRouteLockTests.swift
+@@ -52,3 +52,3 @@
+     XCTAssertEqual(approach.role, .planned)
+-    XCTAssertEqual(approach.vertices.count, 6)  // one solid quad, not repeated dash quads
++    XCTAssertEqual(approach.vertices.count, 12) // connection + route in one solid mesh; no dash quads
+   }

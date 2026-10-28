@@ -6,3 +6,8 @@ results/*.jsonl
 results/*.log
 results/*.svg
 results/annotation_frames/
+build-product/
+results/round3/
+results/product*.json
+results/
+build-final/

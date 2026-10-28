@@ -1,20 +1,20 @@
-本目录是第二轮审查实验，产品源码没有修改。
+第三轮入口直接构建、执行产品源码；第二轮的插桩原型只保留作历史对照。
 
-从仓库根目录运行 `zsh experiments/astra/run.sh /path/to/pull-17pm-1028`，串行完成深度校验、SpatialAnalyzer、规划消融、绘制原型、统计、视频抽帧及报告生成。依赖本机 Swift 工具链、Python 3、NumPy、ffmpeg/ffprobe；不安装依赖，不启动传感器、App 或模拟器。`run.sh` 的链接路径对应本机 Swift 6.4 的默认 swiftbuild 产品布局。所有缓存和产物留在本目录。
+在仓库根目录运行：
 
-文件职责：
+```sh
+# 当前产品：重新复制源码、编译、全套 SpatialCore 测试、2128 帧完整重放、指标
+zsh Experiments/astra/run.sh /path/to/pull-17pm-1028
+# 基线 → +1…+5，以及基线只加 1、2、3；编译和重放严格串行
+zsh Experiments/astra/run_round3.sh /path/to/pull-17pm-1028
+```
 
-- `prepare.py`：输入清单、缺失帧清单、从生产源码生成可审计的实验副本，所有替换都断言唯一命中。
-- `Replay.swift`：逐帧解压与 SHA256 校验，调用生产感知、规划、发布策略，实验参数消融、语音请求和触觉策略重算。
-- `Drawing.swift`：局部地面、等弧长、受约束圆角、世界高度滤波、身体扫掠复核、等世界宽度及圆连接。
-- `metrics.py`、`audit.py`：主指标、缺失敏感性、故障注入、近距代理敏感性；所有真值限制见报告。
-- `annotation.py`：逐帧校验视频 PTS 并生成本地标注页面；不会填入人工真值。
-- `score_labels.py`：输入人工裁决 CSV 后，按精确 frame ID 计算近距告警精确率/召回率，不补视频之间的标签。
-- `results/metrics.json`、`audit.json`：完整统计；`events.csv`：每个近距事件明细；`annotation_manifest.csv`：待填标注表。
-- `design.json`：设计参数和未测量的 iPhone 预算目标。
+`run_product.sh label [diag]` 是单次入口。`prepare_product.py` 把指定产品的完整 SpatialCore 包逐字节复制到 `generated/ProductCore/`，语音策略逐字节复制，方向语音策略从 App 文件提取；不修改算法、不打开任何实验开关。`swift build/test` 和小工具 `swiftc` 均使用 `-j 2`。源码、副本、App 调用处、二进制及指标工具的 SHA256 保存在 `product_manifest.json`；`seal_product.py` 在执行后再次核对所有编译输入。`ASTRA_SOURCE_ROOT` 可指定只读源快照，默认用工作区。
 
-`replay.jsonl`、编译目录及抽帧 JPG 默认忽略，防止把大量实测数据或构建缓存意外加入版本库。交付时它们仍保留在当前工作区，可用上述命令重建。
+`round3_sources.py` 用 `git archive` 读取基线 `bfd37f5`，在临时目录应用 `round3-patches/` 中五项独立产品补丁，构造累积和单项源快照；不修改工作区或 Git 元数据。补丁 SHA256 在 `series.json` 中。最终五项组合应与工作区产品文件逐字节一致。各份实验都重新运行 SpatialAnalyzer、PathPredictor、发布、语音与触觉策略，不复用旧感知输出。成功检查门还在实际 capture tick 上执行产品函数。
 
-打开 `results/annotation.html`，为两名标注员使用不同浏览器配置/编号，独立导出，第三人裁决后填回 CSV；只有 `yes/no` 进入计数，其他值排除。米制距离不能从图片可靠确定时必须填 uncertain。查看前后视频时需保留原 DIAG 目录。
+`results/round3/<label>/` 保存本次完整 JSONL、指标、源码/二进制指纹、全套测试日志及缺失清单。`metrics_product.py` 复用第二轮 `metrics.py` 的 FN/FP/时延口径；额外区分规划输出与反馈 unknown。绘制同时报告固定的 518 帧旧路线意图样本和当前产品实际路线样本，不能把两者冲突数混用。危险语音是 `canSpeak=true`、每发布帧一次的请求模拟，不是实际播音。
 
-评分：`python3 experiments/astra/score_labels.py adjudicated.csv > experiments/astra/results/labeled_metrics.json`。加 `--gold-only` 可只统计有独立米制依据的裁决；不加时视觉估计仍属探索性标签。本次交付的 CSV 没有人工标签，因此不能报告真实精确率/召回率。
+`report_product.py` 从九组结果生成根目录 `ASTRA_ROUND3.md`。产物全部忽略，不写入实测数据，不运行 xcodebuild、App 或模拟器。
+
+第二轮原工具为 `Replay.swift`、`Drawing.swift`、`prepare.py` 等；`run_round2.sh` 仅适用于第二轮的产品源快照。要复现原第二轮结论，应使用基线提交里的原 `run.sh`，不能拿已改变的产品源码冒充旧基线。
