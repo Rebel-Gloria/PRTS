@@ -122,7 +122,7 @@ struct ObstacleWaypointPlanner: Sendable {
                     : ObstacleWaypointSearch.avoid(raster: raster, reference: ref, obstacle: obstacle,
                         foot: foot, preferredSide: side, sideMargin: r.parameters.sideMargin)
             }
-            if let plan, raster.supports([foot] + plan.points), commit(plan, result: r, options: options, pose: pose, view: view) {
+            if let plan, commit(plan, result: r, options: options, pose: pose, view: view) {
                 selectedReason = replan ?? "initial_target"
                 preview = nil; previewAt = nil
             } else if blocked || arrived || outOfView || redirect || current == nil {
@@ -142,24 +142,21 @@ struct ObstacleWaypointPlanner: Sendable {
                       replan: replan, view: view)
     }
 
-    /// Value-state transaction: no caller can observe a mixture of old and new heights.
-    @discardableResult
+    /// Moves every retained point onto the new ground height, keeping its horizontal position.
     private mutating func rebase(to plane: GroundPlane) -> Bool {
         guard let old = reference, LocalGroundRebase.accepts(plane),
               old.plane.normal != plane.normal || old.plane.offset != plane.offset else { return false }
-        var next = self
         func lift(_ p: V3) -> V3 { LocalGroundRebase.lift(p, to: plane) }
         let origin = lift(old.origin), end = lift(old.origin + old.forward)
-        next.reference = .init(origin: origin, forward: simd_normalize(end-origin), plane: plane)
+        reference = .init(origin: origin, forward: simd_normalize(end-origin), plane: plane)
         if var path = current {
             path.points = path.points.map(lift); path.plane = plane
-            path.footAtPlan = path.footAtPlan.map(lift); next.current = path
+            path.footAtPlan = path.footAtPlan.map(lift); current = path
         }
-        if var target = goal { target.point = lift(target.point); target.plane = plane; next.goal = target }
-        next.continuation = continuation.map(lift)
-        if var pending = preview { pending.points = pending.points.map(lift); next.preview = pending }
-        next.previousFoot = previousFoot.map(lift)
-        self = next
+        if var target = goal { target.point = lift(target.point); target.plane = plane; goal = target }
+        continuation = continuation.map(lift)
+        if var pending = preview { pending.points = pending.points.map(lift); preview = pending }
+        previousFoot = previousFoot.map(lift)
         return true
     }
 
