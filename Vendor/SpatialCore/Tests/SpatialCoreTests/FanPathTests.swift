@@ -17,6 +17,7 @@ final class FanPathTests: XCTestCase {
     }
     func result(_ g: LocalGrid,id: UInt64 = 1,time: Double = 1) -> AnalysisResult {
         var r = AnalysisResult(epoch:1,frameID:id,timestamp:time,parameters:.init(),status:"synthetic",source:"synthetic")
+        r.parameters.bodyWidth = 0.5 // This suite deliberately exercises a half-metre synthetic body.
         r.grid = g;r.grid?.epoch = 1;r.grid?.frameID = id;r.grid?.timestamp = time;r.sourcePose = .init(position:V3(0,1.4,0));r.sourceDirectionStable = true
         r.plane = .init(normal:V3(0,1,0),offset:0,floorPriorConfirmed:true)
         r.diagnostics = .init();r.diagnostics?.groundReferenceMode = "current_confirmed"
@@ -111,7 +112,7 @@ final class FanPathTests: XCTestCase {
         var predictor = PathPredictor(obstacleConfirmationSeconds: 0);let path = predictor.update(result:r,observation:nil,options:.init()).path!
         var gate = ResultPresentationGate();gate.enabled = true;gate.trackingNormal = true
         gate.epoch = 1;gate.frameID = 1;gate.frameTimestamp = 1
-        let presentation = PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:.init(),now:1)!
+        let presentation = PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:PathOptions().resolvingBodyWidth(r.parameters),now:1)!
         XCTAssertEqual(presentation.approach.count,2)
         XCTAssertEqual(presentation.approach[0],V3.zero)
         XCTAssertEqual(presentation.approach.last,path.points.first)
@@ -135,7 +136,8 @@ final class FanPathTests: XCTestCase {
         gate.epoch = 1;gate.frameID = 1;gate.frameTimestamp = 1
         var wide = PathOptions();wide.minimumWidth = 0.8
         XCTAssertNil(PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:wide,now:1))
-        XCTAssertNil(predictor.update(result:result(g,id:2,time:1.1),observation:nil,options:wide).path)
+        var widerBody = result(g,id:2,time:1.1);widerBody.parameters.bodyWidth = 0.8
+        XCTAssertNil(predictor.update(result:widerBody,observation:nil,options:wide).path)
     }
     func testDrawingHasMetricDashesAndGoalAtObservedEndpoint() {
         let g = grid();var predictor = PathPredictor(obstacleConfirmationSeconds: 0)
