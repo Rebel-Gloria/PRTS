@@ -102,7 +102,7 @@ public enum PathDrawing {
         guard simd_length(v)>0.00001,simd_length(w)>0.00001 else {continue}
         let a=simd_normalize(simd_cross(v,normal)),b=simd_normalize(simd_cross(w,normal))
         let angle=atan2(simd_dot(normal,simd_cross(a,b)),simd_dot(a,b))
-        guard angle.isFinite,abs(angle)>0.001 else{continue}
+        guard abs(angle)>0.001 else{continue}
         let side=a*(angle>0 ? width/2 : -width/2),center=points[i]+lift
         let steps=max(1,Int(ceil(abs(angle)/(.pi/12))))
         func arc(_ j:Int)->V3 {
