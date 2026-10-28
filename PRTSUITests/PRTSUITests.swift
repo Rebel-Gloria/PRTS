@@ -143,6 +143,39 @@ final class PRTSUITests: XCTestCase {
         toggle.coordinate(withNormalizedOffset:CGVector(dx:0.9,dy:0.5)).tap()
         XCTAssertEqual(toggle.value as? String,"1")
         // Relaunch must never silently restart RGB recording.
+    /// No-preview mode: guidance runs, nothing is drawn.
+    @MainActor
+    func testNoPreviewModeSkipsRendering() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-display.noPreview", "YES"]
+        app.launch()
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["noPreviewNotice"].waitForExistence(timeout: 8))
+        sleep(3)
+        #if PRTS_DEV_CAPTURE
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '绘制 0.0'")).firstMatch.exists)
+        #endif
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "No preview running"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    @MainActor func testCPUWithPreview() throws { try measureRunningCPU(noPreview: false) }
+    @MainActor func testCPUWithoutPreview() throws { try measureRunningCPU(noPreview: true) }
+
+    @MainActor
+    private func measureRunningCPU(noPreview: Bool) throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-display.noPreview", noPreview ? "YES" : "NO"]
+        app.launch()
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
+        sleep(5)
+        let options = XCTMeasureOptions(); options.iterationCount = 1
+        measure(metrics: [XCTCPUMetric(application: app)], options: options) { sleep(20) }
+    }
+
         app.terminate(); app.launch(); app.buttons["settingsButton"].tap(); app.swipeUp()
         XCTAssertTrue(app.switches["devCaptureToggle"].waitForExistence(timeout:5))
         XCTAssertEqual(app.switches["devCaptureToggle"].value as? String,"0")

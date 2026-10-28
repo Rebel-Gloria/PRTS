@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 import UIKit
 
@@ -8,6 +9,9 @@ struct PhotoCaptureButton: UIViewRepresentable {
     var cancel: () -> Void
     /// VoiceOver label, hint and custom action names in the interface language.
     var strings = Strings.chinese
+    /// Camera Control and the volume buttons press the same control while the camera runs.
+    var hardwareButtons = false
+    static let hardwareButtonsKey = "photo.hardwareButtons"
 
     struct Strings: Equatable {
         var label, hint, ask, send: String
@@ -33,6 +37,7 @@ struct PhotoCaptureButton: UIViewRepresentable {
     func updateUIView(_ uiView: Control, context: Context) {
         uiView.down = down; uiView.up = up; uiView.cancel = cancel
         uiView.apply(strings)
+        uiView.applyHardwareButtons(hardwareButtons)
         uiView.applyVisibility(highContrast: UIAccessibility.isDarkerSystemColorsEnabled || UIAccessibility.isReduceTransparencyEnabled)
     }
 
@@ -63,6 +68,27 @@ struct PhotoCaptureButton: UIViewRepresentable {
             alpha = highContrast ? 0.85 : 0.25
             backgroundColor = highContrast ? UIColor.black.withAlphaComponent(0.55) : nil
             layer.cornerRadius = highContrast ? 40 : 0
+        }
+
+        private var hardwareInteraction: UIInteraction?
+
+        /// While enabled the system routes the volume buttons here, so they stop changing the
+        /// volume; Settings lets the user turn this off.
+        func applyHardwareButtons(_ enabled: Bool) {
+            guard #available(iOS 17.2, *) else { return }
+            if hardwareInteraction == nil, enabled {
+                let interaction = AVCaptureEventInteraction { [weak self] event in
+                    switch event.phase {
+                    case .began: self?.down?()
+                    case .ended: self?.up?()
+                    case .cancelled: self?.cancel?()
+                    @unknown default: break
+                    }
+                }
+                addInteraction(interaction)
+                hardwareInteraction = interaction
+            }
+            (hardwareInteraction as? AVCaptureEventInteraction)?.isEnabled = enabled
         }
 
         @objc func accessibleBegin() -> Bool { down?(); return true }
