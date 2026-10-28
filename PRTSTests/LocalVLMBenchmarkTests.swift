@@ -5,7 +5,7 @@ import Testing
 @testable import PRTS
 
 /// On-device local VLM speed/memory benchmark. Only compiled when the llama.cpp benchmark
-/// library is linked (see docs/design/LOCAL_VLM_FEASIBILITY.md). Each model lives in its own
+/// library is linked (see docs/features/local-vlm.md). Each model lives in its own
 /// Documents/vlm/models/<name>/ folder (language model + a file with "mmproj" in its name);
 /// photos and prompts are copied to Documents/vlm beforehand, and JSON reports are written back there.
 @MainActor

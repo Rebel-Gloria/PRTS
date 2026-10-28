@@ -61,7 +61,7 @@
 
 ## 30 张图正式评估（2026-10-29）
 
-完整报告见 `docs/reports/PHOTO_PROMPT_EVAL_2026-10-29.md`，题库和原始结果在 `Experiments/photo-prompt/`。
+完整报告见 `docs/reports/2026-10-29-photo-prompt-eval.md`，题库和原始结果在 `Experiments/photo-prompt/`。
 
 - 30 张实拍帧（20 张用来调提示词，10 张留出验证），每张有一次短按描述和两个长按问题。三分之一是陷阱题。每题每个模型跑 3 次，共 1440 次请求。
 - 三轮改写都没有在两个模型、留出集上同时变好。**结论：当前提示词保持不变。**

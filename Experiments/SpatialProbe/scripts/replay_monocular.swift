@@ -1,5 +1,5 @@
 // Offline gate replay of RECORDED MODEL OUTPUT, never real-time performance or physical GT.
-// Build with the local SpatialCore module; see Docs/NO_LIDAR.md.
+// Build with the local SpatialCore module; see docs/experiments/spatial-probe/no-lidar.md.
 import Foundation
 import CryptoKit
 import SpatialCore

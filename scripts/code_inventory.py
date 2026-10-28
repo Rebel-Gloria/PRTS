@@ -61,7 +61,7 @@ def report(records):
     for group in (*GROUPS, "Total"):
         selected = records if group == "Total" else [r for r in records if r[1] == group]
         lines.append(f"| {group} | {len(selected)} | {sum(r[2] for r in selected)} | {sum(r[3] for r in selected)} |")
-    lines += ["", "## 完整源码文件树", "", "不移动任何目录；模块职责见 [CODE_STRUCTURE.md](CODE_STRUCTURE.md)。", "", "```text"]
+    lines += ["", "## 完整源码文件树", "", "不移动任何目录；模块职责见 [code-structure.md](code-structure.md)。", "", "```text"]
     previous = ()
     for name, _, physical, _ in records:
         parts = Path(name).parts
@@ -76,11 +76,11 @@ def report(records):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="Update docs/architecture/CODE_INVENTORY.md")
+    parser.add_argument("--write", action="store_true", help="Update docs/architecture/code-inventory.md")
     args = parser.parse_args()
     text = report(inventory(ROOT))
     if args.write:
-        (ROOT / "docs/architecture/CODE_INVENTORY.md").write_text(text, encoding="utf-8")
+        (ROOT / "docs/architecture/code-inventory.md").write_text(text, encoding="utf-8")
     else:
         print(text, end="")
 
