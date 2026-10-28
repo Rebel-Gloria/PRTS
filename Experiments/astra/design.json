@@ -1,0 +1,35 @@
+{
+  "units": "meters, seconds, degrees; budgets are targets, not measured iPhone timings",
+  "bodyAuditWidth": 0.6,
+  "nearDistances": [1.0, 0.5],
+  "proxyMinimumSupport": 6,
+  "proxyConsecutiveFrames": 3,
+  "proxyMaximumGap": 0.15,
+  "clusterMatchDistance": 0.25,
+  "falseProxyWindows": [1.0, 1.5, 2.0],
+  "falseProxyAbsentTail": 0.3,
+  "fastProfiles": [
+    {"name":"fast6_1","support":6,"hitsOfLast3":2,"immediateBelow":0.5},
+    {"name":"fast6_2","support":6,"hitsOfLast3":2},
+    {"name":"fast12_3","support":12,"hitsOfLast3":3}
+  ],
+  "fastHistoryMaximumAge": 0.26,
+  "fastHold": 0.2,
+  "planeRebaseHeightProfiles": [0.04, 0.12],
+  "planeRebaseAngle": 3,
+  "freshnessProfiles": [0.15, 0.25, 0.5],
+  "widthProfiles": [0.5, 0.6, 0.9],
+  "hapticInitialEntryProfiles": [5, 8, 12],
+  "visibilityProfiles": [{"length":0.6,"fraction":0.8},{"length":1.0,"fraction":0.95}],
+  "drawing": {
+    "arcSpacing":0.05,"bezierChordTolerance":0.001,"cornerTrimProfiles":[0.12,0.06,0],
+    "horizontalDeviationLimit":0.05,"deviationCheckSpacing":0.01,"deviationLipschitzReserve":0.005,
+    "heightFilterTau":0.15,"heightFilterJumpGate":0.08,"timeGapReset":0.25,
+    "groundMaximumAge":2,"groundMaximumTranslation":1,
+    "visibleWidth":0.036,"lift":0.025,"roundJoinStepDegrees":15,
+    "fadeStart":2,"fadeEnd":4,"checkRadiusExtra":0.001,
+    "jitterEndpointExclusion":0.3,"groundPointMatchingRadius":0.15
+  },
+  "proposedPhoneBudget": {"analysisHz":10,"displayHz":60,"cpuCurveAndCheckMS":2,"cpuMeshUploadMS":0.2,"gpuPathAndOcclusionMS":0.3,"maximumVertices":2048},
+  "annotation": {"independentRaters":2,"desiredCIHalfWidth":0.05,"planningPrecisionRecall":0.9,"normalCriticalValue":1.96,"pilotPositiveEpisodes":50,"pilotNegativeEpisodes":50}
+}
