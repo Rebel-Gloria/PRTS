@@ -20,10 +20,16 @@ struct ContentView: View {
     @EnvironmentObject private var speechManager: SpeechManager
     @EnvironmentObject private var hapticManager: HapticManager
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isHoldingStop = false
     @State private var stopHoldTask: Task<Void, Never>?
     @State private var didCompleteStopHold = false
     @State private var isShowingSettings = false
+    /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
+    /// touches but cannot hold a press, so held gestures get a tap alternative.
+    @State private var pointerCannotHold = Self.assistivePointerRunning
+    @State private var askingByTap = false
+    @ObservedObject private var commands = HomeCommandCenter.shared
     #if PRTS_DEV_CAPTURE
     @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
     @State private var commandText = ""
@@ -46,6 +52,9 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
 
+                if isLargeText {
+                    largeTextLayout
+                } else {
                 VStack(spacing: 20) {
                     header
 
@@ -53,44 +62,59 @@ struct ContentView: View {
                         .frame(maxWidth:.infinity)
                         #if PRTS_DEV_CAPTURE
                         .overlay(alignment:.topLeading) {
-                            GeometryReader { bounds in
+                            // At accessibility text sizes the metrics would cover the controls.
+                            if !dynamicTypeSize.isAccessibilitySize { GeometryReader { bounds in
                                 ScrollView {
                                     HomeDemoOverlay(model:camera.model)
                                 }
                                 .frame(width:bounds.size.width,height:bounds.size.height)
                                 .clipped()
-                            }
+                            } }
                         }
 
                         #endif
 
-                    cameraStatus
-                    if let message = camera.model.errorMessage ?? camera.model.permissionMessage {
-                        Text(message).font(.caption).foregroundStyle(.orange)
-                            .accessibilityIdentifier("homeOperationError")
+                    GlassGroup(spacing: 0) {
+                        VStack(spacing: 20) {
+                            controls
+                            primaryButton
+                        }
                     }
-                    #if PRTS_DEV_CAPTURE
-                    if showCommandEntry { commandEntry }
-                    #endif
-                    primaryButton
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
+                }
 
                 if camera.state == .running && !isShowingSettings {
                     PhotoCaptureButton(
                         down: { photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() }) },
-                        up: { photo.up() }, cancel: { photo.cancel() })
+                        up: { photo.up() }, cancel: { photo.cancel() },
+                        strings: .init(label: speechManager.interfaceString("photo.button.label"),
+                                       hint: speechManager.interfaceString("photo.button.hint"),
+                                       ask: speechManager.interfaceString("photo.button.action.ask"),
+                                       send: speechManager.interfaceString("photo.button.action.send")))
                         .frame(width: 160, height: 160)
                         .overlay(alignment: .bottom) {
                             if !photo.message.isEmpty {
                                 VStack(spacing: 8) {
-                                    Text(photo.message).font(.caption).padding(6).background(.black.opacity(0.7))
-                                    if photo.busy { Button("取消") { photo.cancel() } }
+                                    Text(photo.message).font(.caption)
+                                        .padding(.horizontal, 12).padding(.vertical, 6)
+                                        .readableGlassPanel()
+                                    if photo.busy {
+                                        Button { photo.cancel() } label: {
+                                            Text("home.photo.cancel").frame(minWidth: 44, minHeight: 44)
+                                        }
+                                        .glassButtonStyle()
+                                    }
                                 }.offset(y: 70)
                             }
                         }
                 }
+            }
+            // VoiceOver two-finger double-tap runs the main action from anywhere on the screen.
+            .accessibilityAction(.magicTap) {
+                guard !isShowingSettings else { return }
+                camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingSettings) {
@@ -99,8 +123,7 @@ struct ContentView: View {
             .onChange(of: camera.state) { _, newState in
                 if newState != .running { photo.cancel() }
                 guard scenePhase == .active,!isShowingSettings, !photo.busy else { return }
-                UIAccessibility.post(notification:.announcement,argument:speechManager.accessibilityAnnouncement(for:newState))
-                speechManager.speakCameraState(newState)
+                speechManager.announceCameraState(newState)
                 if newState == .running { hapticManager.cameraStarted() }
             }
             .onReceive(pollTimer) { _ in
@@ -112,7 +135,7 @@ struct ContentView: View {
                         // announce the raw centre sector or wait for a rendered floor.
                         feedback.consumeDirection(snapshot, speech: speechManager)
                     } else if let result = camera.latestSceneResult {
-                        feedback.consume(result, speech:speechManager, haptics:hapticManager,
+                        feedback.consume(result, speech:speechManager,
                                          announceCandidates:!snapshot.pathOptions.enabled)
                         feedback.consumeDirection(snapshot, speech:speechManager)
                     } else {
@@ -121,6 +144,14 @@ struct ContentView: View {
                 } else if !isShowingSettings {
                     feedback.reset(); speechManager.cancelPerceptionSpeech()
                 }
+            }
+            .onChange(of: operationMessage) { _, message in
+                // Errors are otherwise only visible text; VoiceOver users must hear them.
+                if let message, UIAccessibility.isVoiceOverRunning { SpeechManager.postQueuedAnnouncement(message) }
+            }
+            .onChange(of: photo.message) { _, message in
+                // Photo progress ("正在描述"…) is shown under the button; VoiceOver reads it too.
+                if !message.isEmpty, UIAccessibility.isVoiceOverRunning { SpeechManager.postQueuedAnnouncement(message) }
             }
             .onChange(of:isShowingSettings) { _,shown in
                 if shown {
@@ -138,10 +169,18 @@ struct ContentView: View {
                 }
                 camera.lifecycle(phase)
                 if phase != .active { feedback.reset(); speechManager.cancelPerceptionSpeech() }
+                runPendingCommand()
             }
             .onAppear {
                 camera.poll(suspendFeedback:true)
                 speechManager.speakHomeScreen(cameraState:camera.state)
+                runPendingCommand()
+            }
+            .onChange(of: commands.pending) { _, _ in runPendingCommand() }
+            .onChange(of: photo.busy) { _, busy in if !busy { askingByTap = false } }
+            .onReceive(NotificationCenter.default.publisher(for: UIAccessibility.assistiveTouchStatusDidChangeNotification)
+                .merge(with: NotificationCenter.default.publisher(for: UIAccessibility.switchControlStatusDidChangeNotification))) { _ in
+                pointerCannotHold = Self.assistivePointerRunning
             }
             .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
                 if let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -163,6 +202,72 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
     }
 
+    private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    private static var assistivePointerRunning: Bool {
+        UIAccessibility.isAssistiveTouchRunning || UIAccessibility.isSwitchControlRunning
+    }
+
+    /// Accessibility text sizes: one scrolling column with the main button pinned to the
+    /// bottom edge, so nothing is truncated or covered and the main action never scrolls away.
+    private var largeTextLayout: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                header
+                if camera.state != .running || isShowingSettings { previewPlaceholder }
+                GlassGroup(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 20) { controls }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom) {
+            primaryButton
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var controls: some View {
+        cameraStatus
+        if let message = operationMessage {
+            Text(message).font(.callout.weight(.semibold)).foregroundStyle(.orange)
+                .multilineTextAlignment(isLargeText ? .leading : .center)
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .readableGlassPanel()
+                .accessibilityIdentifier("homeOperationError")
+        }
+        if pointerCannotHold && camera.state == .running && !isShowingSettings { askButton }
+        #if PRTS_DEV_CAPTURE
+        // At accessibility sizes the column would reach the photo button in the middle of the preview.
+        if showCommandEntry && !(isLargeText && camera.state == .running) { commandEntry }
+        #endif
+    }
+
+    /// Tap alternative to holding the photo button: first tap starts the question, second sends it.
+    private var askButton: some View {
+        Button {
+            if askingByTap {
+                askingByTap = false
+                photo.up()
+            } else {
+                photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() })
+                askingByTap = photo.busy
+            }
+        } label: {
+            Label(LocalizedStringKey(askingByTap ? "photo.button.action.send" : "photo.button.action.ask"),
+                  systemImage: askingByTap ? "paperplane.fill" : "mic.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity, minHeight: 52)
+        }
+        .glassButtonStyle()
+        .disabled(photo.busy && !askingByTap)
+        .accessibilityIdentifier("photoAskButton")
+    }
+
     @ViewBuilder
     private var cameraSurface: some View {
         if camera.state == .running && !isShowingSettings {
@@ -170,65 +275,89 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 .transition(.opacity)
                 .accessibilityHidden(true)
-        } else {
-            VStack(spacing: 18) {
+        } else if !isLargeText {
+            previewPlaceholder
+        }
+    }
+
+    private var previewPlaceholder: some View {
+        VStack(alignment: isLargeText ? .leading : .center, spacing: 18) {
+            if !isLargeText {
                 Image(systemName: "camera.viewfinder")
                     .font(.system(size: 64, weight: .light))
                     .foregroundStyle(Color.appAccent)
                     .accessibilityHidden(true)
-
-                Text("home.camera.preview.title")
-                    .font(.title2.weight(.semibold))
-
-                Text("home.camera.preview.subtitle")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
             }
-            .multilineTextAlignment(.center)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("home.camera.preview.off.label")
-            .accessibilityHint("home.camera.preview.off.hint")
+
+            Text("home.camera.preview.title")
+                .font(.title2.weight(.semibold))
+
+            Text("home.camera.preview.subtitle")
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
+        .multilineTextAlignment(isLargeText ? .leading : .center)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("home.camera.preview.off.label")
+        .accessibilityHint("home.camera.preview.off.hint")
     }
 
     private var header: some View {
-        HStack(alignment: .center) {
-            HStack(spacing: 10) {
-                Image("HomeLogo")
-                    .renderingMode(.original)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 32, height: 32)
-                    .accessibilityHidden(true)
+        // Large accessibility text cannot fit brand and settings on one row; stack them.
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center) { brand; Spacer(); settingsButton }
+            VStack(alignment: .leading, spacing: 12) { brand; settingsButton }
+        }
+        .padding(.top, 8)
+    }
 
-                Text("PRTS")
-                    .font(.title2.weight(.bold))
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("app.home")
-            .accessibilityAddTraits(.isHeader)
+    private var brand: some View {
+        HStack(spacing: 10) {
+            Image("HomeLogo")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 32, height: 32)
+                .accessibilityHidden(true)
 
-            Spacer()
+            Text("PRTS")
+                .font(.title2.weight(.bold))
+        }
+        // The brand is a title, not content; past accessibility1 it would push the controls away.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("app.home")
+        .accessibilityAddTraits(.isHeader)
+    }
 
-            Button {
-                hapticManager.buttonTapped()
-                isShowingSettings = true
-            } label: {
+    private var settingsButton: some View {
+        Button {
+            hapticManager.buttonTapped()
+            isShowingSettings = true
+        } label: {
+            if isLargeText {
+                // Icon-only so the header stays one row; long-press shows the Large Content Viewer.
+                Image(systemName: "gearshape.fill")
+                    .font(.title2)
+                    .dynamicTypeSize(.xxxLarge)
+                    .frame(width: 64, height: 64)
+                    .contentShape(Circle())
+                    .glassSurface(in: Circle(), interactive: true)
+            } else {
                 Label("home.settings.button", systemImage: "gearshape.fill")
                     .font(.headline)
                     .padding(.horizontal, 16)
                     .frame(minHeight: 52)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                    }
+                    .contentShape(Capsule())
+                    .glassSurface(in: Capsule(), interactive: true)
             }
-            .accessibilityLabel("home.settings.label")
-            .accessibilityHint("home.settings.hint")
-            .accessibilityIdentifier("settingsButton")
         }
-        .padding(.top, 8)
+        .accessibilityShowsLargeContentViewer {
+            Label("home.settings.button", systemImage: "gearshape.fill")
+        }
+        .accessibilityLabel("home.settings.label")
+        .accessibilityHint("home.settings.hint")
+        .accessibilityIdentifier("settingsButton")
     }
 
     private var cameraStatus: some View {
@@ -239,12 +368,12 @@ struct ContentView: View {
 
             Text(LocalizedStringKey(camera.state.statusLocalizationKey))
                 .font(.headline)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .lineLimit(3)
         }
         .padding(.horizontal, 18)
-        .frame(minHeight: 50)
-        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.vertical, isLargeText ? 12 : 0)
+        .frame(maxWidth: isLargeText ? .infinity : nil, minHeight: 50, alignment: .leading)
+        .glassSurface(in: isLargeText ? AnyShape(RoundedRectangle(cornerRadius: 24)) : AnyShape(Capsule()))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("home.camera.status.label")
         .accessibilityValue(LocalizedStringKey(camera.state.statusLocalizationKey))
@@ -253,14 +382,20 @@ struct ContentView: View {
 
     #if PRTS_DEV_CAPTURE
     private var commandEntry: some View {
-        HStack(spacing: 8) {
+        (isLargeText ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
             TextField("home.command.placeholder", text: $commandText)
-                .textFieldStyle(.roundedBorder)
+                .font(.body)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .glassSurface(in: Capsule())
                 .submitLabel(.send)
                 .onSubmit(submitCommand)
                 .accessibilityIdentifier("backendCommandField")
-            Button("home.command.send", action: submitCommand)
-                .buttonStyle(.borderedProminent)
+            Button(action: submitCommand) {
+                Text("home.command.send").frame(maxWidth: isLargeText ? .infinity : nil)
+            }
+                .glassButtonStyle(prominent: true)
                 .disabled(commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityIdentifier("backendCommandSend")
         }
@@ -274,7 +409,7 @@ struct ContentView: View {
         case "开始", "start": camera.startCamera()
         case "停止", "stop": camera.stopCamera()
         case "状态", "status": speechManager.speak(camera.status)
-        default: speechManager.speak("当前只支持：开始、停止、状态；自然语言模型尚未接入。")
+        default: speechManager.speak("只支持：开始、停止、状态。")
         }
         hapticManager.buttonTapped()
     }
@@ -283,38 +418,46 @@ struct ContentView: View {
 
     private var primaryButton: some View {
         Button {
-            startCameraFromButton()
+            if camera.state == .running && pointerCannotHold { stopFromAssistiveTechnology() } else { startCameraFromButton() }
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: camera.state == .running ? "stop.fill" : "play.fill")
                     .accessibilityHidden(true)
 
                 Text(LocalizedStringKey(
-                    camera.state == .running
-                        ? "home.camera.button.stopLongPress"
-                        : "home.camera.button.start"
+                    camera.state != .running ? "home.camera.button.start"
+                        : pointerCannotHold ? "home.camera.input.stop" : "home.camera.button.stopLongPress"
                 ))
+                .multilineTextAlignment(.center)
             }
             .font(.title2.weight(.bold))
+            .padding(.vertical, isLargeText ? 12 : 0)
             .foregroundStyle(Color.appButtonText)
             .frame(maxWidth: .infinity, minHeight: 76)
-            .background(Color.appAccent, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.appAccent.opacity(0.3), radius: 18, y: 8)
+            // Solid accent keeps the dark label at full contrast; the glass adds the system
+            // press response and edge highlight without making the control translucent.
+            .background(Color.appAccent, in: Capsule())
+            .glassSurface(in: Capsule(), tint: .appAccent, interactive: true)
         }
         .buttonStyle(.plain)
         .disabled(camera.state.isBusy)
         .opacity(camera.state.isBusy ? 0.65 : 1)
         .accessibilityLabel(LocalizedStringKey(
-            camera.state == .running
-                ? "home.camera.button.stopLongPress"
-                : "home.camera.button.start.label"
+            camera.state != .running ? "home.camera.button.start.label"
+                : pointerCannotHold ? "home.camera.input.stop" : "home.camera.button.stopLongPress"
         ))
         .accessibilityHint(LocalizedStringKey(
-            camera.state == .running
-                ? "home.camera.button.stopLongPress.hint"
-                : "home.camera.button.start.hint"
+            camera.state != .running ? "home.camera.button.start.hint"
+                : pointerCannotHold ? "home.camera.button.stopTap.hint" : "home.camera.button.stopLongPress.hint"
         ))
         .accessibilityIdentifier("cameraButton")
+        // Touch keeps the one-second hold. VoiceOver, Voice Control and Switch Control
+        // cannot hold, so their activation stops directly.
+        .accessibilityAction { camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton() }
+        .accessibilityAction(named: Text("home.camera.action.stop")) { stopFromAssistiveTechnology() }
+        .accessibilityInputLabels(camera.state == .running
+            ? [Text("home.camera.input.stop"), Text("home.camera.button.stopLongPress")]
+            : [Text("home.camera.input.start"), Text("home.camera.button.start.label")])
         .simultaneousGesture(stopGesture)
     }
 
@@ -363,6 +506,31 @@ struct ContentView: View {
 
         hapticManager.buttonTapped()
         camera.startCamera()
+    }
+
+    private var operationMessage: String? { camera.model.errorMessage ?? camera.model.permissionMessage }
+
+    /// Runs a Siri / Shortcuts / Action button command once the home screen is active.
+    private func runPendingCommand() {
+        guard scenePhase == .active, let command = commands.pending else { return }
+        commands.pending = nil
+        isShowingSettings = false
+        switch command {
+        case .start: startCameraFromButton()
+        case .stop: stopFromAssistiveTechnology()
+        case .describe:
+            guard camera.state == .running else {
+                speechManager.announce(speechManager.interfaceString("intent.describe.notRunning")); return
+            }
+            photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() })
+            photo.up()
+        }
+    }
+
+    private func stopFromAssistiveTechnology() {
+        guard camera.state == .running else { return }
+        hapticManager.buttonTapped()
+        camera.stopCamera()
     }
 }
 

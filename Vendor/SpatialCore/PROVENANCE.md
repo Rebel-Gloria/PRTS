@@ -38,7 +38,7 @@ rolling straight horizons, swept-route preview triggers, nearest-component selec
 entry reacquisition, and locally evaluated plane compatibility. PathClearance collision math and
 the sensor/ground estimator remain unchanged. Updated synthetic fixtures to include actual
 ground evidence and changed only explicitly superseded fixed-goal/one-metre-trigger expectations.
-See docs/architecture/ROUTE_REPLAY_2026-09-29.md in the main repository for sampled replay limits.
+See docs/reports/ROUTE_REPLAY_2026-09-29.md in the main repository for sampled replay limits.
 
 2026-09-29 projection layer: RouteProjection adds visual-only planar extrapolation on the
 current 2D occupancy grid. PathDrawing now shares ribbons with a distinct prediction role.
@@ -53,7 +53,7 @@ records are never overwritten by the hypothetical planning raster.
 World-route lock follow-up: Dev routes keep their reference plane, endpoint and bends when
 the camera-aligned raster moves away; confirmed occupancy still vetoes. Rendering uses
 solid approach/history in this mode. Normal routes retain their evidence policy.
-See docs/architecture/WORLD_ROUTE_LOCK_2026-09-29.md for the compact-grid replay limitation.
+See docs/reports/WORLD_ROUTE_LOCK_2026-09-29.md for the compact-grid replay limitation.
 
 ## Build25 geometry correction (2026-09-30)
 
@@ -63,4 +63,4 @@ strips exactly that field declaration, not the analyzer). `OccupancyFootprint` s
 current measured cell area from its temporal association anchor. Collision checks retain
 world footprints even outside a rotated search window. No original experiment is edited.
 `WaypointTransitionState` adds product-state hysteresis, without changing the 300ms
-obstacle admission rule. See `docs/architecture/WAYPOINT_STABILITY_2026-09-30.md`.
+obstacle admission rule. See `docs/reports/WAYPOINT_STABILITY_2026-09-30.md`.

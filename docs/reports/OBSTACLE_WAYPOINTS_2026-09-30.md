@@ -151,5 +151,5 @@ xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Debug \
 - 保留原bundle `com.jingxuan.PRTS`，未卸载、清除应用数据或自动开启采集。
 - 实际行走、持机变化和扬声器播报节奏仍待用户复测。
 
-[构建、测试、二进制与设备校验记录](OBSTACLE_WAYPOINTS_BUILD24_EVIDENCE.json)。
+[构建、测试、二进制与设备校验记录](evidence/OBSTACLE_WAYPOINTS_BUILD24_EVIDENCE.json)。
 此交付文档提交晚于源码提交；App内嵌commit保持上述实际构建源码版本。

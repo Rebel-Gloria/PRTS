@@ -55,6 +55,6 @@ application data was retained; no uninstall or erase. This does not certify sens
 route availability, physical obstacle avoidance, microphone/speech behavior or sustained thermals.
 No camera test or unprotected walking was performed by the agent.
 
-Log/binary identity hashes and structured outcomes: [evidence manifest](ROUTE_CONTINUITY_EVIDENCE_2026-09-29.json).
+Log/binary identity hashes and structured outcomes: [evidence manifest](evidence/ROUTE_CONTINUITY_EVIDENCE_2026-09-29.json).
 Full logs remain local under `/tmp/prts-continuity/`; temporary storage may be cleaned by the OS.
 Do not interpret missing old raw data, compact reconstruction, or compilation as device acceptance.

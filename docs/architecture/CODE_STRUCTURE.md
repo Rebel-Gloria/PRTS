@@ -13,6 +13,7 @@ PRTS/
 │   ├── DemoOptionsView.swift         # Home presentation switches
 │   ├── SettingsView.swift            # Product settings shell
 │   ├── ProbeSettingsView.swift       # Advanced spatial settings and export
+│   ├── LiquidGlass.swift             # iOS 26+ Liquid Glass surfaces with iOS 17–25 material fallback
 │   └── Localization.swift            # Speech/UI language selection
 ├── Capture/
 │   ├── CameraManager.swift           # Main-actor adapter; no second ARSession
@@ -74,7 +75,10 @@ Vendor/
 │   └── Tests/SpatialCoreTests/
 └── PRTSCore/                           # Linked PRTSContracts + unlinked optional model sources
 
-docs/                                   # Design, validation and release notes
+docs/                                   # Living design notes and feature docs
+├── architecture/                       # Current structure, data flow and route policy
+├── design/                             # Accessibility plan and copy review
+└── reports/                            # Dated build reports; evidence/ holds their JSON
 scripts/                                # Validation, DIAG reading and maintenance tools
 Experiments/SpatialProbe/               # Standalone validation application snapshot
 ```
@@ -102,24 +106,24 @@ The 2026-09-29 strategy adds helpers inside the existing modules; no existing di
 
 ### Route continuity additions (build16)
 
-Within existing `Vendor/SpatialCore`: `RouteEvidenceMap.swift` owns world-indexed evidence and proof intervals; `RouteContinuity.swift` owns atomic publication decisions, proof expiry and bounded arc progress. `PathPredictor` integrates them on the existing serial analysis worker. No new parallel runtime, package or camera session. [Contracts](ROUTE_CONTINUITY_2026-09-29.md).
+Within existing `Vendor/SpatialCore`: `RouteEvidenceMap.swift` owns world-indexed evidence and proof intervals; `RouteContinuity.swift` owns atomic publication decisions, proof expiry and bounded arc progress. `PathPredictor` integrates them on the existing serial analysis worker. No new parallel runtime, package or camera session. [Contracts](../reports/ROUTE_CONTINUITY_2026-09-29.md).
 
 ### Obstacle-veto integration (build17)
 
 No directory or module moves. `TemporalOccupancyGrid.swift` adapts confirmed world obstacle tracks
 into the rolling search raster; `RouteContinuity.swift` keeps publication/order/epoch contracts and
 diagnostic lengths. `PathPredictor` selects the product policy explicitly through `RuntimeProfile`.
-`RouteEvidenceMap` remains only the offline verified comparator. See [build17 report](OBSTACLE_VETO_2026-09-29.md).
+`RouteEvidenceMap` remains only the offline verified comparator. See [build17 report](../reports/OBSTACLE_VETO_2026-09-29.md).
 
 ### Obstacle waypoints (build24)
 
 The product now uses `ObstacleWaypointPlanner` on the same worker and obstacle-veto raster.
 `PathUpdate.goal`/`path` contain only the current committed leg; `waypointGuidance.nextTarget`
 is a replaceable diagnostic preview. No directory moves or new dependency.
-See [three-state scheduling and delivery](OBSTACLE_WAYPOINTS_2026-09-30.md).
+See [three-state scheduling and delivery](../reports/OBSTACLE_WAYPOINTS_2026-09-30.md).
 
 ## 审计边界（2026-09-30）
 
-当前产品调用链、无调用入口与优化建议见 [build25代码审计](CODE_AUDIT_2026-09-30.md)。
+当前产品调用链、无调用入口与优化建议见 [build25代码审计](../reports/CODE_AUDIT_2026-09-30.md)。
 Xcode实际链接 `PRTSContracts` 与 `SpatialCore`；PRTSAppleModels完整/Lite源码和Experiments不进入当前产品链。
 完整树分别列出契约与可选模型，不能把全部源码行数当作App编译量。

@@ -10,13 +10,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera permission denied. Enable camera access in iOS Settings, then try again."
+            "value" : "No camera access. Turn it on in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头权限被拒绝。请在 iPhone 设置中允许摄像头权限，然后重试。"
+            "value" : "没有相机权限，请到设置里打开。"
           }
         }
       }
@@ -33,7 +33,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头已准备就绪。"
+            "value" : "相机已准备就绪。"
           }
         }
       }
@@ -50,7 +50,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在请求摄像头权限。"
+            "value" : "正在请求相机权限。"
           }
         }
       }
@@ -67,7 +67,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头正在运行。"
+            "value" : "相机正在运行。"
           }
         }
       }
@@ -84,7 +84,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在启动摄像头。"
+            "value" : "正在启动相机。"
           }
         }
       }
@@ -101,7 +101,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头不可用。%@"
+            "value" : "相机不可用。%@"
           }
         }
       }
@@ -129,40 +129,6 @@
     "ARKit floor 分类填色" : {
 
     },
-    "camera.error.cannotAddInput" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The rear camera could not be connected."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法连接后置摄像头。"
-          }
-        }
-      }
-    },
-    "camera.error.cannotAddOutput" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The camera video output could not be created."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法创建摄像头视频输出。"
-          }
-        }
-      }
-    },
     "camera.error.noRearCamera" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -175,41 +141,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此设备未找到后置摄像头。"
-          }
-        }
-      }
-    },
-    "camera.error.sessionStartFailed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The camera session could not be started."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法启动摄像头会话。"
-          }
-        }
-      }
-    },
-    "camera.error.unknownPermission" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The camera permission state is unknown."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "摄像头权限状态未知。"
+            "value" : "此设备未找到后置相机。"
           }
         }
       }
@@ -243,7 +175,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头权限被拒绝"
+            "value" : "相机权限被拒绝"
           }
         }
       }
@@ -260,7 +192,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在等待摄像头权限"
+            "value" : "正在等待相机权限"
           }
         }
       }
@@ -277,7 +209,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头正在运行"
+            "value" : "相机正在运行"
           }
         }
       }
@@ -294,7 +226,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在启动摄像头"
+            "value" : "正在启动相机"
           }
         }
       }
@@ -311,7 +243,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头不可用"
+            "value" : "相机不可用"
           }
         }
       }
@@ -334,23 +266,6 @@
     },
     "floor 分类不是地面真值；候选区域不代表安全。关闭面板可检查图像四角，底部仍保留实验警告。" : {
 
-    },
-    "home.backend.framesConverted %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frames converted: %lld · mode: minimal"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已转换帧数：%lld · 模式：最简"
-          }
-        }
-      }
     },
     "home.camera.button.start" : {
       "extractionState" : "manual",
@@ -381,7 +296,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启动后置摄像头并显示实时预览"
+            "value" : "启动后置相机并显示实时预览"
           }
         }
       }
@@ -398,58 +313,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始摄像头"
-          }
-        }
-      }
-    },
-    "home.camera.button.stop" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停止"
-          }
-        }
-      }
-    },
-    "home.camera.button.stop.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stops the live camera preview"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停止实时摄像头预览"
-          }
-        }
-      }
-    },
-    "home.camera.button.stop.label" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop camera"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停止摄像头"
+            "value" : "开始相机"
           }
         }
       }
@@ -477,13 +341,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep holding for one second to stop the camera"
+            "value" : "Hold for one second to stop. With VoiceOver, double-tap to stop."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "持续按住一秒停止摄像头"
+            "value" : "按住一秒停止。使用旁白时双击即可停止。"
           }
         }
       }
@@ -517,7 +381,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头预览已关闭"
+            "value" : "相机预览已关闭"
           }
         }
       }
@@ -551,7 +415,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头预览"
+            "value" : "相机预览"
           }
         }
       }
@@ -568,7 +432,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头状态"
+            "value" : "相机状态"
           }
         }
       }
@@ -579,13 +443,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test command (e.g. 开始导航)"
+            "value" : "Test command (e.g. start)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "测试指令（例如：开始导航）"
+            "value" : "测试指令（例如：开始）"
           }
         }
       }
@@ -613,7 +477,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Setting"
+            "value" : "Settings"
           }
         },
         "zh-Hans" : {
@@ -676,23 +540,6 @@
     "RGB画面已隐藏；采集状态见主按钮" : {
 
     },
-    "settings.back" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "返回"
-          }
-        }
-      }
-    },
     "settings.feedback.haptic" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -705,7 +552,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "触觉反馈"
+            "value" : "振动提示"
           }
         }
       }
@@ -716,13 +563,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enables or disables haptic feedback for app interactions"
+            "value" : "Turns direction and button vibration on or off"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启或关闭应用交互的触觉反馈"
+            "value" : "开关方向振动和按键振动"
           }
         }
       }
@@ -733,13 +580,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Feedback"
+            "value" : "Haptics"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "反馈"
+            "value" : "振动"
           }
         }
       }
@@ -801,13 +648,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When enabled, speech follows the iPhone language. Turn it off to choose English or Chinese."
+            "value" : "When on, speech follows the iPhone language."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后，语音播报跟随 iPhone 语言。关闭后可选择英语或中文。"
+            "value" : "开启后，播报语言跟随 iPhone 系统语言。"
           }
         }
       }
@@ -852,13 +699,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Language"
+            "value" : "Speech language"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语言"
+            "value" : "播报语言"
           }
         }
       }
@@ -965,176 +812,6 @@
         }
       }
     },
-    "settings.runtime.asr" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable ASR (on-demand)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用自动语音识别（按需加载）"
-          }
-        }
-      }
-    },
-    "settings.runtime.brain" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable brain / VLM (experimental)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用大脑 / 视觉语言模型（实验性）"
-          }
-        }
-      }
-    },
-    "settings.runtime.maps" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable maps"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用地图"
-          }
-        }
-      }
-    },
-    "settings.runtime.perception" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable perception (segmentation + detection)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用感知（语义分割 + 目标检测）"
-          }
-        }
-      }
-    },
-    "settings.runtime.profile" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Runtime profile"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "运行档位"
-          }
-        }
-      }
-    },
-    "settings.runtime.profile.fullExperimental" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Full / experimental — opt in explicitly"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完整 / 实验模式 — 仅手动开启"
-          }
-        }
-      }
-    },
-    "settings.runtime.profile.minimal" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Minimal — interface, camera, system speech, contracts"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "最简模式 — 界面、相机、系统语音播报与契约解析"
-          }
-        }
-      }
-    },
-    "settings.runtime.profile.perception" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perception — segmentation and obstacle detection (when available)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "感知模式 — 语义分割与障碍物检测（资源可用时）"
-          }
-        }
-      }
-    },
-    "settings.runtime.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Runtime and models"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "运行模式与模型"
-          }
-        }
-      }
-    },
-    "settings.runtime.unavailable" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Model features remain unavailable until the pinned Apple runtime and model files are supplied. Full / experimental is never selected automatically."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在提供固定版本的 Apple 运行时和模型文件之前，模型功能不可用。应用不会自动选择完整 / 实验模式。"
-          }
-        }
-      }
-    },
     "settings.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1175,13 +852,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Turns automatic spoken page and status announcements on or off"
+            "value" : "Turns spoken status and direction cues on or off"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启或关闭页面和状态的自动语音播报"
+            "value" : "开关状态和方向的语音播报"
           }
         }
       }
@@ -1232,7 +909,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "播报速度"
+            "value" : "语速"
           }
         }
       }
@@ -1243,13 +920,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Changes the speed of automatic spoken announcements"
+            "value" : "Changes how fast cues are spoken"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "调整自动语音播报的速度"
+            "value" : "调整播报快慢"
           }
         }
       }
@@ -1283,7 +960,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头未开启。"
+            "value" : "相机未开启。"
           }
         }
       }
@@ -1300,7 +977,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头正在运行"
+            "value" : "相机正在运行"
           }
         }
       }
@@ -1311,13 +988,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera permission denied. Enable camera access in iOS Settings, then try again."
+            "value" : "No camera access. Turn it on in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头权限被拒绝。请在 iPhone 设置中允许摄像头权限，然后重试。"
+            "value" : "没有相机权限，请到设置里打开。"
           }
         }
       }
@@ -1334,7 +1011,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头未开启"
+            "value" : "相机未开启"
           }
         }
       }
@@ -1351,7 +1028,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在请求摄像头权限。"
+            "value" : "正在请求相机权限。"
           }
         }
       }
@@ -1368,7 +1045,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头正在运行。"
+            "value" : "相机正在运行。"
           }
         }
       }
@@ -1379,13 +1056,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start button at the bottom of the screen."
+            "value" : "Start button at the bottom"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“开始”按钮在屏幕下方。"
+            "value" : "开始按钮在下方"
           }
         }
       }
@@ -1402,7 +1079,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在启动摄像头。"
+            "value" : "正在启动相机。"
           }
         }
       }
@@ -1413,13 +1090,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Press and hold to stop button."
+            "value" : "Press and hold the bottom button to stop"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“长按停止”按钮。"
+            "value" : "长按下方按钮停止"
           }
         }
       }
@@ -1436,7 +1113,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "摄像头不可用。%@"
+            "value" : "相机不可用。%@"
           }
         }
       }
@@ -1447,13 +1124,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Haptic feedback is %@."
+            "value" : "Haptics %@."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "触觉反馈已%@。"
+            "value" : "振动已%@。"
           }
         }
       }
@@ -1464,13 +1141,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS home. %@. %@. Settings button at the top right."
+            "value" : "PRTS. %1$@. %2$@. Settings is at the top right."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS 首页。%@。%@。“设置”按钮在右上角。"
+            "value" : "PRTS。%1$@。%2$@，设置在右上角。"
           }
         }
       }
@@ -1481,13 +1158,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Language: Custom: %@"
+            "value" : "Language: %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语言：自定义：%@"
+            "value" : "语言：%@"
           }
         }
       }
@@ -1498,13 +1175,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Language: Follow system settings"
+            "value" : "Language follows the system"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语言：跟随系统设置"
+            "value" : "语言跟随系统"
           }
         }
       }
@@ -1521,7 +1198,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "播报速度为%@。"
+            "value" : "语速%@。"
           }
         }
       }
@@ -1532,13 +1209,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Settings. Voice announcements are %@. Speech rate is %@. %@. Haptic feedback is %@."
+            "value" : "Settings. Voice %1$@, rate %2$@, %3$@, haptics %4$@."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设置。语音播报已%@。播报速度为%@。%@。触觉反馈已%@。"
+            "value" : "设置。语音%1$@，语速%2$@，%3$@，振动%4$@。"
           }
         }
       }
@@ -1600,13 +1277,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voice announcements on."
+            "value" : "Voice on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音播报已开启。"
+            "value" : "语音已开启。"
           }
         }
       }
@@ -1896,6 +1573,669 @@
     },
     "黄线／圈：观测路径／目标 · 橙虚线：短时缓存 · 青虚线：未验证近身连接" : {
 
+    },
+    "home.camera.action.stop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "home.camera.input.start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始"
+          }
+        }
+      }
+    },
+    "home.camera.input.stop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "home.photo.cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "settings.photo.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo description"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拍照描述"
+          }
+        }
+      }
+    },
+    "settings.photo.service" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service and API key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务与 API Key"
+          }
+        }
+      }
+    },
+    "photo.settings.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo description"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拍照描述"
+          }
+        }
+      }
+    },
+    "photo.settings.service" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务"
+          }
+        }
+      }
+    },
+    "photo.settings.model" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型"
+          }
+        }
+      }
+    },
+    "photo.settings.allowUpload" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow sending photos and questions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许发送照片和提问"
+          }
+        }
+      }
+    },
+    "photo.settings.privacy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent only when you press the photo button. Speech recognition may use Apple services. Photos, recordings, questions and answers are not saved."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只在按下拍照按钮时发送。语音识别可能使用 Apple 服务。照片、录音、提问和回答都不保存。"
+          }
+        }
+      }
+    },
+    "photo.settings.keySaved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved. Type to replace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存，输入新的可替换"
+          }
+        }
+      }
+    },
+    "photo.settings.keyPlaceholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter API key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入 API Key"
+          }
+        }
+      }
+    },
+    "photo.settings.save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to Keychain"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存到钥匙串"
+          }
+        }
+      }
+    },
+    "photo.settings.saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存"
+          }
+        }
+      }
+    },
+    "photo.settings.delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete API key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除 API Key"
+          }
+        }
+      }
+    },
+    "photo.settings.deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除"
+          }
+        }
+      }
+    },
+    "photo.settings.permissions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice questions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音提问"
+          }
+        }
+      }
+    },
+    "photo.settings.permissionsGranted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone and speech recognition allowed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风和语音识别已允许"
+          }
+        }
+      }
+    },
+    "photo.settings.permissionsRequest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow microphone and speech recognition"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许麦克风和语音识别"
+          }
+        }
+      }
+    },
+    "photo.settings.ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice questions are ready"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音提问已就绪"
+          }
+        }
+      }
+    },
+    "photo.settings.denied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow microphone and speech recognition in Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请到设置里允许麦克风和语音识别"
+          }
+        }
+      }
+    },
+    "photo.settings.usage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usage"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用法"
+          }
+        }
+      }
+    },
+    "photo.settings.usageText" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap: take a photo and describe it. Hold for half a second, ask after the tone, release to send."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点：拍照并描述。按住半秒，听到提示音后提问，松手发送。"
+          }
+        }
+      }
+    },
+    "photo.button.label" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe photo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拍照描述"
+          }
+        }
+      }
+    },
+    "photo.button.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to describe the view. Hold half a second to ask, release to send."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点描述画面；按住半秒后提问，松手发送"
+          }
+        }
+      }
+    },
+    "photo.button.action.ask" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start voice question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始语音提问"
+          }
+        }
+      }
+    },
+    "photo.button.action.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send voice question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送语音提问"
+          }
+        }
+      }
+    },
+    "home.camera.button.stopTap.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to stop."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点停止。"
+          }
+        }
+      }
+    },
+    "intent.start.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start PRTS"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始 PRTS"
+          }
+        }
+      }
+    },
+    "intent.start.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens PRTS and starts the camera and obstacle guidance."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 PRTS，开始相机和避障提示。"
+          }
+        }
+      }
+    },
+    "intent.start.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始"
+          }
+        }
+      }
+    },
+    "intent.stop.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop PRTS"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止 PRTS"
+          }
+        }
+      }
+    },
+    "intent.stop.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops the camera and obstacle guidance."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止相机和避障提示。"
+          }
+        }
+      }
+    },
+    "intent.stop.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "intent.describe.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe the scene"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述画面"
+          }
+        }
+      }
+    },
+    "intent.describe.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Takes a photo with the running camera and reads out a description."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用正在运行的相机拍一张照片并朗读描述。"
+          }
+        }
+      }
+    },
+    "intent.describe.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述画面"
+          }
+        }
+      }
+    },
+    "intent.describe.notRunning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start the camera first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先开始相机。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

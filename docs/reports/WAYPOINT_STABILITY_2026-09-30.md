@@ -123,7 +123,7 @@ Dev样本仍低频保存，不伪称包含每个实际处理帧。
   未卸载、擦除历史记录或自动启动摄像头。App内嵌上述源码commit；本交付文档晚于构建。
 - 主路线真实墙体表现与语音体验仍待复测；模拟器录制超时仍为已知未解决项。
 
-[校验记录](WAYPOINT_STABILITY_BUILD25_EVIDENCE.json)。
+[校验记录](evidence/WAYPOINT_STABILITY_BUILD25_EVIDENCE.json)。
 
 实际执行：
 

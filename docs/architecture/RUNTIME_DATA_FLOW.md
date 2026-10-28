@@ -1,5 +1,5 @@
 > **Current product: build24.** The continuous-route descriptions below are build17/18 history.
-> [Obstacle waypoints](OBSTACLE_WAYPOINTS_2026-09-30.md) defines current clear/far/near scheduling, atomic current-goal handoff, and schema4.
+> [Obstacle waypoints](../reports/OBSTACLE_WAYPOINTS_2026-09-30.md) defines current clear/far/near scheduling, atomic current-goal handoff, and schema4.
 
 # Runtime data flow
 
@@ -51,7 +51,7 @@ Display and feedback read the same committed `PathUpdate`. The main veto route i
 no evidence-expiry or endpoint-arrival hiding. Sensor surface layers retain their own raw-data
 checks; those checks do not hide the main route.
 
-See [build17 contracts, tests and limits](OBSTACLE_VETO_2026-09-29.md).
+See [build17 contracts, tests and limits](../reports/OBSTACLE_VETO_2026-09-29.md).
 
 ## build18 heading query and tail update
 
@@ -63,4 +63,4 @@ intervals; epoch/tracking invalidation still belongs to the runtime.
 Straight extension tests a full swept segment, then bisects only if occupied.
 `RouteArc.coalescingCollinear` removes redundant rolling nodes without changing the curve.
 Side-route tails extend along their terminal tangent before arrival; local goals no longer
-clear the product route. Details: [build18](TURN_TAIL_2026-09-29.md).
+clear the product route. Details: [build18](../reports/TURN_TAIL_2026-09-29.md).

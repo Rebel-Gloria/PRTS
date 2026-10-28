@@ -1,4 +1,4 @@
-> 历史设计／实验记录。当前默认行为以 [build17 obstacle-veto](OBSTACLE_VETO_2026-09-29.md) 为准；Dev tag 仅控制开发入口与采集。
+> 历史设计／实验记录。当前默认行为以 [build17 obstacle-veto](../reports/OBSTACLE_VETO_2026-09-29.md) 为准；Dev tag 仅控制开发入口与采集。
 
 # 正前方路线与局部避障
 
@@ -93,8 +93,8 @@ ProbeEngine（后台分析队列）
 
 ## 本轮验证
 
-详见 [2026-09-29 录制回放对照](ROUTE_REPLAY_2026-09-29.md)。保留独立合成测试及普通/Dev Tag编译检查。
-早期版本的验证历史见 [代码审查记录](CODE_AUDIT_2026-09-29.md)。
+详见 [2026-09-29 录制回放对照](../reports/ROUTE_REPLAY_2026-09-29.md)。保留独立合成测试及普通/Dev Tag编译检查。
+早期版本的验证历史见 [代码审查记录](../reports/CODE_AUDIT_2026-09-29.md)。
 
 `triggerDistance` 的单位为米，表示当前设备地面前向轴上的障碍前缘投影距离；`obstacleWidth` 为占用分量横向包络。
 `targetGroundDistance` 是相机地面投影至动态前视目标的平面欧氏距离。

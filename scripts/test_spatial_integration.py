@@ -159,7 +159,9 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn('speechManager.cancelPerceptionSpeech()',home)
 
     def test_original_home_controls_and_theme_are_preserved(self):
-        # Intentional baseline: local main c9bace5, before the uncommitted UI rewrite.
+        # Interaction baseline: local main c9bace5 (stopGesture, theme). The header, status and
+        # primary button were restyled for Liquid Glass, the approved accessibility plan and the
+        # large-text / tap-to-stop round on 2026-10-28; their actions and accessibility are asserted line by line below.
         s = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         parts = {
             "header": s[s.index("    private var header:"):s.index("    private var cameraStatus:")],
@@ -168,10 +170,24 @@ class SpatialIntegrationTests(unittest.TestCase):
             "stopGesture": s[s.index("    private var stopGesture:"):s.index("    private func startCameraFromButton")],
             "theme": s[s.index("private extension Color"):],
         }
-        expected = {'header': '3bfe906826c6e382a22ca3f5b0e35e809cb0bc6f6cbc0ad5ce3231ef76b7f87a', 'cameraStatus': 'c4b944ef4a1364469fad3ca8df7008808ca1fa693f1a6ec91ceaea8aa4008755', 'primaryButton': 'cd8e9cefccb539e922831be45aa32f6738eda904aa8bf5e3f9e66137fe7be663', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
+        expected = {'header': '0216fa5b4e5a72d0f61d0ec64b480e8958b3594ac3d9aa9ae599ea7c4be357c8', 'cameraStatus': '484b754561c0baa793080542c10bb1678c6471fb30b087581a0b90d4d8977825', 'primaryButton': 'f715e92762365f90617ac39212428219336b09ee1701a0299be6b4d1f9caea1d', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
         for name,content in parts.items():
             with self.subTest(part=name):
                 self.assertEqual(hashlib.sha256(content.encode()).hexdigest(),expected[name])
+        for part,required in {
+            "header": ["hapticManager.buttonTapped()", "isShowingSettings = true", 'accessibilityLabel("home.settings.label")',
+                       'accessibilityHint("home.settings.hint")', 'accessibilityIdentifier("settingsButton")', ".accessibilityAddTraits(.isHeader)"],
+            "cameraStatus": [".accessibilityElement(children: .ignore)", 'accessibilityLabel("home.camera.status.label")',
+                             'accessibilityIdentifier("cameraStatus")'],
+            "primaryButton": ["startCameraFromButton()", ".disabled(camera.state.isBusy)", ".simultaneousGesture(stopGesture)",
+                              'accessibilityIdentifier("cameraButton")', "minHeight: 76",
+                              # Assistive technology cannot hold; touch keeps the one-second hold.
+                              "camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()",
+                              'accessibilityAction(named: Text("home.camera.action.stop"))'],
+        }.items():
+            for line in required:
+                with self.subTest(part=part, line=line):
+                    self.assertIn(line, parts[part])
 
 if __name__ == "__main__":
     unittest.main()

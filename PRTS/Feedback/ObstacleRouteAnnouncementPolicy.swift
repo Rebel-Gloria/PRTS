@@ -65,7 +65,7 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
     var chinese: String {
         switch self {
         case .clear: return "前方无障碍"
-        case .adjustCamera(let distance): return Self.distance(distance, chinese: true) + "，请调整手机方向"
+        case .adjustCamera(let distance): return Self.distance(distance, chinese: true) + "，请转动手机"
         case .blocked(let distance): return Self.distance(distance, chinese: true) + "，暂无绕行路径"
         case .obstacle(let distance, let side):
             let suffix = side.map { $0 < 0 ? "，向左转" : $0 > 0 ? "，向右转" : "，继续向前" } ?? ""
@@ -75,7 +75,7 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
     var english: String {
         switch self {
         case .clear: return "No obstacle ahead"
-        case .adjustCamera(let distance): return Self.distance(distance, chinese: false) + ". Adjust the camera direction"
+        case .adjustCamera(let distance): return Self.distance(distance, chinese: false) + ". Turn the phone"
         case .blocked(let distance): return Self.distance(distance, chinese: false) + ". No bypass found"
         case .obstacle(let distance, let side):
             let suffix = side.map { $0 < 0 ? ". Turn left" : $0 > 0 ? ". Turn right" : ". Continue forward" } ?? ""

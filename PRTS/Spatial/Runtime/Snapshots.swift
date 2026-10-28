@@ -219,12 +219,6 @@ struct SharedSnapshot: Sendable {
         if frozen == nil && ProcessInfo.processInfo.systemUptime-prediction.frame.frame.timestamp > parameters.maxResultAge { return nil }
         return prediction
     }
-    var currentMonocularStatus: String {
-        guard running else { return "已停止；无当前预测或尺度" }
-        guard frame?.trackingNormal == true else { return "ARKit 追踪受限；尺度与模型不发布" }
-        guard let prediction = activeMonocular else { return "等待及时的当前预测；旧尺度不沿用" }
-        return prediction.status
-    }
     /// Only a bounded historical OUTLINE can survive a brief missing native plane snapshot.
     func retainedNativeGround(now: Double) -> NativePlaneObservation? {
         guard running,geometryEnabled,frozen == nil,let prediction = activeMonocular,

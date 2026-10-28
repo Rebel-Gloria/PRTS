@@ -81,6 +81,55 @@ final class PRTSUITests: XCTestCase {
         #endif
     }
 
+    /// Liquid Glass screens and the accessibility plan: localized settings, photo settings,
+    /// and the stacked header at the largest accessibility text size.
+    @MainActor
+    func testLocalizedSettingsAndLargeTextHome() throws {
+        func snap(_ app: XCUIApplication, _ name: String) {
+            let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        }
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let settings = app.buttons["settingsButton"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        XCTAssertTrue(settings.isHittable)
+        snap(app, "Home (glass)")
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.switches["语音播报"].exists)
+        snap(app, "Settings (zh)")
+        let photo = app.buttons["服务与 API Key"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        photo.tap()
+        XCTAssertTrue(app.navigationBars["拍照描述"].waitForExistence(timeout: 5))
+        snap(app, "Photo settings (zh)")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // The feedback section sits below the developer section; Form rows off screen don't exist yet.
+        let haptic = app.switches["振动提示"]
+        for _ in 0..<3 where !haptic.exists { app.swipeUp() }
+        XCTAssertTrue(haptic.exists)
+        snap(app, "Settings feedback (zh)")
+        app.terminate()
+
+        let large = XCUIApplication()
+        large.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        large.launch()
+        let largeSettings = large.buttons["settingsButton"]
+        let camera = large.buttons["cameraButton"]
+        XCTAssertTrue(largeSettings.waitForExistence(timeout: 10))
+        XCTAssertTrue(largeSettings.isHittable)
+        XCTAssertTrue(camera.isHittable)
+        XCTAssertFalse(largeSettings.frame.intersects(camera.frame))
+        // Header stays one row: the settings button becomes icon-only beside the brand.
+        XCTAssertLessThan(largeSettings.frame.maxY, large.descendants(matching: .any)["cameraStatus"].frame.minY)
+        snap(large, "Home at accessibility XXXL")
+        camera.tap()
+        let running = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS '停止'"), object: camera)
+        XCTAssertEqual(XCTWaiter.wait(for: [running], timeout: 8), .completed)
+        snap(large, "Running at accessibility XXXL")
+    }
+
     @MainActor
     func testDevCaptureBuildGate() throws {
         let app = XCUIApplication(); app.launch()

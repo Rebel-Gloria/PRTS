@@ -29,6 +29,10 @@ struct PhotoPresentationTests {
         button.isHighlighted = false
         button.layoutIfNeeded()
         #expect(button.alpha * (button.imageView?.alpha ?? 1) == 0.25)
+        button.applyVisibility(highContrast: true)
+        #expect(abs(button.alpha - 0.85) < 0.001)
+        button.applyVisibility(highContrast: false)
+        #expect(button.alpha == 0.25)
     }
 
     @Test func nativeToneAssetsAreDistinctAndDecodableWithoutPlayback() throws {

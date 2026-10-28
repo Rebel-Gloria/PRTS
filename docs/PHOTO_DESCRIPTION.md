@@ -70,7 +70,7 @@ Key使用WhenUnlockedThisDeviceOnly，不写入UserDefaults、代码、诊断或
 - 最终源码模拟器App测试24项全部通过，签名Dev Release构建及严格签名检查通过。
 - 图像测试使用合成像素缓冲，HTTP测试使用URLProtocol模拟响应；没有上传真机照片。
 - 真实API、长按录音、A/B音、不同朗读音色与摄像头方向的实机体验仍待用户测试。
-- [校验和与证据](architecture/PHOTO_DESCRIPTION_EVIDENCE_2026-09-30.json)。
+- [校验和与证据](reports/evidence/PHOTO_DESCRIPTION_EVIDENCE_2026-09-30.json)。
 
 复验命令：
 
@@ -109,7 +109,7 @@ A提示音使用纯播放音频会话，不再为短按启用输入音频路由�
 
 Build20已通过普通iOS Release、签名Dev Release与严格签名校验；2026-09-30 01:02安装并启动。
 二进制源码`9504ae89601a03fbc4ecea6c3191d75eaa508847`；保留App数据，不读取用户Key。
-[Build20证据](architecture/PHOTO_DESCRIPTION_BUILD20_EVIDENCE.json)。
+[Build20证据](reports/evidence/PHOTO_DESCRIPTION_BUILD20_EVIDENCE.json)。
 
 ### 完成审查：尚未关闭的真机验收
 
@@ -167,7 +167,7 @@ A/B提示音、0.5秒长按、语音识别、提示词、网络请求与路线�
 Dev包包含该类型。2026-09-30 10:59在Gloria iPhone 15 Pro（iOS27.0）上成功启动，
 设备应用列表确认`1.0 (22)`，未卸载或清除历史数据。实际听感和真实服务调用仍待用户验证。
 源码提交：`261c01a8fe5ca41fc643a25af85e59882c64abfc`。
-[Build22构建、测试与设备证据](architecture/PHOTO_DESCRIPTION_BUILD22_EVIDENCE.json)。
+[Build22构建、测试与设备证据](reports/evidence/PHOTO_DESCRIPTION_BUILD22_EVIDENCE.json)。
 
 
 ## Build 23：长按提问的简短回答前缀
@@ -197,4 +197,4 @@ PRTSCore契约8项、Python 46项通过。未改目录结构；代码清单已�
 iPhone 15 Pro（iOS27.0）上成功安装并启动，设备应用列表确认`1.0 (23)`，
 未卸载或清除历史数据，也未自动发起拍照/语音请求。新版真实长按回答的简洁程度待用户复测。
 应用构建的源码提交：`99be8b06513072f7960d6d9a6a7f2d9733b201ba`；随后交付证据的文档提交不改变该构建源码。
-[Build23构建、测试与设备证据](architecture/PHOTO_DESCRIPTION_BUILD23_EVIDENCE.json)。
+[Build23构建、测试与设备证据](reports/evidence/PHOTO_DESCRIPTION_BUILD23_EVIDENCE.json)。

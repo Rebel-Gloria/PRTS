@@ -31,13 +31,47 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS uses the camera to understand and describe your surroundings."
+            "value" : "PRTS uses the camera to detect the ground and obstacles around you."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS 使用摄像头理解并描述您周围的环境。"
+            "value" : "PRTS 用相机识别你周围的地面和障碍。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used while you hold the photo button to record your question."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住拍照按钮时录下你的提问。"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turns your spoken question into text sent with the photo."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把你的语音提问转成文字，随照片一起发送。"
           }
         }
       }

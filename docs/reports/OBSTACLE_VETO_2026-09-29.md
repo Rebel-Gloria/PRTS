@@ -130,7 +130,7 @@ swiftc -O -I Vendor/SpatialCore/.build/arm64-apple-macosx/debug/Modules \
   现有应用容器保留；未卸载或删除录制。未执行新版本行走与持续热测试。
 - 最终普通 Release 编译、Dev 模拟器 14 项 App 测试、签名 Dev Release 均成功。
   编译警告仅 AppIntents 元数据提取跳过（没有该依赖）。
-- [证据清单及日志 SHA256](OBSTACLE_VETO_EVIDENCE_2026-09-29.json)；完整日志本地保留于上述临时目录。
+- [证据清单及日志 SHA256](evidence/OBSTACLE_VETO_EVIDENCE_2026-09-29.json)；完整日志本地保留于上述临时目录。
 
 ```sh
 xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
