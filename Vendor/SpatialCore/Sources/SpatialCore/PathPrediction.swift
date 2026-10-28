@@ -10,7 +10,7 @@ public struct PathOptions: Codable, Sendable, Equatable {
     public var retentionSeconds: Double = 2
     public var lookAhead: Float = 0.8
     public var forwardBufferLength: Float = 8
-    public var minimumWidth: Float = 0.5 // TOTAL planning envelope; do not add bodyWidth/margin twice.
+    public var minimumWidth: Float = 0.5 // Legacy geometry-comparator key; product resolves configured bodyWidth.
     public var targetHalfAngleDegrees: Float = 45
     public var arrivalRadius: Float = 0.35
     public var alignmentDegrees: Float = 5
@@ -40,6 +40,11 @@ public struct PathOptions: Codable, Sendable, Equatable {
         userTurnDegrees = try c.decodeIfPresent(Float.self,forKey:.userTurnDegrees) ?? 45
         userTurnSeconds = try c.decodeIfPresent(Double.self,forKey:.userTurnSeconds) ?? 3
     }
+    public func resolvingBodyWidth(_ parameters: ProbeParameters) -> Self {
+        var copy = validated()
+        copy.minimumWidth = parameters.validated().bodyWidth
+        return copy
+    }
     public func validated() -> Self {
         var v = self
         v.waypoints = waypoints.validated()
@@ -47,7 +52,7 @@ public struct PathOptions: Codable, Sendable, Equatable {
         v.retentionSeconds = retentionSeconds.isFinite ? min(5,max(0.5,retentionSeconds)) : 2
         v.lookAhead = lookAhead.isFinite ? min(1.5,max(0.4,lookAhead)) : 0.8
         v.forwardBufferLength = forwardBufferLength.isFinite ? min(20,max(2,forwardBufferLength)) : 8
-        v.minimumWidth = minimumWidth.isFinite ? min(1.2,max(0.5,minimumWidth)) : 0.5
+        v.minimumWidth = minimumWidth.isFinite ? min(1.2,max(0.3,minimumWidth)) : 0.5
         v.targetHalfAngleDegrees = targetHalfAngleDegrees.isFinite ? min(75,max(15,targetHalfAngleDegrees)) : 45
         v.arrivalRadius = arrivalRadius.isFinite ? min(0.75,max(0.2,arrivalRadius)) : 0.35
         v.alignmentDegrees = alignmentDegrees.isFinite ? min(v.deviationDegrees-2,max(2,alignmentDegrees)) : min(5,v.deviationDegrees-2)
@@ -277,6 +282,7 @@ public struct PathPredictor: Sendable {
                                 directionStable: Bool? = nil, cameraView: RouteCameraView? = nil, hazardWatermark: UInt64 = 0,
                                 committedPath: PredictedPath? = nil,
                                 onOccupancyConflict: ((UInt64) -> Void)? = nil) -> PathUpdate {
+        let options = (experimentalOccupancyPlanning || verifiedPolicy) ? options.resolvingBodyWidth(result.parameters) : options.validated()
         if epoch != result.epoch || version != result.parameterVersion {
             reset();epoch = result.epoch;version = result.parameterVersion
         }
@@ -307,7 +313,7 @@ public struct PathPredictor: Sendable {
                 return verifiedEmpty(result,options:options,watermark:hazardWatermark,reason:"ground_or_metric_conflict")
             }
             var bodyOptions = options.validated()
-            bodyOptions.minimumWidth = max(bodyOptions.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin)
+            bodyOptions.minimumWidth = result.parameters.validated().bodyWidth
             let snapshot = evidenceMap.snapshot(result)
             var speed: Float = 0
             if let old = previousPose,let time = previousPoseTime,let pose = result.sourcePose,result.timestamp>time {
@@ -428,7 +434,7 @@ public struct PathPredictor: Sendable {
             timestamp:result.timestamp,requestID:result.frameID,sourceMapVersion:evidenceMap.version,
             hazardWatermark:watermark,routeID:nil,geometryVersion:geometryVersion,status:.needsObservation,
             remainingVerifiedLength:0,evidenceAge:nil,renewalDistance:continuityOptions.minimumRenewalDistance,
-            requiredWidth:max(options.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin))
+            requiredWidth:result.parameters.validated().bodyWidth)
         u.goal = planner.held(at:result.timestamp,options:options.validated(),reason:reason).goal
         if experimentalOccupancyPlanning { u.continuity?.planningPolicy = RoutePlanningPolicy.obstacleVeto.rawValue }
         u.continuity?.plannedLength = 0
