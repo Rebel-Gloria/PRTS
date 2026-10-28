@@ -257,7 +257,7 @@ struct SharedSnapshot: Sendable {
     }
     func activePath(now: Double) -> PathPresentation? {
         guard pathOptions.enabled,let path = pathUpdate.path,let frame else { return nil }
-        return PathPresentation.make(path:path,gate:presentationGate,pose:frame.pose,options:pathOptions,now:now)
+        return PathPresentation.make(path:path,gate:presentationGate,pose:frame.pose,options:pathOptions.resolvingBodyWidth(parameters),now:now)
     }
     /// Open-space guidance has no path by design; it must not depend on the ground-render result.
     func activeWaypointUpdate(now: Double) -> PathUpdate? {
