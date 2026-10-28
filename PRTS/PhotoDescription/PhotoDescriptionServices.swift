@@ -22,11 +22,12 @@ protocol PhotoAnswerAudio: AnyObject {
 struct PhotoDescriptionServices {
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     var uploadAllowed: () -> Bool = { UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed") }
-    var credential: () throws -> String? = { try PhotoCredentialStore.read() }
+    var credential: () throws -> String? = { try PhotoCredentialStore.read(account: PhotoChatProvider.current().keyAccount) }
     var speechAuthorized: () -> Bool = { PhotoSpeechRecognizer.authorized }
     var requestSpeechPermission: () async -> Bool = { await PhotoSpeechRecognizer.requestPermissions() }
     var describe: @Sendable (Data, String, String) async throws -> String = { jpeg, text, key in
-        try await PhotoChatClient().describe(jpeg: jpeg, text: text, key: key)
+        try await PhotoChatClient().describe(jpeg: jpeg, text: text, key: key,
+                                             service: PhotoChatProvider.current().service())
     }
 }
 

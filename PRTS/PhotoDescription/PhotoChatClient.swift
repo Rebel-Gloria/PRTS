@@ -3,10 +3,11 @@ import Foundation
 /// One invocation owns one ephemeral connection; cancellation tears it down.
 /// Redirects are rejected so credentials and camera content stay at the requested endpoint.
 nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Sendable {
-    func describe(jpeg: Data, text: String, key: String,
+    func describe(jpeg: Data, text: String, key: String, service: PhotoChatService? = .qwen,
                   configuration: URLSessionConfiguration = .ephemeral) async throws -> String {
         try Task.checkCancellation()
-        let request = try PhotoChatProtocol.request(jpeg: jpeg, text: text, key: key)
+        guard let service else { throw PhotoChatError.invalidService }
+        let request = try PhotoChatProtocol.request(jpeg: jpeg, text: text, key: key, service: service)
         configuration.timeoutIntervalForResource = 120
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
