@@ -9,6 +9,13 @@ enum ObstacleWaypointSearch {
     }
 
     static func approach(raster: RoutePlanningGrid, reference: ForwardRouteReference,
+                         obstacle: ForwardObstacle, foot: V3, standOff: Float, sideMargin: Float = 0.15) -> Plan? {
+        approachAtWidth(raster: comfortable(raster, sideMargin: sideMargin), reference: reference,
+            obstacle: obstacle, foot: foot, standOff: standOff)
+        ?? approachAtWidth(raster: raster, reference: reference, obstacle: obstacle, foot: foot, standOff: standOff)
+    }
+
+    private static func approachAtWidth(raster: RoutePlanningGrid, reference: ForwardRouteReference,
                          obstacle: ForwardObstacle, foot: V3, standOff: Float) -> Plan? {
         let gap = max(standOff, raster.requiredWidth / 2 + raster.grid.cellSize)
         let start = reference.coordinates(foot).y
@@ -30,17 +37,18 @@ enum ObstacleWaypointSearch {
     }
 
     static func avoid(raster: RoutePlanningGrid, reference: ForwardRouteReference,
-                      obstacle: ForwardObstacle, foot: V3, preferredSide: Int) -> Plan? {
-        // Prefer a little separation from the measured edge to avoid immediate replan on
-        // the next raster phase. This is a preference: retry the exact requested width so
-        // a 0.50m passage stays admissible. All shortcuts use the same selected width.
-        var comfortable = raster
-        comfortable.requiredWidth += 0.16
-        comfortable.mask = PathClearance.mask(grid:comfortable.grid,radius:comfortable.requiredWidth/2,allowUnknown:true)
-        if preferredSide != 0, let retained = search(raster:comfortable,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide,onlyPreferred:true)
-            ?? search(raster:raster,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide,onlyPreferred:true) { return retained }
-        return search(raster:comfortable,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide)
-            ?? search(raster:raster,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide)
+                      obstacle: ForwardObstacle, foot: V3, preferredSide: Int, sideMargin: Float = 0.15) -> Plan? {
+        // Comfort is a search preference, never a veto on a physically wide enough route.
+        search(raster: comfortable(raster, sideMargin: sideMargin), reference: reference,
+            obstacle: obstacle, foot: foot, preferredSide: preferredSide)
+        ?? search(raster: raster, reference: reference, obstacle: obstacle, foot: foot, preferredSide: preferredSide)
+    }
+
+    private static func comfortable(_ raster: RoutePlanningGrid, sideMargin: Float) -> RoutePlanningGrid {
+        var copy = raster
+        copy.requiredWidth += 2 * sideMargin
+        copy.mask = PathClearance.mask(grid:copy.grid,radius:copy.requiredWidth/2,allowUnknown:copy.obstacleVeto)
+        return copy
     }
 
     private static func search(raster: RoutePlanningGrid, reference: ForwardRouteReference,

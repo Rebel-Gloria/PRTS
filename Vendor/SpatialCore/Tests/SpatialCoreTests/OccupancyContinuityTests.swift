@@ -71,7 +71,7 @@ extension ForwardRouteTests {
     gate.frameTimestamp = 200
     XCTAssertNotNil(
       PathPresentation.make(
-        path: first, gate: gate, pose: missing.sourcePose!, options: .init(), now: 200.1))
+        path: first, gate: gate, pose: missing.sourcePose!, options: PathOptions().resolvingBodyWidth(missing.parameters), now: 200.1))
   }
   func testNoInitialPlaneOrGridStillPlansOnFixedDrawingReference() throws {
     var planner = PathPredictor(legacyContinuousOccupancy: true)
@@ -183,19 +183,13 @@ extension ForwardRouteTests {
     options.enabled = false
     XCTAssertNil(planner.update(result: frame(2, 1.1), observation: nil, options: options).path)
   }
-  func testBodyEvidenceDoesNotOverrideConfiguredVetoWidth() throws {
+  func testConfiguredBodyWidthOverridesLegacyVetoWidth() throws {
     var planner = PathPredictor(legacyContinuousOccupancy: true)
-    var r = frame(cells: { abs($0.x) < 0.301 ? .unknown : .obstacle })
+    var r = frame(cells: { _ in .unknown })
     r.parameters.bodyWidth = 1.2
     r.parameters.sideMargin = 0.5
-    for i in 0...3 {
-      r.frameID = UInt64(i + 1)
-      r.timestamp = 1 + Double(i) * 0.1
-      r.grid?.frameID = r.frameID
-      r.grid?.timestamp = r.timestamp
-      let p = try XCTUnwrap(planner.update(result: r, observation: nil, options: .init()).path)
-      XCTAssertEqual(p.requiredWidth, 0.5)
-    }
+    let p = try XCTUnwrap(planner.update(result:r,observation:nil,options:.init()).path)
+    XCTAssertEqual(p.requiredWidth,1.2)
   }
   func testLegacyOccupancyRecordAndOptionsStillDecode() throws {
     let json =

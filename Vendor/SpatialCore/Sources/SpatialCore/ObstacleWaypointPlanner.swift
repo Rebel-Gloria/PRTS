@@ -31,6 +31,7 @@ struct ObstacleWaypointPlanner: Sendable {
 
     mutating func update(result r: AnalysisResult, cameraResult: AnalysisResult?,
                          options: PathOptions, view: RouteCameraView?) -> PathUpdate {
+        let options = options.resolvingBodyWidth(r.parameters)
         guard let pose = r.sourcePose, let plane = r.plane,
               let device = GroundBasis.geometry(plane: plane, pose: pose, previousForward: reference?.forward),
               var raster = RoutePlanningGrid(result: r, options: options, obstacleVeto: true)
@@ -117,9 +118,9 @@ struct ObstacleWaypointPlanner: Sendable {
             if plan == nil {
                 plan = newScenario == .distantObstacle
                     ? ObstacleWaypointSearch.approach(raster: raster, reference: ref, obstacle: obstacle,
-                        foot: foot, standOff: options.waypoints.standOff)
+                        foot: foot, standOff: options.waypoints.standOff, sideMargin: r.parameters.sideMargin)
                     : ObstacleWaypointSearch.avoid(raster: raster, reference: ref, obstacle: obstacle,
-                        foot: foot, preferredSide: side)
+                        foot: foot, preferredSide: side, sideMargin: r.parameters.sideMargin)
             }
             if let plan, raster.supports([foot] + plan.points), commit(plan, result: r, options: options, pose: pose, view: view) {
                 selectedReason = replan ?? "initial_target"
@@ -192,7 +193,7 @@ struct ObstacleWaypointPlanner: Sendable {
             preview = .init(points: continuation, side: side)
         } else {
             preview = ObstacleWaypointSearch.avoid(raster: raster, reference: reference,
-                obstacle: obstacle, foot: target.point, preferredSide: side)
+                obstacle: obstacle, foot: target.point, preferredSide: side, sideMargin: r.parameters.sideMargin)
         }
         previewAt = preview == nil ? nil : r.timestamp
     }
