@@ -122,10 +122,15 @@ struct ContentView: View {
                     VStack(spacing: 4) {
                         Text("home.ocr.status").font(.headline)
                         Text("home.ocr.status.hint").font(.caption)
+                        #if PRTS_DEV_CAPTURE
+                        Text(verbatim: "frames \(textReading.framesAnalyzed)").font(.caption2.monospacedDigit())
+                            .accessibilityIdentifier("ocrFrames")
+                        #endif
                     }
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .readableGlassPanel()
                     .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("ocrStatus")
                 }
             }
             .background(ThreeFingerHold { toggleTextReading() })
@@ -292,7 +297,14 @@ struct ContentView: View {
 
     @ViewBuilder
     private var cameraSurface: some View {
-        if camera.state == .running && !isShowingSettings {
+        if textReading.phase != .idle && !isShowingSettings {
+            // Attaching the preview while the session is still being configured stalls the UI for seconds.
+            if !noPreview && textReading.framesAnalyzed > 0 {
+                TextCameraPreview(session: textReading.camera.session)
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
+            }
+        } else if camera.state == .running && !isShowingSettings {
             if !noPreview {
                 CameraPreview(camera: camera)
                     .ignoresSafeArea()
@@ -445,7 +457,8 @@ struct ContentView: View {
         case "开始", "start": camera.startCamera()
         case "停止", "stop": camera.stopCamera()
         case "状态", "status": speechManager.speak(camera.status)
-        default: speechManager.speak("只支持：开始、停止、状态。")
+        case "读文字", "ocr": toggleTextReading()
+        default: speechManager.speak("只支持：开始、停止、状态、读文字。")
         }
         hapticManager.buttonTapped()
     }
