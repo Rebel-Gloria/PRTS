@@ -30,6 +30,11 @@ struct ContentView: View {
     @State private var pointerCannotHold = Self.assistivePointerRunning
     @State private var askingByTap = false
     @ObservedObject private var commands = HomeCommandCenter.shared
+    @AppStorage(PhotoCaptureButton.hardwareButtonsKey) private var photoHardwareButtons = true
+    /// Skips the Metal preview for users who don't look at the screen. Analysis, guidance,
+    /// haptics and photo capture read the shared snapshot, not the renderer.
+    @AppStorage(Self.noPreviewKey) private var noPreview = false
+    static let noPreviewKey = "display.noPreview"
     #if PRTS_DEV_CAPTURE
     @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
     @State private var commandText = ""
@@ -92,7 +97,8 @@ struct ContentView: View {
                         strings: .init(label: speechManager.interfaceString("photo.button.label"),
                                        hint: speechManager.interfaceString("photo.button.hint"),
                                        ask: speechManager.interfaceString("photo.button.action.ask"),
-                                       send: speechManager.interfaceString("photo.button.action.send")))
+                                       send: speechManager.interfaceString("photo.button.action.send")),
+                        hardwareButtons: photoHardwareButtons)
                         .frame(width: 160, height: 160)
                         .overlay(alignment: .bottom) {
                             if !photo.message.isEmpty {
@@ -232,6 +238,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var controls: some View {
+        if noPreview && camera.state == .running && !isShowingSettings { noPreviewNotice }
         cameraStatus
         if let message = operationMessage {
             Text(message).font(.callout.weight(.semibold)).foregroundStyle(.orange)
@@ -271,10 +278,12 @@ struct ContentView: View {
     @ViewBuilder
     private var cameraSurface: some View {
         if camera.state == .running && !isShowingSettings {
-            CameraPreview(camera: camera)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .accessibilityHidden(true)
+            if !noPreview {
+                CameraPreview(camera: camera)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .accessibilityHidden(true)
+            }
         } else if !isLargeText {
             previewPlaceholder
         }
@@ -300,6 +309,18 @@ struct ContentView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("home.camera.preview.off.label")
         .accessibilityHint("home.camera.preview.off.hint")
+    }
+
+    /// Sits above the status so it never collides with the photo button in the middle.
+    private var noPreviewNotice: some View {
+        Label("home.noPreview.title", systemImage: "eye.slash")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 36)
+            .glassSurface(in: Capsule())
+            .accessibilityLabel(Text("home.noPreview.title") + Text(verbatim: "，") + Text("home.noPreview.subtitle"))
+            .accessibilityIdentifier("noPreviewNotice")
     }
 
     private var header: some View {
