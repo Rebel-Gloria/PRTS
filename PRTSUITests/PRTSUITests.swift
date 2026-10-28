@@ -160,6 +160,30 @@ final class PRTSUITests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "No preview running"; shot.lifetime = .keepAlways; add(shot)
     }
 
+    #if PRTS_DEV_CAPTURE
+    /// Text reading from running guidance: the ultra-wide camera must deliver frames and show them.
+    @MainActor
+    func testTextReadingStartsCamera() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
+        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 10))
+        let field = app.textFields["backendCommandField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap(); field.typeText("读文字")
+        app.buttons["backendCommandSend"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["ocrStatus"].waitForExistence(timeout: 5))
+        sleep(4)
+        let frames = app.staticTexts["ocrFrames"].label
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Text reading after 4 s (\(frames))"; shot.lifetime = .keepAlways; add(shot)
+        XCTAssertNotEqual(frames, "frames 0")
+        // With no page in view it reads the whole frame after 8 s, then guidance comes back.
+        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 40))
+    }
+    #endif
+
     @MainActor func testCPUWithPreview() throws { try measureRunningCPU(noPreview: false) }
     @MainActor func testCPUWithoutPreview() throws { try measureRunningCPU(noPreview: true) }
 
