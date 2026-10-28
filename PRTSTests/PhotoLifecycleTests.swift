@@ -126,7 +126,7 @@ struct PhotoLifecycleTests {
         #expect(f.state.events.suffix(2) == ["stop-mic", "A"])
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
-        #expect(requests[0].text == "请为盲人简短回答下面的问题：门在哪里？")
+        #expect(requests[0].text == "简短回答盲人的问题：门在哪里？")
         #expect(f.state.events.filter { $0 == "capture" }.count == 1)
         await f.network.reply(0, "门在左侧。")
         await f.coordinator.work?.value
@@ -136,7 +136,7 @@ struct PhotoLifecycleTests {
 
     @Test func repeatedLongPressPrefixesOnlyTheCurrentTranscript() async throws {
         let f = PhotoFixture()
-        let prefix = "请为盲人简短回答下面的问题："
+        let prefix = "简短回答盲人的问题："
         let questions = ["请告诉我\n门的“颜色”是什么？", "路牌上写了什么？"]
         for (index, question) in questions.enumerated() {
             f.recognizer.question = question

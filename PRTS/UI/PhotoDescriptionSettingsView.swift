@@ -1,7 +1,11 @@
 import SwiftUI
 
+/// Pick a provider, paste its key. Custom adds an address and a model; each provider keeps its own key.
 struct PhotoDescriptionSettingsView: View {
     @AppStorage("photoDescription.uploadAllowed") private var uploadAllowed = false
+    @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.qwen
+    @AppStorage(PhotoChatProvider.customEndpointKey) private var customEndpoint = ""
+    @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
     @State private var key = ""
     @State private var hasKey = false
     @State private var message = ""
@@ -11,26 +15,51 @@ struct PhotoDescriptionSettingsView: View {
 
     var body: some View {
         Form {
-            Section("photo.settings.service") {
-                Text(PhotoChatProtocol.endpoint.host ?? "")
-                LabeledContent("photo.settings.model", value: PhotoChatProtocol.model)
+            Section("photo.settings.provider") {
+                Picker("photo.settings.provider", selection: $provider) {
+                    Text(verbatim: "通义千问 Qwen").tag(PhotoChatProvider.qwen)
+                    Text(verbatim: "DeepSeek").tag(PhotoChatProvider.deepseek)
+                    Text("photo.settings.provider.custom").tag(PhotoChatProvider.custom)
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+                .accessibilityIdentifier("photoProviderPicker")
+            }
+            Section {
+                if provider == .custom {
+                    TextField("photo.settings.endpoint", text: $customEndpoint, prompt: Text(verbatim: "https://api.example.com/v1"))
+                        .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .accessibilityIdentifier("photoCustomEndpoint")
+                    TextField("photo.settings.model", text: $customModel, prompt: Text("photo.settings.modelPlaceholder"))
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .accessibilityIdentifier("photoCustomModel")
+                } else if let service = provider.service() {
+                    LabeledContent("photo.settings.endpoint", value: service.endpoint.host ?? "")
+                    LabeledContent("photo.settings.model", value: service.model)
+                }
                 Toggle("photo.settings.allowUpload", isOn: $uploadAllowed)
-                Text("photo.settings.privacy")
-                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("photo.settings.service")
+            } footer: {
+                if provider == .custom && provider.service() == nil && !(customEndpoint.isEmpty && customModel.isEmpty) {
+                    Text("photo.settings.customInvalid").foregroundStyle(.orange)
+                } else {
+                    Text(provider == .custom ? "photo.settings.customFooter" : "photo.settings.privacy")
+                }
             }
             Section("API Key") {
                 SecureField(hasKey ? "photo.settings.keySaved" : "photo.settings.keyPlaceholder", text: $key)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("photo.settings.save") {
                     do {
-                        try PhotoCredentialStore.save(key)
+                        try PhotoCredentialStore.save(key, account: provider.keyAccount)
                         key = ""; hasKey = true; message = speech.interfaceString("photo.settings.saved")
                     } catch { message = error.localizedDescription }
                 }.disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 if hasKey {
                     Button("photo.settings.delete", role: .destructive) {
                         do {
-                            try PhotoCredentialStore.delete()
+                            try PhotoCredentialStore.delete(account: provider.keyAccount)
                             hasKey = false; key = ""; message = speech.interfaceString("photo.settings.deleted")
                         } catch { message = error.localizedDescription }
                     }
@@ -52,10 +81,13 @@ struct PhotoDescriptionSettingsView: View {
             }
         }
         .navigationTitle("photo.settings.title")
-        .onAppear {
-            do { hasKey = try PhotoCredentialStore.read() != nil }
-            catch { message = error.localizedDescription }
-        }
+        .onAppear(perform: loadKeyState)
+        .onChange(of: provider) { _, _ in key = ""; message = ""; loadKeyState() }
         .onDisappear { key = "" }
+    }
+
+    private func loadKeyState() {
+        do { hasKey = try PhotoCredentialStore.read(account: provider.keyAccount) != nil }
+        catch { message = error.localizedDescription }
     }
 }

@@ -5,12 +5,12 @@ import Foundation
 nonisolated enum PhotoChatProtocol {
     static let endpoint = URL(string: "https://maas.qianwenaiapi.com/compatible-mode/v1/chat/completions")!
     static let model = "qwen3.8-flash"
-    static let prompt = "请为盲人用一两句话描述这张图：主要的物体、人或场景在哪里，什么方向，离多远。不要提无关细节。"
+    static let prompt = "给盲人讲这张照片：先说最重要的人或物在左、中、右哪边，再补要紧细节，有字就读出来。最多两句。"
 
     /// Applied only to a completed long-press transcript; short taps keep `prompt`.
-    static let spokenQuestionPrefix = "请为盲人简短回答下面的问题："
+    static let spokenQuestionPrefix = "简短回答盲人的问题："
 
-    static func request(jpeg: Data, text: String, key: String) throws -> URLRequest {
+    static func request(jpeg: Data, text: String, key: String, service: PhotoChatService = .qwen) throws -> URLRequest {
         let credential = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !credential.isEmpty, !credential.contains("\r"), !credential.contains("\n") else {
             throw PhotoChatError.missingKey
@@ -18,29 +18,37 @@ nonisolated enum PhotoChatProtocol {
         guard !jpeg.isEmpty, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw PhotoChatError.emptyInput
         }
-        var request = URLRequest(url: endpoint)
+        var request = URLRequest(url: service.endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 90
         request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": model, "stream": true, "enable_thinking": true,
+        var body: [String: Any] = [
+            "model": service.model, "stream": true,
             "messages": [["role": "user", "content": [
                 ["type": "text", "text": text],
                 ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(jpeg.base64EncodedString())"]]
             ]]]
-        ])
+        ]
+        // Thinking is off: a one-glance description doesn't need it and answers arrive much sooner.
+        switch service.thinking {
+        case .qwenFlag: body["enable_thinking"] = false
+        case .deepseekObject: body["thinking"] = ["type": "disabled"]
+        case .standard: break
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }
 }
 
 nonisolated enum PhotoChatError: Error, LocalizedError {
-    case missingKey, emptyInput, malformedStream, incompleteStream, emptyAnswer, responseTooLarge
+    case missingKey, invalidService, emptyInput, malformedStream, incompleteStream, emptyAnswer, responseTooLarge
     case http(Int)
     var errorDescription: String? {
         switch self {
         case .missingKey: "请先在设置中保存 API Key"
+        case .invalidService: "请在设置里填写服务地址和模型"
         case .emptyInput: "未获取到图片或提问内容"
         case .malformedStream: "图片描述服务返回了无效数据"
         case .incompleteStream: "图片描述连接提前结束，请重试"

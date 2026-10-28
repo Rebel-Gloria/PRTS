@@ -198,3 +198,28 @@ iPhone 15 Pro（iOS27.0）上成功安装并启动，设备应用列表确认`1.
 未卸载或清除历史数据，也未自动发起拍照/语音请求。新版真实长按回答的简洁程度待用户复测。
 应用构建的源码提交：`99be8b06513072f7960d6d9a6a7f2d9733b201ba`；随后交付证据的文档提交不改变该构建源码。
 [Build23构建、测试与设备证据](reports/evidence/PHOTO_DESCRIPTION_BUILD23_EVIDENCE.json)。
+
+## 2026-10-28：多服务商、新提示词、关闭思考
+
+### 服务商
+
+设置 → 拍照描述 → 服务商，三选一（`PhotoChatProvider`）：
+
+| 服务商 | 地址 | 模型 | 关闭思考的方式 |
+|---|---|---|---|
+| 通义千问 Qwen（默认） | `maas.qianwenaiapi.com/compatible-mode/v1/chat/completions` | `qwen3.8-flash` | `enable_thinking: false` |
+| DeepSeek | `api.deepseek.com/chat/completions` | `deepseek-flash`（支持看图） | `thinking: {type: disabled}` |
+| 自定义 | 用户填写，只接受 `https://`；填基础地址时自动补 `/chat/completions` | 用户填写 | 只发标准字段 |
+
+- 三家都使用 OpenAI 兼容的流式 Chat Completions，图片以 `data:image/jpeg;base64` 内联。
+- 每个服务商的 API Key 单独存在钥匙串里。千问沿用原来的 `api-key` 账户，所以老用户升级后不用重新输入。
+- 自定义服务地址或模型没填完整时，按下拍照会提示"请在设置里填写服务地址和模型"。
+- 仍然拒绝重定向，Key 和照片不会被转发到其他地址。
+
+### 提示词和速度
+
+- 短按提示词：`给盲人讲这张照片：先说最重要的人或物在左、中、右哪边，再补要紧细节，有字就读出来。最多两句。`
+  - 改为按左、中、右说方位，不再要求说距离，因为单张照片估计的距离不可靠。
+  - 新增"有字就读出来"，招牌、门牌、标签都会读出来。
+- 长按前缀：`简短回答盲人的问题：`
+- 三家都关闭思考模式。一眼能看懂的描述不需要推理，关掉后首字更快返回。
