@@ -1,0 +1,27 @@
+{
+  "说明": "交付文件SHA-256；不包含此清单自身，认证信息不在结果文件中。",
+  "文件": {
+    "bench.json": "fe1870a5862150643864e3475badb6246c491d222ece9e161cb5509de451fc9c",
+    "final_system.txt": "af088165832c997933e2766710d32629578329a09f4963dc89230d7883cf5ea0",
+    "candidate_system.txt": "1b1dbf47f3f6e441e42511ff971c61714d0e11ea374212a41e4a5858aad64139",
+    "PROMPT_POLISH.md": "8a3bb09e24634892cd32df1331a0a430d7cf04fa61ead99aaec03d39a5635d75",
+    "SCORING.md": "2e70438ec29371e36ab2403042cf02f970b660f46e683bb0f5d4da7273245235",
+    "prompts/基线.txt": "af088165832c997933e2766710d32629578329a09f4963dc89230d7883cf5ea0",
+    "prompts/第一轮.txt": "15e452592a6264f75b5e1fa13cf80f97984d166d414b2b4d8c801c09c74053db",
+    "prompts/第三轮.txt": "bfc3fb42130ae6b33f6a866d87642416b5d123a0d8bf084b64566662667f3407",
+    "prompts/第二轮.txt": "1b1dbf47f3f6e441e42511ff971c61714d0e11ea374212a41e4a5858aad64139",
+    "runs/基线_留出.jsonl": "29f297058d66e6d1dbc8d8ff79fb503cb180604e995f810f8d007e7896c8c3a0",
+    "runs/基线_调优.jsonl": "604a324b046f63809a0d7e0a1dc7de4ff00c2df498722ecedaf73ff529dbca83",
+    "runs/第一轮_调优.jsonl": "e4e36827aafe0ad281d64044059d709fbaf874d9e448b73ac38df36ce6cca2bf",
+    "runs/第三轮_调优.jsonl": "f78b7fc12e864dead982a1c6a6fef28c4eb8b1d1ae8de99430aa55eff9173253",
+    "runs/第二轮_留出.jsonl": "3cc0608d392af4ca353ce3ebee6aeecdd9f83c7c8b91f508c8fad028678ff8a4",
+    "runs/第二轮_调优.jsonl": "aecb2d11eab58ce098f53fe75f2a06caa629d7595a8f01cf819457aaf0f6b92a",
+    "runs/调用台账.jsonl": "3b83ece87602cecc70610ff5e7115e0bea15b9a7e865659c692a099aec089d28",
+    "runs/基线_留出_评分.json": "2056ec6f2786227f4ee5d7fa50e1b6a41cefa582b82e4a464cceea1b9e234295",
+    "runs/基线_调优_评分.json": "117c1165327c9875c6a6ace46f0391886d6954f3cb1ee057e7fb4fb98e22b13d",
+    "runs/第一轮_调优_评分.json": "06217795fc216c4961bae656efaeb32910853f5bf216cf5604fd01c6c68daf7b",
+    "runs/第三轮_调优_评分.json": "7336f3f17420763b23b11222111991a1e042ad251ed718f5def93645b8e7d185",
+    "runs/第二轮_留出_评分.json": "7fd92b6a72951c68cadad3dc761f96f86be282121cc4b10abdbeba1c92713118",
+    "runs/第二轮_调优_评分.json": "8cae80bea4e40e91b4d744bf91639e4b60a6165b8c0fbb663e5eedc568aa8d0f"
+  }
+}
