@@ -9,7 +9,7 @@ struct ObstacleRouteAnnouncementPolicy {
     private var scenarioSince: Double = 0
     private var spokenScenario: ObstacleRouteScenario?
     private var turns = TurnAnnouncementPolicy()
-    private var distance: Float?
+    private var spokenNear: Bool?
     private var spokenAt: Double = -.infinity
     private var spokenTurn: Int?
     static let minimumInterval: Double = 2.5
@@ -37,16 +37,16 @@ struct ObstacleRouteAnnouncementPolicy {
         var proposedTurns = turns
         let turn = state.scenario == .nearObstacle && update.path != nil
             ? proposedTurns.update(heading:heading,now:now,threshold:deviationDegrees,alignment:5) : nil
-        let changedDistance = state.obstacleDistance.map { value in
-            distance.map { abs(value-$0) >= 0.5 } ?? true
-        } ?? false
-        let distanceDue = state.scenario != .clear && changedDistance && now-spokenAt >= 4
+        // Measured distance is noisy, so speech only says "obstacle" or "obstacle close";
+        // re-announce when that level changes, not on every half metre.
+        let near = state.obstacleDistance.map(ObstacleRouteSpeech.isNear)
+        let distanceDue = state.scenario != .clear && near != nil && near != spokenNear
         // Keep alignment/re-arm observations while muted, but don't consume an unsaid turn.
         if turn == nil { turns = proposedTurns }
         guard canSpeak, first || now-spokenAt+0.000001 >= Self.minimumInterval,
               first || entered || turn != nil || distanceDue else { return nil }
         turns = proposedTurns
-        spokenAt = now; distance = state.obstacleDistance; spokenScenario = state.scenario
+        spokenAt = now; spokenNear = near; spokenScenario = state.scenario
         spokenTurn = turn
         switch state.scenario {
         case .clear: turns.reset(); return .clear
@@ -62,28 +62,32 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
     case obstacle(Float?, Int?)
     case blocked(Float?)
     case adjustCamera(Float?)
+    /// Below this the obstacle is "close"; no metre value is ever spoken.
+    static let nearMeters: Float = 1
+    static func isNear(_ distance: Float) -> Bool { distance < nearMeters }
+
     var chinese: String {
         switch self {
-        case .clear: return "前方无障碍"
-        case .adjustCamera(let distance): return Self.distance(distance, chinese: true) + "，请转动手机"
-        case .blocked(let distance): return Self.distance(distance, chinese: true) + "，暂无绕行路径"
+        case .clear: return "前方畅通"
+        case .adjustCamera(let distance): return Self.level(distance, chinese: true) + "，转动手机"
+        case .blocked(let distance): return Self.level(distance, chinese: true) + "，无法绕行"
         case .obstacle(let distance, let side):
-            let suffix = side.map { $0 < 0 ? "，向左转" : $0 > 0 ? "，向右转" : "，继续向前" } ?? ""
-            return Self.distance(distance, chinese: true) + suffix
+            let suffix = side.map { $0 < 0 ? "，向左" : $0 > 0 ? "，向右" : "，直走" } ?? ""
+            return Self.level(distance, chinese: true) + suffix
         }
     }
     var english: String {
         switch self {
-        case .clear: return "No obstacle ahead"
-        case .adjustCamera(let distance): return Self.distance(distance, chinese: false) + ". Turn the phone"
-        case .blocked(let distance): return Self.distance(distance, chinese: false) + ". No bypass found"
+        case .clear: return "Clear ahead"
+        case .adjustCamera(let distance): return Self.level(distance, chinese: false) + ", turn the phone"
+        case .blocked(let distance): return Self.level(distance, chinese: false) + ", no way around"
         case .obstacle(let distance, let side):
-            let suffix = side.map { $0 < 0 ? ". Turn left" : $0 > 0 ? ". Turn right" : ". Continue forward" } ?? ""
-            return Self.distance(distance, chinese: false) + suffix
+            let suffix = side.map { $0 < 0 ? ", go left" : $0 > 0 ? ", go right" : ", go straight" } ?? ""
+            return Self.level(distance, chinese: false) + suffix
         }
     }
-    private static func distance(_ value: Float?, chinese: Bool) -> String {
-        guard let value else { return chinese ? "前方有障碍" : "Obstacle ahead" }
-        return String(format: chinese ? "前方障碍，约 %.1f 米" : "Obstacle ahead, about %.1f meters", max(0,value))
+    static func level(_ distance: Float?, chinese: Bool) -> String {
+        let near = distance.map(isNear) ?? false
+        return chinese ? (near ? "障碍很近" : "有障碍") : (near ? "Obstacle close" : "Obstacle")
     }
 }
