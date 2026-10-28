@@ -254,7 +254,8 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                         encoder.drawPrimitives(type:.line,vertexStart:0,vertexCount:blockingLineCount)
                     }
                 }
-                updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime))
+                updatePathBuffer(predictedPath, projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime),
+                                 obstacles:s.pathUpdate.confirmedObstacles,obstacleFrameID:s.pathUpdate.continuity?.frameID ?? 0,bodyWidth:s.parameters.bodyWidth)
                 if s.options.showPath,let pathBuffer,pathCount > 0 {
                     // World-locked routes are annotations. A noisy floor triangle must not
                     // alternately cover/reveal a fixed world line (apparent broken dashes).
@@ -378,15 +379,16 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         blockingBuffer = buffer(triangles); blockingCount = triangles.count
         blockingLines = buffer(lines); blockingLineCount = lines.count
     }
-    private func updatePathBuffer(_ presentation: PathPresentation?, projection: RouteProjection?) {
+    private func updatePathBuffer(_ presentation: PathPresentation?, projection: RouteProjection?,
+                                  obstacles:[OccupancyFootprint]?,obstacleFrameID:UInt64,bodyWidth:Float) {
         guard presentation != nil || projection != nil else {
             pathBuffer = nil; pathCount = 0; pathApproachCount = 0; pathTargetCount = 0; pathKey = ""; return
         }
         // A proof suffix can expire between analysis frames. Include ALL geometry, not
         // only the first point/frame ID, so the cached buffer cannot retain an expired tail.
-        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(presentation?.path.points.hashValue ?? 0):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0)"
+        let key = "\(presentation?.path.epoch ?? projection?.epoch ?? 0):\(presentation?.path.parameterVersion ?? projection?.parameterVersion ?? 0):\(presentation?.path.id ?? 0):\(presentation?.path.validatedFrameID ?? 0):\(presentation?.path.points.hashValue ?? 0):\(String(describing: presentation?.approach.first)):\(presentation?.historical ?? false):\(projection?.frameID ?? 0):\(obstacleFrameID):\(bodyWidth)"
         guard key != pathKey else { return }; pathKey = key
-        var meshes = presentation.map { PathDrawing.meshes($0) } ?? []
+        var meshes = presentation.map { PathDrawing.meshes($0,obstacles:obstacles,bodyWidth:bodyWidth) } ?? []
         if let projection { meshes.append(PathDrawing.projectionMesh(projection, observed: presentation)) }
         var vertices: [WorldVertex] = []; pathApproachCount = 0; pathTargetCount = 0
         for mesh in meshes {

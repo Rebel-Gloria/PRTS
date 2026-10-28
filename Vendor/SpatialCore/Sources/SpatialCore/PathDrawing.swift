@@ -11,19 +11,23 @@ public struct PathDrawingMesh: Sendable {
 /// World-space ribbons and target marker shared by the actual renderer and deterministic tests.
 /// Dashes are metric, not vertex-index based, so a simplified two-point line remains dashed.
 public enum PathDrawing {
-  public static func meshes(_ p: PathPresentation) -> [PathDrawingMesh] {
+  public static func meshes(_ p: PathPresentation, obstacles: [OccupancyFootprint]? = nil, bodyWidth: Float? = nil) -> [PathDrawingMesh] {
     let normal = p.path.plane.normal
     let lift = normal * 0.025
     let locked = p.path.worldLocked == true
     let veto = p.path.planningPolicy == .obstacleVeto
-    var result = [
-      PathDrawingMesh(
-        role: veto ? .planned : (locked ? .observed : .unknownApproach),
-        vertices: ribbon(p.approach, normal: normal, width: locked ? 0.036 : 0.024, dashed: !locked)),
-      PathDrawingMesh(
-        role: veto ? .planned : (p.historical && !locked ? .history : .observed),
-        vertices: ribbon(p.path.points, normal: normal, width: 0.036, dashed: p.historical && !locked)),
-    ]
+    var result: [PathDrawingMesh]
+    if veto {
+      let shape = GroundRouteDrawing.make(p,obstacles:obstacles,bodyWidth:bodyWidth)
+      result = [.init(role:.planned,vertices:ribbon(shape.points,normal:normal,width:0.036,dashed:false,roundJoins:true))]
+    } else {
+      result = [
+        .init(role:locked ? .observed : .unknownApproach,
+              vertices:ribbon(p.approach,normal:normal,width:locked ? 0.036 : 0.024,dashed:!locked)),
+        .init(role:p.historical && !locked ? .history : .observed,
+              vertices:ribbon(p.path.points,normal:normal,width:0.036,dashed:p.historical && !locked))
+      ]
+    }
     if let target = p.path.points.last {
       let right = simd_normalize(V3(1, 0, 0) - normal * normal.x)
       let forward = simd_cross(normal, right)
@@ -62,7 +66,7 @@ public enum PathDrawing {
       role: .prediction,
       vertices: ribbon(points, normal: projection.plane.normal, width: 0.025, dashed: true))
   }
-  private static func ribbon(_ points: [V3], normal: V3, width: Float, dashed: Bool) -> [V3] {
+  private static func ribbon(_ points: [V3], normal: V3, width: Float, dashed: Bool, roundJoins: Bool = false) -> [V3] {
     let lift = normal * 0.025
     var vertices: [V3] = []
     var travel: Float = 0
@@ -91,6 +95,22 @@ public enum PathDrawing {
         }
       }
       travel += length
+    }
+    if roundJoins && !dashed && points.count >= 3 {
+      for i in 1..<points.count-1 {
+        let v=points[i]-points[i-1], w=points[i+1]-points[i]
+        guard simd_length(v)>0.00001,simd_length(w)>0.00001 else {continue}
+        let a=simd_normalize(simd_cross(v,normal)),b=simd_normalize(simd_cross(w,normal))
+        let angle=atan2(simd_dot(normal,simd_cross(a,b)),simd_dot(a,b))
+        guard angle.isFinite,abs(angle)>0.001 else{continue}
+        let side=a*(angle>0 ? width/2 : -width/2),center=points[i]+lift
+        let steps=max(1,Int(ceil(abs(angle)/(.pi/12))))
+        func arc(_ j:Int)->V3 {
+          let t=angle*Float(j)/Float(steps)
+          return center+side*cos(t)+simd_cross(normal,side)*sin(t)
+        }
+        for j in 0..<steps {vertices += [center,arc(j),arc(j+1)]}
+      }
     }
     return vertices
   }
