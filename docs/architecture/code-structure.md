@@ -1,129 +1,59 @@
-# PRTS code structure
+# 代码结构
 
-Generated/maintained on 2026-09-30. Paths below are relative to the repository root.
+App 代码在 `PRTS/`，按职责分目录，不按页面分。空间算法在独立的 Swift 包 `Vendor/SpatialCore` 里，它不依赖 UI、ARKit 和 Metal，可以单独测试。
+
+## 目录
 
 ```text
 PRTS/
-├── App/
-│   ├── PRTSApp.swift                 # Composition root and shared services
-│   └── RuntimeProfile.swift          # Offline runtime profile declaration
-├── UI/
-│   ├── ContentView.swift             # Product home screen
-│   ├── HomeDemoOverlay.swift         # Read-only metrics/legend overlay
-│   ├── DemoOptionsView.swift         # Home presentation switches
-│   ├── SettingsView.swift            # Product settings shell
-│   ├── ProbeSettingsView.swift       # Advanced spatial settings and export
-│   ├── LiquidGlass.swift             # iOS 26+ Liquid Glass surfaces with iOS 17–25 material fallback
-│   └── Localization.swift            # Speech/UI language selection
-├── Capture/
-│   ├── CameraManager.swift           # Main-actor adapter; no second ARSession
-│   └── CameraPreview.swift            # Shared Metal camera surface
-├── Feedback/
-│   ├── FeedbackCoordinator.swift     # Result → speech/haptic policy
-│   ├── ObstacleRouteAnnouncementPolicy.swift # Product clear/far/near speech, current goal only
-│   ├── RouteAnnouncementPolicy.swift # Legacy stage policy and shared turn hysteresis
-│   ├── SpeechManager.swift            # TTS ownership and cancellation
-│   ├── HapticManager.swift            # General UI/obstacle haptics
-│   └── PathHaptics.swift              # Fixed-target direction haptics
-├── PhotoDescription/
-│   ├── PhotoDescriptionCoordinator.swift # Press → capture/question → response → speech lifetime
-│   ├── PhotoDescriptionServices.swift    # Native service boundaries and deterministic test injection
-│   ├── PhotoPressState.swift             # Deterministic 0.5-second threshold
-│   ├── PhotoImageEncoder.swift           # Existing ARFrame → oriented JPEG
-│   ├── PhotoSpeechRecognizer.swift       # Native push-to-talk transcription
-│   ├── PhotoChatProtocol.swift           # Exact request schema and SSE framing
-│   ├── PhotoChatClient.swift             # Ephemeral cancellable network request
-│   ├── PhotoCredentialStore.swift        # Device-only Keychain secret
-│   └── PhotoAudioOutput.swift            # A/B tones and distinct native TTS
-├── Integration/
-│   └── PRTSBackendBridge.swift        # Future detector/provider boundary
-├── Spatial/
-│   ├── Runtime/
-│   │   ├── ProbeEngine.swift          # Single ARSession and bounded pipeline
-│   │   ├── ProbeViewModel.swift       # Main-actor runtime presentation state
-│   │   ├── Snapshots.swift             # Frame/result/render state models
-│   │   ├── CoreMLDepthModel.swift      # Core ML model loading
-│   │   └── MonocularDepthProvider.swift# No-LiDAR depth branch
-│   ├── Rendering/
-│   │   ├── ProbeRenderer.swift         # Metal rendering only
-│   │   └── ProbeShaders.metal.txt      # Image/depth shader source
-│   ├── Diagnostics/
-│   │   ├── DiagnosticRecorder.swift    # Automatic launch diagnostics
-│   │   └── SessionRecorder.swift       # Manual spatial sample recording
-│   ├── DevCapture/                     # Compiled only with PRTS_DEV_CAPTURE
-│   │   └── DevCaptureRecorder.swift     # Optional low-rate RGB + sensor evidence
-│   └── Models/                         # Model files and provenance
-└── Assets.xcassets/
+├── App/              启动、App Intents（Siri/快捷指令）、运行配置 RuntimeProfile
+├── UI/               主页、设置页、拍照按钮、液态玻璃样式、开发版叠加层
+├── Capture/          CameraManager（主线程适配层）和 Metal 相机画面
+├── Feedback/         语音、震动，以及"分析结果 → 播报/震动"的规则
+├── PhotoDescription/ 拍照描述：按键判断、编码、录音识别、请求、钥匙串、朗读
+├── TextReading/      文字识别：三指手势、超广角相机、找页面、识别
+├── Integration/      预留给以后的物体检测接口，避障不依赖它
+└── Spatial/
+    ├── Runtime/      唯一的 ARSession、帧邮箱、分析调度、状态快照、无 LiDAR 深度
+    ├── Rendering/    Metal 渲染，只读快照
+    ├── Diagnostics/  DIAG 自动记录和手动采样
+    ├── DevCapture/   开发版录像，只在 PRTS_DEV_CAPTURE 下编译
+    └── Models/       Depth Anything V2 模型及许可、来源说明
 
 Vendor/
-├── SpatialCore/                        # Pure Swift geometry and path algorithms
-│   ├── Sources/SpatialCore/
-│   │   ├── PathPrediction.swift         # Public path contracts, order/session facade, presentation
-│   │   ├── OccupancyFootprint.swift      # Current confirmed squares, including outside search raster
-│   │   ├── WaypointTransitionState.swift # Scenario / image-edge hysteresis
-│   │   ├── ObstacleWaypointPlanner.swift # Product three-state/current/preview lifecycle
-│   │   ├── ObstacleWaypointState.swift   # Options, diagnostics, image bounds, stationary turn
-│   │   ├── ObstacleWaypointSearch.swift  # Stand-off target and reusable detour searches
-│   │   ├── ForwardRoutePlanner.swift    # Verified/legacy continuous-route comparator
-│   │   ├── RoutePlanningGrid.swift     # Search raster, independent of rendering
-│   │   ├── ForwardRouteState.swift      # World reference, diagnostics and turn dwell
-│   │   ├── ForwardObstacleTrigger.swift # Near triangle and occupied-component extent
-│   │   ├── ForwardPathSearch.swift      # Straight trace, return and side-route searches
-│   │   ├── FanPathSearch.swift          # Shared graph search and footprint collision checks
-│   │   ├── PathObstacleCheck.swift      # Shared occupancy/optional depth intersection
-│   │   └── …                            # Existing ground/depth/grid/diagnostic algorithms retained
-│   └── Tests/SpatialCoreTests/
-└── PRTSCore/                           # Linked PRTSContracts + unlinked optional model sources
+├── SpatialCore/      纯 Swift 几何和路线算法，见 spatial-core.md
+└── PRTSCore/         旧后端的契约包，见 prts-core-package.md
 
-docs/                                   # Living design notes and feature docs
-├── architecture/                       # Current structure, data flow and route policy
-├── design/                             # Accessibility plan and copy review
-└── reports/                            # Dated build reports; evidence/ holds their JSON
-scripts/                                # Validation, DIAG reading and maintenance tools
-Experiments/SpatialProbe/               # Standalone validation application snapshot
+Experiments/          独立实验：SpatialProbe 验证 App、astra 重放、photo-prompt 评测
+scripts/              校验、读 DIAG、重放路线等脚本，见 ../guides/scripts.md
 ```
 
-## Ownership rules
+几个关键文件：
 
-1. `ProbeEngine` is the only owner of the live `ARSession`.
-2. `SpatialCore` owns geometry decisions; it must not import UI, ARKit or Metal.
-3. `ProbeRenderer` consumes snapshots and never decides whether a cell is traversable.
-4. Feedback consumes accepted results; it must not read camera buffers directly.
-5. Diagnostics observe scalar metadata and bounded spatial attachments; they never save RGB by default.
-6. The home screen may hide presentation layers, but must not stop capture or analysis as a side effect.
+| 文件 | 做什么 |
+|---|---|
+| `Spatial/Runtime/ProbeEngine.swift` | 持有唯一的 `ARSession`，限长的处理管线 |
+| `Spatial/Runtime/ProbeViewModel.swift` | 给界面用的运行状态，设置项的读写 |
+| `Spatial/Runtime/Snapshots.swift` | 帧、分析结果、渲染状态的数据结构 |
+| `Spatial/Runtime/MonocularDepthProvider.swift` | 没有 LiDAR 时用 Core ML 估深度 |
+| `Feedback/ObstacleRouteAnnouncementPolicy.swift` | 正式版的避障播报：空旷、远障、近障 |
+| `Feedback/PathHaptics.swift` | 方向震动 |
+| `SpatialCore/PathPrediction.swift` | 路线的对外接口 |
+| `SpatialCore/ObstacleWaypointPlanner.swift` | 正式版的三态避障规划 |
+| `SpatialCore/ObstacleWaypointSearch.swift` | 停靠点和绕行路线搜索 |
+| `SpatialCore/TemporalOccupancyGrid.swift` | 障碍在世界坐标里持续 300 ms 才确认 |
 
-The source layout is checked by `scripts/test_spatial_integration.py`. The test also verifies that presentation overlays do not create a second `ARSession` or timer and that the legacy product-home controls remain present.
+## 规矩
 
-## Forward-route extension
+1. 只有 `ProbeEngine` 持有 `ARSession`。别的功能要用相机画面，就读它的当前帧；要换相机（比如文字识别要用超广角），先停掉它。
+2. 几何判断只放在 `SpatialCore`，并且先写确定性测试。渲染和 UI 里不做几何判断。
+3. 渲染只读快照，不决定哪里能走。
+4. 语音和震动只读分析结果，不直接读相机数据。
+5. 诊断只记录数值和压缩后的空间数据，默认不存画面。
+6. 主页隐藏画面或叠加层只影响显示，不能顺带停掉采集和分析。
 
-The 2026-09-29 strategy adds helpers inside the existing modules; no existing directories were moved.
-`PathPredictor` remains the runtime entry point. The policy, diagnostic schema and synthetic/physical validation boundary are in [Forward route policy](FORWARD_ROUTE_POLICY.md).
+`scripts/test_spatial_integration.py` 会检查这套目录结构，也会检查叠加层没有另开 `ARSession` 或定时器。
 
-### 历史平面预测扩展（非build24/25默认产品链）
-`SpatialCore/RouteProjection.swift` 负责二维占用截断与视觉预测；
-`PathDrawing` 生成独立虚线。App 的 Snapshot/Renderer 只负责展示，Feedback 不读取预测线。
-详见 [ROUTE_PROJECTION.md](ROUTE_PROJECTION.md)。
+## Xcode 实际链接了什么
 
-### Route continuity additions (build16)
-
-Within existing `Vendor/SpatialCore`: `RouteEvidenceMap.swift` owns world-indexed evidence and proof intervals; `RouteContinuity.swift` owns atomic publication decisions, proof expiry and bounded arc progress. `PathPredictor` integrates them on the existing serial analysis worker. No new parallel runtime, package or camera session. [Contracts](../reports/ROUTE_CONTINUITY_2026-09-29.md).
-
-### Obstacle-veto integration (build17)
-
-No directory or module moves. `TemporalOccupancyGrid.swift` adapts confirmed world obstacle tracks
-into the rolling search raster; `RouteContinuity.swift` keeps publication/order/epoch contracts and
-diagnostic lengths. `PathPredictor` selects the product policy explicitly through `RuntimeProfile`.
-`RouteEvidenceMap` remains only the offline verified comparator. See [build17 report](../reports/OBSTACLE_VETO_2026-09-29.md).
-
-### Obstacle waypoints (build24)
-
-The product now uses `ObstacleWaypointPlanner` on the same worker and obstacle-veto raster.
-`PathUpdate.goal`/`path` contain only the current committed leg; `waypointGuidance.nextTarget`
-is a replaceable diagnostic preview. No directory moves or new dependency.
-See [three-state scheduling and delivery](../reports/2026-09-30-obstacle-waypoints.md).
-
-## 审计边界（2026-09-30）
-
-当前产品调用链、无调用入口与优化建议见 [build25代码审计](../reports/2026-09-30-code-audit.md)。
-Xcode实际链接 `PRTSContracts` 与 `SpatialCore`；PRTSAppleModels完整/Lite源码和Experiments不进入当前产品链。
-完整树分别列出契约与可选模型，不能把全部源码行数当作App编译量。
+App 链接 `SpatialCore` 和 `PRTSContracts`。`PRTSAppleModels`、`PRTSAppleModelsLite` 和 `Experiments/` 都不进 App。所以算代码量时，不能把全部源码行数当成 App 的编译量。各目录的行数见 [代码清单](code-inventory.md)。

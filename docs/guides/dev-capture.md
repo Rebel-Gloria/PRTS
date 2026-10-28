@@ -1,113 +1,97 @@
-# 开发信息采集模式
+# 开发版和采集
 
-此功能仅在 Swift 编译条件 **PRTS_DEV_CAPTURE** 下存在。不是 DEBUG 的别名，不会默认随 Debug/Release 打开；标准项目配置未引用开发配置文件。
+开发版比正式版多了调参界面、主页指标、测试指令栏，以及一个可以录下画面和传感器数据的采集功能，用来复盘实地测试。这些都只在编译开关 `PRTS_DEV_CAPTURE` 打开时才编进去，正式版里没有这部分代码。
 
 ## 编译
 
-在项目根目录执行：
+`PRTS_DEV_CAPTURE` 不是 DEBUG 的别名，工程自带的配置都不带它，只能通过 `configs/DevCapture.xcconfig` 加上：
 
 ```sh
-# 开发采集包：仅本次构建注入编译标记（签名沿用原项目）
+# 开发版
 xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
   -destination 'generic/platform=iOS' -xcconfig configs/DevCapture.xcconfig \
   -derivedDataPath build/DevCapture build
 
-# 普通包：独立构建目录，不传开发 xcconfig
+# 正式版：用另一个构建目录，不传 xcconfig
 xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath build/Standard build
 ```
 
-也可以仅为专门的本地开发 configuration 在 `SWIFT_ACTIVE_COMPILATION_CONDITIONS` 中添加 `PRTS_DEV_CAPTURE`，但不要加到普通发布配置。配置文件不放入 App 资源。
+加上 `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)`，可以把源码提交号写进二进制。两种包要用不同的 DerivedData。检查正式版：里面不应该有 `DevCaptureRecorder` 这个类型，也不应该有采集入口的字符串。
 
-## 使用与隐私
+正式版和开发版用同一套避障算法。开采集不会改变规划。
 
-开发包设置顶部出现“开发 · 信息采集模式”。每次启动默认关闭，不持久化开启状态；需在知情同意的受控环境手动开启，并通过主页面开始感知。无相机权限或未开始 ARSession 时不采集。主页面持续显示独立于 HUD 开关的采集提示。
+## 开发版多出的界面
 
-关闭、停止 ARSession、离开前台及导出会停止采集并结束 MP4 写入。重新开始需要再次手动开启。设置中“停止采集并打开 DIAG 导出页”会打开原有导出页面；导出完整 DIAG 包含下面的子目录。导出会等待录像结束，不改变原先的文件分享方式。
+设置里的"开发者选项"：
 
-隐藏主页面 RGB **不是停止摄像机或视频记录**。不采集音频，不新增 GPS、麦克风或相册授权，不上传。压缩视频、三维场景及特征点均可能泄露现场隐私。
+- 主页参数指标与图例、主页测试指令栏：两个显示开关，默认开，会记住；
+- 保存相机视频与分析数据：每次启动都是关的，不记住；
+- 演示模式选项、图层/路径/触觉/DIAG 参数页。
 
-普通包不包含该模式 UI、录像类或相应采集调用；原有不含 RGB 的 DIAG 不受影响。安装普通包不会破坏性删除以前开发包保存的数据，因此导出旧 DIAG 仍可能包含以前的视频，分享前应检查。
+正式版不读开发版存下的显示设置，所以不会继承"隐藏相机画面"之类改不回来的设置。
 
-## 实际记录的内容
+## 采集
 
-选取**已完成分析的源帧**，最高 5 FPS（不是独立的实时30/60 FPS录像）。只保留一个正在编码/待处理的样本，编码忙则丢弃，保留实际时间间隔，不插帧。分析慢时实际录像帧率更低。
+在设置里手动打开，再在主页点开始，才会录。没有相机权限或者 ARKit 没在跑时不录。录像时主页一直显示提示，关掉调试面板也不会隐藏。
 
-- RGB：未叠加算法标注的摄像机帧，H.264 MP4，目标码率800 kbps，最长边960，偶数像素尺寸，不裁切；无音轨。属于缩小、有损的原始画面，不是无损传感器RAW。
-- LiDAR：分析实际使用的 `sceneDepth` Float32、可用时的 UInt8 置信度；不保存未使用的平滑深度。
-- DA：应用使用的、映射回摄像机坐标的原始相对逆深度 Float32（校准前，不是热图），输出尺寸、模型名、尺度样本、暂定和接受的尺度参数、尺度跟踪判定、原生地面参考及耗时。**不是 CoreML 原始输入方向的张量**，而是已完成输入/输出坐标映射后的模型数值输出。
-- DA 校准后：只有实际可用才保存米制预测及 predictionSupport；后者不是传感器置信度。未校准的模型仍可保存相对输出和RGB；不伪造米制数据。
-- ARKit：源帧内参、位姿、追踪/映射状态、曝光/照度、方向；算法使用的水平平面边界；最多512个稀疏世界特征点及ID，记录总数和采样步长。
-- 网格：样本记录 anchor ID、revision、回调时间；完整顶点、索引、分类与变换复用父 DIAG 的 `mesh.jsonl` 和附件，不在每个视频帧复制全部网格。必须检查相关版本是否实际保存，缺失不能补成当前证据。
-- 分析：完整 `AnalysisResult`（地面、栅格、表面三角形、候选区域、参数及拒绝原因），`PathUpdate` 和实际使用的路径选项。
+关闭开关、停止避障、切到后台、导出时都会停止录像并写完 MP4。要再录得重新打开。"停止采集并打开 DIAG 导出页"会等录像写完再打开导出页。
 
-不是 ARKit 私有SLAM地图或原始IMU；没有独立LiDAR硬件时间戳。水平面时间是ARFrame快照时间，不是各表面真实观测时间。
+隐藏主页画面不等于停止录像。不录音，不要位置、麦克风、相册权限，不上传。但视频、三维场景和特征点都可能拍到现场的隐私，分享前要检查。装回正式版不会删掉以前开发版录的数据。
 
-## 格式
+## 录了什么
+
+只录**已经分析完的帧**，最多每秒 5 帧。编码忙就丢帧，不补帧，保留真实的时间间隔。
+
+- **画面**：没有叠加标注的相机原图，H.264 MP4，800 kbps，最长边 960，不裁切，没有音轨。是缩小的有损画面。
+- **LiDAR**：分析实际用的 `sceneDepth`（Float32）和置信度（UInt8）。
+- **Depth Anything**：映射回相机坐标后的相对逆深度（Float32，校准前），加上模型名、尺寸、尺度样本和尺度参数、地面参考、耗时。尺度校准通过后才另存米制深度。
+- **ARKit**：内参、位姿、跟踪状态、曝光、方向、水平平面、最多 512 个特征点。
+- **网格**：每帧只记 anchor ID 和版本号，完整网格在父 DIAG 的 `mesh.jsonl` 里，用时要核对版本对得上。
+- **分析结果**：完整的 `AnalysisResult`、`PathUpdate` 和当时的路线参数。
+
+没有 ARKit 内部的 SLAM 地图和原始 IMU，也没有 LiDAR 硬件时间戳。
+
+## 文件格式
 
 ```
 Documents/Diagnostics/<run>/
-  manifest.json, analysis.jsonl, mesh.jsonl, data-*.bin, ...  # 原有 DIAG
+  manifest.json, analysis.jsonl, mesh.jsonl, data-*.bin, ...  # DIAG
   dev-capture-<UUID>/
     manifest.json
     status.json                 # recording / completed / failed
     camera.mp4
-    samples.jsonl               # 帧身份、PTS、附件描述
+    samples.jsonl               # 每帧的身份、PTS、附件
     <epoch>-<frame>.evidence.json.deflate
-    <epoch>-<frame>.depth.bin.deflate        # 可选
-    <epoch>-<frame>.relative.f32.deflate     # DA 可选
+    <epoch>-<frame>.depth.bin.deflate        # 有 LiDAR 时
+    <epoch>-<frame>.relative.f32.deflate     # 有 Depth Anything 时
 ```
 
-附件为 **raw DEFLATE**，Python用 `zlib.decompress(data, -15)`。每条索引有压缩/原始字节数和未压缩SHA256。evidence JSON的非有限浮点值明确编码为 `nan/+inf/-inf` 字符串。
+- 附件是 raw DEFLATE，Python 里用 `zlib.decompress(data, -15)`。索引里有压缩前后的字节数和压缩前的 SHA-256。
+- evidence JSON 里的 NaN 和无穷写成字符串 `nan` / `+inf` / `-inf`。
+- 深度附件用 `DepthFrameCodec`：UInt32 LE 头长度 + JSON 头 + Float32 LE 深度 + 可选 UInt8 置信度 + 可选预测支持掩码。relative 附件是行优先的 Float32 LE，尺寸在 `evidence.model` 里。浮点不量化，不用 0 填洞。
+- 视频 PTS = 源帧的 `ARFrame.timestamp` − `manifest.originARTimestamp`，timescale 60000。索引指向的是**分析用的那一帧**，不是编码时最新的一帧。视频保持相机原始方向；投到缩小的视频上时，内参按实际宽高缩放。
 
-深度附件复用 `DepthFrameCodec`：UInt32 LE头长 + JSON头 + Float32 LE深度 + 可选UInt8置信度 + 可选预测支持掩码。模型relative附件为行优先Float32 LE，尺寸在evidence.model中。两类浮点二进制保留NaN/Inf比特，不量化，不用0填洞。
+## 限制
 
-视频PTS = 源ARFrame.timestamp − manifest.originARTimestamp，timescale为60000。分析可能延迟完成，但索引始终指向其**原始输入图像和位姿**，不是编码时最新的摄像机帧。视频使用摄像机原始方向；显示方向保存在capture中，旋转时无需混改内参。投影到缩小视频时按manifest中的实际宽高分别缩放内参。
+- 单段最长 10 分钟；每次启动大约录 256 MiB；剩余空间不足 256 MiB 时停止。不会自动删旧数据。
+- 深度和模型输出是原尺寸、无损压缩的，可以拿来重放几何；被跳过的帧补不回来。
+- 视频是有损的，只适合看现场；不能拿视频重跑 Depth Anything 去对比原输出，要用存下的附件。
+- 强杀或断电可能留下不完整的 MP4，先看 `status.json`。
+- 写入失败时可能有没被索引引用的附件，以索引为准。DIAG 和采集的队列是分开的，丢帧要分别查。
 
-## 限制与可复现性
-
-- 单段最长10分钟、本次进程开发采集约256 MiB软上限，空闲磁盘不足256 MiB停止。视频编码/文件封装及manifest有少量额外开销；不自动删除历史。跨启动历史由用户管理，父DIAG还受原有总配额限制。
-- 默认深度/模型输出保留原尺寸，空间压缩无损；仅时间采样降低。可从采样附件重放几何，但无法恢复被跳过的帧。
-- 视频有损且缩小，适合现场语义参考；**不能用重编码视频重跑DA来要求原模型输出逐bit一致**。比较后处理算法应使用保存的相对输出或深度附件。
-- 突然强杀/断电可能留下不完整MP4；检查status与真实解码，不把recording文件当成完整采集。
-- 数据写入失败可能留下未被索引引用的附件，索引是成功提交样本的入口；失败状态不能宣称无丢帧。
-- 现有DIAG和开发采集队列独立，丢弃情况分别检查，不能仅凭视频存在断言父日志齐全。
-
-## 检查
+## 检查数据
 
 ```sh
 python3 scripts/read_dev_capture.py /absolute/path/to/dev-capture-UUID
 python3 scripts/read_diag.py /absolute/path/to/run --verify-data
 ```
 
-第一个工具验证帧/时间关联、附件长度、SHA256、深度格式及模型输出尺寸；不解码视频，也不代替检查父DIAG网格版本。视频解码、内容方向、真实设备持续负载仍需真机验证。
+第一个检查帧和时间的对应、附件长度、SHA-256、深度格式和模型尺寸，不解码视频。
 
-合成测试显式使用 `synthetic_test` 来源，不作为真机验收。开发/普通编译应使用不同DerivedData，检查普通包无 `DevCaptureRecorder` 类型符号及开发采集入口字符串。
+## 路线日志字段
 
-## 开发者选项与主页（2026-09-29）
+`path.jsonl` 现在是 schema4。旧记录里没有的字段按"没有"处理，不要推断补上。
 
-设置中的“开发 · 信息采集模式”和“空间感知与演示”已合并为 **开发者选项**，整个区域只在 `PRTS_DEV_CAPTURE` 构建中存在。
-
-- “主页面参数指标与图例”：控制主页上方技术面板；原演示分页仍可细分指标栏和图例显示。
-- “主页面测试指令栏”：控制主页底部测试输入及发送按钮。
-- 两个显示开关默认开启、持久保存，与每次启动默认关闭的视频采集开关独立。
-- 图层/路径/DIAG参数页和演示选项也仅编入开发包。正常构建不读取开发包保存的显示图层选项，避免继承隐藏摄像机等不可恢复的显示设置；不清除开发包偏好。
-- 删除了开始按钮上方重复的后端状态卡片。保留主要相机状态、必要操作错误及简短实验风险说明。
-- 录像提示独立于技术面板开关：关闭调试面板不隐藏正在录像的提示。
-
-该变化不停止普通包的空间分析、方向反馈和既有不含RGB的DIAG。
-
-## build17 policy / diagnostics
-
-`PRTS_DEV_CAPTURE` only enables developer tools and opt-in recording. Both ordinary and Dev builds
-use `obstacle_veto_v1`; changing recording does not change planning. Route journal schema3 adds
-`plannedLength` and the `planned` status; `remainingVerifiedLength` stays 0 for this policy.
-Missing optional fields in old records remain unavailable. See [build17 report](reports/OBSTACLE_VETO_2026-09-29.md).
-Pass `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)` to xcodebuild for traceable binary metadata.
-
-### Build18 optional route diagnostics
-
-The schema3 strategy object adds optional `turnCandidateLength`, `turnReason` and
-`routePointCount`. `turnAngle` records the actual projected-heading deviation even when
-turning is blocked. The launch manifest records `routeAlgorithmRevision=turn_tail_v2…`.
-Old records omit these fields; no fake inferred dwell or waypoint count is added.
+- schema3：`plannedLength`、`planned` 状态；可选的 `turnCandidateLength`、`turnReason`、`routePointCount`、`turnAngle`（即使转向被拦也记录实际偏离角）。
+- launch manifest 里的 `routeAlgorithmRevision` 标明算法版本。
