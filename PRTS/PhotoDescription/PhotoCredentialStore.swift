@@ -4,13 +4,14 @@ import Security
 /// Device-only secret storage. Neither UserDefaults nor DIAG receives credentials.
 nonisolated enum PhotoCredentialStore {
     private static let service = "com.jingxuan.PRTS.photo-description"
-    private static var query: [String: Any] {
+    /// One Keychain item per provider (`PhotoChatProvider.keyAccount`).
+    private static func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: service, kSecAttrAccount as String: "api-key"]
+         kSecAttrService as String: service, kSecAttrAccount as String: account]
     }
 
-    static func read() throws -> String? {
-        var attributes = query
+    static func read(account: String = "api-key") throws -> String? {
+        var attributes = query(account)
         attributes[kSecReturnData as String] = true
         attributes[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
@@ -21,22 +22,22 @@ nonisolated enum PhotoCredentialStore {
         return value
     }
 
-    static func save(_ key: String) throws {
+    static func save(_ key: String, account: String = "api-key") throws {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains("\n"), !trimmed.contains("\r") else {
             throw PhotoChatError.missingKey
         }
         let values: [String: Any] = [kSecValueData as String: Data(trimmed.utf8),
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
-        var status = SecItemUpdate(query as CFDictionary, values as CFDictionary)
+        var status = SecItemUpdate(query(account) as CFDictionary, values as CFDictionary)
         if status == errSecItemNotFound {
-            status = SecItemAdd(query.merging(values, uniquingKeysWith: { _, new in new }) as CFDictionary, nil)
+            status = SecItemAdd(query(account).merging(values, uniquingKeysWith: { _, new in new }) as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw StoreError(status: status) }
     }
 
-    static func delete() throws {
-        let status = SecItemDelete(query as CFDictionary)
+    static func delete(account: String = "api-key") throws {
+        let status = SecItemDelete(query(account) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw StoreError(status: status) }
     }
 

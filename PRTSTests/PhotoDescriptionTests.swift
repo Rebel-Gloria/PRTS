@@ -6,7 +6,7 @@ struct PhotoDescriptionTests {
     /// The expected text is independent of the implementation constant: comparing
     /// the request only with that constant cannot detect an omitted user requirement.
     @Test func fixedPromptMatchesRequestedSentenceLimit() throws {
-        let expected = "请为盲人用一两句话描述这张图：主要的物体、人或场景在哪里，什么方向，离多远。不要提无关细节。"
+        let expected = "给盲人讲这张照片：先说最重要的人或物在左、中、右哪边，再补要紧细节，有字就读出来。最多两句。"
         #expect(PhotoChatProtocol.prompt == expected)
         let request = try PhotoChatProtocol.request(jpeg: Data([1]), text: PhotoChatProtocol.prompt, key: "test-only")
         let data = try #require(request.httpBody)
@@ -25,7 +25,7 @@ struct PhotoDescriptionTests {
         let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(body["model"] as? String == "qwen3.8-flash")
         #expect(body["stream"] as? Bool == true)
-        #expect(body["enable_thinking"] as? Bool == true)
+        #expect(body["enable_thinking"] as? Bool == false)
         let messages = try #require(body["messages"] as? [[String: Any]])
         let content = try #require(messages.first?["content"] as? [[String: Any]])
         #expect(content[0]["text"] as? String == PhotoChatProtocol.prompt)
@@ -38,7 +38,35 @@ struct PhotoDescriptionTests {
         let json = try #require(String(data: data, encoding: .utf8))
         #expect(json.contains("门在哪里？"))
         #expect(!json.contains(PhotoChatProtocol.prompt))
-        #expect(!json.contains("一两句话"))
+        #expect(!json.contains("最多两句"))
+    }
+
+    @Test func providerPresetsAndCustomEndpoint() throws {
+        let deepseek = try PhotoChatProtocol.request(jpeg: Data([1]), text: "看", key: "test-only", service: .deepseek)
+        #expect(deepseek.url?.absoluteString == "https://api.deepseek.com/chat/completions")
+        let deepseekData = try #require(deepseek.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: deepseekData) as? [String: Any])
+        #expect(body["model"] as? String == "deepseek-flash")
+        #expect((body["thinking"] as? [String: String])?["type"] == "disabled")
+        #expect(body["enable_thinking"] == nil)
+
+        #expect(PhotoChatService.chatURL(from: " https://api.example.com/v1/ ")?.absoluteString == "https://api.example.com/v1/chat/completions")
+        #expect(PhotoChatService.chatURL(from: "https://api.example.com/v1/chat/completions")?.absoluteString == "https://api.example.com/v1/chat/completions")
+        #expect(PhotoChatService.chatURL(from: "http://api.example.com/v1") == nil)
+        #expect(PhotoChatService.chatURL(from: "api.example.com") == nil)
+
+        let defaults = try #require(UserDefaults(suiteName: "PhotoDescriptionTests.\(UUID().uuidString)"))
+        #expect(PhotoChatProvider.current(defaults) == .qwen)
+        #expect(PhotoChatProvider.qwen.keyAccount == "api-key")
+        defaults.set("custom", forKey: PhotoChatProvider.selectionKey)
+        defaults.set("https://api.example.com/v1", forKey: PhotoChatProvider.customEndpointKey)
+        #expect(PhotoChatProvider.custom.service(defaults) == nil)
+        defaults.set("vision-mini", forKey: PhotoChatProvider.customModelKey)
+        let custom = try #require(PhotoChatProvider.current(defaults).service(defaults))
+        let customData = try #require(try PhotoChatProtocol.request(jpeg: Data([1]), text: "看", key: "test-only", service: custom).httpBody)
+        let customBody = try #require(JSONSerialization.jsonObject(with: customData) as? [String: Any])
+        #expect(customBody["model"] as? String == "vision-mini")
+        #expect(customBody["thinking"] == nil && customBody["enable_thinking"] == nil)
     }
 
     @Test func reasoningNeverBecomesSpeech() throws {

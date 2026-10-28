@@ -104,6 +104,19 @@ final class PRTSUITests: XCTestCase {
         photo.tap()
         XCTAssertTrue(app.navigationBars["拍照描述"].waitForExistence(timeout: 5))
         snap(app, "Photo settings (zh)")
+        // Provider picker: presets show their model; custom asks for address and model.
+        // LabeledContent exposes the model as the row's value, not as its own label.
+        func shown(_ text: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)).firstMatch
+        }
+        app.buttons["DeepSeek"].tap()
+        XCTAssertTrue(shown("deepseek-flash").waitForExistence(timeout: 3))
+        app.buttons["自定义"].tap()
+        XCTAssertTrue(app.textFields["photoCustomEndpoint"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["photoCustomModel"].exists)
+        snap(app, "Photo provider custom (zh)")
+        app.buttons["通义千问 Qwen"].tap()
+        XCTAssertTrue(shown("qwen3.8-flash").waitForExistence(timeout: 3))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         // The feedback section sits below the developer section; Form rows off screen don't exist yet.
         let haptic = app.switches["振动提示"]
@@ -130,19 +143,6 @@ final class PRTSUITests: XCTestCase {
         snap(large, "Running at accessibility XXXL")
     }
 
-    @MainActor
-    func testDevCaptureBuildGate() throws {
-        let app = XCUIApplication(); app.launch()
-        let settings = app.buttons["settingsButton"]
-        XCTAssertTrue(settings.waitForExistence(timeout:10)); settings.tap()
-        #if PRTS_DEV_CAPTURE
-        app.swipeUp()
-        let toggle = app.switches["devCaptureToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout:5))
-        XCTAssertEqual(toggle.value as? String,"0")
-        toggle.coordinate(withNormalizedOffset:CGVector(dx:0.9,dy:0.5)).tap()
-        XCTAssertEqual(toggle.value as? String,"1")
-        // Relaunch must never silently restart RGB recording.
     /// No-preview mode: guidance runs, nothing is drawn.
     @MainActor
     func testNoPreviewModeSkipsRendering() throws {
@@ -176,6 +176,19 @@ final class PRTSUITests: XCTestCase {
         measure(metrics: [XCTCPUMetric(application: app)], options: options) { sleep(20) }
     }
 
+    @MainActor
+    func testDevCaptureBuildGate() throws {
+        let app = XCUIApplication(); app.launch()
+        let settings = app.buttons["settingsButton"]
+        XCTAssertTrue(settings.waitForExistence(timeout:10)); settings.tap()
+        #if PRTS_DEV_CAPTURE
+        app.swipeUp()
+        let toggle = app.switches["devCaptureToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout:5))
+        XCTAssertEqual(toggle.value as? String,"0")
+        toggle.coordinate(withNormalizedOffset:CGVector(dx:0.9,dy:0.5)).tap()
+        XCTAssertEqual(toggle.value as? String,"1")
+        // Relaunch must never silently restart RGB recording.
         app.terminate(); app.launch(); app.buttons["settingsButton"].tap(); app.swipeUp()
         XCTAssertTrue(app.switches["devCaptureToggle"].waitForExistence(timeout:5))
         XCTAssertEqual(app.switches["devCaptureToggle"].value as? String,"0")
