@@ -24,6 +24,13 @@ struct LocalVLMBenchmarkTests {
         try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("prompts-Q5_K_M.json"), atomically: true, encoding: .utf8)
     }
 
+    /// The shipped prompt on photos in Documents/vlm/photos (already scaled like PhotoImageEncoder), twice: cold then warm.
+    @Test func photosQ5() throws {
+        let images = try photos(in: dir.appendingPathComponent("photos"))
+        let report = try bench(quant: "Q5_K_M", images: images + images, system: PhotoChatProtocol.system, prompt: PhotoChatProtocol.prompt)
+        try report.write(to: dir.appendingPathComponent("photos-Q5_K_M.json"), atomically: true, encoding: .utf8)
+    }
+
     /// Same variants against every cloud provider that has a key saved in Settings.
     @Test func promptsCloud() async throws {
         let variants = try loadVariants()
