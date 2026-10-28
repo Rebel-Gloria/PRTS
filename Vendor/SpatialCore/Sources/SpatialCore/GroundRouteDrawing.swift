@@ -16,10 +16,7 @@ public enum GroundRouteDrawing {
         }
         let plane = presentation.path.plane
         let width = max(presentation.path.requiredWidth,bodyWidth ?? presentation.path.requiredWidth)
-        guard LocalGroundRebase.accepts(plane), width.isFinite, width > 0,
-              original.count >= 2, original.count <= 256,
-              original.allSatisfy({$0.x.isFinite && $0.y.isFinite && $0.z.isFinite}),
-              let obstacles else { return fallback("drawing_constraints_unavailable") }
+        guard LocalGroundRebase.accepts(plane), original.count >= 2, let obstacles else { return fallback("drawing_constraints_unavailable") }
         var source = original.map { LocalGroundRebase.lift($0,to:plane) }
         // The retained planning tail may be behind the feet. Join its nearest entry
         // projection without touching any planning vertex, goal, or following corner.
@@ -31,8 +28,7 @@ public enum GroundRouteDrawing {
         source=coalesced(source)
         for trim:Float in [0.12,0.06] {
             let candidate=rounded(source,trim:trim)
-            guard candidate.count >= 2, candidate.count <= 1024,
-                  withinDeviation(candidate,original:original),
+            guard withinDeviation(candidate,original:original),
                   // Check EVERY final rendered chord after all geometric operations.
                   zip(candidate,candidate.dropFirst()).allSatisfy({a,b in
                       !obstacles.contains{$0.overlaps(from:a,to:b,radius:width/2+0.001)}
@@ -74,9 +70,7 @@ public enum GroundRouteDrawing {
     private static func withinDeviation(_ points:[V3],original:[V3])->Bool {
         let flat=original.map{V3($0.x,0,$0.z)}
         for (a,b) in zip(points,points.dropFirst()) {
-            let length=simd_distance(a,b)
-            guard length.isFinite,length<30 else{return false}
-            let n=max(1,Int(ceil(length/0.01)))
+            let n=max(1,Int(ceil(simd_distance(a,b)/0.01)))
             for i in 0...n {
                 let p=a+(b-a)*Float(i)/Float(n),q=V3(p.x,0,p.z)
                 let distance=zip(flat,flat.dropFirst()).map{PathTracking.distance(q,to:$0,end:$1)}.min() ?? .infinity

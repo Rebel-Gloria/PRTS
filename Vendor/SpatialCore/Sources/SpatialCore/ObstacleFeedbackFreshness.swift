@@ -8,10 +8,8 @@ public struct ObstacleCheckStamp: Codable, Sendable {
     public var timestamp: Double
 
     static func successful(_ result: AnalysisResult) -> Self? {
-        guard let plane = result.plane, let grid = result.grid, result.sourcePose != nil,
-              plane.offset.isFinite, plane.normal.x.isFinite, plane.normal.y.isFinite,
-              plane.normal.z.isFinite, plane.normal.y > 0.25,
-              result.timestamp.isFinite, (result.diagnostics?.sampledPoints ?? 0) > 0,
+        guard result.plane != nil, let grid = result.grid, result.sourcePose != nil,
+              (result.diagnostics?.sampledPoints ?? 0) > 0,
               grid.epoch == result.epoch, grid.frameID == result.frameID,
               grid.timestamp == result.timestamp else { return nil }
         return .init(epoch:result.epoch,parameterVersion:result.parameterVersion,
@@ -37,8 +35,6 @@ public enum ObstacleFeedbackFreshness {
               check.epoch == gate.epoch, check.parameterVersion == gate.parameterVersion,
               check.frameID >= max(gate.minimumGeometryFrameID,gate.minimumGuidanceFrameID),
               check.frameID <= context.frameID,
-              now.isFinite, gate.frameTimestamp.isFinite, check.timestamp.isFinite,
-              gate.maxAge.isFinite, gate.maxAge > 0,
               now >= gate.frameTimestamp, now-gate.frameTimestamp <= gate.maxAge,
               check.timestamp <= gate.frameTimestamp, now >= check.timestamp,
               now-check.timestamp <= maximumAge else { return false }
