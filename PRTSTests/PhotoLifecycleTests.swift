@@ -154,7 +154,7 @@ struct PhotoLifecycleTests {
             let data = try #require(request.httpBody)
             let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
             let messages = try #require(body["messages"] as? [[String: Any]])
-            let content = try #require(messages.first?["content"] as? [[String: Any]])
+            let content = try #require(messages.last?["content"] as? [[String: Any]])
             #expect(content[0]["text"] as? String == prefix + question)
             await f.network.reply(index, "测试回答")
             await f.coordinator.work?.value
