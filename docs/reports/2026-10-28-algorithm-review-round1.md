@@ -333,7 +333,7 @@ B1 的 300 个预测帧中，**38 帧（12.7%）为 no_visible_target**，最长
 - 输出给用户的只有：语音（"有障碍 / 障碍很近 / 向左 / 向右 / 直走 / 无法绕行"）和方向振动。用户看不到屏幕，**漏报障碍比误报危险得多**，但频繁误报也会让用户不再信任。
 - 纯算法在 `Vendor/SpatialCore/Sources/SpatialCore/`（约 5300 行，纯 Swift，无 UI）。App 侧运行时在 `PRTS/Spatial/Runtime/`（`ProbeEngine.swift` 负责帧调度），反馈在 `PRTS/Feedback/`（`PathHaptics.swift`、`ObstacleRouteAnnouncementPolicy.swift`、`FeedbackCoordinator.swift`）。
 - 架构文档：`docs/architecture/`（`RUNTIME_DATA_FLOW.md`、`FORWARD_ROUTE_POLICY.md`、`ROUTE_PROJECTION.md`）。
-- 已有的实测复盘：`docs/reports/FIELD_DIAG_REVIEW_2026-10-28.md`（P1–P6），以及更早的 `docs/reports/` 下各报告。请先读它，**不要重复已有结论**，可以验证、补充或反驳。
+- 已有的实测复盘：`docs/reports/2026-10-28-field-diag-review.md`（P1–P6），以及更早的 `docs/reports/` 下各报告。请先读它，**不要重复已有结论**，可以验证、补充或反驳。
 - 实测数据（只读，本机）：`/private/tmp/claude-501/-Users-kyf-Documents-PRTS/458323fc-5623-4807-ac7a-fa70db4beaf4/scratchpad/diag/pull-17pm-1028/`（DIAG jsonl + dev capture）。读取工具：`python3 scripts/read_diag.py --help`、`scripts/read_dev_capture.py`。已有回放结果：同目录上一级的 `replay/`、`replay-baseline/`、`replay-candA/`（`scripts/compare_route_replays.py` 可对比）。
 - 约束：`Experiments/SpatialProbe` 是逐字节一致性基线，`scripts/test_spatial_integration.py` 会对比；改算法时需要同步更新基线，这是允许的，但请指出影响哪些文件。
 
