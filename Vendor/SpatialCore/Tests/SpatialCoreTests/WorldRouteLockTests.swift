@@ -50,7 +50,7 @@ extension ForwardRouteTests {
     XCTAssertFalse(meshes.contains { $0.role == .unknownApproach || $0.role == .history })
     let approach = try XCTUnwrap(meshes.first)
     XCTAssertEqual(approach.role, .planned)
-    XCTAssertEqual(approach.vertices.count, 6)  // one solid quad, not repeated dash quads
+    XCTAssertEqual(approach.vertices.count, 12) // connection + route in one solid mesh; no dash quads
   }
 
   func testLockedRouteStillWithdrawsForConfirmedNewObstacle() throws {
