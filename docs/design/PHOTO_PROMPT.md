@@ -20,7 +20,7 @@
   - B3_209：正前方很近有电动车座椅，左边停着自行车，右边有红色电动车。
   - B3_289：前面有台阶，上去是地铁站入口，入口里有扶梯。
   - B3_301：正前方是向上的台阶，带黄色防滑条，远处有玻璃门和扶梯。
-- 工具：`PRTSTests/LocalVLMBenchmarkTests/promptsQ5()`，从 App 的 `Documents/vlm/prompts.json` 读取提示词变体。云端对照用 `promptsCloud()`，需要手机上已保存某个服务商的 Key。**本轮手机上没有 Key，云端没测。**
+- 工具：`PRTSTests/LocalVLMBenchmarkTests/prompts()`（当时叫 `promptsQ5()`，跑的是 4.6），从 App 的 `Documents/vlm/prompts.json` 读取提示词变体。云端对照用 `promptsCloud()`，需要手机上已保存某个服务商的 Key。**本轮手机上没有 Key，云端没测。**
 
 ## 结果
 
