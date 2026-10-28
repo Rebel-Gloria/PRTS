@@ -1,66 +1,52 @@
-> **Current product: build24.** The continuous-route descriptions below are build17/18 history.
-> [Obstacle waypoints](../reports/2026-09-30-obstacle-waypoints.md) defines current clear/far/near scheduling, atomic current-goal handoff, and schema4.
+# 运行时数据流
 
-# Runtime data flow
+一帧画面从 ARKit 进来，到用户听到播报、感到震动，中间经过这几步：
 
-## Capture
+```text
+ARSession
+  → ProbeEngine：生成 FrameSnapshot，限长邮箱
+  → SpatialAnalyzer：三态栅格（地面 / 障碍 / 未知）
+  → PathPredictor：检查 epoch 和帧顺序，记录障碍水位
+    → TemporalOccupancyGrid：障碍持续 300 ms 才确认，消失后移出
+    → ObstacleWaypointPlanner：判断场景，选当前目标点，准备下一个点
+      → ObstacleWaypointSearch → ForwardObstacleTrigger、GreedyDetourSearch / ForwardPathSearch / FanPathSearch
+  → RoutePublicationPolicy：整体提交，区分"空旷"和"候选还没算好"
+  → SharedSnapshot
+    ├─ ProbeRenderer：只画当前这一段
+    ├─ FeedbackCoordinator → ObstacleRouteAnnouncementPolicy（语音）、PathHaptics（方向震动）
+    └─ DiagnosticRecorder：DIAG 记录
+```
 
-`ProbeEngine` receives one `ARFrame` and creates a `FrameSnapshot` containing frame ID, epoch, timestamp, tracking state, camera pose, RGB intrinsics, scene depth/confidence availability and mesh priors. A bounded mailbox keeps one processing frame plus the newest pending frame; stale work is discarded.
+## 采集
 
-## Analysis
+`ProbeEngine` 从每个 `ARFrame` 生成 `FrameSnapshot`：帧号、epoch、时间戳、跟踪状态、相机位姿、内参、是否有深度和置信度、网格。邮箱只保留一帧正在处理的和一帧最新的，旧的直接丢掉，所以分析永远不会越积越多。
 
-The worker produces the measured three-state grid (`candidate`, `obstacle`, `unknown`).
-`PathPredictor(policy: .obstacleVeto)` then adapts a **private** planning copy through
-`TemporalOccupancyGrid`: 300 ms confirmed occupancy vetoes cells; every other cell is searchable.
-This copy uses a session-fixed plane and retained route axis with a rolling 8 m forward window.
-Missing ground/depth/grid data and evidence TTL do not withdraw the route. If no initial floor
-reference exists, drawing starts on a horizontal plane 1.4 m below the initial camera.
+## 分析和规划
 
-Confirmed conflicts raise a watermark and preempt the conflicting committed route before search.
-`ForwardRoutePlanner` retains its existing greedy extension, greedy detour and graph-search fallback.
-Normal replacements commit atomically; unfinished candidates keep the old route. A clear new
-heading held 3 seconds allows user redirection. Epoch, ordering, explicit reset and tracking checks
-remain active; recording does not select a different policy.
+分析得到三态栅格。规划不直接用它，而是用一份私有副本：只有持续 300 ms 的确认障碍会挡路，其余格子（包括未知）都可以走。地面或深度短暂缺失不会撤掉路线。
 
-## Presentation
+`ObstacleWaypointPlanner` 把情况分成三种：
 
-The main actor reads a `SharedSnapshot`. The Metal renderer projects RGB/depth and world-space overlays into one aspect-fit content rectangle. `HomeDemoOverlay` only displays measurements already present in that snapshot. It must not trigger analysis, create a timer or create an ARSession.
+| 情况 | 路线 | 播报 |
+|---|---|---|
+| 前方通行带里没有确认障碍 | 不画线 | 进入时说一次"前方畅通" |
+| 障碍在 2 m 以外 | 在障碍前 0.55 m 设一个停靠点 | "有障碍" |
+| 障碍在 2 m 以内 | 逐点绕行 | "有障碍"或"障碍很近"，加转向 |
 
-## Feedback
+- "前方"指沿当前方向、和身体一样宽（默认 0.5 m）的一条带子。距离是沿这条带子量到障碍近边的地面距离。
+- 进入近障后，距离回到 2.15 m 以上才算远障，避免在 2 m 附近来回切换。
+- 只有当前目标点和它的路线会被画出来、播报和震动；下一个点只用来提前准备（离当前点 1.2 m 内开始），到达当前点（0.35 m 内）时复核一遍再整体换上。
+- 三种情况会重新规划：用户原地转向 45° 以上并稳定 3 秒；当前目标离开画面；当前路线被确认障碍挡住。
+- 跟踪丢失、epoch 变化、参数变化时作废旧结果，迟到的异步结果不会覆盖新的。
 
-`FeedbackCoordinator` rate-limits result-based speech/haptics. `RouteAnnouncementPolicy` gives one cue per avoidance/rejoin stage; obstacle speech takes precedence. `PathHaptics` handles left/right/align target cues. Settings and perception speech have separate cancellation ownership so opening Settings cannot be silenced by a stale perception update.
+具体参数在 `ObstacleWaypointState.swift` 的 `ObstacleWaypointOptions` 里。
 
-## Diagnostics
+## 显示和反馈
 
-The recorder writes launch metadata, capture/analysis/render/path/mesh events and compressed depth/confidence/mesh attachments. No RGB/video/audio/GPS is written by default. Drop counts, queue high-water marks, result age, thermal state and stage timings are retained for diagnosis.
+主线程读 `SharedSnapshot`。渲染器把画面、深度和世界坐标里的叠加层投到同一个矩形里；开发版的 `HomeDemoOverlay` 只显示快照里已有的数值，不触发分析，不开定时器。
 
-Route module ownership and evidence rules: [Forward route policy](FORWARD_ROUTE_POLICY.md).
+`FeedbackCoordinator` 给播报和震动限频。避障播报规则见 [文案规范](../features/copy-guidelines.md)。拍照回答和设置页播报各自管理取消，互不打断。
 
-## Rolling route planning
+## 诊断
 
-The facade advances a bounded arc-progress window, preserves the world prefix, and appends the
-straight tail without waiting for a local endpoint arrival. Renewal uses the existing speed/budget
-heuristic. Grid query bounds are computational limits; they move with the user, not an evidence
-frontier. `SurfaceHistory` never supplies planning permissions.
-
-`RoutePlanningGrid`/`PathClearance` consume the adapted raster; their generic candidate checks
-therefore impose only confirmed occupancy plus the configured route width and query bounds.
-The explicit `.verified` policy remains available for offline comparison, not the app default.
-
-Display and feedback read the same committed `PathUpdate`. The main veto route is solid with
-no evidence-expiry or endpoint-arrival hiding. Sensor surface layers retain their own raw-data
-checks; those checks do not hide the main route.
-
-See [build17 contracts, tests and limits](../reports/OBSTACLE_VETO_2026-09-29.md).
-
-## build18 heading query and tail update
-
-`TemporalOccupancyGrid.projected` reuses confirmed world tracks to query the user's new
-heading without ingesting observations twice. `ForwardTurnDwell` uses projected-heading
-stability rather than the capture-wide pitch/angular-speed gate. It accepts normal 2 Hz
-intervals; epoch/tracking invalidation still belongs to the runtime.
-
-Straight extension tests a full swept segment, then bisects only if occupied.
-`RouteArc.coalescingCollinear` removes redundant rolling nodes without changing the curve.
-Side-route tails extend along their terminal tangent before arrival; local goals no longer
-clear the product route. Details: [build18](../reports/TURN_TAIL_2026-09-29.md).
+自动记录启动信息，采集、分析、渲染、路线、网格事件，以及压缩后的深度、置信度和网格。默认不存画面、视频、音频和位置。丢帧数、队列高水位、结果延迟、发热状态和各阶段耗时都会记下来。格式见 [开发采集](../guides/dev-capture.md)。
