@@ -15,7 +15,11 @@ final class ProbeViewModel: ObservableObject {
             engine.updateOptions(options)
         }
     }
-    @Published var parameters = ProbeParameters()
+    /// The user's passage width (Settings → Obstacle guidance); everything else in parameters stays default.
+    static let bodyWidthKey = "guidance.bodyWidth"
+    @Published var parameters = ProbeParameters() {
+        didSet { UserDefaults.standard.set(Double(parameters.bodyWidth),forKey:Self.bodyWidthKey) }
+    }
     @Published var pathOptions = PathOptions()
     #if PRTS_DEV_CAPTURE
     @Published var devCaptureStatus = DevCaptureRecorder.Status()
@@ -39,6 +43,7 @@ final class ProbeViewModel: ObservableObject {
         if let data = UserDefaults.standard.data(forKey:"homeRenderOptions.v1"),let saved = try? JSONDecoder().decode(RenderOptions.self,from:data) { options = saved }
         #endif
         engine.updateOptions(options)
+        if let width = UserDefaults.standard.object(forKey:Self.bodyWidthKey) as? Double { parameters.bodyWidth = Float(width) }
         if let data = UserDefaults.standard.data(forKey:"pathOptions"),let options = try? JSONDecoder().decode(PathOptions.self,from:data) { pathOptions = options.validated() }
         engine.store.update { $0.pathOptions = pathOptions }
         UIDevice.current.isBatteryMonitoringEnabled = true
