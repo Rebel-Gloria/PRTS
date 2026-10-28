@@ -4,59 +4,43 @@ import PRTSVLMBench
 import Testing
 @testable import PRTS
 
-/// On-device MiniCPM-V speed/memory benchmark. Only compiled when the llama.cpp benchmark
-/// library is linked (see docs/design/LOCAL_VLM_FEASIBILITY.md); models and photos are
-/// copied to Documents/vlm beforehand, and the JSON report is written back there.
+/// On-device local VLM speed/memory benchmark. Only compiled when the llama.cpp benchmark
+/// library is linked (see docs/design/LOCAL_VLM_FEASIBILITY.md). Each model lives in its own
+/// Documents/vlm/models/<name>/ folder (language model + a file with "mmproj" in its name);
+/// photos and prompts are copied to Documents/vlm beforehand, and JSON reports are written back there.
 @MainActor
 struct LocalVLMBenchmarkTests {
-    @Test func benchQ4() throws { try run(quant: "Q4_K_M") }
-    @Test func benchQ5() throws { try run(quant: "Q5_K_M") }
+    /// The shipped prompt on Documents/vlm/photos/1280; the first photo runs once more to warm up.
+    @Test func photos() throws {
+        try eachModel("photos") { model, mmproj in
+            let images = try photos(in: dir.appendingPathComponent("photos/1280"))
+            return try bench(model: model, mmproj: mmproj, images: [images[0]] + images,
+                             system: PhotoChatProtocol.system, prompt: PhotoChatProtocol.prompt, nCtx: 4096)
+        }
+    }
+
+    /// Same, letting the model think before answering.
+    @Test func photosThinking() throws {
+        try eachModel("photos-thinking") { model, mmproj in
+            let images = try photos(in: dir.appendingPathComponent("photos/1280"))
+            return try bench(model: model, mmproj: mmproj, images: [images[0]] + images,
+                             system: PhotoChatProtocol.system, prompt: PhotoChatProtocol.prompt,
+                             maxTokens: 1024, nCtx: 4096, thinking: true)
+        }
+    }
 
     /// Prompt comparison: every variant in Documents/vlm/prompts.json on the photos in vlm/clean.
-    @Test func promptsQ5() throws {
+    @Test func prompts() throws {
         let variants = try loadVariants()
-        let images = try photos(in: dir.appendingPathComponent("clean"))
-        var reports: [String] = []
-        for variant in variants {
-            let json = try bench(quant: "Q5_K_M", images: images, system: variant.system, prompt: variant.user)
-            reports.append("{\"name\":\"\(variant.name)\",\"report\":\(json)}")
+        try eachModel("prompts") { model, mmproj in
+            let images = try photos(in: dir.appendingPathComponent("clean"))
+            var reports: [String] = []
+            for variant in variants {
+                let json = try bench(model: model, mmproj: mmproj, images: images, system: variant.system, prompt: variant.user)
+                reports.append("{\"name\":\"\(variant.name)\",\"report\":\(json)}")
+            }
+            return "[\(reports.joined(separator: ","))]"
         }
-        try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("prompts-Q5_K_M.json"), atomically: true, encoding: .utf8)
-    }
-
-    /// The shipped prompt on each Documents/vlm/photos/<long side> set; the first photo runs once more to warm up.
-    @Test func photosQ5() throws {
-        let root = dir.appendingPathComponent("photos")
-        var reports: [String] = []
-        for size in try FileManager.default.contentsOfDirectory(atPath: root.path).filter({ Int($0) != nil }).sorted() {
-            let images = try photos(in: root.appendingPathComponent(size))
-            guard let first = images.first else { continue }
-            let json = try bench(quant: "Q5_K_M", images: [first] + images, system: PhotoChatProtocol.system,
-                                 prompt: PhotoChatProtocol.prompt, nCtx: 8192)
-            reports.append("{\"name\":\"\(size)\",\"report\":\(json)}")
-        }
-        try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("photos-Q5_K_M.json"), atomically: true, encoding: .utf8)
-    }
-
-    /// Same 1280 photos with each vision-module variant in Documents/vlm/mmproj (more slices, finer tokens).
-    @Test func photosSlicesQ5() throws {
-        let images = try photos(in: dir.appendingPathComponent("photos/1280"))
-        let folder = dir.appendingPathComponent("mmproj")
-        var reports: [String] = []
-        for file in try FileManager.default.contentsOfDirectory(atPath: folder.path).filter({ $0.hasSuffix(".gguf") }).sorted() {
-            let json = try bench(quant: "Q5_K_M", images: [images[0]] + images, system: PhotoChatProtocol.system,
-                                 prompt: PhotoChatProtocol.prompt, nCtx: 4096, mmproj: folder.appendingPathComponent(file).path)
-            reports.append("{\"name\":\"\(file)\",\"report\":\(json)}")
-        }
-        try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("photos-slices-Q5_K_M.json"), atomically: true, encoding: .utf8)
-    }
-
-    /// Same, at the shipped 1280 size, letting the model think before answering.
-    @Test func photosThinkingQ5() throws {
-        let images = try photos(in: dir.appendingPathComponent("photos/1280"))
-        let report = try bench(quant: "Q5_K_M", images: [images[0]] + images, system: PhotoChatProtocol.system,
-                               prompt: PhotoChatProtocol.prompt, maxTokens: 1024, nCtx: 4096, thinking: true)
-        try report.write(to: dir.appendingPathComponent("photos-thinking-Q5_K_M.json"), atomically: true, encoding: .utf8)
     }
 
     /// Same variants against every cloud provider that has a key saved in Settings.
@@ -99,19 +83,21 @@ struct LocalVLMBenchmarkTests {
             .filter { $0.hasSuffix(".jpg") }.sorted().map { folder.appendingPathComponent($0).path }
     }
 
-    private func run(quant: String) throws {
-        guard FileManager.default.fileExists(atPath: dir.appendingPathComponent("MiniCPM-V-4.6-\(quant).gguf").path) else { return }
-        var images = try photos(in: dir)
-        if let first = images.first { images.append(first) } // warm repeat of the first photo
-        let report = try bench(quant: quant, images: images, system: PhotoChatProtocol.system, prompt: PhotoChatProtocol.prompt)
-        try report.write(to: dir.appendingPathComponent("result-\(quant).json"), atomically: true, encoding: .utf8)
-        #expect(!report.contains("\"error\""))
+    /// Runs body for every model folder and writes "<report>-<model>.json".
+    private func eachModel(_ report: String, _ body: (String, String) throws -> String) throws {
+        let root = dir.appendingPathComponent("models")
+        for name in try FileManager.default.contentsOfDirectory(atPath: root.path).sorted() {
+            let folder = root.appendingPathComponent(name)
+            let files = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasSuffix(".gguf") }
+            let mmproj = try #require(files.first { $0.contains("mmproj") })
+            let model = try #require(files.first { !$0.contains("mmproj") })
+            let json = try body(folder.appendingPathComponent(model).path, folder.appendingPathComponent(mmproj).path)
+            try json.write(to: dir.appendingPathComponent("\(report)-\(name).json"), atomically: true, encoding: .utf8)
+        }
     }
 
-    private func bench(quant: String, images: [String], system: String, prompt: String,
-                       maxTokens: Int32 = 128, nCtx: Int32 = 2048, thinking: Bool = false, mmproj: String? = nil) throws -> String {
-        let model = dir.appendingPathComponent("MiniCPM-V-4.6-\(quant).gguf").path
-        let mmproj = mmproj ?? dir.appendingPathComponent("mmproj-MiniCPM-V-4.6-F16.gguf").path
+    private func bench(model: String, mmproj: String, images: [String], system: String, prompt: String,
+                       maxTokens: Int32 = 128, nCtx: Int32 = 2048, thinking: Bool = false) throws -> String {
         let cImages = images.map { strdup($0) }
         defer { cImages.forEach { free($0) } }
         let pointers = cImages.map { UnsafePointer<CChar>($0) }
