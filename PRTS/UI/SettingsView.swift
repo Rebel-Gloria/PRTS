@@ -11,6 +11,8 @@ struct SettingsView: View {
     #endif
     @EnvironmentObject private var speech: SpeechManager
     @EnvironmentObject private var haptics: HapticManager
+    @AppStorage(PhotoCaptureButton.hardwareButtonsKey) private var photoHardwareButtons = true
+    @AppStorage(ContentView.noPreviewKey) private var noPreview = false
 
     var body: some View {
         Form {
@@ -36,8 +38,14 @@ struct SettingsView: View {
                 Button("停止采集并打开 DIAG 导出页") { model.engine.devCapture.stop(); showSpatialSettings = true }
             }
             #endif
-            Section("settings.photo.section") {
+            Section {
                 NavigationLink("settings.photo.service") { PhotoDescriptionSettingsView() }
+                Toggle("settings.photo.hardwareButtons", isOn: $photoHardwareButtons)
+                    .accessibilityIdentifier("photoHardwareButtonsToggle")
+            } header: {
+                Text("settings.photo.section")
+            } footer: {
+                Text("settings.photo.hardwareButtons.footer")
             }
             Section("settings.voice.section") {
                 Toggle("settings.voice.announcements", isOn: Binding(get: { speech.voiceAnnouncementsEnabled }, set: speech.setVoiceAnnouncementsEnabled))
@@ -59,6 +67,14 @@ struct SettingsView: View {
                 Text("settings.language.section")
             } footer: {
                 Text("settings.language.footer")
+            }
+            Section {
+                Toggle("settings.display.noPreview", isOn: $noPreview)
+                    .accessibilityIdentifier("noPreviewToggle")
+            } header: {
+                Text("settings.display.section")
+            } footer: {
+                Text("settings.display.noPreview.footer")
             }
             Section("settings.feedback.section") {
                 Toggle("settings.feedback.haptic", isOn: Binding(get: { haptics.isEnabled }, set: haptics.setEnabled))
