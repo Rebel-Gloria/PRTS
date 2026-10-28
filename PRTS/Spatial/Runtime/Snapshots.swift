@@ -267,11 +267,17 @@ struct SharedSnapshot: Sendable {
               context.parameterVersion == gate.parameterVersion, context.frameID >= gate.minimumGeometryFrameID,
               context.frameID <= gate.frameID, context.hazardWatermark >= routeHazardWatermark,
               now >= gate.frameTimestamp, now-gate.frameTimestamp <= gate.maxAge else { return nil }
+        guard ObstacleFeedbackFreshness.allows(pathUpdate,gate:gate,
+            hazardWatermark:routeHazardWatermark,now:now) else { return nil }
         return pathUpdate
+    }
+    func waypointFeedbackState(now: Double) -> ObstacleFeedbackState {
+        activeWaypointUpdate(now:now) == nil ? .unknown : .current
     }
     func pathHeading(now: Double) -> PathHeading? {
         // Angle feedback follows the LIVE tracked pose during a normal turn. The fixed goal
         // is not reselected here; fresh tracking/epoch/TTL and near-vertical checks still apply.
+        if pathUpdate.waypointGuidance != nil && activeWaypointUpdate(now:now) == nil { return nil }
         guard let path = activePath(now:now),let pose = frame?.pose else { return nil }
         guard presentationGate.directionStable else { return nil }
         let heading = PathTracking.heading(path:path.path,pose:pose,lookAhead:pathOptions.lookAhead)
