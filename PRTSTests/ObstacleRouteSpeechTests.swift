@@ -31,19 +31,20 @@ struct ObstacleRouteSpeechTests {
         let u = try update("clear")
         #expect(policy.cue(update:u,heading:nil,now:1,deviationDegrees:12) == .clear)
         #expect(policy.cue(update:u,heading:nil,now:10,deviationDegrees:12) == nil)
-        #expect(ObstacleRouteSpeech.clear.chinese == "前方无障碍")
+        #expect(ObstacleRouteSpeech.clear.chinese == "前方畅通")
     }
     @Test func distantObstacleAnnouncesDistanceNotPreviewTurn() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         let cue = policy.cue(update:try update("distantObstacle",distance:3),heading:try heading(30),now:1,deviationDegrees:12)
         #expect(cue == .obstacle(3,nil))
-        #expect(cue?.chinese == "前方障碍，约 3.0 米")
+        #expect(cue?.chinese == "有障碍")
     }
     @Test func nearObstacleCombinesDistanceAndCurrentTurn() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         let cue = policy.cue(update:try update("nearObstacle"),heading:try heading(-25),now:1,deviationDegrees:12)
         #expect(cue == .obstacle(1.4,-1))
-        #expect(cue?.chinese == "前方障碍，约 1.4 米，向左转")
+        #expect(cue?.chinese == "有障碍，向左")
+        #expect(ObstacleRouteSpeech.obstacle(0.6, 1).chinese == "障碍很近，向右")
         #expect(policy.cue(update:try update("nearObstacle"),heading:try heading(-25),now:1.1,deviationDegrees:12) == nil)
     }
     @Test func previewChangesCannotTriggerAnotherTurn() throws {
@@ -63,17 +64,19 @@ struct ObstacleRouteSpeechTests {
         #expect(policy.cue(update:try update("nearObstacle"),heading:try heading(25),now:1.1,deviationDegrees:12) == nil)
         #expect(policy.cue(update:try update("nearObstacle"),heading:try heading(25),now:3.5,deviationDegrees:12) == .obstacle(1.4,1))
     }
-    @Test func distanceUpdatesHaveAMinimumInterval() throws {
+    /// Distance is too noisy to speak; only crossing into "close" re-announces.
+    @Test func onlyTheNearLevelChangeReannounces() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         _ = policy.cue(update:try update("distantObstacle",distance:4),heading:nil,now:1,deviationDegrees:12)
-        #expect(policy.cue(update:try update("distantObstacle",distance:3.4),heading:nil,now:2,deviationDegrees:12) == nil)
-        #expect(policy.cue(update:try update("distantObstacle",distance:3.4),heading:nil,now:5,deviationDegrees:12) == .obstacle(3.4,nil))
+        #expect(policy.cue(update:try update("distantObstacle",distance:2.5),heading:nil,now:5,deviationDegrees:12) == nil)
+        #expect(policy.cue(update:try update("distantObstacle",distance:0.8),heading:nil,now:5.5,deviationDegrees:12) == .obstacle(0.8,nil))
+        #expect(policy.cue(update:try update("distantObstacle",distance:0.6),heading:nil,now:9,deviationDegrees:12) == nil)
     }
     @Test func blockedAndRecoveryHaveDistinctCues() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         let cue = policy.cue(update:try update("blocked"),heading:try heading(-40),now:1,deviationDegrees:12)
         #expect(cue == .blocked(1.4))
-        #expect(cue?.chinese.contains("暂无绕行路径") == true)
+        #expect(cue?.chinese == "有障碍，无法绕行")
         #expect(policy.cue(update:try update("clear"),heading:nil,now:2,deviationDegrees:12) == nil)
         #expect(policy.cue(update:try update("clear"),heading:nil,now:3.5,deviationDegrees:12) == .clear)
     }
@@ -93,7 +96,7 @@ extension ObstacleRouteSpeechTests {
         u.reason = "no_visible_target"
         let cue = policy.cue(update:u,heading:nil,now:1,deviationDegrees:12)
         #expect(cue == .adjustCamera(1.4))
-        #expect(cue?.chinese == "前方障碍，约 1.4 米，请转动手机")
+        #expect(cue?.chinese == "有障碍，转动手机")
     }
 }
 

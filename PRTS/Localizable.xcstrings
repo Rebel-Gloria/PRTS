@@ -954,13 +954,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera is not on."
+            "value" : "Camera off."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相机未开启。"
+            "value" : "相机已关。"
           }
         }
       }
@@ -971,13 +971,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera is live"
+            "value" : "Camera on"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相机正在运行"
+            "value" : "相机已开"
           }
         }
       }
@@ -988,13 +988,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No camera access. Turn it on in Settings."
+            "value" : "No camera access. Allow it in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限，请到设置里打开。"
+            "value" : "没有相机权限，去设置打开。"
           }
         }
       }
@@ -1005,13 +1005,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera is not on"
+            "value" : "Camera off"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相机未开启"
+            "value" : "相机已关"
           }
         }
       }
@@ -1022,13 +1022,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Requesting camera permission."
+            "value" : "Allow camera access."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在请求相机权限。"
+            "value" : "请允许相机。"
           }
         }
       }
@@ -1039,13 +1039,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera is live."
+            "value" : "Camera on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相机正在运行。"
+            "value" : "相机已开。"
           }
         }
       }
@@ -1056,13 +1056,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start button at the bottom"
+            "value" : "Start is at the bottom"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始按钮在下方"
+            "value" : "开始在下方"
           }
         }
       }
@@ -1073,13 +1073,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Starting camera."
+            "value" : "Opening camera."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在启动相机。"
+            "value" : "正在打开相机。"
           }
         }
       }
@@ -1090,13 +1090,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Press and hold the bottom button to stop"
+            "value" : "Hold the bottom button to stop"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "长按下方按钮停止"
+            "value" : "长按下方停止"
           }
         }
       }
@@ -1141,13 +1141,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS. %1$@. %2$@. Settings is at the top right."
+            "value" : "PRTS. %1$@. %2$@. Settings top right."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS。%1$@。%2$@，设置在右上角。"
+            "value" : "PRTS。%1$@，%2$@。设置在右上角。"
           }
         }
       }
@@ -1260,13 +1260,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voice announcements off."
+            "value" : "Voice off."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音播报已关闭。"
+            "value" : "语音已关。"
           }
         }
       }
@@ -1283,7 +1283,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音已开启。"
+            "value" : "语音已开。"
           }
         }
       }

@@ -70,18 +70,18 @@ final class FeedbackCoordinator: ObservableObject {
             lastSpokenResultID = event.resultID
             switch event {
             case .perceptionUnavailable:
-                speech.speakPerception("感知暂不可用")
+                speech.speakPerception("暂时看不清")
                 return // Direction haptics are owned solely by PathHaptics.
             case .centerObstacle(_, let distance, _):
-                speech.speakPerception(String(format: "前方障碍，约 %.1f 米", distance),
-                             english: String(format: "Obstacle ahead, about %.1f meters", distance))
+                speech.speakPerception(ObstacleRouteSpeech.level(distance, chinese: true),
+                                       english: ObstacleRouteSpeech.level(distance, chinese: false))
                 return
 
             case .observedCandidate(_, let sector):
                 guard announceCandidates else { continue }
                 let zh = sector == .left ? "左侧" : (sector == .right ? "右侧" : "中间")
                 let en = sector == .left ? "left" : (sector == .right ? "right" : "center")
-                speech.speakPerception("\(zh)有通道", english: "Observed candidate channel in the \(en)")
+                speech.speakPerception("\(zh)可走", english: "Open on the \(en)")
 
             }
         }

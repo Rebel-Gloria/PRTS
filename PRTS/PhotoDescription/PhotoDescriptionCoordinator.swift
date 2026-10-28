@@ -49,7 +49,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     func down(capture: @escaping () throws -> Task<Data, Error>, silence: () -> Void) {
         guard !busy else { return }
         guard services.uploadAllowed() else {
-            message = "请在设置 → 拍照描述中允许发送图片"; return
+            message = "先在设置里允许发送照片"; return
         }
         do {
             guard let credential = try services.credential(), !credential.isEmpty else {
@@ -91,7 +91,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 guard imageTask != nil else { return }
                 recognizer.endCapture()
                 do { try audio.cue(.submit) } catch { fail(error); return }
-                message = "正在识别提问"
+                message = "正在识别"
                 let id = generation
                 work = Task { [weak self] in
                     guard let self else { return }
@@ -133,7 +133,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             work = Task { [weak self] in
                 let granted = await self?.services.requestSpeechPermission() ?? false
                 guard let self, self.generation == id else { return }
-                self.message = granted ? "已授权，请重新长按提问" : "请在系统设置中允许麦克风和语音识别"
+                self.message = granted ? "已授权，再长按提问" : "请在设置里允许麦克风"
             }
             return
         }

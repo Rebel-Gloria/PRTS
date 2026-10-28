@@ -41,18 +41,18 @@ nonisolated enum RouteSpeechCue: Equatable {
 
     var chinese: String {
         switch self {
-        case .turn(let side): return side < 0 ? "向左转" : "向右转"
-        case .detour(let side): return side < 0 ? "从左侧绕行" : "从右侧绕行"
-        case .rejoin(let side): return side < 0 ? "向左，回到原路线" : "向右，回到原路线"
-        case .straight: return "继续直行"
+        case .turn(let side): return side < 0 ? "向左" : "向右"
+        case .detour(let side): return side < 0 ? "从左边绕" : "从右边绕"
+        case .rejoin(let side): return side < 0 ? "向左回原路" : "向右回原路"
+        case .straight: return "直走"
         }
     }
     var english: String {
         switch self {
-        case .turn(let side): return side < 0 ? "Turn left" : "Turn right"
-        case .detour(let side): return side < 0 ? "Pass on the left" : "Pass on the right"
-        case .rejoin(let side): return side < 0 ? "Bear left to rejoin" : "Bear right to rejoin"
-        case .straight: return "Continue straight"
+        case .turn(let side): return side < 0 ? "Go left" : "Go right"
+        case .detour(let side): return side < 0 ? "Pass left" : "Pass right"
+        case .rejoin(let side): return side < 0 ? "Left to rejoin" : "Right to rejoin"
+        case .straight: return "Go straight"
         }
     }
 }
