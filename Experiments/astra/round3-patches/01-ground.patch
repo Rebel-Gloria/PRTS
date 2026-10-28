@@ -1,0 +1,140 @@
+Subject: 更新确认地面并复核整条身体扫掠
+
+Co-Authored-By: GPT-6 Astra <noreply@openai.com>
+
+--- /dev/null
++++ b/Vendor/SpatialCore/Sources/SpatialCore/LocalGroundRebase.swift
+@@ -0,0 +1,16 @@
++import Foundation
++import simd
++
++/// Rebase only elevation. Normal projection would also move the retained horizontal intent.
++enum LocalGroundRebase {
++    static func accepts(_ plane: GroundPlane) -> Bool {
++        plane.offset.isFinite && plane.normal.x.isFinite && plane.normal.y.isFinite &&
++            plane.normal.z.isFinite && plane.normal.y > 0.25 && abs(simd_length(plane.normal)-1) < 0.001
++    }
++    static func needed(from old: GroundPlane, to next: GroundPlane, at camera: V3) -> Bool {
++        abs(next.height(old.project(camera))) > 0.04 || simd_dot(old.normal,next.normal) < cos(3 * .pi / 180)
++    }
++    static func lift(_ point: V3, to plane: GroundPlane) -> V3 {
++        V3(point.x, -(plane.offset+plane.normal.x*point.x+plane.normal.z*point.z)/plane.normal.y, point.z)
++    }
++}
+--- a/Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift
+@@ -37,3 +37,7 @@
+         else { return held(reason: "waiting_route_reference") }
++        let rebased = rebase(to: plane)
+         let foot = plane.project(pose.position)
++        // Check the entire reprojected body sweep, including the near connection, before
++        // progressing/trimming or publishing any retained direction.
++        let rebaseBlocked = rebased && current.map { !raster.supports([foot] + $0.points) } == true
+         let arrived = goal.map { simd_distance(foot, $0.point) <= options.arrivalRadius } ?? false
+@@ -95,3 +99,3 @@
+         previousFoot = foot
+-        let blocked = current.map { path in
++        let blocked = rebaseBlocked || (current.map { path in
+             !raster.supports([foot] + path.points) || (newScenario == .distantObstacle && goal.map {
+@@ -99,3 +103,3 @@
+             } == true)
+-        } ?? false
++        } ?? false)
+         if blocked { replan = "target_or_path_blocked" }
+@@ -119,3 +123,3 @@
+             }
+-            if let plan, commit(plan, result: r, options: options, pose: pose, view: view) {
++            if let plan, raster.supports([foot] + plan.points), commit(plan, result: r, options: options, pose: pose, view: view) {
+                 selectedReason = replan ?? "initial_target"
+@@ -137,2 +141,23 @@
+                       replan: replan, view: view)
++    }
++
++    /// Value-state transaction: no caller can observe a mixture of old and new heights.
++    @discardableResult
++    private mutating func rebase(to plane: GroundPlane) -> Bool {
++        guard let old = reference, LocalGroundRebase.accepts(plane),
++              old.plane.normal != plane.normal || old.plane.offset != plane.offset else { return false }
++        var next = self
++        func lift(_ p: V3) -> V3 { LocalGroundRebase.lift(p, to: plane) }
++        let origin = lift(old.origin), end = lift(old.origin + old.forward)
++        next.reference = .init(origin: origin, forward: simd_normalize(end-origin), plane: plane)
++        if var path = current {
++            path.points = path.points.map(lift); path.plane = plane
++            path.footAtPlan = path.footAtPlan.map(lift); next.current = path
++        }
++        if var target = goal { target.point = lift(target.point); target.plane = plane; next.goal = target }
++        next.continuation = continuation.map(lift)
++        if var pending = preview { pending.points = pending.points.map(lift); next.preview = pending }
++        next.previousFoot = previousFoot.map(lift)
++        self = next
++        return true
+     }
+--- a/Vendor/SpatialCore/Sources/SpatialCore/TemporalOccupancyGrid.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/TemporalOccupancyGrid.swift
+@@ -43,2 +43,10 @@
+       parameterVersion = result.parameterVersion
++    }
++    // Only confirmed local ground may replace an existing reference. Association tracks
++    // stay in measured world coordinates; changing this plane must never reset their age.
++    if result.diagnostics?.groundConfirmed == true, let next = result.plane,
++      LocalGroundRebase.accepts(next),
++      referencePlane.map({ LocalGroundRebase.needed(from: $0, to: next, at: pose.position) }) ?? true {
++      referencePlane = next
++      referenceSource = "confirmed_local_plane"
+     }
+--- /dev/null
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/LocalGroundRebaseTests.swift
+@@ -0,0 +1,52 @@
++import XCTest
++import simd
++@testable import SpatialCore
++
++final class LocalGroundRebaseTests: XCTestCase {
++    let fixture = ForwardRouteTests()
++    func testOnlyConfirmedPlaneBeyondThresholdRebasesWithoutRestartingObstacleAge() throws {
++        var filter = TemporalOccupancyGrid()
++        for i in 0...4 {
++            var r = fixture.frame(UInt64(i+1),1+Double(i)*0.1,cells:fixture.box)
++            r.plane = GroundPlane(normal:V3(0,1,0),offset:i >= 2 ? -0.1 : 0)
++            r.diagnostics?.groundConfirmed = i >= 3
++            let model = try XCTUnwrap(filter.apply(r))
++            XCTAssertEqual(model.plane!.offset, i >= 3 ? -0.1 : 0)
++            if i == 3 {
++                XCTAssertGreaterThan(filter.diagnostics.confirmedCells,0)
++                XCTAssertEqual(filter.diagnostics.maximumAge,0.3,accuracy:0.00001)
++            }
++        }
++        XCTAssertFalse(LocalGroundRebase.needed(from:.init(normal:V3(0,1,0),offset:0),to:.init(normal:V3(0,1,0),offset:0.039),at:.zero))
++        let a:Float = 3.1 * .pi / 180
++        XCTAssertTrue(LocalGroundRebase.needed(from:.init(normal:V3(0,1,0),offset:0),to:.init(normal:V3(sin(a),cos(a),0),offset:0),at:.zero))
++    }
++    func testRebasePreservesRouteGoalAndPreviewXZ() throws {
++        var planner = ObstacleWaypointPlanner()
++        var r = fixture.frame(cells:fixture.box);r.planningObstacles=[]
++        let before = planner.update(result:r,cameraResult:nil,options:.init(),view:nil)
++        let path = try XCTUnwrap(before.path)
++        r = fixture.frame(2,1.1,cells:fixture.box);r.planningObstacles=[]
++        r.plane = .init(normal:V3(0,1,0),offset:-0.2)
++        let after = planner.update(result:r,cameraResult:nil,options:.init(),view:nil)
++        XCTAssertEqual(after.goal?.id,before.goal?.id)
++        XCTAssertEqual(after.goal?.point.x,before.goal?.point.x)
++        XCTAssertEqual(after.goal?.point.z,before.goal?.point.z)
++        XCTAssertEqual(after.path?.points.map{SIMD2($0.x,$0.z)},path.points.map{SIMD2($0.x,$0.z)})
++        XCTAssertTrue(try XCTUnwrap(after.path).points.allSatisfy{abs($0.y-0.2)<0.00001})
++        XCTAssertEqual(after.waypointGuidance?.nextTarget?.x,before.waypointGuidance?.nextTarget?.x)
++        XCTAssertEqual(after.waypointGuidance?.nextTarget?.z,before.waypointGuidance?.nextTarget?.z)
++    }
++    func testRebaseCannotPublishAnIntersectingBodySweep() throws {
++        var planner = ObstacleWaypointPlanner()
++        var r = fixture.frame(cells:fixture.box);r.planningObstacles=[]
++        XCTAssertNotNil(planner.update(result:r,cameraResult:nil,options:.init(),view:nil).path)
++        r = fixture.frame(2,1.1,cells:fixture.box)
++        r.plane = .init(normal:V3(0,1,0),offset:-0.2)
++        r.planningObstacles=[.init(center:V3(0,0.2,0),right:V3(1,0,0),forward:V3(0,0,1),size:4)]
++        let after = planner.update(result:r,cameraResult:nil,options:.init(),view:nil)
++        XCTAssertNil(after.path)
++        XCTAssertNil(after.goal)
++        XCTAssertEqual(after.waypointGuidance?.scenario,.blocked)
++    }
++}

@@ -1,0 +1,72 @@
+{
+  "baseline": "bfd37f5ed4b2946610b05556192cd6ea61377cad",
+  "changes": [
+    {
+      "number": 1,
+      "patch": "01-ground.patch",
+      "subject": "更新确认地面并复核整条身体扫掠",
+      "sha256": "f04c686a37609a129c51d1be07bd76f347ccab6360c0fd82426a6265b1c144a8",
+      "files": [
+        "Vendor/SpatialCore/Sources/SpatialCore/LocalGroundRebase.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/TemporalOccupancyGrid.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/LocalGroundRebaseTests.swift"
+      ]
+    },
+    {
+      "number": 2,
+      "patch": "02-body-width.patch",
+      "subject": "按身体宽规划并让舒适余量退让",
+      "sha256": "8f21730a250ce59f5a7655b8b44249d157133e3bb2fab19e0c40e00ab74ae111",
+      "files": [
+        "Experiments/SpatialProbe/Core/Sources/SpatialCore/Geometry.swift",
+        "PRTS/Spatial/Runtime/Snapshots.swift",
+        "PRTS/UI/ProbeSettingsView.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/Geometry.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointSearch.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/PathPrediction.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/BodyWidthTests.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/FanPathTests.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/OccupancyContinuityTests.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/VerifiedContinuityTests.swift"
+      ]
+    },
+    {
+      "number": 3,
+      "patch": "03-feedback-freshness.patch",
+      "subject": "用成功障碍检查的源时间限制反馈",
+      "sha256": "f370c01f86d3135e9290ca85febf964e29bfe4b579d841ba7b82058369143c8a",
+      "files": [
+        "PRTS/Spatial/Runtime/Snapshots.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/ObstacleFeedbackFreshness.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/PathPrediction.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/ObstacleFeedbackFreshnessTests.swift"
+      ]
+    },
+    {
+      "number": 4,
+      "patch": "04-haptic-entry.patch",
+      "subject": "方向触觉到十二度才开始提示",
+      "sha256": "51c0543f8275d317dfbef64cc9fb78df0be4a3ddeac16cac8765a41a32dbee1c",
+      "files": [
+        "Experiments/SpatialProbe/Core/Sources/SpatialCore/PathHapticPolicy.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/PathHapticPolicy.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/HapticEntryTests.swift"
+      ]
+    },
+    {
+      "number": 5,
+      "patch": "05-ground-drawing.patch",
+      "subject": "修剪近身折返并绘制可回退的圆角",
+      "sha256": "d0d752dae23a5b4fbcef14d240072e92618e3ef810c2dcdfd3ee3e1974cf12fd",
+      "files": [
+        "PRTS/Spatial/Rendering/ProbeRenderer.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/GroundRouteDrawing.swift",
+        "Vendor/SpatialCore/Sources/SpatialCore/PathDrawing.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/GroundRouteDrawingTests.swift",
+        "Vendor/SpatialCore/Tests/SpatialCoreTests/WorldRouteLockTests.swift"
+      ]
+    }
+  ]
+}

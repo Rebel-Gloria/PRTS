@@ -1,0 +1,235 @@
+Subject: 按身体宽规划并让舒适余量退让
+
+Co-Authored-By: GPT-6 Astra <noreply@openai.com>
+
+--- a/Experiments/SpatialProbe/Core/Sources/SpatialCore/Geometry.swift
++++ b/Experiments/SpatialProbe/Core/Sources/SpatialCore/Geometry.swift
+@@ -123,3 +123,3 @@
+     public var bodyWidth: Float = 0.60
+-    public var sideMargin: Float = 0.15
++    public var sideMargin: Float = 0.15 // Per-side comfort preference; search may retreat to bodyWidth.
+     public var bodyHeight: Float = 1.80
+@@ -136,3 +136,4 @@
+     public init() {}
+-    public var requiredWidth: Float { bodyWidth + 2*sideMargin }
++    public var requiredWidth: Float { bodyWidth }
++    public var comfortableWidth: Float { bodyWidth + 2*sideMargin }
+     public func validated() -> ProbeParameters {
+--- a/PRTS/Spatial/Runtime/Snapshots.swift
++++ b/PRTS/Spatial/Runtime/Snapshots.swift
+@@ -259,3 +259,3 @@
+         guard pathOptions.enabled,let path = pathUpdate.path,let frame else { return nil }
+-        return PathPresentation.make(path:path,gate:presentationGate,pose:frame.pose,options:pathOptions,now:now)
++        return PathPresentation.make(path:path,gate:presentationGate,pose:frame.pose,options:pathOptions.resolvingBodyWidth(parameters),now:now)
+     }
+--- a/PRTS/UI/ProbeSettingsView.swift
++++ b/PRTS/UI/ProbeSettingsView.swift
+@@ -34,4 +34,3 @@
+                     Text("偏离方向45°且原地保持3秒后重选。目标出画或当前路径受阻时重算。").font(.caption)
+-                    Text(String(format:"路径最小总宽度 %.2f m",model.pathOptions.minimumWidth))
+-                    Slider(value:$model.pathOptions.minimumWidth,in:0.5...1.2,step:0.05)
++                    Text(String(format:"路径硬宽度跟随身体宽度：%.2f m",model.parameters.bodyWidth))
+                     Text("规划宽度独立配置；地面支持、完整身体净空和未知状态不阻断搜索。").font(.caption).foregroundStyle(.orange)
+@@ -72,3 +71,3 @@
+                     valueSlider("人体宽度",value:$model.parameters.bodyWidth,range:0.3...1.2,step:0.05)
+-                    valueSlider("单侧安全余量",value:$model.parameters.sideMargin,range:0.05...0.5,step:0.05)
++                    valueSlider("单侧舒适余量（可退让）",value:$model.parameters.sideMargin,range:0.05...0.5,step:0.05)
+                     valueSlider("身体检查高度",value:$model.parameters.bodyHeight,range:1...2.4,step:0.05)
+--- a/Vendor/SpatialCore/Sources/SpatialCore/Geometry.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/Geometry.swift
+@@ -123,3 +123,3 @@
+     public var bodyWidth: Float = 0.60
+-    public var sideMargin: Float = 0.15
++    public var sideMargin: Float = 0.15 // Per-side comfort preference; search may retreat to bodyWidth.
+     public var bodyHeight: Float = 1.80
+@@ -136,3 +136,4 @@
+     public init() {}
+-    public var requiredWidth: Float { bodyWidth + 2*sideMargin }
++    public var requiredWidth: Float { bodyWidth }
++    public var comfortableWidth: Float { bodyWidth + 2*sideMargin }
+     public func validated() -> ProbeParameters {
+--- a/Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointPlanner.swift
+@@ -33,2 +33,3 @@
+                          options: PathOptions, view: RouteCameraView?) -> PathUpdate {
++        let options = options.resolvingBodyWidth(r.parameters)
+         guard let pose = r.sourcePose, let plane = r.plane,
+@@ -119,5 +120,5 @@
+                     ? ObstacleWaypointSearch.approach(raster: raster, reference: ref, obstacle: obstacle,
+-                        foot: foot, standOff: options.waypoints.standOff)
++                        foot: foot, standOff: options.waypoints.standOff, sideMargin: r.parameters.sideMargin)
+                     : ObstacleWaypointSearch.avoid(raster: raster, reference: ref, obstacle: obstacle,
+-                        foot: foot, preferredSide: side)
++                        foot: foot, preferredSide: side, sideMargin: r.parameters.sideMargin)
+             }
+@@ -194,3 +195,3 @@
+             preview = ObstacleWaypointSearch.avoid(raster: raster, reference: reference,
+-                obstacle: obstacle, foot: target.point, preferredSide: side)
++                obstacle: obstacle, foot: target.point, preferredSide: side, sideMargin: r.parameters.sideMargin)
+         }
+--- a/Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointSearch.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/ObstacleWaypointSearch.swift
+@@ -11,2 +11,9 @@
+     static func approach(raster: RoutePlanningGrid, reference: ForwardRouteReference,
++                         obstacle: ForwardObstacle, foot: V3, standOff: Float, sideMargin: Float = 0.15) -> Plan? {
++        approachAtWidth(raster: comfortable(raster, sideMargin: sideMargin), reference: reference,
++            obstacle: obstacle, foot: foot, standOff: standOff)
++        ?? approachAtWidth(raster: raster, reference: reference, obstacle: obstacle, foot: foot, standOff: standOff)
++    }
++
++    private static func approachAtWidth(raster: RoutePlanningGrid, reference: ForwardRouteReference,
+                          obstacle: ForwardObstacle, foot: V3, standOff: Float) -> Plan? {
+@@ -32,13 +39,14 @@
+     static func avoid(raster: RoutePlanningGrid, reference: ForwardRouteReference,
+-                      obstacle: ForwardObstacle, foot: V3, preferredSide: Int) -> Plan? {
+-        // Prefer a little separation from the measured edge to avoid immediate replan on
+-        // the next raster phase. This is a preference: retry the exact requested width so
+-        // a 0.50m passage stays admissible. All shortcuts use the same selected width.
+-        var comfortable = raster
+-        comfortable.requiredWidth += 0.16
+-        comfortable.mask = PathClearance.mask(grid:comfortable.grid,radius:comfortable.requiredWidth/2,allowUnknown:true)
+-        if preferredSide != 0, let retained = search(raster:comfortable,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide,onlyPreferred:true)
+-            ?? search(raster:raster,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide,onlyPreferred:true) { return retained }
+-        return search(raster:comfortable,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide)
+-            ?? search(raster:raster,reference:reference,obstacle:obstacle,foot:foot,preferredSide:preferredSide)
++                      obstacle: ForwardObstacle, foot: V3, preferredSide: Int, sideMargin: Float = 0.15) -> Plan? {
++        // Comfort is a search preference, never a veto on a physically wide enough route.
++        search(raster: comfortable(raster, sideMargin: sideMargin), reference: reference,
++            obstacle: obstacle, foot: foot, preferredSide: preferredSide)
++        ?? search(raster: raster, reference: reference, obstacle: obstacle, foot: foot, preferredSide: preferredSide)
++    }
++
++    private static func comfortable(_ raster: RoutePlanningGrid, sideMargin: Float) -> RoutePlanningGrid {
++        var copy = raster
++        copy.requiredWidth += 2 * (sideMargin.isFinite ? max(0, sideMargin) : 0.15)
++        copy.mask = PathClearance.mask(grid:copy.grid,radius:copy.requiredWidth/2,allowUnknown:copy.obstacleVeto)
++        return copy
+     }
+--- a/Vendor/SpatialCore/Sources/SpatialCore/PathPrediction.swift
++++ b/Vendor/SpatialCore/Sources/SpatialCore/PathPrediction.swift
+@@ -12,3 +12,3 @@
+     public var forwardBufferLength: Float = 8
+-    public var minimumWidth: Float = 0.5 // TOTAL planning envelope; do not add bodyWidth/margin twice.
++    public var minimumWidth: Float = 0.5 // Legacy geometry-comparator key; product resolves configured bodyWidth.
+     public var targetHalfAngleDegrees: Float = 45
+@@ -42,2 +42,7 @@
+     }
++    public func resolvingBodyWidth(_ parameters: ProbeParameters) -> Self {
++        var copy = validated()
++        copy.minimumWidth = parameters.validated().bodyWidth
++        return copy
++    }
+     public func validated() -> Self {
+@@ -49,3 +54,3 @@
+         v.forwardBufferLength = forwardBufferLength.isFinite ? min(20,max(2,forwardBufferLength)) : 8
+-        v.minimumWidth = minimumWidth.isFinite ? min(1.2,max(0.5,minimumWidth)) : 0.5
++        v.minimumWidth = minimumWidth.isFinite ? min(1.2,max(0.3,minimumWidth)) : 0.5
+         v.targetHalfAngleDegrees = targetHalfAngleDegrees.isFinite ? min(75,max(15,targetHalfAngleDegrees)) : 45
+@@ -276,2 +281,3 @@
+                                 onOccupancyConflict: ((UInt64) -> Void)? = nil) -> PathUpdate {
++        let options = (experimentalOccupancyPlanning || verifiedPolicy) ? options.resolvingBodyWidth(result.parameters) : options.validated()
+         if epoch != result.epoch || version != result.parameterVersion {
+@@ -306,3 +312,3 @@
+             var bodyOptions = options.validated()
+-            bodyOptions.minimumWidth = max(bodyOptions.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin)
++            bodyOptions.minimumWidth = result.parameters.validated().bodyWidth
+             let snapshot = evidenceMap.snapshot(result)
+@@ -425,3 +431,3 @@
+             remainingVerifiedLength:0,evidenceAge:nil,renewalDistance:continuityOptions.minimumRenewalDistance,
+-            requiredWidth:max(options.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin))
++            requiredWidth:result.parameters.validated().bodyWidth)
+         u.goal = planner.held(at:result.timestamp,options:options.validated(),reason:reason).goal
+--- /dev/null
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/BodyWidthTests.swift
+@@ -0,0 +1,34 @@
++import XCTest
++import simd
++@testable import SpatialCore
++
++final class BodyWidthTests: XCTestCase {
++    let fixture = ForwardRouteTests()
++    func testStoredHalfMetreCannotShrinkConfiguredBody() throws {
++        let options = try JSONDecoder().decode(PathOptions.self,from:Data(#"{"minimumWidth":0.5}"#.utf8))
++        XCTAssertEqual(options.resolvingBodyWidth(.init()).minimumWidth,0.6)
++        var predictor = PathPredictor()
++        var update = PathUpdate()
++        for i in 0...4 {
++            update=predictor.update(result:fixture.frame(UInt64(i+1),1+Double(i)*0.1,cells:fixture.box),observation:nil,options:options)
++        }
++        XCTAssertEqual(try XCTUnwrap(update.path).requiredWidth,0.6)
++        XCTAssertEqual(update.continuity?.requiredWidth,0.6)
++        XCTAssertFalse(zip(update.path!.points,update.path!.points.dropFirst()).contains {a,b in
++            (update.confirmedObstacles ?? []).contains{$0.overlaps(from:a,to:b,radius:0.3)}
++        })
++    }
++    func testComfortFallsBackInNarrowPassage() throws {
++        var r=fixture.frame(cells:{abs($0.x)>0.36 ? .obstacle:.candidate})
++        r.planningObstacles = [-1,1].flatMap { sign in (0..<40).map { i in
++            OccupancyFootprint(center:V3(Float(sign)*0.45,0,-Float(i)*0.1),right:V3(1,0,0),forward:V3(0,0,1),size:0.1)
++        }}
++        let raster=try XCTUnwrap(RoutePlanningGrid(result:r,options:PathOptions().resolvingBodyWidth(r.parameters),obstacleVeto:true))
++        let reference=ForwardRouteReference(origin:.zero,forward:V3(0,0,-1),plane:r.plane!)
++        let obstacle=ForwardObstacle(width:0.2,distance:3,extentObserved:true,near:3,far:3.2,minLateral:-0.1,maxLateral:0.1)
++        let plan=try XCTUnwrap(ObstacleWaypointSearch.approach(raster:raster,reference:reference,obstacle:obstacle,foot:.zero,standOff:0.3,sideMargin:0.2))
++        XCTAssertTrue(raster.supports(plan.points))
++        var comfort=raster;comfort.requiredWidth=1.0
++        XCTAssertFalse(comfort.supports(plan.points))
++    }
++}
+--- a/Vendor/SpatialCore/Tests/SpatialCoreTests/FanPathTests.swift
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/FanPathTests.swift
+@@ -19,2 +19,3 @@
+         var r = AnalysisResult(epoch:1,frameID:id,timestamp:time,parameters:.init(),status:"synthetic",source:"synthetic")
++        r.parameters.bodyWidth = 0.5 // This suite deliberately exercises a half-metre synthetic body.
+         r.grid = g;r.grid?.epoch = 1;r.grid?.frameID = id;r.grid?.timestamp = time;r.sourcePose = .init(position:V3(0,1.4,0));r.sourceDirectionStable = true
+@@ -113,3 +114,3 @@
+         gate.epoch = 1;gate.frameID = 1;gate.frameTimestamp = 1
+-        let presentation = PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:.init(),now:1)!
++        let presentation = PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:PathOptions().resolvingBodyWidth(r.parameters),now:1)!
+         XCTAssertEqual(presentation.approach.count,2)
+@@ -137,3 +138,4 @@
+         XCTAssertNil(PathPresentation.make(path:path,gate:gate,pose:r.sourcePose!,options:wide,now:1))
+-        XCTAssertNil(predictor.update(result:result(g,id:2,time:1.1),observation:nil,options:wide).path)
++        var widerBody = result(g,id:2,time:1.1);widerBody.parameters.bodyWidth = 0.8
++        XCTAssertNil(predictor.update(result:widerBody,observation:nil,options:wide).path)
+     }
+--- a/Vendor/SpatialCore/Tests/SpatialCoreTests/OccupancyContinuityTests.swift
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/OccupancyContinuityTests.swift
+@@ -16,3 +16,3 @@
+     XCTAssertGreaterThan(path.length, 3)
+-    XCTAssertEqual(path.requiredWidth, 0.5, accuracy: 0.001)
++    XCTAssertEqual(path.requiredWidth, 0.6, accuracy: 0.001)
+     XCTAssertEqual(update.continuity?.remainingVerifiedLength, 0)
+@@ -73,3 +73,3 @@
+       PathPresentation.make(
+-        path: first, gate: gate, pose: missing.sourcePose!, options: .init(), now: 200.1))
++        path: first, gate: gate, pose: missing.sourcePose!, options: PathOptions().resolvingBodyWidth(missing.parameters), now: 200.1))
+   }
+@@ -185,15 +185,9 @@
+   }
+-  func testBodyEvidenceDoesNotOverrideConfiguredVetoWidth() throws {
+-    var planner = PathPredictor(legacyContinuousOccupancy: true)
+-    var r = frame(cells: { abs($0.x) < 0.301 ? .unknown : .obstacle })
++  func testConfiguredBodyWidthOverridesLegacyVetoWidth() throws {
++    var planner = PathPredictor(legacyContinuousOccupancy: true)
++    var r = frame(cells: { _ in .unknown })
+     r.parameters.bodyWidth = 1.2
+     r.parameters.sideMargin = 0.5
+-    for i in 0...3 {
+-      r.frameID = UInt64(i + 1)
+-      r.timestamp = 1 + Double(i) * 0.1
+-      r.grid?.frameID = r.frameID
+-      r.grid?.timestamp = r.timestamp
+-      let p = try XCTUnwrap(planner.update(result: r, observation: nil, options: .init()).path)
+-      XCTAssertEqual(p.requiredWidth, 0.5)
+-    }
++    let p = try XCTUnwrap(planner.update(result:r,observation:nil,options:.init()).path)
++    XCTAssertEqual(p.requiredWidth,1.2)
+   }
+--- a/Vendor/SpatialCore/Tests/SpatialCoreTests/VerifiedContinuityTests.swift
++++ b/Vendor/SpatialCore/Tests/SpatialCoreTests/VerifiedContinuityTests.swift
+@@ -21,3 +21,3 @@
+     XCTAssertEqual(
+-      p.requiredWidth, r.parameters.bodyWidth + 2 * r.parameters.sideMargin, accuracy: 0.0001)
++      p.requiredWidth, r.parameters.bodyWidth, accuracy: 0.0001)
+   }
