@@ -90,6 +90,7 @@ public struct FixedPathGoal: Codable, Sendable {
     public var maxDistance: Float
 }
 public struct PathUpdate: Codable, Sendable {
+    public var successfulObstacleCheck: ObstacleCheckStamp? = nil
     public var waypointGuidance: ObstacleWaypointGuidance? = nil
     public var continuity: RouteContext? = nil
     public var projection: RouteProjection? = nil
@@ -236,6 +237,7 @@ public struct PathPredictor: Sendable {
     private var obstacleConfirmationSeconds: Double = 0.3
     private var experimentalOccupancyPlanning = false
     private var occupancyFilter = TemporalOccupancyGrid()
+    private var lastSuccessfulObstacleCheck: ObstacleCheckStamp?
     public init(policy: RoutePlanningPolicy) {
         self.init(experimentalOccupancyPlanning:policy == .obstacleVeto)
     }
@@ -268,6 +270,7 @@ public struct PathPredictor: Sendable {
     public mutating func reset() {
         evidenceMap.reset();previousOutput = nil;previousPose = nil;previousPoseTime = nil
         waypointPlanner = .init()
+        lastSuccessfulObstacleCheck = nil
         occupancyFilter.reset();planner = .init();planner.verifiedEvidence = verifiedPolicy;planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;planner.locksWorldGeometry = experimentalOccupancyPlanning;lastFrame = 0;lastTimestamp = 0
     }
     public mutating func update(result: AnalysisResult,observation: DepthObservation?,options: PathOptions,
@@ -396,6 +399,8 @@ public struct PathPredictor: Sendable {
     private mutating func occupancyContext(_ value: PathUpdate,result: AnalysisResult,options: PathOptions,
         watermark: UInt64,started: Double) -> PathUpdate {
         var update = value
+        if let check = ObstacleCheckStamp.successful(result) { lastSuccessfulObstacleCheck = check }
+        update.successfulObstacleCheck = lastSuccessfulObstacleCheck
         // The worker retains geometry, while the facade owns explicit publication semantics.
         if var path = update.path {
             path.planningPolicy = .obstacleVeto;path.verifiedEvidence = false;path.evidenceIntervals = nil
