@@ -5,15 +5,22 @@ import Testing
 struct PhotoDescriptionTests {
     /// The expected text is independent of the implementation constant: comparing
     /// the request only with that constant cannot detect an omitted user requirement.
-    @Test func fixedPromptMatchesRequestedSentenceLimit() throws {
-        let expected = "给盲人讲这张照片：先说最重要的人或物在左、中、右哪边，再补要紧细节，有字就读出来。最多两句。"
-        #expect(PhotoChatProtocol.prompt == expected)
-        let request = try PhotoChatProtocol.request(jpeg: Data([1]), text: PhotoChatProtocol.prompt, key: "test-only")
-        let data = try #require(request.httpBody)
-        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let messages = try #require(body["messages"] as? [[String: Any]])
-        let content = try #require(messages.first?["content"] as? [[String: Any]])
-        #expect(content[0]["text"] as? String == expected)
+    @Test func fixedPromptAndSharedSystemRules() throws {
+        #expect(PhotoChatProtocol.prompt == "描述眼前。")
+        for rule in ["先说离用户最近的东西", "不指挥用户往哪边走", "不编造看不清的东西", "一到两句，不超过四十个字", "只学句式，不要照抄内容"] {
+            #expect(PhotoChatProtocol.system.contains(rule))
+        }
+        for service in [PhotoChatService.qwen, .deepseek] {
+            let request = try PhotoChatProtocol.request(jpeg: Data([1]), text: PhotoChatProtocol.prompt, key: "test-only", service: service)
+            let data = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let messages = try #require(body["messages"] as? [[String: Any]])
+            #expect(messages.count == 2)
+            #expect(messages[0]["role"] as? String == "system")
+            #expect(messages[0]["content"] as? String == PhotoChatProtocol.system)
+            let content = try #require(messages[1]["content"] as? [[String: Any]])
+            #expect(content[0]["text"] as? String == "描述眼前。")
+        }
     }
 
     @Test func exactRequestContract() throws {
@@ -27,7 +34,9 @@ struct PhotoDescriptionTests {
         #expect(body["stream"] as? Bool == true)
         #expect(body["enable_thinking"] as? Bool == false)
         let messages = try #require(body["messages"] as? [[String: Any]])
-        let content = try #require(messages.first?["content"] as? [[String: Any]])
+        #expect(messages.first?["role"] as? String == "system")
+        let content = try #require(messages.last?["content"] as? [[String: Any]])
+        #expect(messages.last?["role"] as? String == "user")
         #expect(content[0]["text"] as? String == PhotoChatProtocol.prompt)
         #expect((content[1]["image_url"] as? [String: String])?["url"] == "data:image/jpeg;base64,\(jpeg.base64EncodedString())")
     }
