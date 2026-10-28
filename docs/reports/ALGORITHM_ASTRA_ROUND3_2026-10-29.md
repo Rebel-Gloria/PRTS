@@ -224,3 +224,19 @@ rg -n 'resolvingBodyWidth|sideMargin|GroundRouteDrawing|PathDrawing.meshes|updat
 ```
 
 产物：`results/round3/<版本>/product-replay.jsonl`、`product-ticks.jsonl`、`product_metrics.json`、`product_manifest.json`、`product-tests.log`、`inventory.json` 及缺失/恢复清单。统计脚本用到 NumPy；不安装新依赖。若只重算统计，需对应阶段的 replay/index/capture 文件，优先运行上述单次完整命令以避免混用不同版本产物。
+
+## 补充：通行宽度三档（2026-10-29）
+
+身体宽度改为硬约束，舒适余量（每侧 0.15 m）可退让。默认值 0.50 m，用户可以在 设置 → 避障 → 通行宽度 里调节，范围 0.40–0.60 m。用 B1–B4 共 2128 帧重放，`feedback` 变体：
+
+| 宽度 | FN1 帧/秒 | FN0.5 | FP1.5 | 语音 FP | 状态切换 | blocked 帧 | 有路线帧 | 无可见目标帧 | 危险语音 | 0.60 m 冲突帧 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0.40（更灵活） | 4 / 0.40 s | 0 | 1 | 2 | 20 | 40 | 525 | 37 | 19 | 45 |
+| **0.50（平衡）** | 4 / 0.40 s | 0 | 1 | 1 | 28 | **15** | 541 | 7 | 17 | 25 |
+| 0.60（更舒适） | 4 / 0.40 s | 0 | 1 | 1 | 29 | 67 | 515 | 39 | 20 | 0 |
+
+- 0.60 m 一档和 `algo/body-width` 分支（d1d6510）的结果一致，说明这次复现是可信的。
+- 0.40 m 的 blocked 帧反而比 0.50 m 多，语音 FP 也多一次。这个结果不单调，原因还没查清。
+- "0.60 m 冲突帧"统一按 0.60 m 身体宽计算，所以较窄的档位天然会有冲突，它只表示离障碍更近。
+
+复现：`ASTRA_BODY_WIDTH=0.5 zsh Experiments/astra/run_product.sh width050`。另外两档可以直接用已经编好的 `Experiments/astra/bin/replay-product`，设置 `ASTRA_BODY_WIDTH=0.4` 或 `0.6`，再执行 `metrics_product.py` 和 `seal_product.py`。
