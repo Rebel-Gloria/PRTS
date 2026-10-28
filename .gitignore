@@ -7,5 +7,5 @@
 *.ipa
 
 # Local model weights (GGUF, several GB); distribute separately, never commit
-/MiniCPM-V-4.6-iPhone/
+/models/
 *.gguf
