@@ -9,17 +9,21 @@ import UIKit
 final class TextReadingSession: ObservableObject {
     enum Phase: Equatable { case idle, framing, reading, speaking }
     @Published private(set) var phase: Phase = .idle
+    /// Preview frames checked for a page in this pass.
+    @Published private(set) var framesAnalyzed = 0
     /// Without a steady page by then, the whole view is read instead (signs, labels, screens).
     static let pageTimeout: TimeInterval = 8
     /// Hints wait until the opening announcement has been heard.
     static let introDuration: TimeInterval = 3
+    /// No preview frame by then means the camera never started.
+    static let cameraTimeout: Duration = .seconds(10)
 
     /// Speaks a status by its localization key.
     var say: (String) -> Void = { _ in }
     /// Runs once whenever a pass ends: finished, failed or cancelled.
     var finished: () -> Void = {}
 
-    private let camera = TextCamera()
+    let camera = TextCamera()
     private let audio = PhotoAudioOutput()
     private var framing = DocumentFraming()
     private var lastCorners: [CGPoint]?
@@ -34,13 +38,18 @@ final class TextReadingSession: ObservableObject {
         guard phase == .idle else { return }
         let id = UUID()
         generation = id; framing = DocumentFraming(); lastCorners = nil
-        startedAt = ProcessInfo.processInfo.systemUptime
-        phase = .framing
+        phase = .framing; framesAnalyzed = 0
         camera.start(corners: { [weak self] corners in self?.frame(corners, id) },
-                     failed: { [weak self] in
-                         guard let self, self.generation == id else { return }
-                         self.say("ocr.error.camera"); self.end()
-                     })
+                     failed: { [weak self] in self?.cameraFailed(id) })
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.cameraTimeout)
+            if self?.framesAnalyzed == 0 { self?.cameraFailed(id) }
+        }
+    }
+
+    private func cameraFailed(_ id: UUID) {
+        guard generation == id, phase == .framing else { return }
+        say("ocr.error.camera"); end()
     }
 
     func cancel() {
@@ -52,6 +61,9 @@ final class TextReadingSession: ObservableObject {
     private func frame(_ corners: [CGPoint]?, _ id: UUID) {
         guard generation == id, phase == .framing else { return }
         let now = ProcessInfo.processInfo.systemUptime
+        // Time the page search from the first frame: the camera can take a while to open.
+        if framesAnalyzed == 0 { startedAt = now }
+        framesAnalyzed += 1
         if corners != nil { lastCorners = corners }
         let decision = framing.update(corners: corners, at: now)
         if decision == .capture { capture(page: true, id); return }
@@ -100,7 +112,7 @@ final class TextReadingSession: ObservableObject {
 /// checked for a page five times a second on the capture queue; stills are full resolution.
 nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                                     AVCapturePhotoCaptureDelegate, @unchecked Sendable {
-    private let session = AVCaptureSession()
+    let session = AVCaptureSession()
     private let video = AVCaptureVideoDataOutput()
     private let photo = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "PRTS.TextCamera")
@@ -108,6 +120,13 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
     private var lastAnalysis: TimeInterval = 0
     private var onCorners: (@MainActor ([CGPoint]?) -> Void)?
     private var onPhoto: ((CIImage?) -> Void)?
+
+    /// Adding the camera input waits, sometimes for seconds, until ARKit lets go of the camera.
+    /// Doing it at launch, before guidance ever runs, makes starting a pass take ~0.3 s.
+    override init() {
+        super.init()
+        queue.async { _ = self.configure() }
+    }
 
     func start(corners: @escaping @MainActor ([CGPoint]?) -> Void, failed: @escaping @MainActor () -> Void) {
         queue.async {
