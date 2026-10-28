@@ -591,6 +591,108 @@
         }
       }
     },
+    "settings.guidance.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obstacle guidance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避障"
+          }
+        }
+      }
+    },
+    "settings.guidance.width" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passage width"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通行宽度"
+          }
+        }
+      }
+    },
+    "settings.guidance.width.balanced" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Balanced"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平衡"
+          }
+        }
+      }
+    },
+    "settings.guidance.width.comfortable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More comfortable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更舒适"
+          }
+        }
+      }
+    },
+    "settings.guidance.width.flexible" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More flexible"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更灵活"
+          }
+        }
+      }
+    },
+    "settings.guidance.width.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More flexible fits through narrower gaps and passes closer to obstacles. More comfortable keeps more room around you, but says no way around more often."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更灵活：能走更窄的通道，离障碍更近。更舒适：两侧留更多空间，但更常提示无法绕行。"
+          }
+        }
+      }
+    },
     "settings.language.followSystem" : {
       "extractionState" : "manual",
       "localizations" : {
