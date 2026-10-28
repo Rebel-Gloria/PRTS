@@ -16,7 +16,7 @@
 
 ## 2. 代码树与真实运行链
 
-完整逐文件树及统计见 [CODE_INVENTORY](../architecture/CODE_INVENTORY.md)，职责见 [CODE_STRUCTURE](../architecture/CODE_STRUCTURE.md)。
+完整逐文件树及统计见 [CODE_INVENTORY](../architecture/code-inventory.md)，职责见 [CODE_STRUCTURE](../architecture/code-structure.md)。
 
 ```text
 PRTS/App                         组合入口、产品规划策略

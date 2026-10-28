@@ -120,10 +120,10 @@ diagnostic lengths. `PathPredictor` selects the product policy explicitly throug
 The product now uses `ObstacleWaypointPlanner` on the same worker and obstacle-veto raster.
 `PathUpdate.goal`/`path` contain only the current committed leg; `waypointGuidance.nextTarget`
 is a replaceable diagnostic preview. No directory moves or new dependency.
-See [three-state scheduling and delivery](../reports/OBSTACLE_WAYPOINTS_2026-09-30.md).
+See [three-state scheduling and delivery](../reports/2026-09-30-obstacle-waypoints.md).
 
 ## 审计边界（2026-09-30）
 
-当前产品调用链、无调用入口与优化建议见 [build25代码审计](../reports/CODE_AUDIT_2026-09-30.md)。
+当前产品调用链、无调用入口与优化建议见 [build25代码审计](../reports/2026-09-30-code-audit.md)。
 Xcode实际链接 `PRTSContracts` 与 `SpatialCore`；PRTSAppleModels完整/Lite源码和Experiments不进入当前产品链。
 完整树分别列出契约与可选模型，不能把全部源码行数当作App编译量。

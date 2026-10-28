@@ -63,4 +63,4 @@ strips exactly that field declaration, not the analyzer). `OccupancyFootprint` s
 current measured cell area from its temporal association anchor. Collision checks retain
 world footprints even outside a rotated search window. No original experiment is edited.
 `WaypointTransitionState` adds product-state hysteresis, without changing the 300ms
-obstacle admission rule. See `docs/reports/WAYPOINT_STABILITY_2026-09-30.md`.
+obstacle admission rule. See `docs/reports/2026-09-30-waypoint-stability.md`.

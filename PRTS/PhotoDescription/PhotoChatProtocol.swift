@@ -8,7 +8,7 @@ nonisolated enum PhotoChatProtocol {
     static let prompt = "描述眼前。"
 
     /// Shared by every provider and the short-tap/question paths. Tuned on-device against MiniCPM-V
-    /// (docs/design/PHOTO_PROMPT.md): rules plus "don't" list plus concrete examples; placeholder
+    /// (docs/features/photo-prompt.md): rules plus "don't" list plus concrete examples; placeholder
     /// templates made the small model fill in every template and invent signs.
     static let system = """
     你在为盲人描述手机镜头前方的景象。用户举着手机，镜头朝着他要走的方向。

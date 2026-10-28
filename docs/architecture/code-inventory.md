@@ -20,7 +20,7 @@ Total 是列出的维护源码总量，不等于 App 编译量；供应商目录
 
 ## 完整源码文件树
 
-不移动任何目录；模块职责见 [CODE_STRUCTURE.md](CODE_STRUCTURE.md)。
+不移动任何目录；模块职责见 [code-structure.md](code-structure.md)。
 
 ```text
 PRTS/
