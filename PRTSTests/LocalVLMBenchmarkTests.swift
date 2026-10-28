@@ -24,11 +24,39 @@ struct LocalVLMBenchmarkTests {
         try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("prompts-Q5_K_M.json"), atomically: true, encoding: .utf8)
     }
 
-    /// The shipped prompt on photos in Documents/vlm/photos (already scaled like PhotoImageEncoder), twice: cold then warm.
+    /// The shipped prompt on each Documents/vlm/photos/<long side> set; the first photo runs once more to warm up.
     @Test func photosQ5() throws {
-        let images = try photos(in: dir.appendingPathComponent("photos"))
-        let report = try bench(quant: "Q5_K_M", images: images + images, system: PhotoChatProtocol.system, prompt: PhotoChatProtocol.prompt)
-        try report.write(to: dir.appendingPathComponent("photos-Q5_K_M.json"), atomically: true, encoding: .utf8)
+        let root = dir.appendingPathComponent("photos")
+        var reports: [String] = []
+        for size in try FileManager.default.contentsOfDirectory(atPath: root.path).filter({ Int($0) != nil }).sorted() {
+            let images = try photos(in: root.appendingPathComponent(size))
+            guard let first = images.first else { continue }
+            let json = try bench(quant: "Q5_K_M", images: [first] + images, system: PhotoChatProtocol.system,
+                                 prompt: PhotoChatProtocol.prompt, nCtx: 8192)
+            reports.append("{\"name\":\"\(size)\",\"report\":\(json)}")
+        }
+        try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("photos-Q5_K_M.json"), atomically: true, encoding: .utf8)
+    }
+
+    /// Same 1280 photos with each vision-module variant in Documents/vlm/mmproj (more slices, finer tokens).
+    @Test func photosSlicesQ5() throws {
+        let images = try photos(in: dir.appendingPathComponent("photos/1280"))
+        let folder = dir.appendingPathComponent("mmproj")
+        var reports: [String] = []
+        for file in try FileManager.default.contentsOfDirectory(atPath: folder.path).filter({ $0.hasSuffix(".gguf") }).sorted() {
+            let json = try bench(quant: "Q5_K_M", images: [images[0]] + images, system: PhotoChatProtocol.system,
+                                 prompt: PhotoChatProtocol.prompt, nCtx: 4096, mmproj: folder.appendingPathComponent(file).path)
+            reports.append("{\"name\":\"\(file)\",\"report\":\(json)}")
+        }
+        try "[\(reports.joined(separator: ","))]".write(to: dir.appendingPathComponent("photos-slices-Q5_K_M.json"), atomically: true, encoding: .utf8)
+    }
+
+    /// Same, at the shipped 1280 size, letting the model think before answering.
+    @Test func photosThinkingQ5() throws {
+        let images = try photos(in: dir.appendingPathComponent("photos/1280"))
+        let report = try bench(quant: "Q5_K_M", images: [images[0]] + images, system: PhotoChatProtocol.system,
+                               prompt: PhotoChatProtocol.prompt, maxTokens: 1024, nCtx: 4096, thinking: true)
+        try report.write(to: dir.appendingPathComponent("photos-thinking-Q5_K_M.json"), atomically: true, encoding: .utf8)
     }
 
     /// Same variants against every cloud provider that has a key saved in Settings.
@@ -80,14 +108,15 @@ struct LocalVLMBenchmarkTests {
         #expect(!report.contains("\"error\""))
     }
 
-    private func bench(quant: String, images: [String], system: String, prompt: String) throws -> String {
+    private func bench(quant: String, images: [String], system: String, prompt: String,
+                       maxTokens: Int32 = 128, nCtx: Int32 = 2048, thinking: Bool = false, mmproj: String? = nil) throws -> String {
         let model = dir.appendingPathComponent("MiniCPM-V-4.6-\(quant).gguf").path
-        let mmproj = dir.appendingPathComponent("mmproj-MiniCPM-V-4.6-F16.gguf").path
+        let mmproj = mmproj ?? dir.appendingPathComponent("mmproj-MiniCPM-V-4.6-F16.gguf").path
         let cImages = images.map { strdup($0) }
         defer { cImages.forEach { free($0) } }
         let pointers = cImages.map { UnsafePointer<CChar>($0) }
         let json = pointers.withUnsafeBufferPointer { buffer in
-            prts_vlm_bench(model, mmproj, buffer.baseAddress, Int32(images.count), system, prompt, 128, 2048)
+            prts_vlm_bench(model, mmproj, buffer.baseAddress, Int32(images.count), system, prompt, maxTokens, nCtx, thinking ? 1 : 0)
         }
         let report = String(cString: try #require(json))
         free(json)
