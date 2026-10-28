@@ -47,7 +47,7 @@ final class ProbeViewModel: ObservableObject {
     }
     func lifecycle(_ phase: ScenePhase) {
         engine.diagnostics.event("scene_phase",details:String(describing:phase),epoch:engine.store.read().epoch)
-        if phase != .active { pathHaptics.stop(reset:true); engine.stop(reason:"应用离开前台；请返回后重新开始") }
+        if phase != .active { pathHaptics.stop(reset:true); engine.stop(reason:"已切到后台，回来后请重新开始") }
         if phase == .background {
             endBackgroundFlush()
             backgroundTask = UIApplication.shared.beginBackgroundTask(withName:"Flush diagnostic measurements") { [weak self] in self?.endBackgroundFlush() }
@@ -126,8 +126,8 @@ final class ProbeViewModel: ObservableObject {
             engine.diagnostics.event("camera_permission_result",details:allowed ? "authorized" : "denied_or_restricted",epoch:snapshot.epoch)
             if allowed && UIApplication.shared.applicationState == .active {
                 permissionMessage = nil; engine.updateParameters(parameters); engine.updateOptions(options); engine.start(device:deviceMetadata)
-            } else if allowed { permissionMessage = "已授权；请返回前台后点击开始。"
-            } else { permissionMessage = "相机权限未授权。请在系统设置中允许相机访问；没有采集传感器数据。" }
+            } else if allowed { permissionMessage = "已授权，回到 PRTS 后点“开始”。"
+            } else { permissionMessage = "没有相机权限。请到“设置”里打开。" }
             poll()
         }
     }

@@ -1,4 +1,4 @@
-> 历史设计／实验记录。当前默认行为以 [build17 obstacle-veto](OBSTACLE_VETO_2026-09-29.md) 为准；Dev tag 仅控制开发入口与采集。
+> 历史设计／实验记录。当前默认行为以 [build17 obstacle-veto](../reports/OBSTACLE_VETO_2026-09-29.md) 为准；Dev tag 仅控制开发入口与采集。
 
 # 平面预测延长线
 
@@ -75,4 +75,4 @@ Apple依据：https://developer.apple.com/videos/play/wwdc2020/10611/
 
 ## 世界路线保持修正
 最后一次build14日志发现移动局部栅格导致侧向路线反复重搜，以及近身连接虚线遗漏。
-后续修正采用世界坐标锁定和Dev统一实线，见 [WORLD_ROUTE_LOCK_2026-09-29.md](WORLD_ROUTE_LOCK_2026-09-29.md)。
+后续修正采用世界坐标锁定和Dev统一实线，见 [WORLD_ROUTE_LOCK_2026-09-29.md](../reports/WORLD_ROUTE_LOCK_2026-09-29.md)。

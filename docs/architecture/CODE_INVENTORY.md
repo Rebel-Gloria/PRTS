@@ -10,13 +10,13 @@ Total 是列出的维护源码总量，不等于 App 编译量；供应商目录
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 38 | 5042 | 4779 |
+| App | 39 | 4948 | 4692 |
 | SpatialCore | 40 | 5325 | 5161 |
 | Contracts | 7 | 770 | 746 |
 | OptionalModels | 16 | 1409 | 1372 |
-| Tests | 41 | 5671 | 5464 |
+| Tests | 41 | 5684 | 5477 |
 | Scripts | 10 | 935 | 866 |
-| Total | 152 | 19152 | 18388 |
+| Total | 153 | 19071 | 18314 |
 
 ## 完整源码文件树
 
@@ -28,15 +28,15 @@ PRTS/
     PRTSApp.swift (18 lines)
     RuntimeProfile.swift (9 lines)
   Capture/
-    CameraManager.swift (143 lines)
+    CameraManager.swift (128 lines)
     CameraPreview.swift (11 lines)
   Feedback/
-    FeedbackCoordinator.swift (119 lines)
-    HapticManager.swift (78 lines)
+    FeedbackCoordinator.swift (112 lines)
+    HapticManager.swift (71 lines)
     ObstacleRouteAnnouncementPolicy.swift (89 lines)
     PathHaptics.swift (81 lines)
     RouteAnnouncementPolicy.swift (58 lines)
-    SpeechManager.swift (369 lines)
+    SpeechManager.swift (264 lines)
   Integration/
     PRTSBackendBridge.swift (61 lines)
   PhotoDescription/
@@ -47,7 +47,7 @@ PRTS/
     PhotoDescriptionCoordinator.swift (174 lines)
     PhotoDescriptionServices.swift (34 lines)
     PhotoImageEncoder.swift (33 lines)
-    PhotoPressState.swift (32 lines)
+    PhotoPressState.swift (31 lines)
     PhotoSpeechRecognizer.swift (138 lines)
   Spatial/
     DevCapture/
@@ -61,13 +61,14 @@ PRTS/
     Runtime/
       CoreMLDepthModel.swift (69 lines)
       MonocularDepthProvider.swift (133 lines)
-      ProbeEngine.swift (424 lines)
+      ProbeEngine.swift (411 lines)
       ProbeViewModel.swift (164 lines)
-      Snapshots.swift (299 lines)
+      Snapshots.swift (293 lines)
   UI/
-    ContentView.swift (373 lines)
+    ContentView.swift (381 lines)
     DemoOptionsView.swift (54 lines)
     HomeDemoOverlay.swift (85 lines)
+    LiquidGlass.swift (52 lines)
     Localization.swift (86 lines)
     PhotoCaptureButton.swift (47 lines)
     PhotoDescriptionSettingsView.swift (60 lines)
@@ -200,7 +201,7 @@ scripts/
   test_dev_capture.py (36 lines)
   test_read_diag.py (219 lines)
   test_route_replay.py (40 lines)
-  test_spatial_integration.py (177 lines)
+  test_spatial_integration.py (190 lines)
   test_summarize_session.py (39 lines)
   validate_spatial.sh (11 lines)
 ```

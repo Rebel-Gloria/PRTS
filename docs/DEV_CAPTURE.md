@@ -102,7 +102,7 @@ python3 scripts/read_diag.py /absolute/path/to/run --verify-data
 `PRTS_DEV_CAPTURE` only enables developer tools and opt-in recording. Both ordinary and Dev builds
 use `obstacle_veto_v1`; changing recording does not change planning. Route journal schema3 adds
 `plannedLength` and the `planned` status; `remainingVerifiedLength` stays 0 for this policy.
-Missing optional fields in old records remain unavailable. See [build17 report](architecture/OBSTACLE_VETO_2026-09-29.md).
+Missing optional fields in old records remain unavailable. See [build17 report](reports/OBSTACLE_VETO_2026-09-29.md).
 Pass `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)` to xcodebuild for traceable binary metadata.
 
 ### Build18 optional route diagnostics

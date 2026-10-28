@@ -7,50 +7,51 @@ struct PhotoDescriptionSettingsView: View {
     @State private var message = ""
     @State private var requestingPermissions = false
     @State private var speechAuthorized = PhotoSpeechRecognizer.authorized
+    @EnvironmentObject private var speech: SpeechManager
 
     var body: some View {
         Form {
-            Section("服务") {
+            Section("photo.settings.service") {
                 Text(PhotoChatProtocol.endpoint.host ?? "")
-                LabeledContent("模型", value: PhotoChatProtocol.model)
-                Toggle("允许发送拍摄图片和提问", isOn: $uploadAllowed)
-                Text("仅在按下拍照按钮后发送到上述服务。语音识别根据设备支持情况可能使用 Apple 服务。本功能不保存照片、录音、提问和回答；开发采集模式的独立录像设置不受影响。")
+                LabeledContent("photo.settings.model", value: PhotoChatProtocol.model)
+                Toggle("photo.settings.allowUpload", isOn: $uploadAllowed)
+                Text("photo.settings.privacy")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("API Key") {
-                SecureField(hasKey ? "已保存，输入可替换" : "输入 API Key", text: $key)
+                SecureField(hasKey ? "photo.settings.keySaved" : "photo.settings.keyPlaceholder", text: $key)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button("保存到本机钥匙串") {
+                Button("photo.settings.save") {
                     do {
                         try PhotoCredentialStore.save(key)
-                        key = ""; hasKey = true; message = "已保存"
+                        key = ""; hasKey = true; message = speech.interfaceString("photo.settings.saved")
                     } catch { message = error.localizedDescription }
                 }.disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 if hasKey {
-                    Button("删除 API Key", role: .destructive) {
+                    Button("photo.settings.delete", role: .destructive) {
                         do {
                             try PhotoCredentialStore.delete()
-                            hasKey = false; key = ""; message = "已删除"
+                            hasKey = false; key = ""; message = speech.interfaceString("photo.settings.deleted")
                         } catch { message = error.localizedDescription }
                     }
                 }
                 if !message.isEmpty { Text(message).font(.caption) }
             }
-            Section("语音提问权限") {
-                Button(speechAuthorized ? "麦克风与语音识别已授权" : "授权麦克风与语音识别") {
+            Section("photo.settings.permissions") {
+                Button(speechAuthorized ? "photo.settings.permissionsGranted" : "photo.settings.permissionsRequest") {
                     requestingPermissions = true
                     Task {
                         speechAuthorized = await PhotoSpeechRecognizer.requestPermissions()
                         requestingPermissions = false
-                        message = speechAuthorized ? "语音提问已就绪" : "请在系统设置中允许麦克风与语音识别"
+                        message = speech.interfaceString(speechAuthorized ? "photo.settings.ready" : "photo.settings.denied")
                     }
                 }.disabled(requestingPermissions || speechAuthorized)
             }
-            Section("操作") {
-                Text("短按：拍照并描述。长按半秒，听到提示音后提问，松手发送。")
+            Section("photo.settings.usage") {
+                Text("photo.settings.usageText")
             }
         }
-        .navigationTitle("拍照描述")
+        .navigationTitle("photo.settings.title")
         .onAppear {
             do { hasKey = try PhotoCredentialStore.read() != nil }
             catch { message = error.localizedDescription }

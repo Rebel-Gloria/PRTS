@@ -42,8 +42,8 @@
 
 ## 代码树与统计
 
-完整源码树和分组计数由 `scripts/code_inventory.py` 生成，见 [CODE_INVENTORY.md](CODE_INVENTORY.md)。
-模块职责仍以 [CODE_STRUCTURE.md](CODE_STRUCTURE.md) 为准。
+完整源码树和分组计数由 `scripts/code_inventory.py` 生成，见 [CODE_INVENTORY.md](../architecture/CODE_INVENTORY.md)。
+模块职责仍以 [CODE_STRUCTURE.md](../architecture/CODE_STRUCTURE.md) 为准。
 统计包含未提交源码；物理行包含注释和空行，非空行包含注释。不是可执行语句数。
 排除模型、图片、文档、配置、构建产物及 Experiments 冻结副本，避免重复统计。
 

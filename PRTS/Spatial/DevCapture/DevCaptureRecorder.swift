@@ -231,7 +231,7 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
         guard adaptor.append(pixel,withPresentationTime:pts) else { throw writer.error ?? fail("视频帧写入失败") }
         try index.write(contentsOf:data); try index.write(contentsOf:Data([10]))
         bytes += data.count+1; totalBytes += added
-        update { $0.saved += 1; $0.text = "正在保存摄像机视频＋分析数据（\($0.saved)帧，丢弃\($0.dropped)）" }
+        update { $0.saved += 1; $0.text = "正在保存相机视频和分析数据（\($0.saved)帧，丢弃\($0.dropped)）" }
     }
     private func writeStatus(_ phase: String) throws {
         guard let directory else { return }

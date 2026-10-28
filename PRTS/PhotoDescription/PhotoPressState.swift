@@ -6,7 +6,6 @@ nonisolated struct PhotoPressState {
     enum Action: Equatable { case none, shortCapture, startRecording, stopRecording }
     private var beganAt: TimeInterval?
     private var recording = false
-    var isPressed: Bool { beganAt != nil }
 
     mutating func begin(at time: TimeInterval) {
         guard beganAt == nil else { return }

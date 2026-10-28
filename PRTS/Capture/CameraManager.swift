@@ -7,23 +7,11 @@ import SpatialCore
 
 nonisolated enum CameraUnavailableReason: Equatable {
     case noRearCamera
-    case cannotAddInput
-    case cannotAddOutput
-    case unknownPermission
-    case sessionStartFailed
 
     var localizationKey: String {
         switch self {
         case .noRearCamera:
             return "camera.error.noRearCamera"
-        case .cannotAddInput:
-            return "camera.error.cannotAddInput"
-        case .cannotAddOutput:
-            return "camera.error.cannotAddOutput"
-        case .unknownPermission:
-            return "camera.error.unknownPermission"
-        case .sessionStartFailed:
-            return "camera.error.sessionStartFailed"
         }
     }
 }
@@ -116,7 +104,6 @@ nonisolated enum CameraState: Equatable {
     }
 }
 
-
 /// UI adapter only. The sole camera owner is ProbeEngine's ARSession.
 @MainActor
 final class CameraManager: ObservableObject {
@@ -124,11 +111,9 @@ final class CameraManager: ObservableObject {
     @Published private(set) var state: CameraState = .idle
     @Published private(set) var status = "离线空间感知待启动"
     @Published private(set) var latestSceneResult: SceneResult?
-    @Published private(set) var frameCount: UInt64 = 0
     func poll(suspendFeedback: Bool) {
         model.feedbackSuspended = suspendFeedback
         model.poll()
-        frameCount = model.snapshot.frame?.id ?? 0
         status = model.snapshot.status
         latestSceneResult = SceneSnapshotAdapter.measuredResult(model.snapshot,now:ProcessInfo.processInfo.systemUptime)
         if model.snapshot.running { state = .running }
