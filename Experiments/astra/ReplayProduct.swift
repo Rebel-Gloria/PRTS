@@ -23,6 +23,11 @@ struct Input: Decodable {
     let options: PathOptions, recorded: PathUpdate?, publication: Publication
     let recordedPlane: GroundPlane?, recordedDiagnostics: AnalysisDiagnostics?
 }
+/// ASTRA_BODY_WIDTH replays recorded frames as if the user had picked another body width.
+let bodyWidthOverride = ProcessInfo.processInfo.environment["ASTRA_BODY_WIDTH"].flatMap(Float.init)
+func replayed(_ p: ProbeParameters) -> ProbeParameters {
+    var p = p; if let w = bodyWidthOverride { p.bodyWidth = w }; return p
+}
 struct Cluster: Codable { var distance: Float; var support: Int; var center: V3 }
 struct Raw: Codable {
     var clusters: [Cluster] = []; var allLaneClusters: [Cluster] = []
@@ -127,10 +132,10 @@ struct Output: Encodable {
                 }
                 let r:AnalysisResult
                 if let o=observation,let h=header,input.capture.trackingNormal {
-                    r=analyzer.analyze(o,priors:h.priors,parameters:h.parameters,parameterVersion:h.parameterVersion,directionStable:h.directionStable,source:"device_replay")
+                    r=analyzer.analyze(o,priors:h.priors,parameters:replayed(h.parameters),parameterVersion:h.parameterVersion,directionStable:h.directionStable,source:"device_replay")
                 } else {
                     if input.capture.trackingNormal {analyzer.missingDepth(pose:input.capture.pose,time:input.timestamp,frameID:input.frameID,epoch:input.epoch,parameterVersion:input.parameterVersion)} else {analyzer.reset()}
-                    var missing=AnalysisResult(epoch:input.epoch,frameID:input.frameID,timestamp:input.timestamp,parameters:input.parameters,parameterVersion:input.parameterVersion,status:"missing_depth")
+                    var missing=AnalysisResult(epoch:input.epoch,frameID:input.frameID,timestamp:input.timestamp,parameters:replayed(input.parameters),parameterVersion:input.parameterVersion,status:"missing_depth")
                     missing.sourcePose=input.capture.pose;r=missing
                 }
                 let raw=rawEvidence(r), now=input.publication.publishTime ?? input.timestamp
