@@ -1,4 +1,6 @@
+*.key
 node_modules/
 out/
 public/footage/
-*.key
+public/music.mp3
+public/vo/

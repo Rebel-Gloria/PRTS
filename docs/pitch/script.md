@@ -2,7 +2,22 @@
 
 给比赛评委看，PPT 现场讲约 3 分钟，视频约 3 分钟。风格参照 Apple 发布会：黑底、一页一句话、大字、大留白、数字单独成页。
 
-源文件在 `Marketing/`：`deck/` 生成 Keynote，`video/` 是 Remotion 工程。成片和 .key 不进 git。
+源文件在 `Marketing/`，成片、幻灯片图片、配音和配乐都不进 git。
+
+- `video/src/Film.tsx`：视频，`Deck.tsx`：幻灯片。幻灯片大多是视频里某个场景的定格，改一处两边都变。
+- `video/public/`：实拍片段、图标、截图、配音、配乐。实拍取自 2026-10-28 的 DIAG 录像（转正、提亮）。
+- `deck/build_pptx.py`：把幻灯片图片拼成 .pptx（每页一张整图，带讲稿和淡入淡出）。Keynote 直接打开它，另存为 .key 即可。
+
+重新生成：
+
+```sh
+cd Marketing/video
+npx remotion render src/index.ts PRTS out/prts-draft.mp4 --concurrency=2 --crf=20
+for i in $(seq 0 13); do npx remotion still src/index.ts Deck out/slides/slide-$(printf %02d $((i+1))).png --frame=$i; done
+python3 ../deck/build_pptx.py out/slides out/PRTS-pitch.pptx   # 需要 python-pptx
+```
+
+配音初稿：`say -v Tingting -r 175`，台词在 `video/vo.txt`。配乐：Kevin MacLeod 的 "Clean Soul"（incompetech.com，CC BY 4.0，片尾已署名）。
 
 ## 用词和素材的规矩
 
@@ -11,8 +26,8 @@
 - 外部数字标出处：
   - 1731 万视障人士：中国盲人协会，转引自央视《东方时空》2024 年 4 月报道（澎湃新闻 newsDetail_forward_27146369）。
   - 在岗导盲犬 410 多只：中国盲人协会副秘书长赵公政，新华社 2025-05-02。
-- 风格可以学 Apple，但不出现苹果 logo，也不写"发布会"。iPhone 只用 Apple Design Resources 里的外框图。
-- 字体：中文用苹方（macOS 自带），英文和数字用 Inter（开源）。不用 SF Pro。
+- 风格可以学 Apple，但不出现苹果 logo，也不写"发布会"。iPhone 外框是自己画的圆角框，不用 Apple 的产品图。
+- 字体：全部用苹方（macOS 自带），不用 SF Pro。
 
 ## 主色
 
