@@ -1,6 +1,6 @@
 # 本地视觉模型
 
-结论：MiniCPM-V 4.7 1B 可以在 iPhone 17 Pro Max 上离线做拍照描述，每张约 2 秒，内存峰值约 1.6 GB。它只能用来描述画面，不能进避障：避障要求每秒 10 次、毫秒级、结果确定。现在还没接进 App，只有基准测试。
+结论：MiniCPM-V 4.7 1B 可以在 iPhone 17 Pro Max 上离线做拍照描述，每张约 2 秒，内存峰值约 1.6 GB。它只能用来描述画面，不能进避障：避障要求每秒 10 次、毫秒级、结果确定。它已经打包进 App，作为拍照描述的服务商"本机（离线）"，见下面"在 App 里"。
 
 ## 选哪个模型
 
@@ -63,11 +63,27 @@
   - `promptsCloud()`：云端对照，需要手机上存了 Key。
 - 测试要链接 llama.cpp 的 mtmd 库，库会按 `general.architecture` 选择 Gemma 或 MiniCPM 的对话模板。这个库不在仓库里，构建时要额外传 `OTHER_LDFLAGS` 和 `SWIFT_INCLUDE_PATHS`。
 
-## 接进 App 还要做什么
+## 在 App 里
 
-1. 做成拍照描述的第 4 个服务商"本机（离线）"，实现 `PhotoChatProvider` 的接口。
-2. 把 llama.cpp（含 mtmd，Metal 加速）编成 XCFramework。
-3. 模型不打进安装包。在设置里提供"下载离线模型"：下载后校验 SHA-256，存进 Application Support，标记为不备份到 iCloud。
-4. 定切片上限。
-5. 实测同时开着 ARKit 避障时：分析是否仍有 10 Hz、画面会不会掉帧、持续拍照的发热。
-6. 用 30 张图评测质量，和云端模型对比。
+因为要考虑没有网络的场景，模型直接打包进安装包，不在设置里另外下载。代价是安装包多了约 1.9 GB。
+
+- **准备**：`zsh Vendor/LocalVLM/prepare.sh`。它做两件事：
+  - 把 llama.cpp（固定提交 `620d222`，带 mtmd 和 Metal）和 `csrc/` 里的 C 封装编成 `Vendor/LocalVLM/PRTSLocalVLM.xcframework`，真机和模拟器各一份；
+  - 把两个权重文件下载到 `models/MiniCPM-V-4.7-1B/`，用 Hugging Face 上的 SHA-256 校验。
+  
+  两样都不进 git。需要 cmake 和 ninja（`pip install cmake ninja` 或 Homebrew）。在 8 GB 的 Mac 上默认 `-j 2`，第一次要编几分钟。
+- **代码**：
+  - `Vendor/LocalVLM` 是一个本地 Swift 包。`LocalVLM` 第一次用时加载模型，之后一直留在内存里，所有调用排队在一个串行队列上，取消时在两个 token 之间停下；
+  - `PRTS/PhotoDescription/PhotoLocalModel.swift` 指向安装包里的权重；
+  - 解码、对话模板和基准测试一样：贪心解码，最多 160 个 token，切片上限用官方默认的 9。
+- **打包**：工程里有一个构建步骤"Copy offline model"，用 `cp -c` 把两个权重拷进 `PRTS.app/LocalVLM/`。在 APFS 上这只是克隆，不占时间也不占空间。
+- **用法**：设置 → 拍照描述 → 服务商 → "本机（离线）"。这个服务商不需要 Key，也不需要打开"允许发送照片"，照片不出手机。默认服务商还是通义千问。
+
+真机实测（iPhone 17 Pro Max，2026-10-30，`PRTSTests/PhotoLocalModelTests`，走 App 自己的描述路径）：3 张照片的回答和上面基准测试一字不差。第一张 2.6 秒（含加载模型），之后每张 1.8–2.0 秒；描述到一半取消会立刻停下。
+
+还没做的：
+
+1. 实测开着 ARKit 避障时同时跑模型：分析能不能保持 10 Hz，画面会不会掉帧，连续拍照的发热。
+2. 用 30 张实拍图评质量，和云端模型对比。
+3. 8 GB 的 iPhone 15 Pro 还没测过。
+4. 模型加载后一直占着内存，收到内存警告时还不会主动释放。

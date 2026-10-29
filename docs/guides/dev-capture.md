@@ -4,6 +4,8 @@
 
 ## 编译
 
+第一次编译前先跑 `zsh Vendor/LocalVLM/prepare.sh`，准备离线看图模型，见 [本地视觉模型](../features/local-vlm.md)。
+
 `PRTS_DEV_CAPTURE` 不是 DEBUG 的别名，工程自带的配置都不带它，只能通过 `configs/DevCapture.xcconfig` 加上：
 
 ```sh
