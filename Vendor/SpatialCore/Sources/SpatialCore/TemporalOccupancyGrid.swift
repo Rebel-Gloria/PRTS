@@ -46,7 +46,9 @@ struct TemporalOccupancyGrid: Sendable {
   private var memory: [SIMD3<Int>: Remembered] = [:]
   /// Remembered footprints not measured in the latest frame.
   private var rememberedFootprints: [OccupancyFootprint] = []
-  var memoryOptions = SceneMemoryOptions()
+  var memoryOptions = SceneMemoryOptions() {
+    didSet { if !memoryOptions.enabled { memory.removeAll(); rememberedFootprints.removeAll() } }
+  }
   var planningForward: V3? { referenceForward }
   // Multiple measured squares may quantize to one association bin. Keep ALL confirmed
   // squares for collision geometry; choosing one timer must not discard the other area.

@@ -243,6 +243,8 @@ public struct PathPredictor: Sendable {
     private var experimentalOccupancyPlanning = false
     private var occupancyFilter = TemporalOccupancyGrid()
     private var lastSuccessfulObstacleCheck: ObstacleCheckStamp?
+    /// Settings → Experimental. Turning it off forgets everything remembered at once.
+    public mutating func setSceneMemory(_ options: SceneMemoryOptions) { occupancyFilter.memoryOptions = options }
     public init(policy: RoutePlanningPolicy) {
         self.init(experimentalOccupancyPlanning:policy == .obstacleVeto)
     }
