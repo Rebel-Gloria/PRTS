@@ -1,6 +1,6 @@
 # 拍照描述
 
-开着避障时，按一下屏幕中间的相机按钮，App 把当前画面发给模型，读出一两句描述；按住说出问题，松手后读出回答。需要联网。
+开着避障时，按一下屏幕中间的相机按钮，App 把当前画面交给模型，读出一两句描述；按住说出问题，松手后读出回答。服务商选"本机（离线）"时不联网，照片不出手机；选其他服务商要联网。
 
 ## 怎么用
 
@@ -18,11 +18,12 @@
 
 | 服务商 | 地址 | 模型 | 怎么关闭思考 |
 |---|---|---|---|
+| 本机（离线） | 不联网，模型打包在 App 里 | MiniCPM-V 4.7 1B，见 [本地视觉模型](local-vlm.md) | 对话模板里写一个空的思考段 |
 | 通义千问（默认） | `maas.qianwenaiapi.com/compatible-mode/v1/chat/completions` | `qwen3.8-flash` | `enable_thinking: false` |
 | DeepSeek | `api.deepseek.com/chat/completions` | `deepseek-flash` | `thinking: {type: disabled}` |
 | 自定义 | 用户填写，只接受 `https://`，只填基础地址时自动补上 `/chat/completions` | 用户填写 | 只发标准字段 |
 
-三家都用 OpenAI 兼容的流式 Chat Completions，图片以 `data:image/jpeg;base64` 内联。思考模式都关掉：描述画面不需要推理，关掉后第一个字回来得更快。
+本机不需要 Key，也不需要打开"允许发送照片"。三个联网的服务商都用 OpenAI 兼容的流式 Chat Completions，图片以 `data:image/jpeg;base64` 内联。思考模式都关掉：描述画面不需要推理，关掉后第一个字回来得更快。
 
 ## 提示词
 
@@ -41,6 +42,7 @@
 - 每个服务商的 API Key 单独存进钥匙串（`WhenUnlockedThisDeviceOnly`），不写进 UserDefaults、诊断记录或代码。千问沿用旧的 `api-key` 账户，老用户升级后不用重新输入。
 - 只走 HTTPS，拒绝重定向，Key 和照片不会被转到别的地址。URLSession 不用缓存和 Cookie。
 - 照片、录音、问题和回答只在内存里，不写盘，不进诊断记录。
+- 选本机（离线）时，照片只交给手机上的模型，什么都不发出去。
 - 语音识别用的是系统的 Speech 框架，可能会用到 Apple 的服务。
 
 ## 代码
