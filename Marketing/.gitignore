@@ -1,6 +1,6 @@
 *.key
-node_modules/
-out/
-public/footage/
-public/music.mp3
-public/vo/
+video/node_modules/
+video/out/
+video/public/footage/
+video/public/music.mp3
+video/public/vo/
