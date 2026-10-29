@@ -11,10 +11,19 @@ final class ProbeViewModel: ObservableObject {
     @Published var snapshot = SharedSnapshot()
     @Published var options = RenderOptions() {
         didSet {
+            #if PRTS_DEV_CAPTURE
             if let data = try? JSONEncoder().encode(options) { UserDefaults.standard.set(data,forKey:"homeRenderOptions.v1") }
+            #endif
             engine.updateOptions(options)
         }
     }
+    /// Settings → Display → Scan mesh, the one picture option release builds offer.
+    static let scanMeshKey = "display.scanMesh"
+    var scanMesh: Bool {
+        get { options.showMesh }
+        set { options.showMesh = newValue; UserDefaults.standard.set(newValue,forKey:Self.scanMeshKey) }
+    }
+    var supportsScanMesh: Bool { engine.capabilities.meshClassification }
     /// The user's passage width (Settings → Obstacle guidance); everything else in parameters stays default.
     static let bodyWidthKey = "guidance.bodyWidth"
     @Published var parameters = ProbeParameters() {
@@ -41,6 +50,8 @@ final class ProbeViewModel: ObservableObject {
     init() {
         #if PRTS_DEV_CAPTURE
         if let data = UserDefaults.standard.data(forKey:"homeRenderOptions.v1"),let saved = try? JSONDecoder().decode(RenderOptions.self,from:data) { options = saved }
+        #else
+        options = .product(scanMesh:UserDefaults.standard.bool(forKey:Self.scanMeshKey))
         #endif
         engine.updateOptions(options)
         if let width = UserDefaults.standard.object(forKey:Self.bodyWidthKey) as? Double { parameters.bodyWidth = Float(width) }

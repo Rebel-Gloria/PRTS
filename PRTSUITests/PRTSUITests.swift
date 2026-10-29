@@ -135,7 +135,7 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(camera.isHittable)
         XCTAssertFalse(largeSettings.frame.intersects(camera.frame))
         // Header stays one row: the settings button becomes icon-only beside the brand.
-        XCTAssertLessThan(largeSettings.frame.maxY, large.descendants(matching: .any)["cameraStatus"].frame.minY)
+        XCTAssertLessThan(largeSettings.frame.maxY, large.descendants(matching: .any)["homeTips"].frame.minY)
         snap(large, "Home at accessibility XXXL")
         camera.tap()
         let running = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS '停止'"), object: camera)
@@ -183,6 +183,43 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 40))
     }
     #endif
+
+    /// Screenshots of every screen a user sees: idle, guiding, text reading, settings.
+    @MainActor
+    func testScreenTour() throws {
+        let app = XCUIApplication()
+        app.launch()
+        func shot(_ name: String) {
+            let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name
+            attachment.lifetime = .keepAlways; add(attachment)
+        }
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        shot("1 idle")
+        camera.tap()
+        sleep(1); shot("2 starting")
+        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 10))
+        sleep(4); shot("3 guiding")
+        app.buttons["photoCaptureButton"].tap()
+        sleep(1); shot("4 describing")
+        sleep(6); shot("5 described")
+        camera.press(forDuration: 1.5)
+        sleep(1)
+        app.buttons["settingsButton"].tap()
+        sleep(1); shot("6 settings")
+        app.swipeUp(); sleep(1); shot("7 settings lower")
+        app.swipeUp(); sleep(1); shot("8 settings bottom")
+        app.terminate()
+
+        // Scan mesh on, through the argument domain so the saved setting is left alone.
+        app.launchArguments += ["-display.scanMesh", "YES"]
+        app.launch()
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
+        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 10))
+        sleep(4); shot("9 scan mesh")
+        sleep(4); shot("10 scan mesh later")
+    }
 
     @MainActor func testCPUWithPreview() throws { try measureRunningCPU(noPreview: false) }
     @MainActor func testCPUWithoutPreview() throws { try measureRunningCPU(noPreview: true) }

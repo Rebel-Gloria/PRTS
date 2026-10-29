@@ -78,7 +78,7 @@ nonisolated enum CameraState: Equatable {
     var iconName: String {
         switch self {
         case .running:
-            return "dot.radiowaves.left.and.right"
+            return "figure.walk"
         case .permissionDenied, .unavailable:
             return "exclamationmark.triangle.fill"
         case .requestingPermission, .starting:

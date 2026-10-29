@@ -169,6 +169,15 @@ nonisolated struct RenderOptions: Codable, Sendable, Equatable {
     var showChannels = true
     var showHUD = true
     var heatMax: Float = 5
+    /// Release builds: the camera picture and, if the user turns it on, the scan mesh.
+    /// Floor, obstacle, path and grid layers are for checking the algorithm in dev builds.
+    static func product(scanMesh: Bool) -> RenderOptions {
+        var o = RenderOptions()
+        o.showPath = false; o.showLegends = false; o.showFloor = false; o.showSurfaceModel = false
+        o.showBlockingColumns = false; o.showGrid = false; o.showChannels = false; o.showHUD = false
+        o.showMesh = scanMesh
+        return o
+    }
 }
 nonisolated struct RenderMetrics: Sendable {
     var fps: Double = 0; var cpuMS: Double = 0; var gpuMS: Double = 0; var presentAgeMS: Double?

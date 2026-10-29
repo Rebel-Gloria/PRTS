@@ -104,30 +104,45 @@ struct ContentView: View {
                         .overlay(alignment: .bottom) {
                             if !photo.message.isEmpty {
                                 VStack(spacing: 8) {
-                                    Text(photo.message).font(.caption)
-                                        .padding(.horizontal, 12).padding(.vertical, 6)
-                                        .readableGlassPanel()
+                                    HStack(spacing: 8) {
+                                        if photo.busy { ProgressView().controlSize(.small) }
+                                        Text(photo.message).font(.callout.weight(.medium))
+                                    }
+                                    .padding(.horizontal, 14).padding(.vertical, 8)
+                                    .readableGlassPanel()
                                     if photo.busy {
                                         Button { photo.cancel() } label: {
                                             Text("home.photo.cancel").frame(minWidth: 44, minHeight: 44)
                                         }
                                         .glassButtonStyle()
                                     }
-                                }.offset(y: 70)
+                                }
+                                .frame(width: 320)
+                                .multilineTextAlignment(.center)
+                                .offset(y: 70)
                             }
                         }
                 }
 
                 if textReading.phase != .idle {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
+                        if textReading.framesAnalyzed == 0 {
+                            ProgressView().controlSize(.large)
+                        } else {
+                            Image(systemName: "text.viewfinder")
+                                .font(.system(size: 34, weight: .medium))
+                                .foregroundStyle(Color.appAccent)
+                                .symbolEffect(.pulse)
+                                .accessibilityHidden(true)
+                        }
                         Text("home.ocr.status").font(.headline)
-                        Text("home.ocr.status.hint").font(.caption)
+                        Text("home.ocr.status.hint").font(.caption).foregroundStyle(.secondary)
                         #if PRTS_DEV_CAPTURE
                         Text(verbatim: "frames \(textReading.framesAnalyzed)").font(.caption2.monospacedDigit())
                             .accessibilityIdentifier("ocrFrames")
                         #endif
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .padding(.horizontal, 20).padding(.vertical, 14)
                     .readableGlassPanel()
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("ocrStatus")
@@ -259,7 +274,7 @@ struct ContentView: View {
     @ViewBuilder
     private var controls: some View {
         if noPreview && camera.state == .running && !isShowingSettings { noPreviewNotice }
-        cameraStatus
+        if camera.state != .idle { cameraStatus }
         if let message = operationMessage {
             Text(message).font(.callout.weight(.semibold)).foregroundStyle(.orange)
                 .multilineTextAlignment(isLargeText ? .leading : .center)
@@ -316,26 +331,44 @@ struct ContentView: View {
         }
     }
 
+    /// Idle: what the three gestures do. Starting: a spinner until the first frame.
     private var previewPlaceholder: some View {
-        VStack(alignment: isLargeText ? .leading : .center, spacing: 18) {
-            if !isLargeText {
-                Image(systemName: "camera.viewfinder")
-                    .font(.system(size: 64, weight: .light))
-                    .foregroundStyle(Color.appAccent)
-                    .accessibilityHidden(true)
+        VStack(alignment: isLargeText ? .leading : .center, spacing: 22) {
+            if camera.state.isBusy {
+                ProgressView().controlSize(.large).tint(.appAccent)
+            } else {
+                if !isLargeText {
+                    Image("HomeLogo")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .accessibilityHidden(true)
+                }
+                Text("home.idle.title")
+                    .font(.title2.weight(.semibold))
+                VStack(alignment: .leading, spacing: 14) {
+                    tip("figure.walk", "home.idle.tip.guide")
+                    tip("hand.tap.fill", "home.idle.tip.photo")
+                    tip("text.viewfinder", "home.idle.tip.text")
+                }
+                .padding(.horizontal, 20).padding(.vertical, 16)
+                .glassSurface(in: RoundedRectangle(cornerRadius: 24))
             }
-
-            Text("home.camera.preview.title")
-                .font(.title2.weight(.semibold))
-
-            Text("home.camera.preview.subtitle")
-                .font(.body)
-                .foregroundStyle(.secondary)
         }
         .multilineTextAlignment(isLargeText ? .leading : .center)
+        .animation(.easeInOut(duration: 0.25), value: camera.state.isBusy)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("home.camera.preview.off.label")
-        .accessibilityHint("home.camera.preview.off.hint")
+        .accessibilityIdentifier("homeTips")
+    }
+
+    private func tip(_ symbol: String, _ key: LocalizedStringKey) -> some View {
+        Label {
+            Text(key).font(.body).multilineTextAlignment(.leading)
+        } icon: {
+            Image(systemName: symbol).foregroundStyle(Color.appAccent).frame(width: 28)
+        }
     }
 
     /// Sits above the status so it never collides with the photo button in the middle.
@@ -412,6 +445,8 @@ struct ContentView: View {
         HStack(spacing: 10) {
             Image(systemName: camera.state.iconName)
                 .foregroundStyle(camera.state.tintColor)
+                .symbolEffect(.variableColor.iterative, isActive: camera.state.isBusy)
+                .symbolEffect(.pulse, isActive: camera.state == .running)
                 .accessibilityHidden(true)
 
             Text(LocalizedStringKey(camera.state.statusLocalizationKey))

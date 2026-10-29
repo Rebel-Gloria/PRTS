@@ -203,13 +203,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera is live"
+            "value" : "Guiding"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相机正在运行"
+            "value" : "避障中"
           }
         }
       }
@@ -352,74 +352,6 @@
         }
       }
     },
-    "home.camera.preview.off.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use the Start button at the bottom of the screen to begin"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用屏幕底部的开始按钮启动"
-          }
-        }
-      }
-    },
-    "home.camera.preview.off.label" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Camera preview is off"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "相机预览已关闭"
-          }
-        }
-      }
-    },
-    "home.camera.preview.subtitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap Start when you are ready"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "准备好后点击开始"
-          }
-        }
-      }
-    },
-    "home.camera.preview.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Camera preview"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "相机预览"
-          }
-        }
-      }
-    },
     "home.camera.status.label" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -471,6 +403,74 @@
         }
       }
     },
+    "home.idle.tip.guide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warns about obstacles and points the way"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示前方障碍，指引方向"
+          }
+        }
+      }
+    },
+    "home.idle.tip.photo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the middle of the screen to describe what's ahead"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点屏幕中间，描述眼前的东西"
+          }
+        }
+      }
+    },
+    "home.idle.tip.text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold three fingers on the screen to read text"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "三指长按屏幕，读出文字"
+          }
+        }
+      }
+    },
+    "home.idle.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Start when you're ready"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备好了就轻点开始"
+          }
+        }
+      }
+    },
     "home.ocr.action" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -500,7 +500,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "文字识别中"
+            "value" : "正在读文字"
           }
         }
       }
@@ -859,6 +859,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "避障已暂停。文字识别：把手机对准文档，跟着提示移动。"
+          }
+        }
+      }
+    },
+    "settings.display.scanMesh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan mesh"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描网格"
+          }
+        }
+      }
+    },
+    "settings.display.scanMesh.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan mesh draws a 3D mesh of your surroundings over the camera view as it scans. It's just for looks and doesn't affect guidance."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描网格：边扫描边在画面上画出周围环境的立体网格。只是好看，不影响避障。"
           }
         }
       }

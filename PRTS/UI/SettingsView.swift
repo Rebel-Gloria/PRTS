@@ -72,10 +72,19 @@ struct SettingsView: View {
             Section {
                 Toggle("settings.display.noPreview", isOn: $noPreview)
                     .accessibilityIdentifier("noPreviewToggle")
+                if model.supportsScanMesh {
+                    Toggle("settings.display.scanMesh", isOn: $model.scanMesh)
+                        .disabled(noPreview)
+                        .accessibilityIdentifier("scanMeshToggle")
+                }
             } header: {
                 Text("settings.display.section")
             } footer: {
-                Text("settings.display.noPreview.footer")
+                if model.supportsScanMesh {
+                    Text("settings.display.noPreview.footer") + Text(verbatim: "\n") + Text("settings.display.scanMesh.footer")
+                } else {
+                    Text("settings.display.noPreview.footer")
+                }
             }
             Section {
                 PassageWidthSlider(model: model)
@@ -132,8 +141,8 @@ private struct PassageWidthSlider: View {
     }
 
     private var meters: String {
-        Measurement(value: Double(model.parameters.bodyWidth), unit: UnitLength.meters)
-            .formatted(.measurement(width: .abbreviated, numberFormatStyle: .number.precision(.fractionLength(2))))
+        Measurement(value: (Double(model.parameters.bodyWidth) * 100).rounded(), unit: UnitLength.centimeters)
+            .formatted(.measurement(width: .abbreviated, usage: .asProvided))
     }
 
     private var styleKey: String {
