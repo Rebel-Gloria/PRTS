@@ -10,6 +10,7 @@
 		F10000000000000000000001 /* PRTSContracts in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000004 /* PRTSContracts */; };
 		F10000000000000000000006 /* SpatialCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000008 /* SpatialCore */; };
 		F10000000000000000000009 /* SpatialCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000008 /* SpatialCore */; };
+		F1000000000000000000000A /* LocalVLM in Frameworks */ = {isa = PBXBuildFile; productRef = F1000000000000000000000C /* LocalVLM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +61,7 @@
 			files = (
 				F10000000000000000000001 /* PRTSContracts in Frameworks */,
 				F10000000000000000000006 /* SpatialCore in Frameworks */,
+				F1000000000000000000000A /* LocalVLM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -111,6 +113,7 @@
 				DDE04D6E30132D31000C8361 /* Sources */,
 				DDE04D6F30132D31000C8361 /* Frameworks */,
 				DDE04D7030132D31000C8361 /* Resources */,
+				F1000000000000000000000D /* Copy offline model */,
 			);
 			buildRules = (
 			);
@@ -123,6 +126,7 @@
 			packageProductDependencies = (
 				F10000000000000000000004 /* PRTSContracts */,
 				F10000000000000000000008 /* SpatialCore */,
+				F1000000000000000000000C /* LocalVLM */,
 			);
 			productName = PRTS;
 			productReference = DDE04D7230132D31000C8361 /* PRTS.app */;
@@ -211,6 +215,7 @@
 			packageReferences = (
 				F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */,
 				F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */,
+				F1000000000000000000000B /* XCLocalSwiftPackageReference "Vendor/LocalVLM" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DDE04D7330132D31000C8361 /* Products */;
@@ -247,6 +252,31 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		F1000000000000000000000D /* Copy offline model */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/models/MiniCPM-V-4.7-1B/MiniCPM-V-4_7-1B-Q5_K_M.gguf",
+				"$(SRCROOT)/models/MiniCPM-V-4.7-1B/mmproj-model-f16.gguf",
+			);
+			name = "Copy offline model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/LocalVLM/MiniCPM-V-4_7-1B-Q5_K_M.gguf",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/LocalVLM/mmproj-model-f16.gguf",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Bundles the offline photo model (Vendor/LocalVLM/prepare.sh downloads it). cp -c clones on APFS, so 1.9 GB costs no time or space.\nset -e\nfor i in 0 1; do\n  eval src=\\$SCRIPT_INPUT_FILE_$i dst=\\$SCRIPT_OUTPUT_FILE_$i\n  mkdir -p \"$(dirname \"$dst\")\"\n  rm -f \"$dst\"\n  cp -c \"$src\" \"$dst\"\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DDE04D6E30132D31000C8361 /* Sources */ = {
@@ -640,6 +670,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Vendor/SpatialCore;
 		};
+		F1000000000000000000000B /* XCLocalSwiftPackageReference "Vendor/LocalVLM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/LocalVLM;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -652,6 +686,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */;
 			productName = SpatialCore;
+		};
+		F1000000000000000000000C /* LocalVLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F1000000000000000000000B /* XCLocalSwiftPackageReference "Vendor/LocalVLM" */;
+			productName = LocalVLM;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

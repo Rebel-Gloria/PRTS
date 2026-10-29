@@ -1,0 +1,4 @@
+module CPRTSLocalVLM {
+    header "prts_local_vlm.h"
+    export *
+}
