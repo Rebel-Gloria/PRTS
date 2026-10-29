@@ -65,7 +65,7 @@ struct PhotoDescriptionTests {
         #expect(PhotoChatService.chatURL(from: "api.example.com") == nil)
 
         let defaults = try #require(UserDefaults(suiteName: "PhotoDescriptionTests.\(UUID().uuidString)"))
-        #expect(PhotoChatProvider.current(defaults) == .qwen)
+        #expect(PhotoChatProvider.current(defaults) == .onDevice)
         #expect(PhotoChatProvider.qwen.keyAccount == "api-key")
         defaults.set("custom", forKey: PhotoChatProvider.selectionKey)
         defaults.set("https://api.example.com/v1", forKey: PhotoChatProvider.customEndpointKey)
