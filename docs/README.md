@@ -34,6 +34,10 @@
 - [台阶检测提案](experiments/step-detection-proposal.md)
 - [障碍地图记忆](experiments/scene-memory.md)：离开视野的障碍继续参与绕行（设置里的实验开关）
 
+## 宣传
+
+- [比赛宣传脚本](pitch/script.md)：PPT 和视频的分页、分镜和讲稿
+
 ## 报告
 
 按日期记录当时做了什么、测出了什么。
