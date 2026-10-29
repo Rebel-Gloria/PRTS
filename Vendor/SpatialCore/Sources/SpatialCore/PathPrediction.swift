@@ -248,7 +248,9 @@ public struct PathPredictor: Sendable {
     }
     public init(experimentalOccupancyPlanning: Bool = true,
                 evidenceOptions: RouteEvidenceOptions = .init(),
-                continuityOptions: RouteContinuityOptions = .init()) {
+                continuityOptions: RouteContinuityOptions = .init(),
+                sceneMemory: SceneMemoryOptions = .init()) {
+        occupancyFilter.memoryOptions = sceneMemory
         evidenceMap = RouteEvidenceMap(options:evidenceOptions)
         self.continuityOptions = continuityOptions
         self.experimentalOccupancyPlanning = experimentalOccupancyPlanning
@@ -369,10 +371,17 @@ public struct PathPredictor: Sendable {
                 : planner.held(at:result.timestamp,options:options.validated(),reason:"occupancy_waiting_reference")
             return occupancyContext(held,result:result,options:options,watermark:hazardWatermark,started:started)
         }
+        // Scene memory that may not drive warnings: stages and preemption see measured obstacles only.
+        let memory = occupancyFilter.memoryOptions
+        let separate = memory.enabled && !memory.drivesScenario
+        let length = options.validated().forwardBufferLength
+        let trigger = separate ? occupancyFilter.planningForward.flatMap {
+            occupancyFilter.projected(result, forwardLength: length, forward: $0, includeMemory: false)
+        } : nil
         var watermark = hazardWatermark
         if let active = committedPath ?? (usesWaypoints ? waypointPlanner.retainedPath : planner.retainedPath),
            active.epoch == result.epoch, active.parameterVersion == result.parameterVersion,
-           RouteSafety.conflicts(active,result:planning,observation:nil) {
+           RouteSafety.conflicts(active,result:trigger ?? planning,observation:nil) {
             watermark = max(watermark,result.frameID)
             onConflict?(watermark) // Preempt BEFORE search, even if the candidate is later rejected.
         }
@@ -380,7 +389,11 @@ public struct PathPredictor: Sendable {
             let cameraResult = result.sourcePose.flatMap {
                 occupancyFilter.projected(result, forwardLength: options.validated().forwardBufferLength, forward: -$0.back)
             }
+            let cameraTrigger = separate ? result.sourcePose.flatMap {
+                occupancyFilter.projected(result, forwardLength: length, forward: -$0.back, includeMemory: false)
+            } : nil
             var update = waypointPlanner.update(result: planning, cameraResult: cameraResult,
+                trigger: trigger, cameraTrigger: cameraTrigger,
                 options: options.validated(), view: cameraView)
             update.occupancyFilter = occupancyFilter.diagnostics
             update.confirmedObstacles = planning.planningObstacles
