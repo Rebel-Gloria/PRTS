@@ -38,9 +38,9 @@ struct ObstacleRouteAnnouncementPolicy {
         let turn = state.scenario == .nearObstacle && update.path != nil
             ? proposedTurns.update(heading:heading,now:now,threshold:deviationDegrees,alignment:5) : nil
         // Measured distance is noisy, so speech only says "obstacle" or "obstacle close";
-        // re-announce when that level changes, not on every half metre.
+        // re-announce when that level changes, at most every 4 s as build 25 did.
         let near = state.obstacleDistance.map(ObstacleRouteSpeech.isNear)
-        let distanceDue = state.scenario != .clear && near != nil && near != spokenNear
+        let distanceDue = state.scenario != .clear && near != nil && near != spokenNear && now-spokenAt >= 4
         // Keep alignment/re-arm observations while muted, but don't consume an unsaid turn.
         if turn == nil { turns = proposedTurns }
         guard canSpeak, first || now-spokenAt+0.000001 >= Self.minimumInterval,
