@@ -6,7 +6,7 @@
 
 ## 规则
 
-代码在 `TemporalOccupancyGrid`（`SceneMemoryOptions`）。正式版和开发版的设置 → 实验性 → "记住画面外的障碍"打开它（`experimental.sceneMemory`，默认关）；用的是"只影响路线"模式。关掉时立刻清空记忆。切换会在 DIAG 的 `events.jsonl` 里记一条 `scene_memory`，记忆格子数在 `path.jsonl` 的 `occupancyFilter.rememberedCells`。
+代码在 `TemporalOccupancyGrid`（`SceneMemoryOptions`）。正式版和开发版的设置 → 实验性 → "记住画面外的障碍"打开它（`experimental.sceneMemory`，默认关）；用的是"只影响路线"模式。关掉时立刻清空记忆。切换会在 DIAG 的 `events.jsonl` 里记一条 `scene_memory`，记忆格子数在 `path.jsonl` 的 `update.occupancyFilter.rememberedCells`。
 
 - 只记已经确认的障碍（连续 300 ms 看到，位置漂移不超过 16 cm，走动的人和车一般过不了这一关）。
 - 当前帧优先：记住的格子只要这一帧看到地面（至少 3 个地面点）且没有障碍点，就立刻忘掉。
