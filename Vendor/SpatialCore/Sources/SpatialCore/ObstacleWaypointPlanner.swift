@@ -29,22 +29,13 @@ struct ObstacleWaypointPlanner: Sendable {
         return held
     }
 
-    /// `trigger` / `cameraTrigger`: when given, the obstacle stages are decided on these
-    /// (measured obstacles only) while routes are searched on `r` (which may add remembered ones).
     mutating func update(result r: AnalysisResult, cameraResult: AnalysisResult?,
-                         trigger: AnalysisResult? = nil, cameraTrigger: AnalysisResult? = nil,
                          options: PathOptions, view: RouteCameraView?) -> PathUpdate {
-        let options = options.resolvingBodyWidth(r.parameters)
         guard let pose = r.sourcePose, let plane = r.plane,
               let device = GroundBasis.geometry(plane: plane, pose: pose, previousForward: reference?.forward),
               var raster = RoutePlanningGrid(result: r, options: options, obstacleVeto: true)
         else { return held(reason: "waiting_route_reference") }
-        var triggerRaster = trigger.flatMap { RoutePlanningGrid(result: $0, options: options, obstacleVeto: true) }
-        let rebased = rebase(to: plane)
         let foot = plane.project(pose.position)
-        // Check the entire reprojected body sweep, including the near connection, before
-        // progressing/trimming or publishing any retained direction.
-        let rebaseBlocked = rebased && current.map { !raster.supports([foot] + $0.points) } == true
         let arrived = goal.map { simd_distance(foot, $0.point) <= options.arrivalRadius } ?? false
         let targetVisible = goal.flatMap { target in view.map { $0.contains(target.point + plane.normal * 0.025, pose: pose) } }
         if targetVisible != false { outOfViewLatched = false }
@@ -64,7 +55,6 @@ struct ObstacleWaypointPlanner: Sendable {
             reference = .init(origin: foot, forward: device.forward, plane: plane)
             if let cameraResult, let cameraRaster = RoutePlanningGrid(result: cameraResult, options: options, obstacleVeto: true) {
                 raster = cameraRaster
-                triggerRaster = cameraTrigger.flatMap { RoutePlanningGrid(result: $0, options: options, obstacleVeto: true) }
             }
             side = 0
             preview = nil
@@ -77,7 +67,7 @@ struct ObstacleWaypointPlanner: Sendable {
         // The held intent, not every small camera yaw, defines the lane during a manoeuvre.
         let laneBasis = GroundBasis.geometry(plane: plane,
             pose: .init(back: -ref.forward, position: pose.position), previousForward: ref.forward)!
-        let measuredObstacle = ForwardObstacleTrigger.trigger(raster: triggerRaster ?? raster, device: laneBasis, reference: ref, options: options, laneOnly: true)
+        let measuredObstacle = ForwardObstacleTrigger.trigger(raster: raster, device: laneBasis, reference: ref, options: options, laneOnly: true)
         let (measuredScenario, retainedObstacle) = scenarios.update(measuredObstacle, now:r.timestamp, nearDistance:options.waypoints.nearDistance)
         // Once a bypass is committed, a farther component replacing the nearest detection
         // must not switch us back to an approach target halfway around the current bend.
@@ -103,11 +93,11 @@ struct ObstacleWaypointPlanner: Sendable {
             if remaining.count >= 2 { current?.points = remaining }
         }
         previousFoot = foot
-        let blocked = rebaseBlocked || (current.map { path in
+        let blocked = current.map { path in
             !raster.supports([foot] + path.points) || (newScenario == .distantObstacle && goal.map {
                 !ObstacleWaypointSearch.hasStandOff($0.point, raster: raster, distance: options.waypoints.standOff)
             } == true)
-        } ?? false)
+        } ?? false
         if blocked { replan = "target_or_path_blocked" }
         if arrived { replan = "current_target_reached" }
         if stageChanged && replan == nil { replan = newScenario == .nearObstacle ? "obstacle_entered_near_range" : "distant_obstacle" }
@@ -123,9 +113,9 @@ struct ObstacleWaypointPlanner: Sendable {
             if plan == nil {
                 plan = newScenario == .distantObstacle
                     ? ObstacleWaypointSearch.approach(raster: raster, reference: ref, obstacle: obstacle,
-                        foot: foot, standOff: options.waypoints.standOff, sideMargin: r.parameters.sideMargin)
+                        foot: foot, standOff: options.waypoints.standOff)
                     : ObstacleWaypointSearch.avoid(raster: raster, reference: ref, obstacle: obstacle,
-                        foot: foot, preferredSide: side, sideMargin: r.parameters.sideMargin)
+                        foot: foot, preferredSide: side)
             }
             if let plan, commit(plan, result: r, options: options, pose: pose, view: view) {
                 selectedReason = replan ?? "initial_target"
@@ -145,24 +135,6 @@ struct ObstacleWaypointPlanner: Sendable {
         return output(result: r, options: options, scenario: newScenario, obstacle: obstacle,
                       reason: newScenario == .distantObstacle ? "approach_obstacle" : "avoid_obstacle",
                       replan: replan, view: view)
-    }
-
-    /// Moves every retained point onto the new ground height, keeping its horizontal position.
-    private mutating func rebase(to plane: GroundPlane) -> Bool {
-        guard let old = reference, LocalGroundRebase.accepts(plane),
-              old.plane.normal != plane.normal || old.plane.offset != plane.offset else { return false }
-        func lift(_ p: V3) -> V3 { LocalGroundRebase.lift(p, to: plane) }
-        let origin = lift(old.origin), end = lift(old.origin + old.forward)
-        reference = .init(origin: origin, forward: simd_normalize(end-origin), plane: plane)
-        if var path = current {
-            path.points = path.points.map(lift); path.plane = plane
-            path.footAtPlan = path.footAtPlan.map(lift); current = path
-        }
-        if var target = goal { target.point = lift(target.point); target.plane = plane; goal = target }
-        continuation = continuation.map(lift)
-        if var pending = preview { pending.points = pending.points.map(lift); preview = pending }
-        previousFoot = previousFoot.map(lift)
-        return true
     }
 
     private mutating func commit(_ plan: ObstacleWaypointSearch.Plan, result r: AnalysisResult,
@@ -195,7 +167,7 @@ struct ObstacleWaypointPlanner: Sendable {
             preview = .init(points: continuation, side: side)
         } else {
             preview = ObstacleWaypointSearch.avoid(raster: raster, reference: reference,
-                obstacle: obstacle, foot: target.point, preferredSide: side, sideMargin: r.parameters.sideMargin)
+                obstacle: obstacle, foot: target.point, preferredSide: side)
         }
         previewAt = preview == nil ? nil : r.timestamp
     }

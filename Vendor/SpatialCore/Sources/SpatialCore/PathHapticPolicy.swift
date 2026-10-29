@@ -61,9 +61,6 @@ public struct PathHapticPolicy: Sendable {
                          segments:[.init(relativeTime:0,duration:0.18,intensity:1,sharpness:0.9)])
         }
         alignedSince = nil
-        // Enter directional prompting at the deviation threshold (default 12 degrees).
-        // An active turn continues until the 5-degree alignment band is reached.
-        if side == 0 && angle < threshold { mode = "neutral"; return nil }
         let nextSide = h.angleDegrees < 0 ? -1 : 1,changed = nextSide != side
         if changed { stopCurrentPattern = true };side = nextSide
         mode = side < 0 ? "left_double" : "right_long"
