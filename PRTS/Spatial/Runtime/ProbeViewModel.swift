@@ -24,16 +24,7 @@ final class ProbeViewModel: ObservableObject {
         set { options.showMesh = newValue; UserDefaults.standard.set(newValue,forKey:Self.scanMeshKey) }
     }
     var supportsScanMesh: Bool { engine.capabilities.meshClassification }
-    /// Settings → Experimental: obstacles that left the view still shape detours (docs/experiments/scene-memory.md).
-    static let sceneMemoryKey = "experimental.sceneMemory"
-    @Published var sceneMemory = UserDefaults.standard.bool(forKey: ProbeViewModel.sceneMemoryKey) {
-        didSet { UserDefaults.standard.set(sceneMemory,forKey:Self.sceneMemoryKey); engine.setSceneMemory(sceneMemory) }
-    }
-    /// The user's passage width (Settings → Obstacle guidance); everything else in parameters stays default.
-    static let bodyWidthKey = "guidance.bodyWidth"
-    @Published var parameters = ProbeParameters() {
-        didSet { UserDefaults.standard.set(Double(parameters.bodyWidth),forKey:Self.bodyWidthKey) }
-    }
+    @Published var parameters = ProbeParameters()
     @Published var pathOptions = PathOptions()
     #if PRTS_DEV_CAPTURE
     @Published var devCaptureStatus = DevCaptureRecorder.Status()
@@ -59,8 +50,6 @@ final class ProbeViewModel: ObservableObject {
         options = .product(scanMesh:UserDefaults.standard.bool(forKey:Self.scanMeshKey))
         #endif
         engine.updateOptions(options)
-        engine.setSceneMemory(sceneMemory)
-        if let width = UserDefaults.standard.object(forKey:Self.bodyWidthKey) as? Double { parameters.bodyWidth = Float(width) }
         if let data = UserDefaults.standard.data(forKey:"pathOptions"),let options = try? JSONDecoder().decode(PathOptions.self,from:data) { pathOptions = options.validated() }
         engine.store.update { $0.pathOptions = pathOptions }
         UIDevice.current.isBatteryMonitoringEnabled = true

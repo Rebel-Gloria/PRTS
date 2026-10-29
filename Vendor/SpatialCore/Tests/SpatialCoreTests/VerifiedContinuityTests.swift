@@ -19,7 +19,7 @@ extension ForwardRouteTests {
     let r = frame()
     let p = try XCTUnwrap(planner.update(result: r, observation: nil, options: .init()).path)
     XCTAssertEqual(
-      p.requiredWidth, r.parameters.bodyWidth, accuracy: 0.0001)
+      p.requiredWidth, r.parameters.bodyWidth + 2 * r.parameters.sideMargin, accuracy: 0.0001)
   }
 
   func testPresentationDoesNotHideMerelyNearLocalEnd() throws {

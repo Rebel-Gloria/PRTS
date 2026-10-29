@@ -10,7 +10,7 @@ public struct PathOptions: Codable, Sendable, Equatable {
     public var retentionSeconds: Double = 2
     public var lookAhead: Float = 0.8
     public var forwardBufferLength: Float = 8
-    public var minimumWidth: Float = 0.5 // Legacy geometry-comparator key; product resolves configured bodyWidth.
+    public var minimumWidth: Float = 0.5 // TOTAL planning envelope; do not add bodyWidth/margin twice.
     public var targetHalfAngleDegrees: Float = 45
     public var arrivalRadius: Float = 0.35
     public var alignmentDegrees: Float = 5
@@ -40,11 +40,6 @@ public struct PathOptions: Codable, Sendable, Equatable {
         userTurnDegrees = try c.decodeIfPresent(Float.self,forKey:.userTurnDegrees) ?? 45
         userTurnSeconds = try c.decodeIfPresent(Double.self,forKey:.userTurnSeconds) ?? 3
     }
-    public func resolvingBodyWidth(_ parameters: ProbeParameters) -> Self {
-        var copy = validated()
-        copy.minimumWidth = parameters.validated().bodyWidth
-        return copy
-    }
     public func validated() -> Self {
         var v = self
         v.waypoints = waypoints.validated()
@@ -52,7 +47,7 @@ public struct PathOptions: Codable, Sendable, Equatable {
         v.retentionSeconds = retentionSeconds.isFinite ? min(5,max(0.5,retentionSeconds)) : 2
         v.lookAhead = lookAhead.isFinite ? min(1.5,max(0.4,lookAhead)) : 0.8
         v.forwardBufferLength = forwardBufferLength.isFinite ? min(20,max(2,forwardBufferLength)) : 8
-        v.minimumWidth = minimumWidth.isFinite ? min(1.2,max(0.3,minimumWidth)) : 0.5
+        v.minimumWidth = minimumWidth.isFinite ? min(1.2,max(0.5,minimumWidth)) : 0.5
         v.targetHalfAngleDegrees = targetHalfAngleDegrees.isFinite ? min(75,max(15,targetHalfAngleDegrees)) : 45
         v.arrivalRadius = arrivalRadius.isFinite ? min(0.75,max(0.2,arrivalRadius)) : 0.35
         v.alignmentDegrees = alignmentDegrees.isFinite ? min(v.deviationDegrees-2,max(2,alignmentDegrees)) : min(5,v.deviationDegrees-2)
@@ -95,7 +90,6 @@ public struct FixedPathGoal: Codable, Sendable {
     public var maxDistance: Float
 }
 public struct PathUpdate: Codable, Sendable {
-    public var successfulObstacleCheck: ObstacleCheckStamp? = nil
     public var waypointGuidance: ObstacleWaypointGuidance? = nil
     public var continuity: RouteContext? = nil
     public var projection: RouteProjection? = nil
@@ -242,17 +236,12 @@ public struct PathPredictor: Sendable {
     private var obstacleConfirmationSeconds: Double = 0.3
     private var experimentalOccupancyPlanning = false
     private var occupancyFilter = TemporalOccupancyGrid()
-    private var lastSuccessfulObstacleCheck: ObstacleCheckStamp?
-    /// Settings → Experimental. Turning it off forgets everything remembered at once.
-    public mutating func setSceneMemory(_ options: SceneMemoryOptions) { occupancyFilter.memoryOptions = options }
     public init(policy: RoutePlanningPolicy) {
         self.init(experimentalOccupancyPlanning:policy == .obstacleVeto)
     }
     public init(experimentalOccupancyPlanning: Bool = true,
                 evidenceOptions: RouteEvidenceOptions = .init(),
-                continuityOptions: RouteContinuityOptions = .init(),
-                sceneMemory: SceneMemoryOptions = .init()) {
-        occupancyFilter.memoryOptions = sceneMemory
+                continuityOptions: RouteContinuityOptions = .init()) {
         evidenceMap = RouteEvidenceMap(options:evidenceOptions)
         self.continuityOptions = continuityOptions
         self.experimentalOccupancyPlanning = experimentalOccupancyPlanning
@@ -279,14 +268,12 @@ public struct PathPredictor: Sendable {
     public mutating func reset() {
         evidenceMap.reset();previousOutput = nil;previousPose = nil;previousPoseTime = nil
         waypointPlanner = .init()
-        lastSuccessfulObstacleCheck = nil
         occupancyFilter.reset();planner = .init();planner.verifiedEvidence = verifiedPolicy;planner.obstacleConfirmationSeconds = obstacleConfirmationSeconds;planner.locksWorldGeometry = experimentalOccupancyPlanning;lastFrame = 0;lastTimestamp = 0
     }
     public mutating func update(result: AnalysisResult,observation: DepthObservation?,options: PathOptions,
                                 directionStable: Bool? = nil, cameraView: RouteCameraView? = nil, hazardWatermark: UInt64 = 0,
                                 committedPath: PredictedPath? = nil,
                                 onOccupancyConflict: ((UInt64) -> Void)? = nil) -> PathUpdate {
-        let options = (experimentalOccupancyPlanning || verifiedPolicy) ? options.resolvingBodyWidth(result.parameters) : options.validated()
         if epoch != result.epoch || version != result.parameterVersion {
             reset();epoch = result.epoch;version = result.parameterVersion
         }
@@ -317,7 +304,7 @@ public struct PathPredictor: Sendable {
                 return verifiedEmpty(result,options:options,watermark:hazardWatermark,reason:"ground_or_metric_conflict")
             }
             var bodyOptions = options.validated()
-            bodyOptions.minimumWidth = result.parameters.validated().bodyWidth
+            bodyOptions.minimumWidth = max(bodyOptions.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin)
             let snapshot = evidenceMap.snapshot(result)
             var speed: Float = 0
             if let old = previousPose,let time = previousPoseTime,let pose = result.sourcePose,result.timestamp>time {
@@ -373,17 +360,10 @@ public struct PathPredictor: Sendable {
                 : planner.held(at:result.timestamp,options:options.validated(),reason:"occupancy_waiting_reference")
             return occupancyContext(held,result:result,options:options,watermark:hazardWatermark,started:started)
         }
-        // Scene memory that may not drive warnings: stages and preemption see measured obstacles only.
-        let memory = occupancyFilter.memoryOptions
-        let separate = memory.enabled && !memory.drivesScenario
-        let length = options.validated().forwardBufferLength
-        let trigger = separate ? occupancyFilter.planningForward.flatMap {
-            occupancyFilter.projected(result, forwardLength: length, forward: $0, includeMemory: false)
-        } : nil
         var watermark = hazardWatermark
         if let active = committedPath ?? (usesWaypoints ? waypointPlanner.retainedPath : planner.retainedPath),
            active.epoch == result.epoch, active.parameterVersion == result.parameterVersion,
-           RouteSafety.conflicts(active,result:trigger ?? planning,observation:nil) {
+           RouteSafety.conflicts(active,result:planning,observation:nil) {
             watermark = max(watermark,result.frameID)
             onConflict?(watermark) // Preempt BEFORE search, even if the candidate is later rejected.
         }
@@ -391,11 +371,7 @@ public struct PathPredictor: Sendable {
             let cameraResult = result.sourcePose.flatMap {
                 occupancyFilter.projected(result, forwardLength: options.validated().forwardBufferLength, forward: -$0.back)
             }
-            let cameraTrigger = separate ? result.sourcePose.flatMap {
-                occupancyFilter.projected(result, forwardLength: length, forward: -$0.back, includeMemory: false)
-            } : nil
             var update = waypointPlanner.update(result: planning, cameraResult: cameraResult,
-                trigger: trigger, cameraTrigger: cameraTrigger,
                 options: options.validated(), view: cameraView)
             update.occupancyFilter = occupancyFilter.diagnostics
             update.confirmedObstacles = planning.planningObstacles
@@ -420,8 +396,6 @@ public struct PathPredictor: Sendable {
     private mutating func occupancyContext(_ value: PathUpdate,result: AnalysisResult,options: PathOptions,
         watermark: UInt64,started: Double) -> PathUpdate {
         var update = value
-        if let check = ObstacleCheckStamp.successful(result) { lastSuccessfulObstacleCheck = check }
-        update.successfulObstacleCheck = lastSuccessfulObstacleCheck
         // The worker retains geometry, while the facade owns explicit publication semantics.
         if var path = update.path {
             path.planningPolicy = .obstacleVeto;path.verifiedEvidence = false;path.evidenceIntervals = nil
@@ -449,7 +423,7 @@ public struct PathPredictor: Sendable {
             timestamp:result.timestamp,requestID:result.frameID,sourceMapVersion:evidenceMap.version,
             hazardWatermark:watermark,routeID:nil,geometryVersion:geometryVersion,status:.needsObservation,
             remainingVerifiedLength:0,evidenceAge:nil,renewalDistance:continuityOptions.minimumRenewalDistance,
-            requiredWidth:result.parameters.validated().bodyWidth)
+            requiredWidth:max(options.minimumWidth,result.parameters.bodyWidth+2*result.parameters.sideMargin))
         u.goal = planner.held(at:result.timestamp,options:options.validated(),reason:reason).goal
         if experimentalOccupancyPlanning { u.continuity?.planningPolicy = RoutePlanningPolicy.obstacleVeto.rawValue }
         u.continuity?.plannedLength = 0

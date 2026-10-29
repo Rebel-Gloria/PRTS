@@ -120,8 +120,8 @@ public struct ProbeParameters: Codable, Sendable, Equatable {
     public var gridSize: Float = 0.10
     public var forwardRange: Float = 4
     public var halfWidth: Float = 1.5
-    public var bodyWidth: Float = 0.50
-    public var sideMargin: Float = 0.15 // Per-side comfort preference; search may retreat to bodyWidth.
+    public var bodyWidth: Float = 0.60
+    public var sideMargin: Float = 0.15
     public var bodyHeight: Float = 1.80
     public var planeTolerance: Float = 0.03
     public var maxPlaneTiltDegrees: Float = 12
@@ -134,8 +134,7 @@ public struct ProbeParameters: Codable, Sendable, Equatable {
     public var maxAngularSpeed: Float = 30
     public var stableDuration: Double = 0.5
     public init() {}
-    public var requiredWidth: Float { bodyWidth }
-    public var comfortableWidth: Float { bodyWidth + 2*sideMargin }
+    public var requiredWidth: Float { bodyWidth + 2*sideMargin }
     public func validated() -> ProbeParameters {
         var p = self
         p.gridSize = 0.1; p.forwardRange = 4; p.halfWidth = 1.5
