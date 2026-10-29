@@ -48,15 +48,17 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     func down(capture: @escaping () throws -> Task<Data, Error>, silence: () -> Void) {
         guard !busy else { return }
-        guard services.uploadAllowed() else {
-            message = "先在设置里允许发送照片"; return
-        }
-        do {
-            guard let credential = try services.credential(), !credential.isEmpty else {
-                throw PhotoChatError.missingKey
+        if !services.onDevice() {
+            guard services.uploadAllowed() else {
+                message = "先在设置里允许发送照片"; return
             }
-            key = credential
-        } catch { message = error.localizedDescription; return }
+            do {
+                guard let credential = try services.credential(), !credential.isEmpty else {
+                    throw PhotoChatError.missingKey
+                }
+                key = credential
+            } catch { message = error.localizedDescription; return }
+        }
         silence()
         generation = UUID()
         captureOperation = capture

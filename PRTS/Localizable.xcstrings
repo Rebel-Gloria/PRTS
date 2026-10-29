@@ -2730,6 +2730,40 @@
         }
       }
     },
+    "photo.settings.provider.onDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On this phone (offline)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机（离线）"
+          }
+        }
+      }
+    },
+    "photo.settings.onDeviceFooter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos are described on this phone and never leave it. Works without a network. The first photo takes about 3 seconds to load the model, later ones about 2 seconds. Descriptions are less detailed than the online services."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片只在手机上处理，不联网也能用。第一次要加载约 3 秒，之后每张约 2 秒。描述比联网的服务粗一些。"
+          }
+        }
+      }
+    },
     "photo.settings.provider.custom" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -6,6 +6,7 @@ import Testing
 private final class PhotoTestState {
     var time: TimeInterval = 0
     var allowUpload = true
+    var onDevice = false
     var hasCredential = true
     var speechAuthorized = true
     var events: [String] = []
@@ -75,6 +76,7 @@ private final class PhotoFixture {
         recognizer = PhotoTestRecognizer(state)
         var services = PhotoDescriptionServices()
         services.now = { state.time }
+        services.onDevice = { state.onDevice }
         services.uploadAllowed = { state.allowUpload }
         services.credential = { state.hasCredential ? "synthetic-test-key" : nil }
         services.speechAuthorized = { state.speechAuthorized }
@@ -203,6 +205,16 @@ struct PhotoLifecycleTests {
         f.down(); f.coordinator.up()
         #expect(f.state.events.isEmpty)
         #expect(await f.network.requests.isEmpty)
+    }
+
+    @Test func onDeviceNeedsNeitherUploadPermissionNorKey() async {
+        let f = PhotoFixture()
+        f.state.onDevice = true; f.state.allowUpload = false; f.state.hasCredential = false
+        f.down(); f.coordinator.up()
+        await f.network.waitForRequests(1)
+        let requests = await f.network.requests
+        #expect(requests[0].key.isEmpty)
+        f.coordinator.cancel()
     }
 
     @Test func missingSpeechPermissionNeverFallsBackToDefaultQuestion() async {
