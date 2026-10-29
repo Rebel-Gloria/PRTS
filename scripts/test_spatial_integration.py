@@ -161,7 +161,8 @@ class SpatialIntegrationTests(unittest.TestCase):
     def test_original_home_controls_and_theme_are_preserved(self):
         # Interaction baseline: local main c9bace5 (stopGesture, theme). The header, status and
         # primary button were restyled for Liquid Glass, the approved accessibility plan and the
-        # large-text / tap-to-stop round on 2026-10-28; their actions and accessibility are asserted line by line below.
+        # large-text / tap-to-stop round on 2026-10-28, then the read-text action and animated status on 2026-10-29;
+        # their actions and accessibility are asserted line by line below.
         s = (ROOT / "PRTS/UI/ContentView.swift").read_text()
         parts = {
             "header": s[s.index("    private var header:"):s.index("    private var cameraStatus:")],
@@ -170,7 +171,7 @@ class SpatialIntegrationTests(unittest.TestCase):
             "stopGesture": s[s.index("    private var stopGesture:"):s.index("    private func startCameraFromButton")],
             "theme": s[s.index("private extension Color"):],
         }
-        expected = {'header': '0216fa5b4e5a72d0f61d0ec64b480e8958b3594ac3d9aa9ae599ea7c4be357c8', 'cameraStatus': '484b754561c0baa793080542c10bb1678c6471fb30b087581a0b90d4d8977825', 'primaryButton': 'f715e92762365f90617ac39212428219336b09ee1701a0299be6b4d1f9caea1d', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
+        expected = {'header': '0216fa5b4e5a72d0f61d0ec64b480e8958b3594ac3d9aa9ae599ea7c4be357c8', 'cameraStatus': 'b4283c4a33b04f85e16bf46098efb170e923560b488711488d3e9ef298613cb5', 'primaryButton': 'f5c8d889b2422f15b4b55d22ca80809d455b4c3a22e741cc0f00322cd47fe4b8', 'stopGesture': '262372a13b8b7185856d8a908233d16e078b3428176aa0227e283558c6be16a8', 'theme': '060b5ef5337e64d7bc4545eb1dc5d728f53c1396bf670264c9cbef94b8659738'}
         for name,content in parts.items():
             with self.subTest(part=name):
                 self.assertEqual(hashlib.sha256(content.encode()).hexdigest(),expected[name])
