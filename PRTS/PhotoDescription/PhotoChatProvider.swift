@@ -1,9 +1,10 @@
 import Foundation
 
-/// Photo description providers. Every one speaks OpenAI-compatible streaming Chat Completions
-/// with an inline JPEG; presets only differ in endpoint, model and one Qwen-specific flag.
+/// Photo description providers. `onDevice` runs the bundled MiniCPM-V with no network, key or
+/// upload. The cloud ones speak OpenAI-compatible streaming Chat Completions with an inline JPEG;
+/// presets only differ in endpoint, model and one Qwen-specific flag.
 nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable {
-    case qwen, deepseek, custom
+    case onDevice, qwen, deepseek, custom
 
     var id: String { rawValue }
 
@@ -18,9 +19,10 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
     /// The Qwen key keeps the original Keychain account so existing installs stay configured.
     var keyAccount: String { self == .qwen ? "api-key" : "api-key.\(rawValue)" }
 
-    /// nil only for an incomplete custom entry.
+    /// nil on device and for an incomplete custom entry.
     func service(_ defaults: UserDefaults = .standard) -> PhotoChatService? {
         switch self {
+        case .onDevice: return nil
         case .qwen: return .qwen
         case .deepseek: return .deepseek
         case .custom:
