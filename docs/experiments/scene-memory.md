@@ -1,4 +1,4 @@
-# 障碍地图记忆（实验，分支 `exp/scene-memory`）
+# 障碍地图记忆（实验）
 
 现在的规划只认画面里正看着的障碍：一个障碍离开视野超过 0.75 s 就被忘掉。转头、走近（东西掉出画面下沿）以后，路线会贴着刚才看到的东西画。这个实验让确认过的障碍留在世界坐标里，绕行时继续避开它。
 
@@ -6,7 +6,7 @@
 
 ## 规则
 
-代码在 `TemporalOccupancyGrid`（`SceneMemoryOptions`），默认关，正式版行为不变。
+代码在 `TemporalOccupancyGrid`（`SceneMemoryOptions`）。正式版和开发版的设置 → 实验性 → "记住画面外的障碍"打开它（`experimental.sceneMemory`，默认关）；用的是"只影响路线"模式。关掉时立刻清空记忆。切换会在 DIAG 的 `events.jsonl` 里记一条 `scene_memory`，记忆格子数在 `path.jsonl` 的 `occupancyFilter.rememberedCells`。
 
 - 只记已经确认的障碍（连续 300 ms 看到，位置漂移不超过 16 cm，走动的人和车一般过不了这一关）。
 - 当前帧优先：记住的格子只要这一帧看到地面（至少 3 个地面点）且没有障碍点，就立刻忘掉。
@@ -66,4 +66,4 @@ python3 Experiments/astra/compare_memory.py <label> ...
 1. 逐帧查 0.50 m 下多出来的语音误报和漏报帧。
 2. 在 B1、B3 的录像上抽查记忆里的格子，统计鬼影。
 3. 扫一下过期时间（5 s / 10 s / 15 s），看 blocked 能不能降下来。
-4. 指标站得住，再在开发版里加开关真机走一次。
+4. 打开设置里的开关真机走一次，对照 DIAG 看记忆格子数和 blocked。
