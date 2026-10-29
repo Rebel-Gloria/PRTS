@@ -29,7 +29,7 @@ xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
 - 保存相机视频与分析数据：每次启动都是关的，不记住；
 - 演示模式选项、图层/路径/触觉/DIAG 参数页。
 
-正式版不读开发版存下的显示设置，所以不会继承"隐藏相机画面"之类改不回来的设置。
+正式版不读开发版存下的显示设置，所以不会继承"隐藏相机画面"之类改不回来的设置。正式版的画面固定是 `RenderOptions.product`：只有相机画面，加上用户可选的扫描网格。
 
 ## 采集
 

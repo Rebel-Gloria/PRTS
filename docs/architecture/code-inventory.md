@@ -10,13 +10,13 @@
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 45 | 5929 | 5577 |
+| App | 45 | 6020 | 5667 |
 | SpatialCore | 43 | 5540 | 5367 |
 | Contracts | 7 | 770 | 746 |
 | OptionalModels | 16 | 1409 | 1372 |
-| Tests | 49 | 6288 | 6049 |
+| Tests | 49 | 6326 | 6085 |
 | Scripts | 10 | 931 | 862 |
-| Total | 170 | 20867 | 19973 |
+| Total | 170 | 20996 | 20099 |
 
 ## 文件树
 
@@ -30,7 +30,7 @@ PRTS/
     RuntimeProfile.swift (9 lines)
   Capture/
     CameraManager.swift (128 lines)
-    CameraPreview.swift (11 lines)
+    CameraPreview.swift (33 lines)
   Feedback/
     FeedbackCoordinator.swift (112 lines)
     HapticManager.swift (71 lines)
@@ -58,21 +58,21 @@ PRTS/
       DiagnosticRecorder.swift (267 lines)
       SessionRecorder.swift (231 lines)
     Rendering/
-      ProbeRenderer.swift (450 lines)
+      ProbeRenderer.swift (455 lines)
       ProbeShaders.metal.txt (67 lines)
     Runtime/
       CoreMLDepthModel.swift (69 lines)
       MonocularDepthProvider.swift (133 lines)
       ProbeEngine.swift (411 lines)
-      ProbeViewModel.swift (169 lines)
-      Snapshots.swift (299 lines)
+      ProbeViewModel.swift (180 lines)
+      Snapshots.swift (308 lines)
   TextReading/
     DocumentFraming.swift (64 lines)
     TextReadingSession.swift (189 lines)
     TextRecognizer.swift (60 lines)
     ThreeFingerHold.swift (67 lines)
   UI/
-    ContentView.swift (611 lines)
+    ContentView.swift (646 lines)
     DemoOptionsView.swift (54 lines)
     HomeDemoOverlay.swift (85 lines)
     LiquidGlass.swift (52 lines)
@@ -80,7 +80,7 @@ PRTS/
     PhotoCaptureButton.swift (101 lines)
     PhotoDescriptionSettingsView.swift (93 lines)
     ProbeSettingsView.swift (155 lines)
-    SettingsView.swift (144 lines)
+    SettingsView.swift (153 lines)
 PRTSTests/
   DevCaptureTests.swift (125 lines)
   DocumentFramingTests.swift (62 lines)
@@ -93,7 +93,7 @@ PRTSTests/
   PhotoPresentationTests.swift (112 lines)
   TextRecognizerTests.swift (35 lines)
 PRTSUITests/
-  PRTSUITests.swift (263 lines)
+  PRTSUITests.swift (300 lines)
   PRTSUITestsLaunchTests.swift (35 lines)
 Vendor/
   PRTSCore/
@@ -219,7 +219,7 @@ scripts/
   test_dev_capture.py (36 lines)
   test_read_diag.py (219 lines)
   test_route_replay.py (40 lines)
-  test_spatial_integration.py (193 lines)
+  test_spatial_integration.py (194 lines)
   test_summarize_session.py (39 lines)
   validate_spatial.sh (11 lines)
 ```
