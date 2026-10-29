@@ -72,6 +72,17 @@ extension ForwardRouteTests {
     XCTAssertEqual(far.diagnostics.rememberedCells, 0)
   }
 
+  func testSceneMemorySwitchedOffForgetsAtOnce() throws {
+    var filter = TemporalOccupancyGrid()
+    filter.memoryOptions.enabled = true
+    confirmedBox(&filter)
+    _ = filter.apply(memoryFrame(5, 1.4, hidden: true))
+    XCTAssertGreaterThan(filter.diagnostics.rememberedCells ?? 0, 0)
+    filter.memoryOptions.enabled = false
+    let after = try XCTUnwrap(filter.apply(memoryFrame(6, 1.5, hidden: true)))
+    XCTAssertEqual(after.planningObstacles?.count, 0)
+  }
+
   func testSceneMemoryDrivesWarningsOnlyWhenAllowed() {
     func scenario(_ memory: SceneMemoryOptions) -> ObstacleRouteScenario? {
       var predictor = PathPredictor(sceneMemory: memory)

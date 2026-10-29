@@ -97,6 +97,14 @@ struct SettingsView: View {
                 Toggle("settings.feedback.haptic", isOn: Binding(get: { haptics.isEnabled }, set: haptics.setEnabled))
                     .accessibilityHint("settings.feedback.haptic.hint")
             }
+            Section {
+                Toggle("settings.experimental.sceneMemory", isOn: $model.sceneMemory)
+                    .accessibilityIdentifier("sceneMemoryToggle")
+            } header: {
+                Text("settings.experimental.section")
+            } footer: {
+                Text("settings.experimental.sceneMemory.footer")
+            }
 
         }
         #if PRTS_DEV_CAPTURE
