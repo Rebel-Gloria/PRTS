@@ -4,6 +4,7 @@
 
 | 脚本 | 做什么 |
 |---|---|
+| `Vendor/LocalVLM/prepare.sh` | 编出离线看图要用的 `PRTSLocalVLM.xcframework`（llama.cpp），并下载、校验 MiniCPM-V 4.7 的权重。clone 下来后先跑一次，不跑 App 编不过，见 [本地视觉模型](../features/local-vlm.md) |
 | `validate_spatial.sh` | 跑 SpatialCore 包测试、契约测试、Python 测试，再无签名编译 App |
 | `pull_diag.py` | 从连着的手机拷出 App 的 `Diagnostics` 目录 |
 | `read_diag.py` | 读 DIAG，`--verify-data` 校验附件 |
