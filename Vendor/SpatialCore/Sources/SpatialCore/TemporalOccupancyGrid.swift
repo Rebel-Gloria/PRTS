@@ -9,7 +9,25 @@ public struct OccupancyFilterDiagnostics: Codable, Sendable {
   public var pendingCells: Int = 0
   public var confirmedCells: Int = 0
   public var maximumAge: Double = 0
+  public var rememberedCells: Int? = nil
   public var policy: String = "obstacle_veto_v1"
+}
+
+/// Experimental (exp/scene-memory): confirmed obstacles stay on a world-locked map after they
+/// leave the camera's view, so a detour doesn't cut through what was seen a moment ago.
+/// A cell seen empty again (ground visible, no obstacle points) is forgotten at once.
+public struct SceneMemoryOptions: Codable, Sendable, Equatable {
+  public var enabled: Bool
+  /// Seconds an obstacle is kept after it was last measured.
+  public var lifetime: Double
+  /// Forgotten beyond this ground distance from the camera, metres.
+  public var radius: Float
+  /// Remembered obstacles also start the distant/near obstacle stages, and so their speech.
+  /// Off: they only shape the detour; warnings come from what is measured now.
+  public var drivesScenario: Bool
+  public init(enabled: Bool = false, lifetime: Double = 15, radius: Float = 6, drivesScenario: Bool = false) {
+    self.enabled = enabled; self.lifetime = lifetime; self.radius = radius; self.drivesScenario = drivesScenario
+  }
 }
 
 /// Obstacle-veto route input. Every cell not vetoed by the temporal obstacle model is
@@ -21,6 +39,17 @@ struct TemporalOccupancyGrid: Sendable {
     var last: Double
   }
   private var previous: [SIMD3<Int>: Track] = [:]
+  private struct Remembered: Sendable {
+    var footprint: OccupancyFootprint
+    var lastSeen: Double
+  }
+  private var memory: [SIMD3<Int>: Remembered] = [:]
+  /// Remembered footprints not measured in the latest frame.
+  private var rememberedFootprints: [OccupancyFootprint] = []
+  var memoryOptions = SceneMemoryOptions() {
+    didSet { if !memoryOptions.enabled { memory.removeAll(); rememberedFootprints.removeAll() } }
+  }
+  var planningForward: V3? { referenceForward }
   // Multiple measured squares may quantize to one association bin. Keep ALL confirmed
   // squares for collision geometry; choosing one timer must not discard the other area.
   private var confirmedFootprints: [OccupancyFootprint] = []
@@ -31,7 +60,7 @@ struct TemporalOccupancyGrid: Sendable {
   private(set) var referenceSource = "unavailable"
   static let defaultCameraHeight: Float = 1.4
   private(set) var diagnostics = OccupancyFilterDiagnostics()
-  mutating func reset() { self = .init() }
+  mutating func reset() { let options = memoryOptions; self = .init(); memoryOptions = options }
 
   mutating func apply(_ result: AnalysisResult, forwardLength: Float = 8, routeForward: V3? = nil)
     -> AnalysisResult?
@@ -78,10 +107,12 @@ struct TemporalOccupancyGrid: Sendable {
     var parameters = result.parameters
     parameters.forwardRange = forwardLength
     let grid: LocalGrid
+    var measured = false
     if let raw = result.grid, raw.epoch == result.epoch, raw.frameID == result.frameID,
       raw.timestamp == result.timestamp
     {
       grid = raw
+      measured = true
     } else {
       grid = LocalGrid(
         basis: basis, parameters: parameters, timestamp: result.timestamp, frameID: result.frameID,
@@ -130,19 +161,44 @@ struct TemporalOccupancyGrid: Sendable {
         diagnostics.maximumAge = max(diagnostics.maximumAge, age)
         if confirmed {
           diagnostics.confirmedCells += 1
-          confirmedFootprints.append(.init(center:world,right:grid.basis.right,forward:grid.basis.forward,size:grid.cellSize))
+          let footprint = OccupancyFootprint(center:world,right:grid.basis.right,forward:grid.basis.forward,size:grid.cellSize)
+          confirmedFootprints.append(footprint)
+          if memoryOptions.enabled { memory[k] = .init(footprint: footprint, lastSeen: result.timestamp) }
         } else { diagnostics.pendingCells += 1 }
         // Keep the older matching track when multiple samples quantize to one bin.
         if current[k].map({ $0.since > track.since }) ?? true { current[k] = track }
       }
     }
     previous = current  // A missing detection does not carry its timer into a later sighting.
+    if memoryOptions.enabled { updateMemory(result, grid: grid, measured: measured, plane: plane, camera: pose.position) }
+    diagnostics.rememberedCells = rememberedFootprints.count
     return projected(result, forwardLength: forwardLength, forward: basis.forward)
   }
 
   /// Re-query the SAME confirmed world tracks in another direction; never ingest twice or
   /// restart confirmation when testing a user's new heading outside the old route window.
-  func projected(_ result: AnalysisResult, forwardLength: Float, forward: V3) -> AnalysisResult? {
+  private mutating func updateMemory(_ result: AnalysisResult, grid: LocalGrid, measured: Bool, plane: GroundPlane, camera: V3) {
+    let foot = plane.project(camera)
+    rememberedFootprints.removeAll(keepingCapacity: true)
+    for (k, cell) in memory {
+      if cell.lastSeen == result.timestamp { continue }
+      let offset = plane.project(cell.footprint.center) - foot
+      if result.timestamp - cell.lastSeen > memoryOptions.lifetime || simd_length(offset) > memoryOptions.radius {
+        memory[k] = nil; continue
+      }
+      // Ground under it is visible and nothing stands there: it has moved or was never solid.
+      if measured {
+        let d = cell.footprint.center - grid.basis.origin
+        if let i = grid.index(x: simd_dot(d, grid.basis.right), z: simd_dot(d, grid.basis.forward)),
+          grid.cells[i].groundSamples >= 3, grid.cells[i].obstacleSamples == 0 {
+          memory[k] = nil; continue
+        }
+      }
+      rememberedFootprints.append(cell.footprint)
+    }
+  }
+
+  func projected(_ result: AnalysisResult, forwardLength: Float, forward: V3, includeMemory: Bool = true) -> AnalysisResult? {
     guard let pose = result.sourcePose, let plane = referencePlane,
       let basis = GroundBasis.geometry(plane: plane,
         pose: RigidPose(back: -forward, position: pose.position), previousForward: referenceForward)
@@ -153,7 +209,7 @@ struct TemporalOccupancyGrid: Sendable {
       basis: basis, parameters: parameters, timestamp: result.timestamp, frameID: result.frameID,
       epoch: result.epoch)
     planningGrid.cells = Array(repeating: GridCell(state: .candidate), count: planningGrid.cells.count)
-    let footprints = confirmedFootprints.sorted {
+    let footprints = (includeMemory ? confirmedFootprints + rememberedFootprints : confirmedFootprints).sorted {
       if $0.center.x != $1.center.x { return $0.center.x < $1.center.x }
       if $0.center.z != $1.center.z { return $0.center.z < $1.center.z }
       return $0.center.y < $1.center.y

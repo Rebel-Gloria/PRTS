@@ -897,6 +897,57 @@
         }
       }
     },
+    "settings.experimental.sceneMemory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remember obstacles out of view"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记住画面外的障碍"
+          }
+        }
+      }
+    },
+    "settings.experimental.sceneMemory.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obstacles you've just passed or turned away from are remembered for about 15 seconds, and detours keep clear of them. Warnings still come only from what the camera sees now. You may hear “no way around” more often."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刚经过或转头错开的障碍会记住约 15 秒，绕行路线会继续避开它们。障碍提示仍然只根据眼前看到的。可能更常提示无法绕行。"
+          }
+        }
+      }
+    },
+    "settings.experimental.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实验性"
+          }
+        }
+      }
+    },
     "settings.feedback.haptic" : {
       "extractionState" : "manual",
       "localizations" : {

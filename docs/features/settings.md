@@ -23,6 +23,7 @@
 | 显示 | 扫描网格（没有 LiDAR 的机型不显示这一项） | 关 | `display.scanMesh` |
 | 避障 | 通行宽度：更灵活 ← 平衡 → 更舒适，40–60 厘米，步长 5 厘米 | 50 厘米 | `guidance.bodyWidth` |
 | 振动 | 振动提示 | 开 | `HapticManager` |
+| 实验性 | 记住画面外的障碍，见 [障碍地图记忆](../experiments/scene-memory.md) | 关 | `experimental.sceneMemory` |
 
 另外可以用 Siri、快捷指令和操作按钮开始、停止避障和描述画面（App Intents）。
 

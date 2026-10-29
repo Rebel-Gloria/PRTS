@@ -29,13 +29,17 @@ struct ObstacleWaypointPlanner: Sendable {
         return held
     }
 
+    /// `trigger` / `cameraTrigger`: when given, the obstacle stages are decided on these
+    /// (measured obstacles only) while routes are searched on `r` (which may add remembered ones).
     mutating func update(result r: AnalysisResult, cameraResult: AnalysisResult?,
+                         trigger: AnalysisResult? = nil, cameraTrigger: AnalysisResult? = nil,
                          options: PathOptions, view: RouteCameraView?) -> PathUpdate {
         let options = options.resolvingBodyWidth(r.parameters)
         guard let pose = r.sourcePose, let plane = r.plane,
               let device = GroundBasis.geometry(plane: plane, pose: pose, previousForward: reference?.forward),
               var raster = RoutePlanningGrid(result: r, options: options, obstacleVeto: true)
         else { return held(reason: "waiting_route_reference") }
+        var triggerRaster = trigger.flatMap { RoutePlanningGrid(result: $0, options: options, obstacleVeto: true) }
         let rebased = rebase(to: plane)
         let foot = plane.project(pose.position)
         // Check the entire reprojected body sweep, including the near connection, before
@@ -60,6 +64,7 @@ struct ObstacleWaypointPlanner: Sendable {
             reference = .init(origin: foot, forward: device.forward, plane: plane)
             if let cameraResult, let cameraRaster = RoutePlanningGrid(result: cameraResult, options: options, obstacleVeto: true) {
                 raster = cameraRaster
+                triggerRaster = cameraTrigger.flatMap { RoutePlanningGrid(result: $0, options: options, obstacleVeto: true) }
             }
             side = 0
             preview = nil
@@ -72,7 +77,7 @@ struct ObstacleWaypointPlanner: Sendable {
         // The held intent, not every small camera yaw, defines the lane during a manoeuvre.
         let laneBasis = GroundBasis.geometry(plane: plane,
             pose: .init(back: -ref.forward, position: pose.position), previousForward: ref.forward)!
-        let measuredObstacle = ForwardObstacleTrigger.trigger(raster: raster, device: laneBasis, reference: ref, options: options, laneOnly: true)
+        let measuredObstacle = ForwardObstacleTrigger.trigger(raster: triggerRaster ?? raster, device: laneBasis, reference: ref, options: options, laneOnly: true)
         let (measuredScenario, retainedObstacle) = scenarios.update(measuredObstacle, now:r.timestamp, nearDistance:options.waypoints.nearDistance)
         // Once a bypass is committed, a farther component replacing the nearest detection
         // must not switch us back to an approach target halfway around the current bend.

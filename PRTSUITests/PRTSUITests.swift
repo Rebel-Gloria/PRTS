@@ -209,6 +209,7 @@ final class PRTSUITests: XCTestCase {
         sleep(1); shot("6 settings")
         app.swipeUp(); sleep(1); shot("7 settings lower")
         app.swipeUp(); sleep(1); shot("8 settings bottom")
+        XCTAssertTrue(app.switches["sceneMemoryToggle"].exists)
         app.terminate()
 
         // Scan mesh on, through the argument domain so the saved setting is left alone.
