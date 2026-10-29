@@ -68,6 +68,7 @@ struct ObstacleRouteSpeechTests {
     @Test func onlyTheNearLevelChangeReannounces() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         _ = policy.cue(update:try update("distantObstacle",distance:4),heading:nil,now:1,deviationDegrees:12)
+        #expect(policy.cue(update:try update("distantObstacle",distance:0.8),heading:nil,now:3,deviationDegrees:12) == nil)
         #expect(policy.cue(update:try update("distantObstacle",distance:2.5),heading:nil,now:5,deviationDegrees:12) == nil)
         #expect(policy.cue(update:try update("distantObstacle",distance:0.8),heading:nil,now:5.5,deviationDegrees:12) == .obstacle(0.8,nil))
         #expect(policy.cue(update:try update("distantObstacle",distance:0.6),heading:nil,now:9,deviationDegrees:12) == nil)
