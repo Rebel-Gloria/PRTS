@@ -18,8 +18,8 @@
 
 | 服务商 | 地址 | 模型 | 怎么关闭思考 |
 |---|---|---|---|
-| 本机（离线） | 不联网，模型打包在 App 里 | MiniCPM-V 4.7 1B，见 [本地视觉模型](local-vlm.md) | 对话模板里写一个空的思考段 |
-| 通义千问（默认） | `maas.qianwenaiapi.com/compatible-mode/v1/chat/completions` | `qwen3.8-flash` | `enable_thinking: false` |
+| 本机（离线，默认） | 不联网，模型打包在 App 里 | MiniCPM-V 4.7 1B，见 [本地视觉模型](local-vlm.md) | 对话模板里写一个空的思考段 |
+| 通义千问 | `maas.qianwenaiapi.com/compatible-mode/v1/chat/completions` | `qwen3.8-flash` | `enable_thinking: false` |
 | DeepSeek | `api.deepseek.com/chat/completions` | `deepseek-flash` | `thinking: {type: disabled}` |
 | 自定义 | 用户填写，只接受 `https://`，只填基础地址时自动补上 `/chat/completions` | 用户填写 | 只发标准字段 |
 

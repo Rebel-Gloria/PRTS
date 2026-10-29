@@ -12,8 +12,9 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
     static let customEndpointKey = "photoDescription.customEndpoint"
     static let customModelKey = "photoDescription.customModel"
 
+    /// On device by default: PRTS has to work without a network.
     static func current(_ defaults: UserDefaults = .standard) -> PhotoChatProvider {
-        defaults.string(forKey: selectionKey).flatMap(PhotoChatProvider.init(rawValue:)) ?? .qwen
+        defaults.string(forKey: selectionKey).flatMap(PhotoChatProvider.init(rawValue:)) ?? .onDevice
     }
 
     /// The Qwen key keeps the original Keychain account so existing installs stay configured.
