@@ -10,13 +10,13 @@
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 45 | 6038 | 5685 |
-| SpatialCore | 43 | 5616 | 5441 |
+| App | 45 | 5956 | 5607 |
+| SpatialCore | 40 | 5325 | 5161 |
 | Contracts | 7 | 770 | 746 |
 | OptionalModels | 16 | 1409 | 1372 |
-| Tests | 50 | 6432 | 6180 |
+| Tests | 44 | 6098 | 5862 |
 | Scripts | 10 | 931 | 862 |
-| Total | 171 | 21196 | 20286 |
+| Total | 162 | 20489 | 19610 |
 
 ## 文件树
 
@@ -58,14 +58,14 @@ PRTS/
       DiagnosticRecorder.swift (267 lines)
       SessionRecorder.swift (231 lines)
     Rendering/
-      ProbeRenderer.swift (455 lines)
+      ProbeRenderer.swift (453 lines)
       ProbeShaders.metal.txt (67 lines)
     Runtime/
       CoreMLDepthModel.swift (69 lines)
       MonocularDepthProvider.swift (133 lines)
-      ProbeEngine.swift (415 lines)
-      ProbeViewModel.swift (186 lines)
-      Snapshots.swift (308 lines)
+      ProbeEngine.swift (411 lines)
+      ProbeViewModel.swift (175 lines)
+      Snapshots.swift (302 lines)
   TextReading/
     DocumentFraming.swift (64 lines)
     TextReadingSession.swift (189 lines)
@@ -79,13 +79,13 @@ PRTS/
     Localization.swift (86 lines)
     PhotoCaptureButton.swift (101 lines)
     PhotoDescriptionSettingsView.swift (93 lines)
-    ProbeSettingsView.swift (155 lines)
-    SettingsView.swift (161 lines)
+    ProbeSettingsView.swift (156 lines)
+    SettingsView.swift (101 lines)
 PRTSTests/
   DevCaptureTests.swift (125 lines)
   DocumentFramingTests.swift (62 lines)
   LocalVLMBenchmarkTests.swift (112 lines)
-  ObstacleRouteSpeechTests.swift (137 lines)
+  ObstacleRouteSpeechTests.swift (138 lines)
   PRTSTests.swift (103 lines)
   PhotoDescriptionTests.swift (188 lines)
   PhotoImageAlignmentTests.swift (59 lines)
@@ -93,7 +93,7 @@ PRTSTests/
   PhotoPresentationTests.swift (112 lines)
   TextRecognizerTests.swift (35 lines)
 PRTSUITests/
-  PRTSUITests.swift (301 lines)
+  PRTSUITests.swift (300 lines)
   PRTSUITestsLaunchTests.swift (35 lines)
 Vendor/
   PRTSCore/
@@ -143,26 +143,23 @@ Vendor/
         ForwardPathSearch.swift (146 lines)
         ForwardRoutePlanner.swift (541 lines)
         ForwardRouteState.swift (90 lines)
-        Geometry.swift (148 lines)
+        Geometry.swift (147 lines)
         GreedyDetourSearch.swift (49 lines)
         Grid.swift (214 lines)
         Ground.swift (112 lines)
         GroundReference.swift (67 lines)
-        GroundRouteDrawing.swift (83 lines)
-        LocalGroundRebase.swift (15 lines)
         MeshFrameCodec.swift (57 lines)
         MetricScaleTracking.swift (113 lines)
         MonocularDepth.swift (185 lines)
-        ObstacleFeedbackFreshness.swift (43 lines)
         ObstaclePersistence.swift (38 lines)
-        ObstacleWaypointPlanner.swift (231 lines)
-        ObstacleWaypointSearch.swift (110 lines)
+        ObstacleWaypointPlanner.swift (203 lines)
+        ObstacleWaypointSearch.swift (102 lines)
         ObstacleWaypointState.swift (68 lines)
         OccupancyFootprint.swift (46 lines)
-        PathDrawing.swift (118 lines)
-        PathHapticPolicy.swift (85 lines)
+        PathDrawing.swift (98 lines)
+        PathHapticPolicy.swift (82 lines)
         PathObstacleCheck.swift (75 lines)
-        PathPrediction.swift (515 lines)
+        PathPrediction.swift (489 lines)
         PredictedGeometry.swift (36 lines)
         ResultPresentationGate.swift (53 lines)
         RouteContinuity.swift (248 lines)
@@ -172,33 +169,27 @@ Vendor/
         SceneContracts.swift (156 lines)
         SurfaceHistory.swift (41 lines)
         SurfaceModel.swift (108 lines)
-        TemporalOccupancyGrid.swift (226 lines)
+        TemporalOccupancyGrid.swift (162 lines)
         WaypointTransitionState.swift (47 lines)
     Tests/
       SpatialCoreTests/
         BlockingVolumeTests.swift (79 lines)
-        BodyWidthTests.swift (38 lines)
         DiagnosticTests.swift (175 lines)
-        FanPathTests.swift (162 lines)
+        FanPathTests.swift (160 lines)
         FixedTargetTests.swift (207 lines)
         ForwardRouteTests.swift (286 lines)
         GroundContinuityTests.swift (153 lines)
-        GroundRouteDrawingTests.swift (56 lines)
-        HapticEntryTests.swift (35 lines)
-        LocalGroundRebaseTests.swift (52 lines)
         MeshFrameCodecTests.swift (42 lines)
         MetricScaleTrackingTests.swift (142 lines)
         MonocularTests.swift (161 lines)
         MotionPresentationTests.swift (216 lines)
-        ObstacleFeedbackFreshnessTests.swift (52 lines)
         ObstacleWaypointTests.swift (285 lines)
-        OccupancyContinuityTests.swift (283 lines)
+        OccupancyContinuityTests.swift (289 lines)
         OccupancyFootprintTests.swift (66 lines)
         PathPredictionTests.swift (237 lines)
         RollingRouteTests.swift (135 lines)
         RouteEvidenceTests.swift (281 lines)
         RouteProjectionTests.swift (107 lines)
-        SceneMemoryTests.swift (105 lines)
         SpatialCoreTests.swift (225 lines)
         SurfaceModelTests.swift (132 lines)
         TemporalOccupancyTests.swift (120 lines)

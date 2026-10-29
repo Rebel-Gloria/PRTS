@@ -21,9 +21,7 @@
 | 语言 | 跟随系统、选择语言（中文 / English） | 跟随系统 | `SpeechManager` |
 | 显示 | 无画面模式 | 关 | `display.noPreview` |
 | 显示 | 扫描网格（没有 LiDAR 的机型不显示这一项） | 关 | `display.scanMesh` |
-| 避障 | 通行宽度：更灵活 ← 平衡 → 更舒适，40–60 厘米，步长 5 厘米 | 50 厘米 | `guidance.bodyWidth` |
 | 振动 | 振动提示 | 开 | `HapticManager` |
-| 实验性 | 记住画面外的障碍，见 [障碍地图记忆](../experiments/scene-memory.md) | 关 | `experimental.sceneMemory` |
 
 另外可以用 Siri、快捷指令和操作按钮开始、停止避障和描述画面（App Intents）。
 
@@ -37,8 +35,6 @@
 | 设置 → 开发者选项 | 保存相机视频与分析数据 | 每次启动都是关的，见 [开发采集](../guides/dev-capture.md) |
 | 设置 → 开发者选项 → 演示模式选项 | 相机画面、传感器底图、深度热图、几何叠加、信息栏 | 只影响显示 |
 | 设置 → 开发者选项 → `ProbeSettingsView` | 深度来源（模拟无 LiDAR）、避障引导、方向振动、各种距离和角度、几何参数、DIAG 和会话导出 | 调参和取证 |
-
-开发版里的"人体宽度"和正式版的"通行宽度"是同一个值。
 
 ## 需要知道的几点
 
