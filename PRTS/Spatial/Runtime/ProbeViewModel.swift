@@ -21,7 +21,7 @@ final class ProbeViewModel: ObservableObject {
     static let scanMeshKey = "display.scanMesh"
     var scanMesh: Bool {
         get { options.showMesh }
-        set { options.showMesh = newValue; UserDefaults.standard.set(newValue,forKey:Self.scanMeshKey) }
+        set { options.showMesh = newValue; options.showPath = newValue; UserDefaults.standard.set(newValue,forKey:Self.scanMeshKey) }
     }
     var supportsScanMesh: Bool { engine.capabilities.meshClassification }
     @Published var parameters = ProbeParameters()

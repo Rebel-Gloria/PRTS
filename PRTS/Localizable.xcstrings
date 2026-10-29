@@ -886,13 +886,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scan mesh draws a 3D mesh of your surroundings over the camera view as it scans. It's just for looks and doesn't affect guidance."
+            "value" : "Scan mesh draws a 3D mesh of your surroundings and the planned route over the camera view, so you can see which way it leads. It doesn't affect guidance."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扫描网格：边扫描边在画面上画出周围环境的立体网格。只是好看，不影响避障。"
+            "value" : "扫描网格：边扫描边在画面上画出周围环境的立体网格和规划的路线，方便看出往哪走。不影响避障。"
           }
         }
       }
