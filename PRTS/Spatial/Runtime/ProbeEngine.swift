@@ -166,10 +166,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         }
         diagnostics.event("path_options",details:String(data:(try? DiagnosticJSON.encode(options.validated())) ?? Data(),encoding:.utf8) ?? "",epoch:store.read().epoch)
     }
-    func setSceneMemory(_ enabled: Bool) {
-        analysisQueue.async { self.pathPredictor.setSceneMemory(.init(enabled:enabled)) }
-        diagnostics.event("scene_memory",details:enabled ? "on" : "off",epoch:store.read().epoch)
-    }
     func updateOptions(_ options: RenderOptions) { store.update { $0.options = options }; diagnostics.event("render_options",details:String(data:(try? DiagnosticJSON.encode(options)) ?? Data(),encoding:.utf8) ?? "encode_failed",epoch:store.read().epoch) }
     func manualSample(display: [String:String]) {
         let s = store.read()

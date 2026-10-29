@@ -1,7 +1,6 @@
 /// Product settings page; uses the system navigation back button.
 
 import SwiftUI
-import SpatialCore
 
 struct SettingsView: View {
     @ObservedObject var model: ProbeViewModel
@@ -86,24 +85,9 @@ struct SettingsView: View {
                     Text("settings.display.noPreview.footer")
                 }
             }
-            Section {
-                PassageWidthSlider(model: model)
-            } header: {
-                Text("settings.guidance.section")
-            } footer: {
-                Text("settings.guidance.width.footer")
-            }
             Section("settings.feedback.section") {
                 Toggle("settings.feedback.haptic", isOn: Binding(get: { haptics.isEnabled }, set: haptics.setEnabled))
                     .accessibilityHint("settings.feedback.haptic.hint")
-            }
-            Section {
-                Toggle("settings.experimental.sceneMemory", isOn: $model.sceneMemory)
-                    .accessibilityIdentifier("sceneMemoryToggle")
-            } header: {
-                Text("settings.experimental.section")
-            } footer: {
-                Text("settings.experimental.sceneMemory.footer")
             }
 
         }
@@ -113,49 +97,5 @@ struct SettingsView: View {
         .navigationTitle("settings.title")
         .onAppear { speech.speakSettingsScreen(hapticFeedbackEnabled:haptics.isEnabled) }
         .onChange(of:haptics.isEnabled) { _,enabled in speech.speakHapticFeedbackState(enabled) }
-    }
-}
-
-/// Flexible ← Balanced → Comfortable: the hard body width the route must fit through.
-private struct PassageWidthSlider: View {
-    @ObservedObject var model: ProbeViewModel
-    static let range: ClosedRange<Float> = 0.4...0.6
-    static let balanced: Float = 0.5
-
-    var body: some View {
-        VStack(spacing: 6) {
-            HStack {
-                Text("settings.guidance.width")
-                Spacer()
-                Text(meters).foregroundStyle(.secondary).monospacedDigit()
-            }
-            Slider(value: $model.parameters.bodyWidth, in: Self.range, step: 0.05) {
-                Text("settings.guidance.width")
-            } onEditingChanged: { editing in
-                if !editing { model.updateSettings() }
-            }
-            .accessibilityValue(Text(LocalizedStringKey(styleKey)) + Text(verbatim: ", " + meters))
-            .accessibilityIdentifier("passageWidthSlider")
-            HStack {
-                Text(verbatim: "← ") + Text("settings.guidance.width.flexible")
-                Spacer()
-                Text("settings.guidance.width.balanced")
-                Spacer()
-                Text("settings.guidance.width.comfortable") + Text(verbatim: " →")
-            }
-            .font(.caption).foregroundStyle(.secondary)
-            .accessibilityHidden(true)
-        }
-    }
-
-    private var meters: String {
-        Measurement(value: (Double(model.parameters.bodyWidth) * 100).rounded(), unit: UnitLength.centimeters)
-            .formatted(.measurement(width: .abbreviated, usage: .asProvided))
-    }
-
-    private var styleKey: String {
-        let width = model.parameters.bodyWidth
-        if abs(width - Self.balanced) < 0.01 { return "settings.guidance.width.balanced" }
-        return width < Self.balanced ? "settings.guidance.width.flexible" : "settings.guidance.width.comfortable"
     }
 }

@@ -25,15 +25,6 @@ struct Input: Decodable {
 }
 /// ASTRA_BODY_WIDTH replays recorded frames as if the user had picked another body width.
 let bodyWidthOverride = ProcessInfo.processInfo.environment["ASTRA_BODY_WIDTH"].flatMap(Float.init)
-/// ASTRA_SCENE_MEMORY=route|scenario replays with the exp/scene-memory obstacle map on:
-/// `route` lets it shape detours only, `scenario` lets it also start obstacle stages and speech.
-let sceneMemory: SceneMemoryOptions = {
-    switch ProcessInfo.processInfo.environment["ASTRA_SCENE_MEMORY"] {
-    case "route": return .init(enabled: true)
-    case "scenario": return .init(enabled: true, drivesScenario: true)
-    default: return .init()
-    }
-}()
 func replayed(_ p: ProbeParameters) -> ProbeParameters {
     var p = p; if let w = bodyWidthOverride { p.bodyWidth = w }; return p
 }
@@ -103,7 +94,7 @@ struct Output: Encodable {
         let encoder=JSONEncoder();encoder.outputFormatting=[.sortedKeys];encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity:"Infinity",negativeInfinity:"-Infinity",nan:"NaN")
         let lines=try String(contentsOf:index,encoding:.utf8).split(separator:"\n")
         let analyzer=SpatialAnalyzer()
-        var predictor=PathPredictor(sceneMemory:sceneMemory), speech=ObstacleRouteAnnouncementPolicy(), haptics=PathHapticPolicy()
+        var predictor=PathPredictor(), speech=ObstacleRouteAnnouncementPolicy(), haptics=PathHapticPolicy()
         var epoch:UInt64=0,count=0,lastGoal:UInt64?
         var published=PathUpdate()
         var tickHistory:[(Double,PathUpdate)] = []
@@ -112,7 +103,7 @@ struct Output: Encodable {
             if CommandLine.arguments.count>3,count>=Int(CommandLine.arguments[3])! {break}
             let output:Output=try autoreleasepool {
                 if epoch != input.epoch || input.reset {
-                    analyzer.reset();predictor=PathPredictor(sceneMemory:sceneMemory);speech=ObstacleRouteAnnouncementPolicy()
+                    analyzer.reset();predictor=PathPredictor();speech=ObstacleRouteAnnouncementPolicy()
                     haptics=PathHapticPolicy();epoch=input.epoch;published=PathUpdate();lastGoal=nil
 
                 }

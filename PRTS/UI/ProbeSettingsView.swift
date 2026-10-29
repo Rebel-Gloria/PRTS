@@ -32,7 +32,8 @@ struct ProbeSettingsView: View {
                     Text(String(format:"距当前点 %.1f m 开始预备下一点",model.pathOptions.waypoints.previewDistance))
                     Slider(value:$model.pathOptions.waypoints.previewDistance,in:0.5...3,step:0.1)
                     Text("偏离方向45°且原地保持3秒后重选。目标出画或当前路径受阻时重算。").font(.caption)
-                    Text(String(format:"路径硬宽度跟随身体宽度：%.2f m",model.parameters.bodyWidth))
+                    Text(String(format:"路径最小总宽度 %.2f m",model.pathOptions.minimumWidth))
+                    Slider(value:$model.pathOptions.minimumWidth,in:0.5...1.2,step:0.05)
                     Text("规划宽度独立配置；地面支持、完整身体净空和未知状态不阻断搜索。").font(.caption).foregroundStyle(.orange)
                     Text(String(format:"对准后偏离 %.0f° 才重新提示",model.pathOptions.deviationDegrees))
                     Slider(value:$model.pathOptions.deviationDegrees,in:6...30,step:1)
@@ -69,7 +70,7 @@ struct ProbeSettingsView: View {
                 }
                 Section("几何参数（更改会撤销旧结果）") {
                     valueSlider("人体宽度",value:$model.parameters.bodyWidth,range:0.3...1.2,step:0.05)
-                    valueSlider("单侧舒适余量（可退让）",value:$model.parameters.sideMargin,range:0.05...0.5,step:0.05)
+                    valueSlider("单侧安全余量",value:$model.parameters.sideMargin,range:0.05...0.5,step:0.05)
                     valueSlider("身体检查高度",value:$model.parameters.bodyHeight,range:1...2.4,step:0.05)
                     Text(String(format:"所需通道宽度 %.2f m",model.parameters.requiredWidth)).foregroundStyle(.cyan)
                     HStack { Text(String(format:"分析 %.0f Hz",model.parameters.processingHz)); Slider(value:$model.parameters.processingHz,in:2...20,step:1) }
