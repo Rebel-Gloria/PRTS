@@ -4,7 +4,7 @@ import SwiftUI
 /// On device needs no key and sends nothing.
 struct PhotoDescriptionSettingsView: View {
     @AppStorage("photoDescription.uploadAllowed") private var uploadAllowed = false
-    @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.qwen
+    @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.onDevice
     @AppStorage(PhotoChatProvider.customEndpointKey) private var customEndpoint = ""
     @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
     @State private var key = ""
