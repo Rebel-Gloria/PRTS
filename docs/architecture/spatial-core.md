@@ -32,6 +32,6 @@
 | build 17 | 路线只被确认的障碍否决，未知区域不再挡路 |
 | build 24 | `ObstacleWaypointPlanner`：三态避障（空旷、远障、近障）和逐点交接 |
 | build 25 | `OccupancyFootprint` 把当前测到的障碍格和时间关联点分开；`WaypointTransitionState` 给状态切换加迟滞 |
-| 2026-10-29 | 身体宽度变成硬约束，默认 0.5 m，舒适余量可以让步 |
+| 2026-10-29 | 第三轮审查的改动（地面更新、反馈新鲜度门、震动 12° 门、路线圆角、身体宽度硬约束）和障碍地图记忆合进来后误报严重，当天全部撤回，算法回到 build 25 |
 
 `SpatialAnalyzer` 和冻结的实验版保持逐字节一致，有一致性测试保证；`AnalysisResult` 里只多了一个规划用的 `planningObstacles` 字段，对比时去掉这个字段。原来复制时记录的 SHA-256 只对应 2026-09-25 的版本，需要时翻 git 历史。

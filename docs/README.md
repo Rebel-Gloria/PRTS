@@ -32,7 +32,7 @@
 - [astra 重放](experiments/astra-replay.md)：用实地数据重跑整条避障链
 - [拍照提示词评分规则](experiments/photo-prompt-scoring.md)
 - [台阶检测提案](experiments/step-detection-proposal.md)
-- [障碍地图记忆](experiments/scene-memory.md)：离开视野的障碍继续参与绕行（设置里的实验开关）
+- [障碍地图记忆](experiments/scene-memory.md)：离开视野的障碍继续参与绕行（已撤回，留作记录）
 
 ## 宣传
 
