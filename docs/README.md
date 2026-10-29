@@ -36,7 +36,8 @@
 
 ## 宣传
 
-- [比赛宣传脚本](pitch/script.md)：PPT 和视频的分页、分镜和讲稿
+- [PPT 制作说明](pitch/ppt-brief.md)：交给做 PPT 的模型，逐页文字、讲稿、素材和不能说的话
+- [视频脚本](pitch/script.md)：宣传视频的分镜、配音和重建方法
 
 ## 报告
 

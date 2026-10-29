@@ -1,6 +1,4 @@
 *.key
 video/node_modules/
 video/out/
-video/public/footage/
-video/public/music.mp3
-video/public/vo/
+video/public/
