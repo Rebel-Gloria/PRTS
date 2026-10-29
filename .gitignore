@@ -9,3 +9,7 @@
 # Local model weights (GGUF, several GB); distribute separately, never commit
 /models/
 *.gguf
+
+# Built by Vendor/LocalVLM/prepare.sh
+/Vendor/LocalVLM/.build/
+/Vendor/LocalVLM/PRTSLocalVLM.xcframework/
