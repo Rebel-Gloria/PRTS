@@ -19,7 +19,12 @@ nonisolated enum PhotoImageEncoder {
         case .landscapeLeft: orientation = .down
         case .landscapeRight: orientation = .up
         }
-        var image = CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation)
+        return try jpeg(image: CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation))
+    }
+
+    /// Upright image, longest side at most 1280.
+    static func jpeg(image: CIImage) throws -> Data {
+        var image = image
         let scale = min(1, 1280 / max(image.extent.width, image.extent.height))
         image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         let context = CIContext(options: [.cacheIntermediates: false])
