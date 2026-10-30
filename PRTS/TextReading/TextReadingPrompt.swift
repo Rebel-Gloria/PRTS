@@ -59,6 +59,8 @@ nonisolated enum TextReadingPrompt {
             return split(try await PhotoChatClient().describe(jpeg: jpeg, text: remotePrompt, key: key, service: service, system: remoteSystem))
         }
         let ocr = PhotoChatService(endpoint: service.endpoint, model: ocrModel, thinking: .standard)
+        // The chat model (qwen3.8-flash) judges the surface. qwen-plus is cheaper but cannot see
+        // images; qwen3-vl-plus is a little faster but costs more.
         async let surface = PhotoChatClient().describe(jpeg: jpeg, text: surfaceQuestion, key: key, service: service, system: nil)
         async let text = PhotoChatClient().describe(jpeg: jpeg, text: remotePrompt, key: key, service: ocr, system: ocrSystem)
         return (Surface(answer: try await surface), try await text)
