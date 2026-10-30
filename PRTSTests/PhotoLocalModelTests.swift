@@ -7,7 +7,7 @@ import Testing
 /// Device only: the photos are the ones the local VLM benchmark copied to Documents/vlm/photos/1280.
 @MainActor @Suite(.serialized)
 struct PhotoLocalModelTests {
-    static let photos = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    nonisolated static let photos = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("vlm/photos/1280")
 
     @Test(.enabled(if: FileManager.default.fileExists(atPath: photos.path)))
@@ -81,4 +81,39 @@ extension PhotoLocalModelTests {
         let blank = try await read(photo([], background: .brown, card: .darkGray, ink: .white))
         #expect(blank.1.trimmingCharacters(in: .punctuationCharacters) == TextReadingPrompt.none)
     }
+}
+
+/// The remote readers with real keys, through the app's own request code. Runs only when the
+/// keys are passed in (TEST_RUNNER_PRTS_QWEN_KEY / TEST_RUNNER_PRTS_DEEPSEEK_KEY on xcodebuild);
+/// they are never stored in the repo.
+@MainActor
+struct RemoteTextReadingTests {
+    nonisolated static let env = ProcessInfo.processInfo.environment
+
+    private func roadSign() throws -> Data {
+        let size = CGSize(width: 1280, height: 960)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            UIColor.systemTeal.setFill(); context.fill(CGRect(origin: .zero, size: size))
+            UIColor(red: 0.08, green: 0.43, blue: 0.24, alpha: 1).setFill(); context.fill(CGRect(x: 240, y: 160, width: 800, height: 380))
+            for (row, line) in ["人民路", "地铁站 200米"].enumerated() {
+                (line as NSString).draw(at: CGPoint(x: 300, y: 220 + CGFloat(row) * 130),
+                                        withAttributes: [.font: UIFont.systemFont(ofSize: 88, weight: .bold), .foregroundColor: UIColor.white])
+            }
+        }
+        return try #require(image.jpegData(compressionQuality: 0.85))
+    }
+
+    private func check(_ service: PhotoChatService, key: String) async throws {
+        let start = Date()
+        let (surface, text) = try await TextReadingPrompt.remote(jpeg: try roadSign(), key: key, service: service)
+        print("PRTS_REMOTE_OCR \(service.model) \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(surface.rawValue) | \(text)")
+        #expect(surface == .roadSign)
+        #expect(text.contains("人民路") && text.contains("地铁站"))
+    }
+
+    @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
+    func qwenReadsWithItsOCRModel() async throws { try await check(.qwen, key: Self.env["PRTS_QWEN_KEY"]!) }
+
+    @Test(.enabled(if: env["PRTS_DEEPSEEK_KEY"] != nil))
+    func deepseekReadsInOneRequest() async throws { try await check(.deepseek, key: Self.env["PRTS_DEEPSEEK_KEY"]!) }
 }

@@ -44,13 +44,24 @@ nonisolated enum TextReadingPrompt {
     按下面的格式回答，不要说别的：
     第一行只写一个词，说字写在什么上面：路标、牌子、纸张、物体，四选一。路名牌和方向指示是路标；店铺招牌和告示是牌子；纸和书是纸张；瓶子、包装、屏幕和其他东西是物体。
     从第二行起照抄文字：一字不差，保持原来的语言，不翻译、不总结、不描述画面；按阅读顺序，从上到下、从左到右；看不清的字直接跳过，不要猜。
-    照片里没有文字，只回答一行：无。
+    照片里没有能看清的文字时，只回答一个字：无。不写分类，不加括号说明。
     """
     static let remotePrompt = "读出照片里的文字。"
 
-    /// One request to the cloud provider chosen for photo descriptions.
+    /// For a dedicated OCR model, which copies text but does not keep the two-part format.
+    static let ocrSystem = "你帮盲人读出手机镜头前的文字。照抄照片里的文字：一字不差，保持原来的语言，不翻译、不总结、不描述画面；按阅读顺序，从上到下、从左到右；看不清的字直接跳过，不要猜。照片里没有能看清的文字时，只回答一个字：无。"
+
+    /// The cloud provider chosen for photo descriptions. With an OCR model (Qwen) its chat model
+    /// says what the text is on while the OCR model copies it, both at once; otherwise one request
+    /// asks for both.
     static func remote(jpeg: Data, key: String, service: PhotoChatService) async throws -> (Surface, String) {
-        split(try await PhotoChatClient().describe(jpeg: jpeg, text: remotePrompt, key: key, service: service, system: remoteSystem))
+        guard let ocrModel = service.ocrModel else {
+            return split(try await PhotoChatClient().describe(jpeg: jpeg, text: remotePrompt, key: key, service: service, system: remoteSystem))
+        }
+        let ocr = PhotoChatService(endpoint: service.endpoint, model: ocrModel, thinking: .standard)
+        async let surface = PhotoChatClient().describe(jpeg: jpeg, text: surfaceQuestion, key: key, service: service, system: nil)
+        async let text = PhotoChatClient().describe(jpeg: jpeg, text: remotePrompt, key: key, service: ocr, system: ocrSystem)
+        return (Surface(answer: try await surface), try await text)
     }
 
     /// First line names the surface. A first line without one of the four words is already text.
