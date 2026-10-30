@@ -169,7 +169,7 @@ final class PRTSUITests: XCTestCase {
         let camera = app.buttons["cameraButton"]
         XCTAssertTrue(camera.waitForExistence(timeout: 10))
         camera.tap()
-        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForGuidance(app, timeout: 10))
         let field = app.textFields["backendCommandField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap(); field.typeText("读文字")
@@ -179,10 +179,26 @@ final class PRTSUITests: XCTestCase {
         let frames = app.staticTexts["ocrFrames"].label
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Text reading after 4 s (\(frames))"; shot.lifetime = .keepAlways; add(shot)
         XCTAssertNotEqual(frames, "frames 0")
-        // With no page in view it reads the whole frame after 8 s, then guidance comes back.
-        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 40))
+        // It reads what is in view, then guidance comes back.
+        XCTAssertTrue(waitForGuidance(app, timeout: 40))
     }
     #endif
+
+    /// Guidance runs once the main button offers to stop. The photo button is no sign of it: phones
+    /// with Camera Control, or with the volume buttons turned on, have none.
+    @MainActor
+    private func waitForGuidance(_ app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let stop = NSPredicate(format: "label IN %@", ["长按停止", "Press and hold to stop", "停止", "Stop"])
+        let running = XCTNSPredicateExpectation(predicate: stop, object: app.buttons["cameraButton"])
+        return XCTWaiter().wait(for: [running], timeout: timeout) == .completed
+    }
+
+    /// Describes the view the way this phone does it: Camera Control, else the on-screen button.
+    @MainActor
+    private func describe(_ app: XCUIApplication) {
+        if XCUIDevice.shared.hasHardwareButton(.camera) { XCUIDevice.shared.press(.camera) }
+        else { app.buttons["photoCaptureButton"].tap() }
+    }
 
     /// Screenshots of every screen a user sees: idle, guiding, text reading, settings.
     @MainActor
@@ -198,9 +214,9 @@ final class PRTSUITests: XCTestCase {
         shot("1 idle")
         camera.tap()
         sleep(1); shot("2 starting")
-        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForGuidance(app, timeout: 10))
         sleep(4); shot("3 guiding")
-        app.buttons["photoCaptureButton"].tap()
+        describe(app)
         sleep(1); shot("4 describing")
         sleep(6); shot("5 described")
         camera.press(forDuration: 1.5)
@@ -216,7 +232,7 @@ final class PRTSUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(camera.waitForExistence(timeout: 10))
         camera.tap()
-        XCTAssertTrue(app.buttons["photoCaptureButton"].waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForGuidance(app, timeout: 10))
         sleep(4); shot("9 scan mesh")
         sleep(4); shot("10 scan mesh later")
     }
