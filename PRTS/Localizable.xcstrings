@@ -2814,6 +2814,142 @@
           }
         }
       }
+    },
+    "settings.ocr.service" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text reader"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别服务"
+          }
+        }
+      }
+    },
+    "settings.ocr.service.vision" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Vision"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Vision"
+          }
+        }
+      }
+    },
+    "settings.ocr.service.onDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device VLM"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地 VLM"
+          }
+        }
+      }
+    },
+    "settings.ocr.service.remote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote API"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "远端 API"
+          }
+        }
+      }
+    },
+    "settings.ocr.service.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Vision is fastest but can’t tell what the text is on. Remote API uses the online service chosen under Service and API key and needs photo upload allowed; without a network it falls back to the on-device VLM."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Vision 最快，但说不出字写在什么上面。远端 API 用\"服务与 API Key\"里选的联网服务，要允许发送照片；没网时自动改用本地 VLM。"
+          }
+        }
+      }
+    },
+    "ocr.error.remoteService" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote reading needs an online service chosen under Service and API key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "联网识别要先在\"服务与 API Key\"里选一个联网服务"
+          }
+        }
+      }
+    },
+    "ocr.error.remoteUpload" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote reading needs photo upload allowed in Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "联网识别要先在设置里允许发送照片"
+          }
+        }
+      }
+    },
+    "ocr.error.remoteKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote reading needs an API key saved in Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "联网识别要先在设置里保存 API Key"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
