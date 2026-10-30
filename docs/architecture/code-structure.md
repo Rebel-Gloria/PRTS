@@ -11,7 +11,7 @@ PRTS/
 ├── Capture/          CameraManager（主线程适配层）和 Metal 相机画面
 ├── Feedback/         语音、震动，以及"分析结果 → 播报/震动"的规则
 ├── PhotoDescription/ 拍照描述：按键判断、编码、录音识别、请求、钥匙串、朗读
-├── TextReading/      文字识别：三指手势、超广角相机、找页面、识别
+├── TextReading/      文字识别：三指手势、主摄、本机模型的提示词、朗读
 ├── Integration/      预留给以后的物体检测接口，避障不依赖它
 └── Spatial/
     ├── Runtime/      唯一的 ARSession、帧邮箱、分析调度、状态快照、无 LiDAR 深度
@@ -45,7 +45,7 @@ scripts/              校验、读 DIAG、重放路线等脚本，见 ../guides/
 
 ## 规矩
 
-1. 只有 `ProbeEngine` 持有 `ARSession`。别的功能要用相机画面，就读它的当前帧；要换相机（比如文字识别要用超广角），先停掉它。
+1. 只有 `ProbeEngine` 持有 `ARSession`。别的功能要用相机画面，就读它的当前帧；要换相机（比如文字识别要用主摄单独拍照），先停掉它。
 2. 几何判断只放在 `SpatialCore`，并且先写确定性测试。渲染和 UI 里不做几何判断。
 3. 渲染只读快照，不决定哪里能走。
 4. 语音和震动只读分析结果，不直接读相机数据。
