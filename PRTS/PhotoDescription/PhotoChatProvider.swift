@@ -39,10 +39,15 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     var model: String
     /// How this provider turns reasoning off; custom endpoints get only standard fields.
     var thinking: ThinkingSwitch
+    /// A dedicated text-recognition model on the same endpoint, used for reading text.
+    var ocrModel: String? = nil
 
     enum ThinkingSwitch: Sendable { case qwenFlag, deepseekObject, standard }
 
-    static let qwen = PhotoChatService(endpoint: PhotoChatProtocol.endpoint, model: PhotoChatProtocol.model, thinking: .qwenFlag)
+    /// qwen-vl-ocr over qwen3.5-ocr: as fast and as accurate on text, and it said "无" on photos
+    /// where qwen3.5-ocr made up a word (docs/features/text-reading.md).
+    static let qwen = PhotoChatService(endpoint: PhotoChatProtocol.endpoint, model: PhotoChatProtocol.model, thinking: .qwenFlag,
+                                       ocrModel: "qwen-vl-ocr")
     static let deepseek = PhotoChatService(endpoint: URL(string: "https://api.deepseek.com/chat/completions")!,
                                            model: "deepseek-flash", thinking: .deepseekObject)
 
