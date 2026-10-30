@@ -67,6 +67,7 @@
 | qwen3.5-ocr（只照抄） | 不按格式分类 | 全对 | 4 张里有 1 张编出"一级" | 约 0.5 秒 |
 
 - OCR 模型不守"第一行写分类"的格式，所以千问分成两个请求同时发：`qwen3.8-flash` 只回答写在什么上面（5/5 对），`qwen-vl-ocr` 照抄。
+- 判断写在什么上面也试过别的千问模型（6 张图）：`qwen-plus` 便宜但看不了图，6 张全答"路标"；`qwen3-vl-plus` 6 张全对、每张 0.5–1 秒，比 flash 快，但更贵。所以保留 `qwen3.8-flash`。
 - 选 `qwen-vl-ocr` 而不是更新的 `qwen3.5-ocr`：一样快、一样准，但没字时不编字。
 - 真机（iPhone 17 Pro Max，`PRTSTests/RemoteTextReadingTests`，走 App 自己的代码）读路牌：DeepSeek 1.2 秒，千问 2.1 秒，分类和文字都对。Key 只在跑测试时从命令行传进去，不进仓库。
 
