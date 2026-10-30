@@ -28,7 +28,6 @@ App 支持 iOS 17 及以上，当前版本 1.0（build 25）。
 
 还没做的：
 
-- 把本地视觉模型（MiniCPM-V 4.7）放进正式版，测试结果见 [本地视觉模型](docs/features/local-vlm.md)；
 - 主动提醒（等公交、等红绿灯）；
 - 目的地导航。
 
@@ -39,3 +38,15 @@ App 支持 iOS 17 及以上，当前版本 1.0（build 25）。
 - [代码结构](docs/architecture/code-structure.md)、[运行时数据流](docs/architecture/runtime-data-flow.md)
 - [拍照描述](docs/features/photo-description.md)、[文字识别](docs/features/text-reading.md)
 - [开发采集包](docs/guides/dev-capture.md)：编译时打开 `PRTS_DEV_CAPTURE` 才有，普通包里没有这部分代码。
+
+## 协议
+
+本仓库的代码按 [MIT 协议](LICENSE) 开源。
+
+App 里用到的第三方模型和库有各自的协议：
+
+| 组件 | 协议 | 怎么来的 |
+|---|---|---|
+| Depth Anything V2 Small | Apache 2.0，见 `PRTS/Spatial/Models/LICENSE-DepthAnythingV2.txt` | 在仓库里 |
+| llama.cpp | MIT | `Vendor/LocalVLM/prepare.sh` 编译时下载，不在仓库里 |
+| MiniCPM-V 4.7 1B 权重 | Apache 2.0（以 Hugging Face 上 openbmb 的说明为准） | `Vendor/LocalVLM/prepare.sh` 下载，不在仓库里 |
