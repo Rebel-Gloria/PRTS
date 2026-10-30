@@ -165,8 +165,10 @@ struct ContentView: View {
                 if newState == .running { hapticManager.cameraStarted() }
             }
             .onReceive(pollTimer) { _ in
-                camera.poll(suspendFeedback:photo.busy || isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
-                if !photo.busy, !isShowingSettings, !isHoldingStop, scenePhase == .active {
+                // Text reading owns the voice until it ends; route speech would cut into the text.
+                let reading = textReading.phase != .idle
+                camera.poll(suspendFeedback:photo.busy || reading || isShowingSettings || isHoldingStop || !hapticManager.isEnabled || scenePhase != .active)
+                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, scenePhase == .active {
                     let snapshot = camera.model.snapshot
                     if snapshot.pathOptions.enabled && snapshot.pathUpdate.waypointGuidance != nil {
                         // One committed route state owns open/far/near speech. Do not also
