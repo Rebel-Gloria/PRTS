@@ -4,7 +4,7 @@
 
 - [拍照描述](features/photo-description.md)：按一下描述画面，按住提问
 - [拍照提示词](features/photo-prompt.md)：系统提示词是怎么调出来的
-- [文字识别](features/text-reading.md)：三指按住，读纸上的字
+- [文字识别](features/text-reading.md)：三指按住，读出面前的字
 - [没有 LiDAR 的机型](features/no-lidar.md)：用 Depth Anything 估深度
 - [本地视觉模型](features/local-vlm.md)：MiniCPM-V 4.7 离线描述的实测
 - [无障碍](features/accessibility.md)：旁白、大字体、不方便按住的用户
