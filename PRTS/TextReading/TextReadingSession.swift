@@ -31,6 +31,8 @@ final class TextReadingSession: ObservableObject {
     private var answer = TextReadingAnswer(lead: "")
     private var firstFrameAt: TimeInterval?
     private var work: Task<Void, Never>?
+    private var service = TextReadingService.onDevice
+    private var cloud: (key: String, service: PhotoChatService)?
     private var generation = UUID()
 
     init() {
@@ -42,6 +44,13 @@ final class TextReadingSession: ObservableObject {
         let id = UUID()
         generation = id; phase = .aiming; framesSeen = 0; firstFrameAt = nil
         modelDone = false
+        service = TextReadingService.current()
+        if service == .remote {
+            switch Self.cloudSetup() {
+            case .success(let setup): cloud = setup
+            case .failure(let missing): say(missing.localizationKey); return finishSpeaking()
+            }
+        }
         say(intro)
         camera.start(frame: { [weak self] in self?.frame(id) },
                      failed: { [weak self] in self?.cameraFailed(id) })
@@ -89,25 +98,70 @@ final class TextReadingSession: ObservableObject {
         guard let image, let jpeg = try? await Task.detached(operation: { try PhotoImageEncoder.jpeg(image: image) }).value else {
             return finishModel(id)
         }
-        do {
+        // When the chosen reader fails the next one takes over: no network, then the bundled
+        // model; the model failing, then Apple's Vision.
+        let readers: [TextReadingService] = switch service {
+        case .remote: [.remote, .onDevice, .vision]
+        case .onDevice: [.onDevice, .vision]
+        case .vision: [.vision]
+        }
+        for reader in readers {
+            do {
+                try await read(jpeg, image, with: reader, id)
+                break
+            } catch is CancellationError {
+                return
+            } catch {
+                continue
+            }
+        }
+        finishModel(id)
+    }
+
+    private func read(_ jpeg: Data, _ image: CIImage, with reader: TextReadingService, _ id: UUID) async throws {
+        switch reader {
+        case .onDevice:
             let surface = try await TextReadingPrompt.surface(of: jpeg)
-            guard generation == id else { return }
+            try Task.checkCancellation()
             answer = TextReadingAnswer(lead: localized(surface.localizationKey))
             _ = try await TextReadingPrompt.copy { [weak self] piece in
                 // Main-queue order keeps the pieces in order, ahead of the flush below.
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.received(piece, id) } }
             }
             await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
-        } catch is CancellationError {
-            return
-        } catch {
-            // The model failed: Apple's Vision still reads the photo, without knowing what the text is on.
-            let text = (try? await Task.detached(operation: { try TextRecognizer.read(image) }).value) ?? ""
-            guard generation == id else { return }
+        case .remote:
+            let (surface, text) = try await TextReadingPrompt.remote(jpeg: jpeg, key: cloud!.key, service: cloud!.service)
+            try Task.checkCancellation()
+            answer = TextReadingAnswer(lead: localized(surface.localizationKey))
+            received(text, id)
+        case .vision:
+            // Vision does not know what the text is on.
+            let text = try await Task.detached(operation: { try TextRecognizer.read(image) }).value
+            try Task.checkCancellation()
             answer = TextReadingAnswer(lead: localized(TextReadingPrompt.Surface.object.localizationKey))
             received(text, id)
         }
-        finishModel(id)
+    }
+
+    /// Remote reading uses the cloud provider set up for photo descriptions: it needs that
+    /// provider, the upload permission and its key.
+    private static func cloudSetup() -> Result<(key: String, service: PhotoChatService), CloudMissing> {
+        let provider = PhotoChatProvider.current()
+        guard let service = provider.service() else { return .failure(.service) }
+        guard UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed") else { return .failure(.upload) }
+        guard let key = try? PhotoCredentialStore.read(account: provider.keyAccount), !key.isEmpty else { return .failure(.key) }
+        return .success((key, service))
+    }
+
+    enum CloudMissing: Error {
+        case service, upload, key
+        var localizationKey: String {
+            switch self {
+            case .service: "ocr.error.remoteService"
+            case .upload: "ocr.error.remoteUpload"
+            case .key: "ocr.error.remoteKey"
+            }
+        }
     }
 
     private func received(_ piece: String, _ id: UUID) {

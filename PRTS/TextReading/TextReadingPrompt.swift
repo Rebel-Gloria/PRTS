@@ -37,14 +37,41 @@ nonisolated enum TextReadingPrompt {
         try await PhotoLocalModel.shared.ask(copyQuestion, maxTokens: maxTokens, onText: onText)
     }
 
+    /// The cloud models keep a format, so they get both questions in one request: what the text is
+    /// on in the first line, the copy below it.
+    static let remoteSystem = """
+    你帮盲人读出手机镜头前的文字。用户举着手机对着前方。
+    按下面的格式回答，不要说别的：
+    第一行只写一个词，说字写在什么上面：路标、牌子、纸张、物体，四选一。路名牌和方向指示是路标；店铺招牌和告示是牌子；纸和书是纸张；瓶子、包装、屏幕和其他东西是物体。
+    从第二行起照抄文字：一字不差，保持原来的语言，不翻译、不总结、不描述画面；按阅读顺序，从上到下、从左到右；看不清的字直接跳过，不要猜。
+    照片里没有文字，只回答一行：无。
+    """
+    static let remotePrompt = "读出照片里的文字。"
+
+    /// One request to the cloud provider chosen for photo descriptions.
+    static func remote(jpeg: Data, key: String, service: PhotoChatService) async throws -> (Surface, String) {
+        split(try await PhotoChatClient().describe(jpeg: jpeg, text: remotePrompt, key: key, service: service, system: remoteSystem))
+    }
+
+    /// First line names the surface. A first line without one of the four words is already text.
+    static func split(_ answer: String) -> (Surface, String) {
+        let text = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = text.prefix { $0 != "\n" }
+        guard let surface = Surface(word: String(head)) else { return (.object, text) }
+        return (surface, String(text.dropFirst(head.count)))
+    }
+
     enum Surface: String, CaseIterable {
         case roadSign = "路标", sign = "牌子", paper = "纸张", object = "物体"
 
         /// The first of the four words in the answer; anything else counts as an object.
-        init(answer: String) {
-            self = Self.allCases
-                .compactMap { surface in answer.range(of: surface.rawValue).map { (surface, $0.lowerBound) } }
-                .min { $0.1 < $1.1 }?.0 ?? .object
+        init(answer: String) { self = Surface(word: answer) ?? .object }
+
+        init?(word: String) {
+            guard let first = Self.allCases
+                .compactMap({ surface in word.range(of: surface.rawValue).map { (surface, $0.lowerBound) } })
+                .min(by: { $0.1 < $1.1 }) else { return nil }
+            self = first.0
         }
 
         var localizationKey: String {
@@ -100,4 +127,19 @@ nonisolated struct TextReadingAnswer {
         spokeText = true
         return ["\(lead)：\(text)"]
     }
+}
+
+/// Who reads the text. Settings → under the three-finger switch.
+nonisolated enum TextReadingService: String, CaseIterable, Identifiable {
+    case vision, onDevice, remote
+
+    var id: String { rawValue }
+    static let selectionKey = "ocr.service"
+
+    /// The bundled model by default: it knows what the text is on, and needs no network.
+    static func current(_ defaults: UserDefaults = .standard) -> TextReadingService {
+        defaults.string(forKey: selectionKey).flatMap(TextReadingService.init(rawValue:)) ?? .onDevice
+    }
+
+    var localizationKey: String { "settings.ocr.service.\(rawValue)" }
 }
