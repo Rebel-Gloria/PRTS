@@ -3,113 +3,161 @@ import Combine
 import CoreImage
 import UIKit
 
-/// One text-reading pass: the ultra-wide camera, spoken framing hints, an automatic still
-/// once the page is steady, then the recognized text read aloud.
+/// One quick text-reading pass: the main camera, a photo once focus has settled, then the bundled
+/// MiniCPM-V says what the text is on and copies it, read aloud line by line as it comes.
 @MainActor
 final class TextReadingSession: ObservableObject {
-    enum Phase: Equatable { case idle, framing, reading, speaking }
+    enum Phase: Equatable { case idle, aiming, reading, speaking }
     @Published private(set) var phase: Phase = .idle
-    /// Preview frames checked for a page in this pass.
-    @Published private(set) var framesAnalyzed = 0
-    /// Without a steady page by then, the whole view is read instead (signs, labels, screens).
-    static let pageTimeout: TimeInterval = 8
-    /// Hints wait until the opening announcement has been heard.
-    static let introDuration: TimeInterval = 3
+    /// Preview frames seen in this pass (five a second).
+    @Published private(set) var framesSeen = 0
+    /// After the first frame, focus and exposure get this long before the photo is taken.
+    static let settle: TimeInterval = 1
     /// No preview frame by then means the camera never started.
     static let cameraTimeout: Duration = .seconds(10)
+    /// Settings: whether a three-finger hold starts reading.
+    static let threeFingerKey = "ocr.threeFinger"
 
-    /// Speaks a status by its localization key.
-    var say: (String) -> Void = { _ in }
+    /// A string by localization key, in the interface language.
+    var localized: (String) -> String = { $0 }
     /// Runs once whenever a pass ends: finished, failed or cancelled.
     var finished: () -> Void = {}
 
     let camera = TextCamera()
-    private let audio = PhotoAudioOutput()
-    private var framing = DocumentFraming()
-    private var lastCorners: [CGPoint]?
-    private var startedAt: TimeInterval = 0
+    /// One voice for the whole pass: statuses and text queue up instead of cutting each other off.
+    private let voice = PhotoAudioOutput()
+    private var voiceBusy = false
+    private var modelDone = false
+    private var answer = TextReadingAnswer(lead: "")
+    private var firstFrameAt: TimeInterval?
+    private var work: Task<Void, Never>?
     private var generation = UUID()
 
     init() {
-        audio.onFinished = { [weak self] in self?.end() }
+        voice.onFinished = { [weak self] in self?.voiceFinished() }
     }
 
-    func start() {
+    func start(intro: String) {
         guard phase == .idle else { return }
         let id = UUID()
-        generation = id; framing = DocumentFraming(); lastCorners = nil
-        phase = .framing; framesAnalyzed = 0
-        camera.start(corners: { [weak self] corners in self?.frame(corners, id) },
+        generation = id; phase = .aiming; framesSeen = 0; firstFrameAt = nil
+        modelDone = false
+        say(intro)
+        camera.start(frame: { [weak self] in self?.frame(id) },
                      failed: { [weak self] in self?.cameraFailed(id) })
         Task { [weak self] in
             try? await Task.sleep(for: Self.cameraTimeout)
-            if self?.framesAnalyzed == 0 { self?.cameraFailed(id) }
+            if self?.framesSeen == 0 { self?.cameraFailed(id) }
         }
-    }
-
-    private func cameraFailed(_ id: UUID) {
-        guard generation == id, phase == .framing else { return }
-        say("ocr.error.camera"); end()
     }
 
     func cancel() {
         guard phase != .idle else { return }
-        say("ocr.cancelled")
         end()
+        say("ocr.cancelled")
     }
 
-    private func frame(_ corners: [CGPoint]?, _ id: UUID) {
-        guard generation == id, phase == .framing else { return }
+    private func cameraFailed(_ id: UUID) {
+        guard generation == id, phase == .aiming else { return }
+        camera.stop()
+        say("ocr.error.camera")
+        finishSpeaking()
+    }
+
+    private func frame(_ id: UUID) {
+        guard generation == id, phase == .aiming else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        // Time the page search from the first frame: the camera can take a while to open.
-        if framesAnalyzed == 0 { startedAt = now }
-        framesAnalyzed += 1
-        if corners != nil { lastCorners = corners }
-        let decision = framing.update(corners: corners, at: now)
-        if decision == .capture { capture(page: true, id); return }
-        if now - startedAt >= Self.pageTimeout { capture(page: false, id); return }
-        if case .hint(let hint) = decision, now - startedAt >= Self.introDuration { say(hint.localizationKey) }
+        framesSeen += 1
+        if firstFrameAt == nil { firstFrameAt = now }
+        if let firstFrameAt, now - firstFrameAt >= Self.settle { capture(id) }
     }
 
-    private func capture(page: Bool, _ id: UUID) {
+    private func capture(_ id: UUID) {
         phase = .reading
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        say(page ? "ocr.capturing" : "ocr.noPage")
-        let previewCorners = page ? lastCorners : nil
+        say("ocr.capturing")
         camera.capture { [weak self] image in
-            Task.detached(priority: .userInitiated) {
-                var text = ""
-                if let image {
-                    // The still is sharper than the preview, so find the page on it again.
-                    let corners = page ? ((try? TextRecognizer.documentCorners(in: image)) ?? previewCorners) : nil
-                    text = (try? TextRecognizer.read(image, corners: corners)) ?? ""
-                }
-                await self?.speak(text, id)
+            Task { @MainActor in
+                guard let self, self.generation == id else { return }
+                self.camera.stop()
+                self.work = Task { await self.read(image, id) }
             }
         }
     }
 
-    private func speak(_ text: String, _ id: UUID) {
-        guard generation == id, phase == .reading else { return }
-        camera.stop()
-        guard !text.isEmpty else { say("ocr.empty"); end(); return }
+    private func read(_ image: CIImage?, _ id: UUID) async {
+        guard let image, let jpeg = try? await Task.detached(operation: { try PhotoImageEncoder.jpeg(image: image) }).value else {
+            return finishModel(id)
+        }
         do {
-            try audio.speak(text)
-            phase = .speaking
-        } catch { say("ocr.error.speech"); end() }
+            let surface = try await TextReadingPrompt.surface(of: jpeg)
+            guard generation == id else { return }
+            answer = TextReadingAnswer(lead: localized(surface.localizationKey))
+            _ = try await TextReadingPrompt.copy { [weak self] piece in
+                // Main-queue order keeps the pieces in order, ahead of the flush below.
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.received(piece, id) } }
+            }
+            await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        } catch is CancellationError {
+            return
+        } catch {
+            // The model failed: Apple's Vision still reads the photo, without knowing what the text is on.
+            let text = (try? await Task.detached(operation: { try TextRecognizer.read(image) }).value) ?? ""
+            guard generation == id else { return }
+            answer = TextReadingAnswer(lead: localized(TextReadingPrompt.Surface.object.localizationKey))
+            received(text, id)
+        }
+        finishModel(id)
+    }
+
+    private func received(_ piece: String, _ id: UUID) {
+        guard generation == id else { return }
+        for line in answer.append(piece) { speak(line) }
+    }
+
+    private func finishModel(_ id: UUID) {
+        guard generation == id else { return }
+        for line in answer.finish() { speak(line) }
+        if !answer.spokeText { say("ocr.empty") }
+        finishSpeaking()
+    }
+
+    /// Ends the pass once everything queued has been heard.
+    private func finishSpeaking() {
+        modelDone = true
+        if !voiceBusy { end() }
+    }
+
+    private func say(_ key: String) { speak(localized(key)) }
+
+    private func speak(_ text: String) {
+        do {
+            try voice.speak(text)
+            voiceBusy = true
+            if phase == .reading { phase = .speaking }
+        } catch {
+            end()
+        }
+    }
+
+    private func voiceFinished() {
+        voiceBusy = false
+        if modelDone { end() }
     }
 
     private func end() {
         generation = UUID()
-        camera.stop(); audio.stop()
+        work?.cancel(); work = nil
+        camera.stop(); voice.stop()
+        voiceBusy = false; modelDone = false
         guard phase != .idle else { return }
         phase = .idle
         finished()
     }
 }
 
-/// The back ultra-wide camera (wide on phones without one), outside ARKit. Preview frames are
-/// checked for a page five times a second on the capture queue; stills are full resolution.
+/// The back main (wide) camera, outside ARKit: sharper on small print than the ultra-wide.
+/// Preview frames are reported five times a second; stills are full resolution.
 nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                                     AVCapturePhotoCaptureDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
@@ -117,8 +165,8 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
     private let photo = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "PRTS.TextCamera")
     private var configured = false
-    private var lastAnalysis: TimeInterval = 0
-    private var onCorners: (@MainActor ([CGPoint]?) -> Void)?
+    private var lastFrame: TimeInterval = 0
+    private var onFrame: (@MainActor () -> Void)?
     private var onPhoto: ((CIImage?) -> Void)?
 
     /// Adding the camera input waits, sometimes for seconds, until ARKit lets go of the camera.
@@ -128,9 +176,9 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         queue.async { _ = self.configure() }
     }
 
-    func start(corners: @escaping @MainActor ([CGPoint]?) -> Void, failed: @escaping @MainActor () -> Void) {
+    func start(frame: @escaping @MainActor () -> Void, failed: @escaping @MainActor () -> Void) {
         queue.async {
-            self.onCorners = corners
+            self.onFrame = frame
             guard self.configured || self.configure() else { Task { @MainActor in failed() }; return }
             self.session.startRunning()
         }
@@ -140,14 +188,14 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         queue.async {
             self.onPhoto = done
             let settings = AVCapturePhotoSettings()
-            settings.photoQualityPrioritization = .quality
+            settings.photoQualityPrioritization = .balanced
             self.photo.capturePhoto(with: settings, delegate: self)
         }
     }
 
     func stop() {
         queue.async {
-            self.onCorners = nil
+            self.onFrame = nil
             if self.session.isRunning { self.session.stopRunning() }
         }
     }
@@ -156,8 +204,7 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         session.beginConfiguration()
         defer { session.commitConfiguration() }
         session.sessionPreset = .photo
-        guard let device = AVCaptureDevice.default(.builtInUltraWideCamera, for: .video, position: .back)
-                ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input), session.canAddOutput(video), session.canAddOutput(photo) else { return false }
         session.addInput(input)
@@ -165,8 +212,8 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         video.setSampleBufferDelegate(self, queue: queue)
         session.addOutput(video)
         session.addOutput(photo)
-        photo.maxPhotoQualityPrioritization = .quality
-        // Portrait-upright preview frames, so page corners match the phone the user is holding.
+        photo.maxPhotoQualityPrioritization = .balanced
+        // Portrait-upright frames and stills, the way the user holds the phone.
         for connection in [video.connection(with: .video), photo.connection(with: .video)] {
             if connection?.isVideoRotationAngleSupported(90) == true { connection?.videoRotationAngle = 90 }
         }
@@ -176,10 +223,9 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard let onCorners, now - lastAnalysis >= 0.2, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        lastAnalysis = now
-        let corners = try? TextRecognizer.documentCorners(in: CIImage(cvPixelBuffer: buffer))
-        Task { @MainActor in onCorners(corners) }
+        guard let onFrame, now - lastFrame >= 0.2 else { return }
+        lastFrame = now
+        Task { @MainActor in onFrame() }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {

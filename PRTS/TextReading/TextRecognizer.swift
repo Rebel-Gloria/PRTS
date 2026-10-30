@@ -1,36 +1,19 @@
 import CoreImage
 import Vision
 
-/// Apple's on-device document outline, perspective correction and text recognition; no model is shipped.
+/// Apple's on-device text recognition: the fallback when the bundled model fails.
 nonisolated enum TextRecognizer {
-    /// Normalized corners (top-left, top-right, bottom-right, bottom-left), origin top-left.
-    static func documentCorners(in image: CIImage) throws -> [CGPoint]? {
-        let request = VNDetectDocumentSegmentationRequest()
-        try VNImageRequestHandler(ciImage: image).perform([request])
-        guard let page = request.results?.first else { return nil }
-        return [page.topLeft, page.topRight, page.bottomRight, page.bottomLeft].map { CGPoint(x: $0.x, y: 1 - $0.y) }
-    }
-
-    /// Reads the page inside corners (flattened first), or the whole image when there is no page.
-    static func read(_ image: CIImage, corners: [CGPoint]?) throws -> String {
+    /// Reads the whole photo. Used when the bundled model fails.
+    static func read(_ image: CIImage) throws -> String {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
         request.usesLanguageCorrection = true
-        try VNImageRequestHandler(ciImage: corners.map { flattened(image, corners: $0) } ?? image).perform([request])
+        try VNImageRequestHandler(ciImage: image).perform([request])
         let lines = (request.results ?? []).compactMap { line in
             line.topCandidates(1).first.map { (box: line.boundingBox, text: $0.string) }
         }
         return joined(ordered(lines))
-    }
-
-    static func flattened(_ image: CIImage, corners: [CGPoint]) -> CIImage {
-        let e = image.extent
-        func point(_ p: CGPoint) -> CIVector { CIVector(x: e.minX + p.x * e.width, y: e.minY + (1 - p.y) * e.height) }
-        return image.applyingFilter("CIPerspectiveCorrection", parameters: [
-            "inputTopLeft": point(corners[0]), "inputTopRight": point(corners[1]),
-            "inputBottomRight": point(corners[2]), "inputBottomLeft": point(corners[3]),
-        ])
     }
 
     /// Top-to-bottom rows, left-to-right within a row. Boxes are Vision's (origin bottom-left).

@@ -11,7 +11,8 @@ struct SettingsView: View {
     #endif
     @EnvironmentObject private var speech: SpeechManager
     @EnvironmentObject private var haptics: HapticManager
-    @AppStorage(PhotoCaptureButton.hardwareButtonsKey) private var photoHardwareButtons = true
+    @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
+    @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
 
     var body: some View {
@@ -40,12 +41,25 @@ struct SettingsView: View {
             #endif
             Section {
                 NavigationLink("settings.photo.service") { PhotoDescriptionSettingsView() }
-                Toggle("settings.photo.hardwareButtons", isOn: $photoHardwareButtons)
-                    .accessibilityIdentifier("photoHardwareButtonsToggle")
+                // Camera Control always takes photos; only phones without it get the volume option.
+                if PhotoHardwareButtons.volumeAvailable {
+                    Toggle("settings.photo.volumeButtons", isOn: $volumeButtons)
+                        .accessibilityIdentifier("photoVolumeButtonsToggle")
+                }
             } header: {
                 Text("settings.photo.section")
             } footer: {
-                Text("settings.photo.hardwareButtons.footer")
+                if PhotoHardwareButtons.hasCameraControl {
+                    Text("settings.photo.cameraControl.footer")
+                } else if PhotoHardwareButtons.volumeAvailable {
+                    Text("settings.photo.volumeButtons.footer")
+                }
+            }
+            Section {
+                Toggle("settings.ocr.threeFinger", isOn: $threeFingerReading)
+                    .accessibilityIdentifier("threeFingerReadingToggle")
+            } footer: {
+                Text("settings.ocr.threeFinger.footer")
             }
             Section("settings.voice.section") {
                 Toggle("settings.voice.announcements", isOn: Binding(get: { speech.voiceAnnouncementsEnabled }, set: speech.setVoiceAnnouncementsEnabled))
