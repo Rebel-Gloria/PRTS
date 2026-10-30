@@ -15,8 +15,9 @@
 
 | 位置 | 选项 | 默认 | 存在哪 |
 |---|---|---|---|
-| 拍照描述 | 服务商（本机离线、通义千问、DeepSeek、自定义）、API Key、是否允许上传、麦克风和语音识别授权。选本机时不显示 Key 和上传开关 | 本机（离线），不允许上传 | 钥匙串、UserDefaults |
-| 拍照描述 | 音量键和相机控制按钮 | 开 | `photo.hardwareButtons` |
+| PRTS intelligence | 服务商（本机离线、通义千问、DeepSeek、自定义）、API Key、是否允许上传、麦克风和语音识别授权。选本机时不显示 Key 和上传开关 | 本机（离线），不允许上传 | 钥匙串、UserDefaults |
+| PRTS intelligence | 音量键快捷操作：音量键当拍照键，屏幕上不再显示拍照按钮。有相机控制按钮的机型不显示这一项，相机控制按钮一直可用 | 开 | `photo.hardwareButtons` |
+| （PRTS intelligence 下方） | 三指快速朗读面前文字。小字：使用时会暂停语音播报，请在确认环境安全时使用 | 开 | `ocr.threeFinger` |
 | 语音 | 语音播报、语速 | 开、正常 | `SpeechManager` |
 | 语言 | 跟随系统、选择语言（中文 / English） | 跟随系统 | `SpeechManager` |
 | 显示 | 无画面模式 | 关 | `display.noPreview` |
