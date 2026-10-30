@@ -31,7 +31,8 @@ struct ContentView: View {
     @State private var pointerCannotHold = Self.assistivePointerRunning
     @State private var askingByTap = false
     @ObservedObject private var commands = HomeCommandCenter.shared
-    @AppStorage(PhotoCaptureButton.hardwareButtonsKey) private var photoHardwareButtons = true
+    @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
+    @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
     /// Skips the Metal preview for users who don't look at the screen. Analysis, guidance,
     /// haptics and photo capture read the shared snapshot, not the renderer.
     @AppStorage(Self.noPreviewKey) private var noPreview = false
@@ -92,15 +93,23 @@ struct ContentView: View {
                 }
 
                 if camera.state == .running && !isShowingSettings {
-                    PhotoCaptureButton(
-                        down: { photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() }) },
-                        up: { photo.up() }, cancel: { photo.cancel() },
-                        strings: .init(label: speechManager.interfaceString("photo.button.label"),
-                                       hint: speechManager.interfaceString("photo.button.hint"),
-                                       ask: speechManager.interfaceString("photo.button.action.ask"),
-                                       send: speechManager.interfaceString("photo.button.action.send")),
-                        hardwareButtons: photoHardwareButtons)
+                    let hardware = PhotoHardwareButtons.inUse(volume: volumeButtons)
+                    ZStack {
+                        // Camera Control or the volume buttons replace the on-screen button.
+                        if !hardware {
+                            PhotoCaptureButton(
+                                down: { photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() }) },
+                                up: { photo.up() }, cancel: { photo.cancel() },
+                                strings: .init(label: speechManager.interfaceString("photo.button.label"),
+                                               hint: speechManager.interfaceString("photo.button.hint"),
+                                               ask: speechManager.interfaceString("photo.button.action.ask"),
+                                               send: speechManager.interfaceString("photo.button.action.send")))
+                        }
+                    }
                         .frame(width: 160, height: 160)
+                        .background(PhotoHardwareButtons(
+                            down: { photo.down(snapshot: { camera.model.snapshot.frame }, silence: { speechManager.stopCurrentSpeech() }) },
+                            up: { photo.up() }, cancel: { photo.cancel() }, enabled: hardware))
                         .overlay(alignment: .bottom) {
                             if !photo.message.isEmpty {
                                 VStack(spacing: 8) {
@@ -126,7 +135,7 @@ struct ContentView: View {
 
                 if textReading.phase != .idle {
                     VStack(spacing: 6) {
-                        if textReading.framesAnalyzed == 0 {
+                        if textReading.framesSeen == 0 {
                             ProgressView().controlSize(.large)
                         } else {
                             Image(systemName: "text.viewfinder")
@@ -138,7 +147,7 @@ struct ContentView: View {
                         Text("home.ocr.status").font(.headline)
                         Text("home.ocr.status.hint").font(.caption).foregroundStyle(.secondary)
                         #if PRTS_DEV_CAPTURE
-                        Text(verbatim: "frames \(textReading.framesAnalyzed)").font(.caption2.monospacedDigit())
+                        Text(verbatim: "frames \(textReading.framesSeen)").font(.caption2.monospacedDigit())
                             .accessibilityIdentifier("ocrFrames")
                         #endif
                     }
@@ -148,7 +157,7 @@ struct ContentView: View {
                     .accessibilityIdentifier("ocrStatus")
                 }
             }
-            .background(ThreeFingerHold { toggleTextReading() })
+            .background(ThreeFingerHold { if threeFingerReading { toggleTextReading() } })
             // VoiceOver two-finger double-tap runs the main action from anywhere on the screen.
             .accessibilityAction(.magicTap) {
                 guard !isShowingSettings else { return }
@@ -316,7 +325,7 @@ struct ContentView: View {
     private var cameraSurface: some View {
         if textReading.phase != .idle && !isShowingSettings {
             // Attaching the preview while the session is still being configured stalls the UI for seconds.
-            if !noPreview && textReading.framesAnalyzed > 0 {
+            if !noPreview && textReading.framesSeen > 0 {
                 TextCameraPreview(session: textReading.camera.session)
                     .ignoresSafeArea()
                     .accessibilityHidden(true)
@@ -541,7 +550,9 @@ struct ContentView: View {
         // cannot hold, so their activation stops directly.
         .accessibilityAction { camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton() }
         .accessibilityAction(named: Text("home.camera.action.stop")) { stopFromAssistiveTechnology() }
-        .accessibilityAction(named: Text("home.ocr.action")) { toggleTextReading() }
+        .accessibilityActions {
+            if threeFingerReading { Button("home.ocr.action") { toggleTextReading() } }
+        }
         .accessibilityInputLabels(camera.state == .running
             ? [Text("home.camera.input.stop"), Text("home.camera.button.stopLongPress")]
             : [Text("home.camera.input.start"), Text("home.camera.button.start.label")])
@@ -626,12 +637,11 @@ struct ContentView: View {
         let resumeGuidance = camera.state == .running
         if resumeGuidance { camera.stopCamera() }
         hapticManager.buttonTapped()
-        speechManager.announce(speechManager.interfaceString(resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start"))
-        textReading.say = { key in speechManager.announce(speechManager.interfaceString(key)) }
+        textReading.localized = { key in speechManager.interfaceString(key) }
         textReading.finished = {
             if resumeGuidance && UIApplication.shared.applicationState == .active && !isShowingSettings { camera.startCamera() }
         }
-        textReading.start()
+        textReading.start(intro: resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start")
     }
 
     private func stopFromAssistiveTechnology() {

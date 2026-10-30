@@ -614,13 +614,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Got it, reading"
+            "value" : "Reading"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已拍下，正在识别"
+            "value" : "正在识别"
           }
         }
       }
@@ -637,7 +637,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有识别到文字"
+            "value" : "没有看到文字"
           }
         }
       }
@@ -676,172 +676,19 @@
         }
       }
     },
-    "ocr.hint.closer" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move closer"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "靠近一点"
-          }
-        }
-      }
-    },
-    "ocr.hint.farther" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move back"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "拿远一点"
-          }
-        }
-      }
-    },
-    "ocr.hint.hold" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hold still"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "别动"
-          }
-        }
-      }
-    },
-    "ocr.hint.moveDown" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move down"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "往下移"
-          }
-        }
-      }
-    },
-    "ocr.hint.moveLeft" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move left"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "往左移"
-          }
-        }
-      }
-    },
-    "ocr.hint.moveRight" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move right"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "往右移"
-          }
-        }
-      }
-    },
-    "ocr.hint.moveUp" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move up"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "往上移"
-          }
-        }
-      }
-    },
-    "ocr.hint.searching" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No page found"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没找到文档"
-          }
-        }
-      }
-    },
-    "ocr.noPage" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No full page found, reading what is in view"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没找到完整文档，读画面里的文字"
-          }
-        }
-      }
-    },
     "ocr.start" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Text reading. Point the phone at the page and follow the hints."
+            "value" : "Reading the text in front of you. Hold the phone steady."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "文字识别。把手机对准文档，跟着提示移动。"
+            "value" : "读面前的文字，请拿稳手机。"
           }
         }
       }
@@ -852,13 +699,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Guidance paused. Text reading: point the phone at the page and follow the hints."
+            "value" : "Guidance paused. Reading the text in front of you. Hold the phone steady."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "避障已暂停。文字识别：把手机对准文档，跟着提示移动。"
+            "value" : "避障已暂停。读面前的文字，请拿稳手机。"
           }
         }
       }
@@ -2005,13 +1852,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photo description"
+            "value" : "PRTS intelligence"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拍照描述"
+            "value" : "PRTS intelligence"
           }
         }
       }
@@ -2594,40 +2441,6 @@
         }
       }
     },
-    "settings.photo.hardwareButtons" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Volume buttons and Camera Control"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "音量键和相机控制按钮"
-          }
-        }
-      }
-    },
-    "settings.photo.hardwareButtons.footer" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "While the camera is on, press once to describe the scene, or hold to ask a question. The volume buttons then don’t change the volume."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "相机开着时，按一下描述画面，按住提问。这期间音量键不调节音量。"
-          }
-        }
-      }
-    },
     "settings.display.section" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2845,6 +2658,159 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "支持兼容 OpenAI 格式、能看图的模型。地址会自动补上 /chat/completions。"
+          }
+        }
+      }
+    },
+    "ocr.lead.roadSign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The road sign in front of you says"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你面前的路标上写着"
+          }
+        }
+      }
+    },
+    "ocr.lead.sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sign in front of you says"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你面前的牌子上写着"
+          }
+        }
+      }
+    },
+    "ocr.lead.paper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The paper in front of you says"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你面前的纸张上写着"
+          }
+        }
+      }
+    },
+    "ocr.lead.object" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The object in front of you says"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你面前的物体上写着"
+          }
+        }
+      }
+    },
+    "settings.photo.volumeButtons" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volume button shortcut"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音量键快捷操作"
+          }
+        }
+      }
+    },
+    "settings.photo.volumeButtons.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, while guidance runs, press a volume button to describe the scene or hold it to ask a question. The volume buttons then don’t change the volume, and the on-screen photo button is hidden."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后，避障运行时按一下音量键描述画面，按住提问；这期间音量键不调节音量，屏幕上也不再显示拍照按钮。"
+          }
+        }
+      }
+    },
+    "settings.photo.cameraControl.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "While guidance runs, press Camera Control to describe the scene, or hold it to ask a question."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避障运行时，按一下相机控制按钮描述画面，按住提问。"
+          }
+        }
+      }
+    },
+    "settings.ocr.threeFinger" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Three-finger read text in front"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "三指快速朗读面前文字"
+          }
+        }
+      }
+    },
+    "settings.ocr.threeFinger.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice guidance pauses while reading. Use it only where you know it is safe."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用时会暂停语音播报，请在确认环境安全时使用。"
           }
         }
       }

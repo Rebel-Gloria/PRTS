@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Testing
 @testable import PRTS
 
@@ -38,5 +39,46 @@ struct PhotoLocalModelTests {
         try await Task.sleep(for: .milliseconds(300))
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
+    }
+}
+
+/// The bundled model reading text, through the same two questions as the app. Device only. Kept in
+/// the serialized suite: a photo description between the two questions would change the photo.
+extension PhotoLocalModelTests {
+    private func photo(_ lines: [String], background: UIColor, card: UIColor, ink: UIColor) throws -> Data {
+        let size = CGSize(width: 1280, height: 960)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            background.setFill(); context.fill(CGRect(origin: .zero, size: size))
+            card.setFill(); context.fill(CGRect(x: 240, y: 160, width: 800, height: 120 + CGFloat(lines.count) * 130))
+            for (row, line) in lines.enumerated() {
+                (line as NSString).draw(at: CGPoint(x: 300, y: 220 + CGFloat(row) * 130),
+                                        withAttributes: [.font: UIFont.systemFont(ofSize: 88, weight: .bold), .foregroundColor: ink])
+            }
+        }
+        return try #require(image.jpegData(compressionQuality: 0.85))
+    }
+
+    private func read(_ jpeg: Data) async throws -> (TextReadingPrompt.Surface, String) {
+        let start = Date()
+        let surface = try await TextReadingPrompt.surface(of: jpeg)
+        let text = try await TextReadingPrompt.copy { _ in }
+        print("PRTS_OCR \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(surface.rawValue) | \(text)")
+        return (surface, text)
+    }
+
+    @Test(.enabled(if: Bundle.main.url(forResource: "mmproj-model-f16", withExtension: "gguf", subdirectory: "LocalVLM") != nil))
+    func readsARoadSignAndAShopSign() async throws {
+        let road = try await read(photo(["人民路", "地铁站 200米"], background: .systemTeal, card: UIColor(red: 0.08, green: 0.43, blue: 0.24, alpha: 1), ink: .white))
+        #expect(road.0 == .roadSign)
+        #expect(road.1.contains("人民路") && road.1.contains("地铁站"))
+        let shop = try await read(photo(["幸福便利店", "24小时营业"], background: .lightGray, card: UIColor(red: 0.8, green: 0.1, blue: 0.12, alpha: 1), ink: .white))
+        #expect(shop.0 == .sign)
+        #expect(shop.1.contains("幸福便利店"))
+    }
+
+    @Test(.enabled(if: Bundle.main.url(forResource: "mmproj-model-f16", withExtension: "gguf", subdirectory: "LocalVLM") != nil))
+    func saysNoneWithoutText() async throws {
+        let blank = try await read(photo([], background: .brown, card: .darkGray, ink: .white))
+        #expect(blank.1.trimmingCharacters(in: .punctuationCharacters) == TextReadingPrompt.none)
     }
 }

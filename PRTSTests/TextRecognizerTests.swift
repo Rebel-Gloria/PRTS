@@ -21,13 +21,8 @@ struct TextRecognizerTests {
         return CIImage(cgImage: image.cgImage!)
     }
 
-    @Test func findsThePageAndReadsItInOrder() throws {
-        let image = pageOnTable()
-        let corners = try #require(try TextRecognizer.documentCorners(in: image))
-        // The page spans x 0.17–0.83 and y 0.19–0.81 of the frame (origin top-left).
-        #expect(abs(corners[0].x - 0.17) < 0.05 && abs(corners[0].y - 0.19) < 0.05)
-        #expect(abs(corners[2].x - 0.83) < 0.05 && abs(corners[2].y - 0.81) < 0.05)
-        let text = try TextRecognizer.read(image, corners: corners)
+    @Test func readsThePhotoInOrder() throws {
+        let text = try TextRecognizer.read(pageOnTable())
         let first = try #require(text.range(of: "说明书")), second = try #require(text.range(of: "第二页"))
         #expect(first.lowerBound < second.lowerBound)
         #expect(text.contains("15KG"))
