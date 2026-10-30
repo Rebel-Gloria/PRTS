@@ -13,6 +13,7 @@ struct SettingsView: View {
     @EnvironmentObject private var haptics: HapticManager
     @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
     @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
+    @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService.onDevice
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
 
     var body: some View {
@@ -58,8 +59,15 @@ struct SettingsView: View {
             Section {
                 Toggle("settings.ocr.threeFinger", isOn: $threeFingerReading)
                     .accessibilityIdentifier("threeFingerReadingToggle")
+                Picker("settings.ocr.service", selection: $readingService) {
+                    ForEach(TextReadingService.allCases) { Text(LocalizedStringKey($0.localizationKey)).tag($0) }
+                }
+                .accessibilityIdentifier("ocrServicePicker")
             } footer: {
-                Text("settings.ocr.threeFinger.footer")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("settings.ocr.threeFinger.footer")
+                    Text("settings.ocr.service.footer")
+                }
             }
             Section("settings.voice.section") {
                 Toggle("settings.voice.announcements", isOn: Binding(get: { speech.voiceAnnouncementsEnabled }, set: speech.setVoiceAnnouncementsEnabled))

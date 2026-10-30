@@ -10,13 +10,13 @@
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 46 | 6138 | 5766 |
+| App | 46 | 6242 | 5859 |
 | SpatialCore | 40 | 5325 | 5161 |
 | Contracts | 7 | 770 | 746 |
 | OptionalModels | 16 | 1409 | 1372 |
-| Tests | 45 | 6189 | 5944 |
+| Tests | 45 | 6208 | 5961 |
 | Scripts | 10 | 931 | 862 |
-| Total | 164 | 20762 | 19851 |
+| Total | 164 | 20885 | 19961 |
 
 ## 文件树
 
@@ -68,8 +68,8 @@ PRTS/
       ProbeViewModel.swift (175 lines)
       Snapshots.swift (303 lines)
   TextReading/
-    TextReadingPrompt.swift (103 lines)
-    TextReadingSession.swift (235 lines)
+    TextReadingPrompt.swift (145 lines)
+    TextReadingSession.swift (289 lines)
     TextRecognizer.swift (43 lines)
     ThreeFingerHold.swift (67 lines)
   UI/
@@ -81,7 +81,7 @@ PRTS/
     PhotoCaptureButton.swift (138 lines)
     PhotoDescriptionSettingsView.swift (105 lines)
     ProbeSettingsView.swift (156 lines)
-    SettingsView.swift (115 lines)
+    SettingsView.swift (123 lines)
 PRTSTests/
   DevCaptureTests.swift (125 lines)
   LocalVLMBenchmarkTests.swift (112 lines)
@@ -92,7 +92,7 @@ PRTSTests/
   PhotoLifecycleTests.swift (231 lines)
   PhotoLocalModelTests.swift (84 lines)
   PhotoPresentationTests.swift (112 lines)
-  TextReadingAnswerTests.swift (46 lines)
+  TextReadingAnswerTests.swift (65 lines)
   TextRecognizerTests.swift (30 lines)
 PRTSUITests/
   PRTSUITests.swift (316 lines)
