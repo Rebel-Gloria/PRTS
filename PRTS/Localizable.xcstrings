@@ -710,6 +710,40 @@
         }
       }
     },
+    "photo.settings.questionThinking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Think before answering questions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提问时深度思考"
+          }
+        }
+      }
+    },
+    "photo.settings.questionThinking.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Answers to spoken questions may be more careful, but take longer: Qwen sometimes needs over 20 seconds. Describing the scene never thinks."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提问的回答可能更仔细，但要多等一会儿，千问有时要 20 秒以上。短按描述画面不受影响。"
+          }
+        }
+      }
+    },
     "settings.display.scanMesh" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1869,13 +1903,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Service and API key"
+            "value" : "Intelligence settings"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "服务与 API Key"
+            "value" : "智能设置"
           }
         }
       }
@@ -1886,7 +1920,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photo description"
+            "value" : "Intelligence settings"
           }
         },
         "zh-Hans" : {
@@ -2889,13 +2923,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Vision is fastest but can’t tell what the text is on. Remote API uses the online service chosen under Service and API key and needs photo upload allowed; without a network it falls back to the on-device VLM."
+            "value" : "Apple Vision is fastest but can’t tell what the text is on. Remote API uses the online service chosen under Intelligence settings and needs photo upload allowed; without a network it falls back to the on-device VLM."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Vision 最快，但说不出字写在什么上面。远端 API 用\"服务与 API Key\"里选的联网服务，要允许发送照片；没网时自动改用本地 VLM。"
+            "value" : "Apple Vision 最快，但说不出字写在什么上面。远端 API 用\"智能设置\"里选的联网服务，要允许发送照片；没网时自动改用本地 VLM。"
           }
         }
       }
@@ -2906,13 +2940,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remote reading needs an online service chosen under Service and API key"
+            "value" : "Remote reading needs an online service chosen under Intelligence settings"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "联网识别要先在\"服务与 API Key\"里选一个联网服务"
+            "value" : "联网识别要先在\"智能设置\"里选一个联网服务"
           }
         }
       }

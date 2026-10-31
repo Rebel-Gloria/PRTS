@@ -39,16 +39,16 @@ private final class PhotoTestAudio: PhotoAnswerAudio {
 private actor PhotoTestNetwork {
     nonisolated struct Request: Sendable {
         let image: Data
-        let text: String
+        let question: String?
         let key: String
     }
     private(set) var requests: [Request] = []
     private var responses: [Int: CheckedContinuation<String, Error>] = [:]
     private var arrivals: [(Int, CheckedContinuation<Void, Never>)] = []
 
-    func send(_ image: Data, _ text: String, _ key: String) async throws -> String {
+    func send(_ image: Data, _ question: String?, _ key: String) async throws -> String {
         let index = requests.count
-        requests.append(Request(image: image, text: text, key: key))
+        requests.append(Request(image: image, question: question, key: key))
         return try await withCheckedThrowingContinuation { continuation in
             responses[index] = continuation
             let ready = arrivals.filter { $0.0 <= requests.count }
@@ -103,7 +103,7 @@ struct PhotoLifecycleTests {
         #expect(f.state.events == ["silence", "capture", "A"])
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
-        #expect(requests[0].text == PhotoChatProtocol.prompt)
+        #expect(requests[0].question == nil)
         #expect(requests[0].image == Data([0xff, 0xd8, 0xff, 0xd9]))
         await f.network.reply(0, "前方是门。")
         await f.coordinator.work?.value
@@ -128,7 +128,7 @@ struct PhotoLifecycleTests {
         #expect(f.state.events.suffix(2) == ["stop-mic", "A"])
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
-        #expect(requests[0].text == "简短回答盲人的问题：门在哪里？")
+        #expect(requests[0].question == "门在哪里？")
         #expect(f.state.events.filter { $0 == "capture" }.count == 1)
         await f.network.reply(0, "门在左侧。")
         await f.coordinator.work?.value
@@ -136,9 +136,8 @@ struct PhotoLifecycleTests {
         f.coordinator.cancel()
     }
 
-    @Test func repeatedLongPressPrefixesOnlyTheCurrentTranscript() async throws {
+    @Test func repeatedLongPressSendsOnlyTheCurrentTranscript() async throws {
         let f = PhotoFixture()
-        let prefix = "简短回答盲人的问题："
         let questions = ["请告诉我\n门的“颜色”是什么？", "路牌上写了什么？"]
         for (index, question) in questions.enumerated() {
             f.recognizer.question = question
@@ -148,16 +147,17 @@ struct PhotoLifecycleTests {
             f.state.time = start + 1; f.coordinator.up()
             await f.network.waitForRequests(index + 1)
             let sent = await f.network.requests[index]
-            #expect(sent.text == prefix + question)
-            #expect(!sent.text.contains(PhotoChatProtocol.prompt))
-            // Verify the prepared question survives JSON encoding without changing
-            // the transcript's punctuation/newlines or accumulating prior prompts.
-            let request = try PhotoChatProtocol.request(jpeg: sent.image, text: sent.text, key: sent.key)
+            #expect(sent.question == question)
+            // Verify the question survives JSON encoding without changing the transcript's
+            // punctuation/newlines or accumulating prior prompts.
+            let request = try PhotoChatProtocol.request(jpeg: sent.image, text: try #require(sent.question), key: sent.key,
+                                                        system: PhotoChatProtocol.questionSystem)
             let data = try #require(request.httpBody)
             let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
             let messages = try #require(body["messages"] as? [[String: Any]])
+            #expect(messages.first?["content"] as? String == PhotoChatProtocol.questionSystem)
             let content = try #require(messages.last?["content"] as? [[String: Any]])
-            #expect(content[0]["text"] as? String == prefix + question)
+            #expect(content[0]["text"] as? String == question)
             await f.network.reply(index, "测试回答")
             await f.coordinator.work?.value
             f.audio.onFinished?()
