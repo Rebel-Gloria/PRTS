@@ -78,6 +78,22 @@ struct PhotoDescriptionTests {
         #expect(customBody["thinking"] == nil && customBody["enable_thinking"] == nil)
     }
 
+    @Test func questionsCanTurnThinkingOn() throws {
+        func body(_ service: PhotoChatService) throws -> [String: Any] {
+            let data = try #require(try PhotoChatProtocol.request(jpeg: Data([1]), text: "看", key: "test-only", service: service,
+                                                                  system: PhotoChatProtocol.questionSystem, thinking: true).httpBody)
+            return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        #expect(try body(.qwen)["enable_thinking"] as? Bool == true)
+        #expect((try body(.deepseek)["thinking"] as? [String: String])?["type"] == "enabled")
+    }
+
+    @Test func questionAnswersStopAtThreeSentences() {
+        #expect(PhotoChatProtocol.threeSentences("一。二！三？四。") == "一。二！三？")
+        #expect(PhotoChatProtocol.threeSentences("看不清。\n太暗了。\n换个地方。\n再试试。") == "看不清。\n太暗了。\n换个地方。")
+        #expect(PhotoChatProtocol.threeSentences("开的，写着24小时营业。") == "开的，写着24小时营业。")
+    }
+
     @Test func reasoningNeverBecomesSpeech() throws {
         var stream = PhotoChatStream()
         for line in [

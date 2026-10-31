@@ -86,7 +86,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 do {
                     try capture()
                     try audio.cue(.submit)
-                    submit(question: PhotoChatProtocol.prompt)
+                    submit(question: nil)
                 } catch { fail(error) }
             case .startRecording: startRecording()
             case .stopRecording:
@@ -101,7 +101,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                         let text = try await self.recognizer.finish()
                         try Task.checkCancellation()
                         guard self.generation == id else { return }
-                        self.submit(question: PhotoChatProtocol.spokenQuestionPrefix + text)
+                        self.submit(question: text)
                     } catch {
                         if self.generation == id { self.fail(error) }
                     }
@@ -147,7 +147,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         } catch { fail(error) }
     }
 
-    private func submit(question: String) {
+    private func submit(question: String?) {
         guard let imageTask else { return }
         let id = generation, credential = key, describe = services.describe
         key = ""; message = "正在描述"

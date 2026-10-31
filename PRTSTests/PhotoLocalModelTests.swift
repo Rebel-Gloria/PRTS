@@ -21,7 +21,7 @@ struct PhotoLocalModelTests {
         #expect(!files.isEmpty)
         for file in files {
             let start = Date()
-            let answer = try await services.describe(try Data(contentsOf: file), PhotoChatProtocol.prompt, "")
+            let answer = try await services.describe(try Data(contentsOf: file), nil, "")
             print("PRTS_LOCAL_VLM \(file.lastPathComponent) \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(answer)")
             #expect(!answer.isEmpty)
         }
@@ -35,7 +35,7 @@ struct PhotoLocalModelTests {
         UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: PhotoChatProvider.selectionKey)
         defer { UserDefaults.standard.removeObject(forKey: PhotoChatProvider.selectionKey) }
         let describe = PhotoDescriptionServices().describe
-        let task = Task { try await describe(jpeg, PhotoChatProtocol.prompt, "") }
+        let task = Task { try await describe(jpeg, nil, "") }
         try await Task.sleep(for: .milliseconds(300))
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
@@ -81,6 +81,18 @@ extension PhotoLocalModelTests {
         let blank = try await read(photo([], background: .brown, card: .darkGray, ink: .white))
         #expect(blank.1.trimmingCharacters(in: .punctuationCharacters) == TextReadingPrompt.none)
     }
+
+    @Test(.enabled(if: Bundle.main.url(forResource: "mmproj-model-f16", withExtension: "gguf", subdirectory: "LocalVLM") != nil))
+    func answersAQuestionOffline() async throws {
+        UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: PhotoChatProvider.selectionKey)
+        defer { UserDefaults.standard.removeObject(forKey: PhotoChatProvider.selectionKey) }
+        let jpeg = try photo(["人民路", "地铁站 200米"], background: .systemTeal, card: UIColor(red: 0.08, green: 0.43, blue: 0.24, alpha: 1), ink: .white)
+        let start = Date()
+        let answer = try await PhotoDescriptionServices().describe(jpeg, "牌子上写的什么？", "")
+        print("PRTS_LOCAL_QUESTION \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(answer)")
+        #expect(answer.contains("人民路"))
+        #expect(answer == PhotoChatProtocol.threeSentences(answer))
+    }
 }
 
 /// The remote readers with real keys, through the app's own request code. Runs only when the
@@ -116,4 +128,21 @@ struct RemoteTextReadingTests {
 
     @Test(.enabled(if: env["PRTS_DEEPSEEK_KEY"] != nil))
     func deepseekReadsInOneRequest() async throws { try await check(.deepseek, key: Self.env["PRTS_DEEPSEEK_KEY"]!) }
+
+    /// A question with the question prompt, thinking off and on.
+    private func ask(_ service: PhotoChatService, key: String) async throws {
+        for thinking in [false, true] {
+            let start = Date()
+            let answer = try await PhotoChatClient().describe(jpeg: try roadSign(), text: "地铁站有多远？", key: key, service: service,
+                                                              system: PhotoChatProtocol.questionSystem, thinking: thinking)
+            print("PRTS_REMOTE_QUESTION \(service.model) thinking=\(thinking) \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(answer)")
+            #expect(answer.contains("200"))
+        }
+    }
+
+    @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
+    func qwenAnswersAQuestion() async throws { try await ask(.qwen, key: Self.env["PRTS_QWEN_KEY"]!) }
+
+    @Test(.enabled(if: env["PRTS_DEEPSEEK_KEY"] != nil))
+    func deepseekAnswersAQuestion() async throws { try await ask(.deepseek, key: Self.env["PRTS_DEEPSEEK_KEY"]!) }
 }
