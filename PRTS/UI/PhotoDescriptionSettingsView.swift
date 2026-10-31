@@ -7,6 +7,7 @@ struct PhotoDescriptionSettingsView: View {
     @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.onDevice
     @AppStorage(PhotoChatProvider.customEndpointKey) private var customEndpoint = ""
     @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
+    @AppStorage(PhotoChatProtocol.questionThinkingKey) private var questionThinking = false
     @State private var key = ""
     @State private var hasKey = false
     @State private var message = ""
@@ -76,6 +77,14 @@ struct PhotoDescriptionSettingsView: View {
                         }
                     }
                     if !message.isEmpty { Text(message).font(.caption) }
+                }
+                if provider != .custom {
+                    Section {
+                        Toggle("photo.settings.questionThinking", isOn: $questionThinking)
+                            .accessibilityIdentifier("photoQuestionThinking")
+                    } footer: {
+                        Text("photo.settings.questionThinking.footer")
+                    }
                 }
             }
             Section("photo.settings.permissions") {

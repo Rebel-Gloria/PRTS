@@ -4,10 +4,10 @@ import Foundation
 /// Redirects are rejected so credentials and camera content stay at the requested endpoint.
 nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Sendable {
     func describe(jpeg: Data, text: String, key: String, service: PhotoChatService? = .qwen,
-                  system: String? = PhotoChatProtocol.system, configuration: URLSessionConfiguration = .ephemeral) async throws -> String {
+                  system: String? = PhotoChatProtocol.system, thinking: Bool = false, configuration: URLSessionConfiguration = .ephemeral) async throws -> String {
         try Task.checkCancellation()
         guard let service else { throw PhotoChatError.invalidService }
-        let request = try PhotoChatProtocol.request(jpeg: jpeg, text: text, key: key, service: service, system: system)
+        let request = try PhotoChatProtocol.request(jpeg: jpeg, text: text, key: key, service: service, system: system, thinking: thinking)
         configuration.timeoutIntervalForResource = 120
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil

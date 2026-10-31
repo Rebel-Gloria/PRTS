@@ -10,13 +10,13 @@
 
 | 模块 | 文件数 | 物理行 | 非空行 |
 |---|---:|---:|---:|
-| App | 46 | 6258 | 5874 |
+| App | 46 | 6336 | 5945 |
 | SpatialCore | 40 | 5325 | 5161 |
 | Contracts | 7 | 770 | 746 |
 | OptionalModels | 16 | 1409 | 1372 |
-| Tests | 45 | 6243 | 5991 |
+| Tests | 46 | 6312 | 6052 |
 | Scripts | 10 | 931 | 862 |
-| Total | 164 | 20936 | 20006 |
+| Total | 165 | 21083 | 20138 |
 
 ## 文件树
 
@@ -43,11 +43,11 @@ PRTS/
   PhotoDescription/
     PhotoAudioOutput.swift (94 lines)
     PhotoChatClient.swift (55 lines)
-    PhotoChatProtocol.swift (138 lines)
+    PhotoChatProtocol.swift (196 lines)
     PhotoChatProvider.swift (66 lines)
     PhotoCredentialStore.swift (48 lines)
     PhotoDescriptionCoordinator.swift (176 lines)
-    PhotoDescriptionServices.swift (43 lines)
+    PhotoDescriptionServices.swift (52 lines)
     PhotoImageEncoder.swift (38 lines)
     PhotoLocalModel.swift (20 lines)
     PhotoPressState.swift (31 lines)
@@ -68,7 +68,7 @@ PRTS/
       ProbeViewModel.swift (175 lines)
       Snapshots.swift (303 lines)
   TextReading/
-    TextReadingPrompt.swift (156 lines)
+    TextReadingPrompt.swift (158 lines)
     TextReadingSession.swift (289 lines)
     TextRecognizer.swift (43 lines)
     ThreeFingerHold.swift (67 lines)
@@ -79,7 +79,7 @@ PRTS/
     LiquidGlass.swift (52 lines)
     Localization.swift (86 lines)
     PhotoCaptureButton.swift (138 lines)
-    PhotoDescriptionSettingsView.swift (105 lines)
+    PhotoDescriptionSettingsView.swift (114 lines)
     ProbeSettingsView.swift (156 lines)
     SettingsView.swift (123 lines)
 PRTSTests/
@@ -87,13 +87,14 @@ PRTSTests/
   LocalVLMBenchmarkTests.swift (112 lines)
   ObstacleRouteSpeechTests.swift (138 lines)
   PRTSTests.swift (103 lines)
-  PhotoDescriptionTests.swift (188 lines)
+  PhotoDescriptionTests.swift (204 lines)
   PhotoImageAlignmentTests.swift (59 lines)
   PhotoLifecycleTests.swift (231 lines)
-  PhotoLocalModelTests.swift (119 lines)
+  PhotoLocalModelTests.swift (148 lines)
   PhotoPresentationTests.swift (112 lines)
   TextReadingAnswerTests.swift (65 lines)
   TextRecognizerTests.swift (30 lines)
+  TrialKeysTests.swift (24 lines)
 PRTSUITests/
   PRTSUITests.swift (316 lines)
   PRTSUITestsLaunchTests.swift (35 lines)

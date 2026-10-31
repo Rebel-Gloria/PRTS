@@ -28,14 +28,23 @@ struct PhotoDescriptionServices {
     var credential: () throws -> String? = { try PhotoCredentialStore.read(account: PhotoChatProvider.current().keyAccount) }
     var speechAuthorized: () -> Bool = { PhotoSpeechRecognizer.authorized }
     var requestSpeechPermission: () async -> Bool = { await PhotoSpeechRecognizer.requestPermissions() }
-    var describe: @Sendable (Data, String, String) async throws -> String = { jpeg, text, key in
+    /// A nil question is a short tap: describe the scene. A spoken question gets its own prompt
+    /// and at most three sentences back.
+    var describe: @Sendable (Data, String?, String) async throws -> String = { jpeg, question, key in
         let provider = PhotoChatProvider.current()
-        guard provider == .onDevice else {
-            return try await PhotoChatClient().describe(jpeg: jpeg, text: text, key: key, service: provider.service())
+        let text = question ?? PhotoChatProtocol.prompt
+        let answer: String
+        if provider == .onDevice {
+            answer = try await PhotoLocalModel.shared.describe(
+                jpeg: jpeg, prompt: text, system: question == nil ? PhotoChatProtocol.system : PhotoChatProtocol.localQuestionSystem)
+            guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
+        } else {
+            answer = try await PhotoChatClient().describe(
+                jpeg: jpeg, text: text, key: key, service: provider.service(),
+                system: question == nil ? PhotoChatProtocol.system : PhotoChatProtocol.questionSystem,
+                thinking: question != nil && UserDefaults.standard.bool(forKey: PhotoChatProtocol.questionThinkingKey))
         }
-        let answer = try await PhotoLocalModel.shared.describe(jpeg: jpeg, prompt: text, system: PhotoChatProtocol.system)
-        guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
-        return answer
+        return question == nil ? answer : PhotoChatProtocol.threeSentences(answer)
     }
 }
 
