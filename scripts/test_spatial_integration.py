@@ -278,21 +278,12 @@ class SpatialIntegrationTests(unittest.TestCase):
             "cameraStatus": (
                 ROOT / "PRTS/Features/Guidance/Capture/CameraStatusView.swift"
             ).read_text(encoding="utf-8"),
-            "primaryButton": (
-                ROOT / "PRTS/Features/Guidance/Capture/GuidanceButton.swift"
-            ).read_text(encoding="utf-8"),
         }
-        for contract in (
-            "start: startCameraFromButton",
-            "stop: stopFromAssistiveTechnology",
-            "readText: toggleTextReading",
-            "stopGesture: stopGesture",
-            "Task.sleep(for: .seconds(1))",
-            "!Task.isCancelled",
-            "hapticManager.stopHoldFeedback()",
-            "camera.stopCamera()",
-        ):
-            self.assertIn(contract, home)
+        self.assertIn(".onAppear {", home)
+        self.assertIn("startCameraFromButton()", home)
+        self.assertIn(".accessibilityAction(.magicTap)", home)
+        self.assertIn("toggleTextReading()", home)
+        self.assertNotIn('accessibilityIdentifier("cameraButton")', home)
         theme = (ROOT / "PRTS/Shared/Appearance/AppColors.swift").read_text(encoding="utf-8")
         for color in (
             "Color(red: 0.025, green: 0.045, blue: 0.075)",
@@ -313,16 +304,6 @@ class SpatialIntegrationTests(unittest.TestCase):
                 ".accessibilityElement(children: .ignore)",
                 'accessibilityLabel("home.camera.status.label")',
                 'accessibilityIdentifier("cameraStatus")',
-            ],
-            "primaryButton": [
-                "start()",
-                ".disabled(state.isBusy)",
-                ".simultaneousGesture(stopGesture)",
-                'accessibilityIdentifier("cameraButton")',
-                "minHeight: 76",
-                # Assistive technology cannot hold; touch keeps the one-second hold.
-                "state == .running ? stop() : start()",
-                'accessibilityAction(named: Text("home.camera.action.stop"))',
             ],
         }.items():
             for line in required:
