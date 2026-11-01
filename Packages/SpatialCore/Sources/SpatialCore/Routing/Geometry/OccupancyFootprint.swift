@@ -27,12 +27,13 @@ public struct OccupancyFootprint: Codable, Sendable {
     /// cracks in a continuous wall when sensor and planning rasters have different yaw.
     func stamp(into grid: inout LocalGrid) {
         let half = size / 2
-        let corners = [
+        let worldCorners: [V3] = [
             center - right * half - forward * half, center + right * half - forward * half,
             center + right * half + forward * half, center - right * half + forward * half,
-        ].map {
-            let q = grid.basis.local($0)
-            return SIMD2(q.x, q.z)
+        ]
+        let corners: [SIMD2<Float>] = worldCorners.map { world in
+            let q = grid.basis.local(world)
+            return SIMD2<Float>(q.x, q.z)
         }
         let low = corners.reduce(SIMD2<Float>(repeating: .infinity), simd_min)
         let high = corners.reduce(SIMD2<Float>(repeating: -.infinity), simd_max)
