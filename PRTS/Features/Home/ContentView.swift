@@ -379,6 +379,9 @@ struct ContentView: View {
 
     private var cameraStatus: some View {
         CameraStatusView(state: camera.state, isLargeText: isLargeText)
+            .accessibilityActions {
+                if threeFingerReading { Button("home.ocr.action") { toggleTextReading() } }
+            }
     }
 
     #if PRTS_DEV_CAPTURE
