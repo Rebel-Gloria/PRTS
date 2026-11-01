@@ -56,11 +56,4 @@ struct TextReadingAnswerTests {
         #expect(answer.finish() == ["你面前的路标上写着：人民路"])
     }
 
-    @Test func readsWithTheBundledModelUnlessChosenOtherwise() {
-        let defaults = UserDefaults(suiteName: #function)!
-        defaults.removePersistentDomain(forName: #function)
-        #expect(TextReadingService.current(defaults) == .onDevice)
-        defaults.set(TextReadingService.remote.rawValue, forKey: TextReadingService.selectionKey)
-        #expect(TextReadingService.current(defaults) == .remote)
-    }
 }

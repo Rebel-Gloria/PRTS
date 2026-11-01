@@ -1209,13 +1209,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Vision is fastest. On-device VLM works offline. Remote API needs a network and photo upload."
+            "value" : "VLLM follows your provider in Intelligence settings. Apple Vision reads text on device."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Vision 最快；本地 VLM 不联网；远端 API 需要联网和上传照片。"
+            "value" : "VLLM 跟随智能设置中的服务商；Apple Vision 在本机识别文字。"
           }
         }
       }
@@ -2883,6 +2883,23 @@
         }
       }
     },
+    "settings.ocr.service.vlm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VLLM"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VLLM"
+          }
+        }
+      }
+    },
     "settings.ocr.service.vision" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2940,13 +2957,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Vision is fastest but can’t tell what the text is on. Remote API uses the online service chosen under Intelligence settings and needs photo upload allowed; without a network it falls back to the on-device VLM."
+            "value" : "VLLM follows your provider in Intelligence settings and automatically uses the on-device model when the remote service is unavailable. Apple Vision reads text offline without identifying what it is on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Vision 最快，但说不出字写在什么上面。远端 API 用\"智能设置\"里选的联网服务，要允许发送照片；没网时自动改用本地 VLM。"
+            "value" : "VLLM 跟随智能设置中的服务商，远端不可用时自动使用本机模型。Apple Vision 离线识别文字，不判断文字所在的物体。"
           }
         }
       }

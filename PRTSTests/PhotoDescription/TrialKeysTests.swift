@@ -19,7 +19,7 @@ struct TrialKeysTests {
         let defaults = UserDefaults.standard
         defaults.set(PhotoChatProvider.qwen.rawValue, forKey: PhotoChatProvider.selectionKey)
         defaults.set(true, forKey: "photoDescription.uploadAllowed")
-        defaults.set(TextReadingService.remote.rawValue, forKey: TextReadingService.selectionKey)
+        defaults.set(TextReadingService.vlm.rawValue, forKey: TextReadingService.selectionKey)
         #expect(try PhotoCredentialStore.read(account: PhotoChatProvider.qwen.keyAccount) == qwen)
         #expect(
             try PhotoCredentialStore.read(account: PhotoChatProvider.deepseek.keyAccount)
