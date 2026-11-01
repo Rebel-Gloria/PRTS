@@ -49,19 +49,19 @@ def inventory(root):
 def report(records):
     lines = [
         "# 代码清单", "",
-        "各模块的文件数和行数，由 `python3 scripts/code_inventory.py --write` 生成，不要手改。", "",
-        "- 行数包含注释，不等于语句数。",
-        "- App 包含 Swift 和 Metal 源码；Tests 包含 Swift 和 Python 测试。",
-        "- Contracts 是 App 链接的 `PRTSContracts`；OptionalModels 是没有链接进 App 的可选源码。",
-        "- Total 是全部维护的源码，不等于 App 的编译量。",
-        "- 不算 Experiments、模型、图片、文档、工程配置和 Package.swift。", "",
+        "本报告按需生成，不作为仓库文档维护。运行 `python3 scripts/code_inventory.py` 查看，或加 `--write` 保存到本地 `build/code-inventory.md`。", "",
+        "## 怎样理解统计范围", "",
+        "物理行数包含空行和注释，非空行数只排除空行，两者都不等于可执行语句数。", "",
+        "App 统计 Swift 和 Metal 源码，Tests 包含 Swift 与 Python 测试。Contracts 指 App 使用的 `PRTSContracts`，OptionalModels 指未链接进 App 的可选模型源码。Total 是本表统计范围的合计，不能当作 App 的实际编译量。", "",
+        "脚本只扫描 App、测试、SpatialCore、PRTSCore 和 scripts 中指定的源码目录。目前不包含 `Vendor/LocalVLM/`，也不统计 Experiments、模型权重、图片、文档、工程配置和 Package.swift。", "",
+        "## 模块规模", "",
         "| 模块 | 文件数 | 物理行 | 非空行 |",
         "|---|---:|---:|---:|",
     ]
     for group in (*GROUPS, "Total"):
         selected = records if group == "Total" else [r for r in records if r[1] == group]
         lines.append(f"| {group} | {len(selected)} | {sum(r[2] for r in selected)} | {sum(r[3] for r in selected)} |")
-    lines += ["", "## 文件树", "", "各目录做什么见 [代码结构](code-structure.md)。", "", "```text"]
+    lines += ["", "## 源码文件树", "", "括号内为物理行数，目录职责见仓库中的 `docs/architecture.md`。", "", "```text"]
     previous = ()
     for name, _, physical, _ in records:
         parts = Path(name).parts
@@ -76,11 +76,13 @@ def report(records):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="Update docs/architecture/code-inventory.md")
+    parser.add_argument("--write", action="store_true", help="Save a local report to build/code-inventory.md")
     args = parser.parse_args()
     text = report(inventory(ROOT))
     if args.write:
-        (ROOT / "docs/architecture/code-inventory.md").write_text(text, encoding="utf-8")
+        output = ROOT / "build/code-inventory.md"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text, encoding="utf-8")
     else:
         print(text, end="")
 
