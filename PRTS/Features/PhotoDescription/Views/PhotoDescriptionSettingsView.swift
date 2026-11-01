@@ -12,7 +12,7 @@ struct PhotoDescriptionSettingsView: View {
     @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
     @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
     @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService
-        .onDevice
+        .vlm
     @State private var key = ""
     @State private var hasKey = false
     @State private var message = ""
@@ -181,7 +181,10 @@ struct PhotoDescriptionSettingsView: View {
             }
         }
         .navigationTitle("photo.settings.title")
-        .onAppear(perform: loadKeyState)
+        .onAppear {
+            readingService = TextReadingService.current()
+            loadKeyState()
+        }
         .onChange(of: provider) { _, _ in
             key = ""
             message = ""
