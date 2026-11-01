@@ -69,6 +69,6 @@ struct GuidanceButton<StopGesture: Gesture>: View {
                 ? [Text("home.camera.input.stop"), Text("home.camera.button.stopLongPress")]
                 : [Text("home.camera.input.start"), Text("home.camera.button.start.label")]
         )
-        .simultaneousGesture(stopGesture)
+        .highPriorityGesture(stopGesture, including: state == .running ? .all : .subviews)
     }
 }
