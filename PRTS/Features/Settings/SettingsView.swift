@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService
         .onDevice
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
+    @State private var showUserGuide = false
 
     var body: some View {
         Form {
@@ -165,7 +166,14 @@ struct SettingsView: View {
                 )
                 .accessibilityHint("settings.feedback.haptic.hint")
             }
-
+            Section {
+                Button("settings.userGuide") { showUserGuide = true }
+                    .accessibilityIdentifier("userGuideButton")
+                    // Attached here, not to the Form, so it never competes with the developer sheet.
+                    .sheet(isPresented: $showUserGuide) {
+                        UserGuideView().environmentObject(speech)
+                    }
+            }
         }
         #if PRTS_DEV_CAPTURE
         .sheet(isPresented: $showSpatialSettings) { ProbeSettingsView(model: model) }

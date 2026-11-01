@@ -58,6 +58,18 @@
 
 API Key 存储在钥匙串中，其他设置存储在 UserDefaults 中。开发版的附加设置请参阅[开发指南](development.md#开发版与标准版)。
 
+## 使用说明
+
+设置页的最后一项“使用说明”会打开面向用户的简短说明，右下角的按钮使用系统语音朗读全文。说明的语言跟随 iPhone 系统语言，内容按机型分为三类：
+
+| 类别 | 机型 | 文件 |
+|---|---|---|
+| 操作按钮和相机控制按钮 | iPhone 16 / 17 系列、iPhone Air（iPhone 16e 除外） | `camera-control.*.md` |
+| 仅操作按钮 | iPhone 15 Pro、iPhone 15 Pro Max、iPhone 16e | `action-button.*.md` |
+| 两者都没有 | iPhone 15 及更早机型 | `basic.*.md` |
+
+说明文件位于 `PRTS/Features/Settings/UserGuide/`，中文和英文各一份。相机控制按钮通过 `AVCaptureSession.supportsControls` 判断；操作按钮没有系统接口，按机型标识符判断（`UserGuide.hasActionButton`）。修改界面或操作方式时，请同步更新这六个文件。
+
 ## 无障碍支持
 
 ### 旁白
