@@ -24,9 +24,7 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
-    @AppStorage(Self.lowVisionKey) private var lowVisionMode = false
-    /// For people with some sight: photos, questions and reading, without obstacle guidance.
-    static let lowVisionKey = "app.lowVisionMode"
+    @AppStorage(HomeFeedbackPolicy.lowVisionKey) private var lowVisionMode = false
     /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
     /// touches but cannot hold a press, so held gestures get a tap alternative.
     @State private var pointerCannotHold = Self.assistivePointerRunning
@@ -129,7 +127,7 @@ struct ContentView: View {
             .onChange(of: camera.state) { _, newState in
                 if newState != .running { photo.cancel() }
                 guard scenePhase == .active, !isShowingSettings, !photo.busy,
-                    textReading.phase == .idle
+                    textReading.phase == .idle, !guidanceSuppressed
                 else { return }
                 speechManager.announceCameraState(newState)
                 if newState == .running { hapticManager.cameraStarted() }
@@ -138,7 +136,7 @@ struct ContentView: View {
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
                 // Low vision mode keeps the camera for photos and reading but gives no guidance.
-                let quiet = lowVisionMode || isShowingUserGuide
+                let quiet = guidanceSuppressed
                 camera.poll(
                     suspendFeedback: photo.busy || reading || isShowingSettings
                         || quiet || scenePhase != .active
@@ -261,6 +259,13 @@ struct ContentView: View {
 
         .tint(.appAccent)
         .preferredColorScheme(.dark)
+    }
+
+    private var guidanceSuppressed: Bool {
+        HomeFeedbackPolicy.suppressesGuidance(
+            lowVisionMode: lowVisionMode,
+            showingUserGuide: isShowingUserGuide
+        )
     }
 
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }

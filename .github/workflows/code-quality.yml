@@ -69,9 +69,9 @@ jobs:
             -library "$stub/libPRTSLocalVLM.a" -headers "$stub/include"
           touch models/MiniCPM-V-4.7-1B/MiniCPM-V-4_7-1B-Q5_K_M.gguf
           touch models/MiniCPM-V-4.7-1B/mmproj-model-f16.gguf
-      - name: Compile the app
+      - name: Compile the app and test targets
         run: >-
           xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Debug
           -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/App"
           CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
-          'OTHER_LDFLAGS=$(inherited) -Wl,-undefined,dynamic_lookup' build
+          'OTHER_LDFLAGS=$(inherited) -Wl,-undefined,dynamic_lookup' build-for-testing

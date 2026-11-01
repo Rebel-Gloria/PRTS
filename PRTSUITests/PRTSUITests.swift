@@ -166,6 +166,36 @@ final class PRTSUITests: XCTestCase {
         snap(large, "Running at accessibility XXXL")
     }
 
+    @MainActor
+    func testLowVisionRequiresConfirmationAndCancellationKeepsItOff() throws {
+        let app = XCUIApplication.prts()
+        app.launchArguments += ["-AppleLanguages", "(en)", "-app.lowVisionMode", "NO"]
+        app.launch()
+        XCTAssertTrue(waitForGuidance(app, timeout: 15))
+        app.buttons["settingsButton"].tap()
+        let toggle = app.switches["lowVisionToggle"]
+        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.tap()
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        alert.buttons["Cancel"].tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        alert.buttons["Turn On"].tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(waitForGuidance(app, timeout: 10))
+        // Disabling the mode takes effect directly, without a second confirmation.
+        app.buttons["settingsButton"].tap()
+        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        XCTAssertFalse(alert.exists)
+    }
+
     /// No-preview mode: guidance runs, nothing is drawn.
     @MainActor
     func testNoPreviewModeSkipsRendering() throws {

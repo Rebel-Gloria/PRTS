@@ -12,7 +12,7 @@ struct SettingsView: View {
     @EnvironmentObject private var speech: SpeechManager
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
     @State private var showUserGuide = false
-    @AppStorage(ContentView.lowVisionKey) private var lowVisionMode = false
+    @AppStorage(HomeFeedbackPolicy.lowVisionKey) private var lowVisionMode = false
     @State private var confirmLowVision = false
 
     var body: some View {
