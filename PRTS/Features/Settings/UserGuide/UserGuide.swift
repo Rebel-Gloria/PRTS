@@ -10,6 +10,9 @@ enum UserGuide: String, CaseIterable {
     /// Neither button: iPhone 15 and earlier.
     case basic
 
+    /// Set once the guide has opened by itself on the first launch.
+    static let shownKey = "userGuide.shown"
+
     static var current: UserGuide {
         kind(hasCameraControl: PhotoHardwareButtons.hasCameraControl, model: modelIdentifier)
     }
