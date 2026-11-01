@@ -1,29 +1,29 @@
 import AppIntents
 import Combine
 
-/// The only shortcut: one Action button press starts guidance, the next stops it.
+/// Starts the camera or leaves text reading. Keep the intent type for saved shortcuts.
 struct ToggleGuidanceIntent: AppIntent {
     static let title: LocalizedStringResource = "intent.toggle.title"
     static let description = IntentDescription("intent.toggle.description")
     static let openAppWhenRun = true
 
     @MainActor func perform() async throws -> some IntentResult {
-        HomeCommandCenter.shared.toggleRequested = true
+        HomeCommandCenter.shared.startRequested = true
         return .result()
     }
 }
 
 struct PRTSShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        // Neutral phrases only: "Stop" would start guidance when it is not running.
+        // Start requests never stop an already running camera.
         AppShortcut(
             intent: ToggleGuidanceIntent(),
             phrases: [
-                "Start or stop \(.applicationName)", "开始或停止 \(.applicationName)",
-                "\(.applicationName) 开始或停止",
+                "Start \(.applicationName)", "开始 \(.applicationName)",
+                "\(.applicationName) 开始",
             ],
             shortTitle: "intent.toggle.short",
-            systemImageName: "playpause.fill"
+            systemImageName: "play.fill"
         )
     }
 }

@@ -6,5 +6,5 @@ import Combine
 @MainActor
 final class HomeCommandCenter: ObservableObject {
     static let shared = HomeCommandCenter()
-    @Published var toggleRequested = false
+    @Published var startRequested = false
 }
