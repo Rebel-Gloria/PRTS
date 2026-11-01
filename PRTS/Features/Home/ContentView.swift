@@ -21,9 +21,6 @@ struct ContentView: View {
     @EnvironmentObject private var hapticManager: HapticManager
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var isHoldingStop = false
-    @State private var stopHoldTask: Task<Void, Never>?
-    @State private var didCompleteStopHold = false
     @State private var isShowingSettings = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
@@ -120,7 +117,7 @@ struct ContentView: View {
             // VoiceOver two-finger double-tap restarts guidance if it stopped, or leaves reading.
             .accessibilityAction(.magicTap) {
                 guard !isShowingSettings else { return }
-                startCameraFromButton()
+                startCameraIfNeeded()
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingSettings) {
@@ -143,10 +140,10 @@ struct ContentView: View {
                 // Low vision mode keeps the camera for photos and reading but gives no guidance.
                 let quiet = lowVisionMode || isShowingUserGuide
                 camera.poll(
-                    suspendFeedback: photo.busy || reading || isShowingSettings || isHoldingStop
+                    suspendFeedback: photo.busy || reading || isShowingSettings
                         || quiet || scenePhase != .active
                 )
-                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, !quiet,
+                if !photo.busy, !reading, !isShowingSettings, !quiet,
                     scenePhase == .active
                 {
                     let snapshot = camera.model.snapshot
@@ -194,11 +191,6 @@ struct ContentView: View {
                 if phase != .active {
                     photo.cancel()
                     textReading.cancel()
-                    stopHoldTask?.cancel()
-                    stopHoldTask = nil
-                    isHoldingStop = false
-                    didCompleteStopHold = false
-                    hapticManager.stopHoldFeedback()
                 }
                 camera.lifecycle(phase)
                 if phase != .active {
@@ -217,7 +209,7 @@ struct ContentView: View {
                     isShowingUserGuide = true
                 }
                 // There is no start button: the camera runs whenever the app is open.
-                startCameraFromButton()
+                startCameraIfNeeded()
                 runPendingCommand()
             }
             .onChange(of: commands.toggleRequested) { _, _ in runPendingCommand() }
@@ -277,8 +269,7 @@ struct ContentView: View {
         UIAccessibility.isAssistiveTouchRunning || UIAccessibility.isSwitchControlRunning
     }
 
-    /// Accessibility text sizes: one scrolling column with the main button pinned to the
-    /// bottom edge, so nothing is truncated or covered and the main action never scrolls away.
+    /// Accessibility text sizes use one scrolling column to keep controls readable.
     private var largeTextLayout: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -427,16 +418,14 @@ struct ContentView: View {
 
     #endif
 
-    private func startCameraFromButton() {
-        // During text reading the main button (and magic tap) leaves it instead.
+    private func startCameraIfNeeded() {
+        // A start request or Magic Tap exits text reading and resumes its previous camera state.
         if textReading.phase != .idle {
             textReading.cancel()
             return
         }
         guard camera.state != .running,
-            !camera.state.isBusy,
-            !isHoldingStop,
-            !didCompleteStopHold
+            !camera.state.isBusy
         else { return }
 
         hapticManager.buttonTapped()
@@ -447,15 +436,13 @@ struct ContentView: View {
         camera.model.errorMessage ?? camera.model.permissionMessage
     }
 
-    /// Runs the Siri / Shortcuts / Action button toggle once the home screen is active. It acts like
-    /// the main button's VoiceOver activation: stop while running, otherwise start (or leave text
-    /// reading).
+    /// Consumes a pending start request once the home screen is active.
     private func runPendingCommand() {
         guard scenePhase == .active, commands.toggleRequested else { return }
         commands.toggleRequested = false
         isShowingSettings = false
         isShowingUserGuide = false
-        startCameraFromButton()
+        startCameraIfNeeded()
     }
 
     /// Three-finger hold or the VoiceOver action: reading pauses guidance, which resumes after.
@@ -465,10 +452,6 @@ struct ContentView: View {
             return
         }
         guard !isShowingSettings, !camera.state.isBusy else { return }
-        stopHoldTask?.cancel()
-        stopHoldTask = nil
-        isHoldingStop = false
-        hapticManager.stopHoldFeedback()
         photo.cancel()
         feedback.reset()
         speechManager.stopCurrentSpeech()
