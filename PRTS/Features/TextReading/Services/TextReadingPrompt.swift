@@ -1,4 +1,5 @@
 import Foundation
+import LocalVLM
 
 /// Reading text with the bundled MiniCPM-V 4.7: two questions about one photo, tuned on the Mac
 /// harness (docs/features/text-reading.md). Asked in one go ("say what it is on, then copy it") the
