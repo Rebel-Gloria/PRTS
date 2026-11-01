@@ -121,10 +121,10 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.switches["语音播报"].exists)
         snap(app, "Settings (zh)")
-        let photo = app.buttons["服务与 API Key"]
+        let photo = app.buttons["智能设置"]
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         photo.tap()
-        XCTAssertTrue(app.navigationBars["拍照描述"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["智能设置"].waitForExistence(timeout: 5))
         snap(app, "Photo settings (zh)")
         // Provider picker: presets show their model; custom asks for address and model.
         // LabeledContent exposes the model as the row's value, not as its own label.
