@@ -202,7 +202,7 @@ struct ContentView: View {
                 speechManager.speakHomeScreen(cameraState: camera.state)
                 runPendingCommand()
             }
-            .onChange(of: commands.pending) { _, _ in runPendingCommand() }
+            .onChange(of: commands.toggleRequested) { _, _ in runPendingCommand() }
             .onChange(of: photo.busy) { _, busy in if !busy { askingByTap = false } }
             .onReceive(
                 NotificationCenter.default.publisher(
@@ -484,25 +484,14 @@ struct ContentView: View {
         camera.model.errorMessage ?? camera.model.permissionMessage
     }
 
-    /// Runs a Siri / Shortcuts / Action button command once the home screen is active.
+    /// Runs the Siri / Shortcuts / Action button toggle once the home screen is active. It acts like
+    /// the main button's VoiceOver activation: stop while running, otherwise start (or leave text
+    /// reading).
     private func runPendingCommand() {
-        guard scenePhase == .active, let command = commands.pending else { return }
-        commands.pending = nil
+        guard scenePhase == .active, commands.toggleRequested else { return }
+        commands.toggleRequested = false
         isShowingSettings = false
-        switch command {
-        case .start: startCameraFromButton()
-        case .stop: stopFromAssistiveTechnology()
-        case .describe:
-            guard camera.state == .running else {
-                speechManager.announce(speechManager.interfaceString("intent.describe.notRunning"))
-                return
-            }
-            photo.down(
-                snapshot: { camera.model.snapshot.frame },
-                silence: { speechManager.stopCurrentSpeech() }
-            )
-            photo.up()
-        }
+        camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()
     }
 
     /// Three-finger hold or the VoiceOver action: reading pauses guidance, which resumes after.
