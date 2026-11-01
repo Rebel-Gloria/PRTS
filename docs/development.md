@@ -57,7 +57,7 @@ python scripts/style.py --fix    # 应用格式和 Python 安全修复
 
 检查包含新增的未跟踪源码，排除上游 `Vendor/PRTSCore`、被忽略的生成文件和原始数据。工具缺失、版本不符或格式不合规均返回失败；脚本不会自动安装或升级工具。Windows 可运行相同 Python 入口，或用 `--language python` 检查单一语言；完整检查仍是提交要求。
 
-`.github/workflows/code-quality.yml` 在 `main` 推送和面向 `main` 的 PR 中运行全部格式检查、Python 测试，以及 macOS 上的 SpatialCore 和契约测试。CI 不下载模型权重，也不运行 App 真机交互。
+`.github/workflows/code-quality.yml` 在 `main` 推送和面向 `main` 的 PR 中运行全部格式检查、Python 测试，macOS 上的 SpatialCore 和契约测试，以及 App 的无签名真机编译。编译时 LocalVLM 推理库按 `prepare.sh` 和 `csrc/` 的内容缓存，模型权重用空文件占位；CI 不下载权重，也不运行 App 真机交互。
 
 ### Mac 回归
 
