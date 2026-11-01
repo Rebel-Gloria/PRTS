@@ -25,6 +25,8 @@ struct ContentView: View {
     @State private var stopHoldTask: Task<Void, Never>?
     @State private var didCompleteStopHold = false
     @State private var isShowingSettings = false
+    @State private var isShowingUserGuide = false
+    @AppStorage(UserGuide.shownKey) private var userGuideShown = false
     /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
     /// touches but cannot hold a press, so held gestures get a tap alternative.
     @State private var pointerCannotHold = Self.assistivePointerRunning
@@ -122,6 +124,9 @@ struct ContentView: View {
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsView(model: camera.model)
             }
+            .sheet(isPresented: $isShowingUserGuide) {
+                UserGuideView().environmentObject(speechManager)
+            }
             .onChange(of: camera.state) { _, newState in
                 if newState != .running { photo.cancel() }
                 guard scenePhase == .active, !isShowingSettings, !photo.busy,
@@ -200,6 +205,12 @@ struct ContentView: View {
             .onAppear {
                 camera.poll(suspendFeedback: true)
                 speechManager.speakHomeScreen(cameraState: camera.state)
+                // The guide opens once, on the first launch. A launch from the Action button skips
+                // it so guidance can start at once; the guide stays in Settings.
+                if !userGuideShown && !commands.toggleRequested {
+                    userGuideShown = true
+                    isShowingUserGuide = true
+                }
                 runPendingCommand()
             }
             .onChange(of: commands.toggleRequested) { _, _ in runPendingCommand() }
@@ -491,6 +502,7 @@ struct ContentView: View {
         guard scenePhase == .active, commands.toggleRequested else { return }
         commands.toggleRequested = false
         isShowingSettings = false
+        isShowingUserGuide = false
         camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()
     }
 

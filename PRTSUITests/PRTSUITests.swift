@@ -23,7 +23,7 @@ final class PRTSUITests: XCTestCase {
 
     @MainActor
     func testRestoredHomeAndSharedSpatialSettings() throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launch()
         let settings = app.buttons["settingsButton"]
         let camera = app.buttons["cameraButton"]
@@ -110,7 +110,7 @@ final class PRTSUITests: XCTestCase {
             shot.lifetime = .keepAlways
             add(shot)
         }
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
         app.launch()
         let settings = app.buttons["settingsButton"]
@@ -149,7 +149,7 @@ final class PRTSUITests: XCTestCase {
         snap(app, "Settings feedback (zh)")
         app.terminate()
 
-        let large = XCUIApplication()
+        let large = XCUIApplication.prts()
         large.launchArguments += [
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
         ]
@@ -178,7 +178,7 @@ final class PRTSUITests: XCTestCase {
     /// No-preview mode: guidance runs, nothing is drawn.
     @MainActor
     func testNoPreviewModeSkipsRendering() throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launchArguments += ["-display.noPreview", "YES"]
         app.launch()
         let camera = app.buttons["cameraButton"]
@@ -204,7 +204,7 @@ final class PRTSUITests: XCTestCase {
     /// Text reading from running guidance: the ultra-wide camera must deliver frames and show them.
     @MainActor
     func testTextReadingStartsCamera() throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launch()
         let camera = app.buttons["cameraButton"]
         XCTAssertTrue(camera.waitForExistence(timeout: 10))
@@ -256,7 +256,7 @@ final class PRTSUITests: XCTestCase {
     /// Screenshots of every screen a user sees: idle, guiding, text reading, settings.
     @MainActor
     func testScreenTour() throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launch()
         func shot(_ name: String) {
             let attachment = XCTAttachment(screenshot: app.screenshot())
@@ -308,7 +308,7 @@ final class PRTSUITests: XCTestCase {
 
     @MainActor
     private func measureRunningCPU(noPreview: Bool) throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launchArguments += ["-display.noPreview", noPreview ? "YES" : "NO"]
         app.launch()
         let camera = app.buttons["cameraButton"]
@@ -322,7 +322,7 @@ final class PRTSUITests: XCTestCase {
 
     @MainActor
     func testDevCaptureBuildGate() throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launch()
         let settings = app.buttons["settingsButton"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
@@ -349,7 +349,7 @@ final class PRTSUITests: XCTestCase {
     #if PRTS_DEV_CAPTURE
     @MainActor
     func testDeveloperHomeVisibilitySwitches() throws {
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launch()
         app.buttons["settingsButton"].tap()
         func set(_ id: String, _ enabled: Bool) {
@@ -378,12 +378,32 @@ final class PRTSUITests: XCTestCase {
     @MainActor
     func testExample() throws {
         // UI tests must launch the application that they test.
-        let app = XCUIApplication()
+        let app = XCUIApplication.prts()
         app.launch()
 
         // Use XCTAssert and related functions to verify your tests produce the correct results.
         // XCUIAutomation Documentation
         // https://developer.apple.com/documentation/xcuiautomation
+    }
+
+    /// The guide opens by itself on the first launch only.
+    @MainActor
+    func testUserGuideOpensOnFirstLaunch() throws {
+        let first = XCUIApplication()
+        first.launchArguments += ["-AppleLanguages", "(zh-Hans)", "-\(guideShownKey)", "NO"]
+        first.launch()
+        XCTAssertTrue(first.navigationBars["使用说明"].waitForExistence(timeout: 10))
+        XCTAssertTrue(first.staticTexts["你可以随时在设置的最下方重新查看这份说明。"].exists)
+        add(screenshot(first, "User guide on first launch"))
+        first.buttons["完成"].tap()
+        XCTAssertTrue(first.buttons["settingsButton"].waitForExistence(timeout: 5))
+        first.terminate()
+
+        let second = XCUIApplication()
+        second.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
+        second.launch()
+        XCTAssertTrue(second.buttons["settingsButton"].waitForExistence(timeout: 10))
+        XCTAssertFalse(second.navigationBars["使用说明"].exists)
     }
 
     /// The last settings row opens the guide in the system language; the corner button reads it.
@@ -392,7 +412,7 @@ final class PRTSUITests: XCTestCase {
         for (language, settingsTitle, guideTitle) in [
             ("zh-Hans", "设置", "使用说明"), ("en", "Settings", "User Guide"),
         ] {
-            let app = XCUIApplication()
+            let app = XCUIApplication.prts()
             app.launchArguments += ["-AppleLanguages", "(\(language))"]
             app.launch()
             app.buttons["settingsButton"].tap()
@@ -427,7 +447,19 @@ final class PRTSUITests: XCTestCase {
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+            XCUIApplication.prts().launch()
         }
+    }
+}
+
+/// Must match `UserGuide.shownKey` in the app.
+let guideShownKey = "userGuide.shown"
+
+extension XCUIApplication {
+    /// The app as most tests need it: the first-launch user guide is already dismissed.
+    static func prts() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += ["-\(guideShownKey)", "YES"]
+        return app
     }
 }

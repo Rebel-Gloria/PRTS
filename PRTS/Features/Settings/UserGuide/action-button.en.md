@@ -31,3 +31,5 @@ You can also tap Start on the screen to start guidance, and hold the main button
 - Guidance requires a Pro model with LiDAR. It can't detect steps or drop-offs yet.
 - Guidance cues pause while describing, answering, or reading text.
 - Descriptions and answers can be wrong. Rely on the guidance cues to decide whether you can walk ahead.
+
+You can open this guide again anytime from the bottom of Settings.
