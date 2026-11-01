@@ -1,5 +1,5 @@
-import Foundation
 // swift-tools-version: 6.0
+import Foundation
 import PackageDescription
 
 // Keep sensor-loop math fast even when the UI is built with Debug.
