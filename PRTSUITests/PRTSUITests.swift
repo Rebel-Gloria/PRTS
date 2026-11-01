@@ -386,6 +386,43 @@ final class PRTSUITests: XCTestCase {
         // https://developer.apple.com/documentation/xcuiautomation
     }
 
+    /// The last settings row opens the guide in the system language; the corner button reads it.
+    @MainActor
+    func testUserGuideOpensAndReads() throws {
+        for (language, settingsTitle, guideTitle) in [
+            ("zh-Hans", "设置", "使用说明"), ("en", "Settings", "User Guide"),
+        ] {
+            let app = XCUIApplication()
+            app.launchArguments += ["-AppleLanguages", "(\(language))"]
+            app.launch()
+            app.buttons["settingsButton"].tap()
+            XCTAssertTrue(app.navigationBars[settingsTitle].waitForExistence(timeout: 5))
+            let row = app.buttons["userGuideButton"]
+            while !row.isHittable { app.swipeUp() }
+            row.tap()
+            XCTAssertTrue(app.navigationBars[guideTitle].waitForExistence(timeout: 5))
+            let read = app.buttons["userGuideReadButton"]
+            XCTAssertTrue(read.isHittable)
+            add(screenshot(app, "User guide (\(language))"))
+            read.tap()
+            XCTAssertTrue(
+                app.buttons[language == "en" ? "Stop reading" : "停止朗读"].waitForExistence(
+                    timeout: 3
+                )
+            )
+            add(screenshot(app, "User guide reading (\(language))"))
+            read.tap()
+            app.terminate()
+        }
+    }
+
+    private func screenshot(_ app: XCUIApplication, _ name: String) -> XCTAttachment {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        return shot
+    }
+
     @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
