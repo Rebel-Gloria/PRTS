@@ -710,6 +710,57 @@
         }
       }
     },
+    "photo.settings.localEnhanced" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enhanced mode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "增强模式"
+          }
+        }
+      }
+    },
+    "photo.settings.localEnhanced.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Broadens on-device answers and may reduce accuracy."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扩大本机模型的回答范围，可能降低准确性。"
+          }
+        }
+      }
+    },
+    "photo.settings.localEnhanced.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allows broader answers about details, translations, and explanations, but may reduce answer accuracy. Applies only to voice questions on device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许本机模型回答更多细节、翻译和解释类问题，但可能降低回答准确性。仅影响语音提问。"
+          }
+        }
+      }
+    },
     "photo.settings.questionThinking" : {
       "extractionState" : "manual",
       "localizations" : {

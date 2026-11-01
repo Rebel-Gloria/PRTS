@@ -11,7 +11,7 @@ nonisolated enum PhotoDescriptionBackend {
             answer = try await PhotoLocalModel.shared.describe(
                 jpeg: jpeg,
                 prompt: text,
-                system: question == nil ? PhotoPrompts.system : PhotoPrompts.localQuestionSystem
+                system: PhotoPrompts.localSystem(question: question)
             )
             guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
         } else {
