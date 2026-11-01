@@ -122,7 +122,7 @@ struct PRTSTests {
     }
     @Test @MainActor func settingsSpeechBuildsLocalizedAnnouncement() {
         let speech = SpeechManager()
-        speech.speakSettingsScreen(hapticFeedbackEnabled: true)
+        speech.speakSettingsScreen()
         #expect(speech.lastSettingsAnnouncement?.isEmpty == false)
         #expect(speech.lastSettingsAnnouncement != "speech.settings.summary")
         speech.cancelPerceptionSpeech()

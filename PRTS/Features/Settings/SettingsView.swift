@@ -10,11 +10,6 @@ struct SettingsView: View {
     @State private var showSpatialSettings = false
     #endif
     @EnvironmentObject private var speech: SpeechManager
-    @EnvironmentObject private var haptics: HapticManager
-    @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
-    @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
-    @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService
-        .onDevice
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
     @State private var showUserGuide = false
 
@@ -66,36 +61,8 @@ struct SettingsView: View {
                 }
             }
             #endif
-            Section {
+            Section("settings.photo.section") {
                 NavigationLink("settings.photo.service") { PhotoDescriptionSettingsView() }
-                // Camera Control always takes photos; only phones without it get the volume option.
-                if PhotoHardwareButtons.volumeAvailable {
-                    Toggle("settings.photo.volumeButtons", isOn: $volumeButtons)
-                        .accessibilityIdentifier("photoVolumeButtonsToggle")
-                }
-            } header: {
-                Text("settings.photo.section")
-            } footer: {
-                if PhotoHardwareButtons.hasCameraControl {
-                    Text("settings.photo.cameraControl.footer")
-                } else if PhotoHardwareButtons.volumeAvailable {
-                    Text("settings.photo.volumeButtons.footer")
-                }
-            }
-            Section {
-                Toggle("settings.ocr.threeFinger", isOn: $threeFingerReading)
-                    .accessibilityIdentifier("threeFingerReadingToggle")
-                Picker("settings.ocr.service", selection: $readingService) {
-                    ForEach(TextReadingService.allCases) {
-                        Text(LocalizedStringKey($0.localizationKey)).tag($0)
-                    }
-                }
-                .accessibilityIdentifier("ocrServicePicker")
-            } footer: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("settings.ocr.threeFinger.footer")
-                    Text("settings.ocr.service.footer")
-                }
             }
             Section("settings.voice.section") {
                 Toggle(
@@ -124,18 +91,21 @@ struct SettingsView: View {
                         set: speech.setFollowSystemLanguageEnabled
                     )
                 )
-                Picker(
-                    "settings.language.picker",
-                    selection: Binding(
-                        get: { speech.selectedLanguage },
-                        set: speech.setSelectedLanguage
-                    )
-                ) {
-                    // Each language is named in itself so it can be found in either interface language.
-                    Text(verbatim: "中文").tag(SpeechLanguage.chinese)
-                    Text(verbatim: "English").tag(SpeechLanguage.english)
+                // Shown only when it can be used: a dimmed picker leaves VoiceOver users guessing why.
+                if !speech.followSystemLanguageEnabled {
+                    Picker(
+                        "settings.language.picker",
+                        selection: Binding(
+                            get: { speech.selectedLanguage },
+                            set: speech.setSelectedLanguage
+                        )
+                    ) {
+                        // Each language is named in itself so it can be found in either interface
+                        // language.
+                        Text(verbatim: "中文").tag(SpeechLanguage.chinese)
+                        Text(verbatim: "English").tag(SpeechLanguage.english)
+                    }
                 }
-                .disabled(speech.followSystemLanguageEnabled)
             } header: {
                 Text("settings.language.section")
             } footer: {
@@ -143,6 +113,7 @@ struct SettingsView: View {
             }
             Section {
                 Toggle("settings.display.noPreview", isOn: $noPreview)
+                    .accessibilityHint("settings.display.noPreview.hint")
                     .accessibilityIdentifier("noPreviewToggle")
                 if model.supportsScanMesh {
                     Toggle("settings.display.scanMesh", isOn: $model.scanMesh)
@@ -159,13 +130,6 @@ struct SettingsView: View {
                     Text("settings.display.noPreview.footer")
                 }
             }
-            Section("settings.feedback.section") {
-                Toggle(
-                    "settings.feedback.haptic",
-                    isOn: Binding(get: { haptics.isEnabled }, set: haptics.setEnabled)
-                )
-                .accessibilityHint("settings.feedback.haptic.hint")
-            }
             Section {
                 Button("settings.userGuide") { showUserGuide = true }
                     .accessibilityIdentifier("userGuideButton")
@@ -179,7 +143,6 @@ struct SettingsView: View {
         .sheet(isPresented: $showSpatialSettings) { ProbeSettingsView(model: model) }
         #endif
         .navigationTitle("settings.title")
-        .onAppear { speech.speakSettingsScreen(hapticFeedbackEnabled: haptics.isEnabled) }
-        .onChange(of: haptics.isEnabled) { _, enabled in speech.speakHapticFeedbackState(enabled) }
+        .onAppear { speech.speakSettingsScreen() }
     }
 }

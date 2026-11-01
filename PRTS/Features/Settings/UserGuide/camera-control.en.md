@@ -18,11 +18,9 @@ You can also tap Start on the screen to start guidance, and hold the main button
 
 ## What you can set
 
-- **Intelligence settings**: Choose what describes the scene and answers questions. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Read text**: Turn the three-finger gesture on or off, and choose how text is recognized.
+- **Intelligence settings**: Choose what describes the scene and answers questions, and set up text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
 - **Voice**: Turn announcements on or off, and set the speech rate and language.
 - **Display**: Hide the camera view to save battery, or show the scan mesh.
-- **Haptics**: Turn all vibration on or off.
 
 ## Important
 

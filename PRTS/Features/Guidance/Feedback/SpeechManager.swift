@@ -115,27 +115,17 @@ final class SpeechManager: ObservableObject {
         )
     }
 
-    func speakSettingsScreen(hapticFeedbackEnabled: Bool) {
+    func speakSettingsScreen() {
         let message = localized(
             "speech.settings.summary",
             arguments: [
                 localized(voiceAnnouncementsEnabled ? "speech.value.on" : "speech.value.off"),
                 localized(rateOption.localizationKey),
                 languageSettingAnnouncement,
-                localized(hapticFeedbackEnabled ? "speech.value.on" : "speech.value.off"),
             ]
         )
         lastSettingsAnnouncement = message
-        announce(message)
-    }
-
-    func speakHapticFeedbackState(_ enabled: Bool) {
-        announce(
-            localized(
-                "speech.haptic.changed",
-                arguments: [localized(enabled ? "speech.value.on" : "speech.value.off")]
-            )
-        )
+        announceSetting(message)
     }
 
     func speak(_ message: String) {
@@ -252,7 +242,7 @@ final class SpeechManager: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: DefaultsKey.voiceAnnouncementsEnabled)
 
         if enabled {
-            announce(localized("speech.voice.enabled"))
+            announceSetting(localized("speech.voice.enabled"))
         } else {
             stopCurrentSpeech()
         }
@@ -262,7 +252,9 @@ final class SpeechManager: ObservableObject {
         rateOption = option
         UserDefaults.standard.set(option.rawValue, forKey: DefaultsKey.speechRateOption)
 
-        announce(localized("speech.rate.changed", arguments: [localized(option.localizationKey)]))
+        announceSetting(
+            localized("speech.rate.changed", arguments: [localized(option.localizationKey)])
+        )
     }
 
     func setFollowSystemLanguageEnabled(_ enabled: Bool) {
@@ -301,7 +293,14 @@ final class SpeechManager: ObservableObject {
     }
 
     private func speakLanguageSetting() {
-        announce(languageSettingAnnouncement)
+        announceSetting(languageSettingAnnouncement)
+    }
+
+    /// Settings feedback. VoiceOver already reads the screen and each control's new value, so
+    /// with VoiceOver running these would only repeat it.
+    private func announceSetting(_ message: String) {
+        guard !UIAccessibility.isVoiceOverRunning else { return }
+        announce(message)
     }
 
     private func localized(_ key: String) -> String {
