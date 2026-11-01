@@ -1,65 +1,29 @@
 import AppIntents
 import Combine
 
-struct StartGuidanceIntent: AppIntent {
-    static let title: LocalizedStringResource = "intent.start.title"
-    static let description = IntentDescription("intent.start.description")
+/// The only shortcut: one Action button press starts guidance, the next stops it.
+struct ToggleGuidanceIntent: AppIntent {
+    static let title: LocalizedStringResource = "intent.toggle.title"
+    static let description = IntentDescription("intent.toggle.description")
     static let openAppWhenRun = true
 
     @MainActor func perform() async throws -> some IntentResult {
-        HomeCommandCenter.shared.pending = .start
-        return .result()
-    }
-}
-
-struct StopGuidanceIntent: AppIntent {
-    static let title: LocalizedStringResource = "intent.stop.title"
-    static let description = IntentDescription("intent.stop.description")
-    static let openAppWhenRun = true
-
-    @MainActor func perform() async throws -> some IntentResult {
-        HomeCommandCenter.shared.pending = .stop
-        return .result()
-    }
-}
-
-struct DescribeSceneIntent: AppIntent {
-    static let title: LocalizedStringResource = "intent.describe.title"
-    static let description = IntentDescription("intent.describe.description")
-    static let openAppWhenRun = true
-
-    @MainActor func perform() async throws -> some IntentResult {
-        HomeCommandCenter.shared.pending = .describe
+        HomeCommandCenter.shared.toggleRequested = true
         return .result()
     }
 }
 
 struct PRTSShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        // Neutral phrases only: "Stop" would start guidance when it is not running.
         AppShortcut(
-            intent: StartGuidanceIntent(),
+            intent: ToggleGuidanceIntent(),
             phrases: [
-                "Start \(.applicationName)", "\(.applicationName) 开始", "用 \(.applicationName) 开始避障",
+                "Start or stop \(.applicationName)", "开始或停止 \(.applicationName)",
+                "\(.applicationName) 开始或停止",
             ],
-            shortTitle: "intent.start.short",
-            systemImageName: "play.fill"
-        )
-        AppShortcut(
-            intent: StopGuidanceIntent(),
-            phrases: [
-                "Stop \(.applicationName)", "\(.applicationName) 停止", "停止 \(.applicationName)",
-            ],
-            shortTitle: "intent.stop.short",
-            systemImageName: "stop.fill"
-        )
-        AppShortcut(
-            intent: DescribeSceneIntent(),
-            phrases: [
-                "Describe with \(.applicationName)", "\(.applicationName) 描述画面",
-                "用 \(.applicationName) 拍照描述",
-            ],
-            shortTitle: "intent.describe.short",
-            systemImageName: "camera.fill"
+            shortTitle: "intent.toggle.short",
+            systemImageName: "playpause.fill"
         )
     }
 }
