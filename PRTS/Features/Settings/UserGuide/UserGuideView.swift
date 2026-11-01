@@ -19,16 +19,31 @@ struct UserGuideView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(Array(document.blocks.enumerated()), id: \.offset) { _, block in
-                        blockView(block)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(document.blocks.enumerated()), id: \.offset) { _, block in
+                            blockView(block)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding([.horizontal, .bottom])
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.bottom, 96)  // Room for the read-aloud button.
+                // A bar of its own, so the button never covers the last lines of the guide.
+                HStack {
+                    Spacer()
+                    readButton
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                // Opaque: text half-showing through a translucent bar fails the contrast audit.
+                .background(Color(uiColor: .systemBackground))
+                // A container, so the button keeps its own frame; VoiceOver reaches it first
+                // instead of after the whole guide.
+                .accessibilityElement(children: .contain)
+                .accessibilitySortPriority(1)
             }
+            .accessibilityElement(children: .contain)
             .navigationTitle("userGuide.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -36,9 +51,19 @@ struct UserGuideView: View {
                     Button("userGuide.done") { dismiss() }
                 }
             }
-            .overlay(alignment: .bottomTrailing) { readButton }
+            // A two-finger double-tap starts or stops reading from anywhere in the window.
+            .accessibilityAction(.magicTap) { toggleReading() }
         }
         .onDisappear { reader.stop() }
+    }
+
+    private func toggleReading() {
+        if reader.isReading {
+            reader.stop()
+        } else {
+            speech.stopCurrentSpeech()
+            reader.read(document.spokenText, rate: speech.rateOption, language: language)
+        }
     }
 
     @ViewBuilder
@@ -67,14 +92,7 @@ struct UserGuideView: View {
     }
 
     private var readButton: some View {
-        Button {
-            if reader.isReading {
-                reader.stop()
-            } else {
-                speech.stopCurrentSpeech()
-                reader.read(document.spokenText, rate: speech.rateOption, language: language)
-            }
-        } label: {
+        Button(action: toggleReading) {
             Image(systemName: reader.isReading ? "stop.fill" : "play.fill")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(Color.appButtonText)
@@ -82,7 +100,6 @@ struct UserGuideView: View {
                 .background(Color.appAccent, in: Circle())
                 .shadow(radius: 4, y: 2)
         }
-        .padding(20)
         .accessibilityLabel(reader.isReading ? "userGuide.stop" : "userGuide.read")
         .accessibilityIdentifier("userGuideReadButton")
     }

@@ -10,16 +10,13 @@ PRTS uses your iPhone camera to find obstacles ahead. It can also describe the s
 - **Read text**: Hold three fingers on the screen.
 - **Stop guidance**: Hold the main button on the screen for 1 second.
 
-If the screen is hard to use, say "Start or stop PRTS" to Siri, or go to Settings → Accessibility → Touch → Back Tap and select Start or Stop PRTS. Then tap the back of your iPhone to start or stop guidance. To keep the volume buttons for volume, turn off Volume button shortcut and use the on-screen photo button instead.
+If the screen is hard to use, say "Start or stop PRTS" to Siri, or go to Settings → Accessibility → Touch → Back Tap and select Start or Stop PRTS. Then tap the back of your iPhone to start or stop guidance. To keep the volume buttons for volume, turn off Volume button shortcut in Intelligence settings and use the on-screen photo button instead.
 
 ## What you can set
 
-- **Intelligence settings**: Choose what describes the scene and answers questions. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Volume button shortcut**: Take photos with the volume buttons. On by default.
-- **Read text**: Turn the three-finger gesture on or off, and choose how text is recognized.
+- **Intelligence settings**: Choose what describes the scene and answers questions, and set up the photo button and text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
 - **Voice**: Turn announcements on or off, and set the speech rate and language.
 - **Display**: Hide the camera view to save battery, or show the scan mesh.
-- **Haptics**: Turn all vibration on or off.
 
 ## Important
 

@@ -778,57 +778,6 @@
         }
       }
     },
-    "settings.feedback.haptic" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haptic feedback"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "振动提示"
-          }
-        }
-      }
-    },
-    "settings.feedback.haptic.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turns direction and button vibration on or off"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开关方向振动和按键振动"
-          }
-        }
-      }
-    },
-    "settings.feedback.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haptics"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "振动"
-          }
-        }
-      }
-    },
     "settings.language.followSystem" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -961,23 +910,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择自动语音播报的语言"
-          }
-        }
-      }
-    },
-    "settings.language.picker.disabledHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Disabled while Follow system language is on"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开启跟随系统语言时不可用"
           }
         }
       }
@@ -1182,6 +1114,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音"
+          }
+        }
+      }
+    },
+    "settings.photo.buttons.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo button"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拍照按键"
+          }
+        }
+      }
+    },
+    "settings.ocr.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read text"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读文字"
+          }
+        }
+      }
+    },
+    "photo.settings.allowUpload.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos and questions are sent only when you press the photo button."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只在按下拍照按钮时发送照片和问题。"
+          }
+        }
+      }
+    },
+    "photo.settings.questionThinking.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Answers may be more careful but take longer."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回答可能更仔细，但要多等一会儿。"
+          }
+        }
+      }
+    },
+    "settings.display.noPreview.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hides the camera view. Guidance keeps working."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不显示相机画面，避障照常工作。"
+          }
+        }
+      }
+    },
+    "settings.ocr.service.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Vision is fastest. On-device VLM works offline. Remote API needs a network and photo upload."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Vision 最快；本地 VLM 不联网；远端 API 需要联网和上传照片。"
+          }
+        }
+      }
+    },
+    "settings.ocr.threeFinger.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guidance cues pause while text is read."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读文字时避障提示会暂停。"
+          }
+        }
+      }
+    },
+    "settings.photo.volumeButtons.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, the volume buttons take photos and don't change the volume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后，音量键用来拍照，不再调节音量。"
           }
         }
       }
@@ -1441,23 +1509,6 @@
         }
       }
     },
-    "speech.haptic.changed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haptics %@."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "振动已%@。"
-          }
-        }
-      }
-    },
     "speech.home" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1532,13 +1583,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Settings. Voice %1$@, rate %2$@, %3$@, haptics %4$@."
+            "value" : "Settings. Voice %1$@, rate %2$@, %3$@."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设置。语音%1$@，语速%2$@，%3$@，振动%4$@。"
+            "value" : "设置。语音%1$@，语速%2$@，%3$@。"
           }
         }
       }

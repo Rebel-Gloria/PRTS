@@ -7,34 +7,15 @@ import Combine
 import UIKit
 
 @MainActor
+/// Vibration is always on: it carries direction cues, so there is no setting to turn it off.
 final class HapticManager: ObservableObject {
-    @Published private(set) var isEnabled: Bool
-
-    private let defaultsKey = "hapticFeedbackEnabled"
     private var holdFeedbackTimer: Timer?
-
-    init() {
-        isEnabled = UserDefaults.standard.object(forKey: defaultsKey) as? Bool ?? true
-    }
-
-    func setEnabled(_ enabled: Bool) {
-        isEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: defaultsKey)
-
-        if enabled {
-            buttonTapped()
-        } else {
-            stopHoldFeedback()
-        }
-    }
 
     func buttonTapped() {
         impact(style: .light)
     }
 
     func cameraStarted() {
-        guard isEnabled else { return }
-
         impact(style: .medium)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
             self?.impact(style: .medium)
@@ -42,7 +23,7 @@ final class HapticManager: ObservableObject {
     }
 
     func startHoldFeedback() {
-        guard isEnabled, holdFeedbackTimer == nil else { return }
+        guard holdFeedbackTimer == nil else { return }
 
         impact(style: .light)
         holdFeedbackTimer = Timer.scheduledTimer(withTimeInterval: 0.18, repeats: true) {
@@ -59,8 +40,6 @@ final class HapticManager: ObservableObject {
     }
 
     private func impact(style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        guard isEnabled else { return }
-
         let generator = UIImpactFeedbackGenerator(style: style)
         generator.prepare()
         generator.impactOccurred()

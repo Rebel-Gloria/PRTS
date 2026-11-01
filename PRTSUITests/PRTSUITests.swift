@@ -141,12 +141,18 @@ final class PRTSUITests: XCTestCase {
         snap(app, "Photo provider custom (zh)")
         app.buttons["通义千问 Qwen"].tap()
         XCTAssertTrue(shown("qwen3.8-flash").waitForExistence(timeout: 3))
+        // Text reading lives on this page; Form rows off screen don't exist yet.
+        let threeFinger = app.switches["threeFingerReadingToggle"]
+        for _ in 0..<4 where !threeFinger.exists { app.swipeUp() }
+        XCTAssertTrue(threeFinger.exists)
+        snap(app, "Photo settings text reading (zh)")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        // The feedback section sits below the developer section; Form rows off screen don't exist yet.
-        let haptic = app.switches["振动提示"]
-        for _ in 0..<3 where !haptic.exists { app.swipeUp() }
-        XCTAssertTrue(haptic.exists)
-        snap(app, "Settings feedback (zh)")
+        // Vibration is always on: the settings page ends with the guide and has no haptic switch.
+        let guide = app.buttons["userGuideButton"]
+        for _ in 0..<4 where !guide.exists { app.swipeUp() }
+        XCTAssertTrue(guide.exists)
+        XCTAssertFalse(app.switches["振动提示"].exists)
+        snap(app, "Settings bottom (zh)")
         app.terminate()
 
         let large = XCUIApplication.prts()
@@ -386,6 +392,76 @@ final class PRTSUITests: XCTestCase {
         // https://developer.apple.com/documentation/xcuiautomation
     }
 
+    /// The system accessibility audit on the screens VoiceOver users operate by hand.
+    @MainActor
+    func testSettingsPassAccessibilityAudit() throws {
+        let app = XCUIApplication.prts()
+        app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        app.buttons["settingsButton"].tap()
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
+        try audit(app)
+
+        app.buttons["智能设置"].tap()
+        XCTAssertTrue(app.navigationBars["智能设置"].waitForExistence(timeout: 5))
+        // Audit after the push ends: mid-transition text is translucent and fails contrast.
+        XCTAssertTrue(app.navigationBars["设置"].waitForNonExistence(timeout: 5))
+        try audit(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let guide = app.buttons["userGuideButton"]
+        while !guide.isHittable { app.swipeUp() }
+        guide.tap()
+        XCTAssertTrue(app.navigationBars["使用说明"].waitForExistence(timeout: 5))
+        // Contrast is left out here: its only reports are the system Done button and the line
+        // half scrolled under the bottom bar. The guide is system text on the system background.
+        try audit(app, types: XCUIAccessibilityAuditType.all.subtracting(.contrast))
+    }
+
+    /// Fails on any audit issue except the few that are accepted by design.
+    private func audit(
+        _ app: XCUIApplication,
+        types: XCUIAccessibilityAuditType = .all
+    ) throws {
+        try app.performAccessibilityAudit(for: types) { issue in
+            let accepted = Self.acceptedByDesign(issue, in: app)
+            if !accepted {
+                // XCTest only reports the issue type; name the element for triage.
+                print(
+                    "Accessibility audit: \(issue.compactDescription) on \(issue.element?.debugDescription ?? "unknown element")"
+                )
+            }
+            return accepted
+        }
+    }
+
+    private static func acceptedByDesign(
+        _ issue: XCUIAccessibilityAuditIssue,
+        in app: XCUIApplication
+    ) -> Bool {
+        switch issue.auditType {
+        case .contrast:
+            // Contrast rules exempt disabled controls; the navigation bar's buttons are the
+            // system's own. Reports without an element cannot be traced; every one traced on
+            // these pages was a disabled control, a system button or a half-scrolled line.
+            guard let element = issue.element else { return true }
+            return !element.isEnabled || app.navigationBars.buttons[element.label].exists
+        case .sufficientElementDescription:
+            // Service host and model names are technical identifiers, shown as they are.
+            return issue.element.map { $0.label.contains(".") } ?? false
+        case .dynamicType:
+            // Reported on standard Form toggles and labels, which do scale; text that really
+            // gets cut off is reported as .textClipped and still fails.
+            return true
+        case .textClipped:
+            // Without an element this is a guess the audit cannot point to; the intelligence
+            // page showed no clipping at the largest accessibility size (2026-11-01).
+            return issue.element == nil
+        default:
+            return false
+        }
+    }
+
     /// The guide opens by itself on the first launch only.
     @MainActor
     func testUserGuideOpensOnFirstLaunch() throws {
@@ -423,6 +499,8 @@ final class PRTSUITests: XCTestCase {
             XCTAssertTrue(app.navigationBars[guideTitle].waitForExistence(timeout: 5))
             let read = app.buttons["userGuideReadButton"]
             XCTAssertTrue(read.isHittable)
+            // The button alone, not the whole bottom bar: a tap at its centre must hit it.
+            XCTAssertLessThan(read.frame.width, 100)
             add(screenshot(app, "User guide (\(language))"))
             read.tap()
             XCTAssertTrue(

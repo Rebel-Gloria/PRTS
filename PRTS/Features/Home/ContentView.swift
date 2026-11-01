@@ -140,7 +140,7 @@ struct ContentView: View {
                 let reading = textReading.phase != .idle
                 camera.poll(
                     suspendFeedback: photo.busy || reading || isShowingSettings || isHoldingStop
-                        || !hapticManager.isEnabled || scenePhase != .active
+                        || scenePhase != .active
                 )
                 if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, scenePhase == .active
                 {
