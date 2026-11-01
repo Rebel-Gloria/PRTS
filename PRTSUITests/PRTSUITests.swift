@@ -195,15 +195,17 @@ final class PRTSUITests: XCTestCase {
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         let originallyEnabled = toggle.value as? String == "1"
-        if originallyEnabled { toggle.tap() }
+        if originallyEnabled {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
         XCTAssertEqual(toggle.value as? String, "0")
-        toggle.tap()
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         let alert = app.alerts.firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), app.debugDescription)
         alert.buttons["Cancel"].tap()
         XCTAssertEqual(toggle.value as? String, "0")
-        toggle.tap()
-        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), app.debugDescription)
         alert.buttons["Turn On"].tap()
         XCTAssertEqual(toggle.value as? String, "1")
         app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -211,12 +213,12 @@ final class PRTSUITests: XCTestCase {
         // Disabling the mode takes effect directly, without a second confirmation.
         app.buttons["settingsButton"].tap()
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
-        toggle.tap()
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "0")
         XCTAssertFalse(alert.exists)
         if originallyEnabled {
-            toggle.tap()
-            XCTAssertTrue(alert.waitForExistence(timeout: 3))
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            XCTAssertTrue(alert.waitForExistence(timeout: 3), app.debugDescription)
             alert.buttons["Turn On"].tap()
         }
     }
@@ -237,11 +239,17 @@ final class PRTSUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(waitForGuidance(app, timeout: 5))
         start.press(forDuration: 1.5)
-        XCTAssertTrue(app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
         app.activate()
-        XCTAssertTrue(app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
         XCTAssertFalse(app.descendants(matching: .any)["cameraStatus"].exists)
     }
 
