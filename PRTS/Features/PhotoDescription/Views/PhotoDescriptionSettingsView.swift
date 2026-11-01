@@ -9,6 +9,7 @@ struct PhotoDescriptionSettingsView: View {
     @AppStorage(PhotoChatProvider.customEndpointKey) private var customEndpoint = ""
     @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
     @AppStorage(PhotoPrompts.questionThinkingKey) private var questionThinking = false
+    @AppStorage(PhotoPrompts.localEnhancedKey) private var localEnhanced = false
     @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
     @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
     @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService
@@ -110,14 +111,22 @@ struct PhotoDescriptionSettingsView: View {
                     }
                     if !message.isEmpty { Text(message).font(.caption) }
                 }
-                if provider != .custom {
-                    Section {
-                        Toggle("photo.settings.questionThinking", isOn: $questionThinking)
-                            .accessibilityHint("photo.settings.questionThinking.hint")
-                            .accessibilityIdentifier("photoQuestionThinking")
-                    } footer: {
-                        Text("photo.settings.questionThinking.footer")
-                    }
+            }
+            if provider == .onDevice {
+                Section {
+                    Toggle("photo.settings.localEnhanced", isOn: $localEnhanced)
+                        .accessibilityHint("photo.settings.localEnhanced.hint")
+                        .accessibilityIdentifier("photoLocalEnhanced")
+                } footer: {
+                    Text("photo.settings.localEnhanced.footer")
+                }
+            } else if provider != .custom {
+                Section {
+                    Toggle("photo.settings.questionThinking", isOn: $questionThinking)
+                        .accessibilityHint("photo.settings.questionThinking.hint")
+                        .accessibilityIdentifier("photoQuestionThinking")
+                } footer: {
+                    Text("photo.settings.questionThinking.footer")
                 }
             }
             Section {

@@ -3,7 +3,7 @@ import Foundation
 nonisolated enum PhotoPrompts {
     static let prompt = "描述眼前。"
 
-    /// Shared by every provider and the short-tap/question paths. Tuned on-device against MiniCPM-V
+    /// Shared by every provider for short-tap descriptions. Tuned on-device against MiniCPM-V
     /// (docs/validation.md): rules plus "don't" list plus concrete examples; placeholder
     /// templates made the small model fill in every template and invent signs.
     static let system = """
@@ -29,7 +29,7 @@ nonisolated enum PhotoPrompts {
         - 右前方有块牌子写着"便利店"。
         """
 
-    /// Long-press questions to a cloud model. Mostly follow-ups for detail after the short
+    /// Cloud questions and optional enhanced local questions. Mostly follow-ups after the short
     /// description (what colour is the cat); more open than `system` (reading, translating,
     /// explaining), still at most three sentences and no permission to walk. Tuned on Qwen and
     /// DeepSeek (docs/validation.md).
@@ -75,6 +75,14 @@ nonisolated enum PhotoPrompts {
     /// Settings: let a cloud model think before answering a question. Off by default: Qwen took up
     /// to 30 s to answer, and thinking did not reliably fix DeepSeek's stair direction.
     static let questionThinkingKey = "photoDescription.questionThinking"
+
+    /// Broader local questions are opt-in; they do not enable model reasoning or change OCR.
+    static let localEnhancedKey = "photoDescription.localEnhanced"
+
+    static func localSystem(question: String?, defaults: UserDefaults = .standard) -> String {
+        guard question != nil else { return system }
+        return defaults.bool(forKey: localEnhancedKey) ? questionSystem : localQuestionSystem
+    }
 
     /// Questions are answered in at most three sentences; the prompt asks for it, this keeps it.
     /// A run of stops ("。\n") ends one sentence.
