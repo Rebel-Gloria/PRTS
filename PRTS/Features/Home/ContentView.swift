@@ -204,7 +204,7 @@ struct ContentView: View {
                 speechManager.speakHomeScreen(cameraState: camera.state)
                 // The guide opens once, on the first launch. A launch from the Action button skips
                 // it so guidance can start at once; the guide stays in Settings.
-                if !userGuideShown && !commands.toggleRequested {
+                if !userGuideShown && !commands.startRequested {
                     userGuideShown = true
                     isShowingUserGuide = true
                 }
@@ -212,7 +212,7 @@ struct ContentView: View {
                 startCameraIfNeeded()
                 runPendingCommand()
             }
-            .onChange(of: commands.toggleRequested) { _, _ in runPendingCommand() }
+            .onChange(of: commands.startRequested) { _, _ in runPendingCommand() }
             .onChange(of: photo.busy) { _, busy in if !busy { askingByTap = false } }
             .onReceive(
                 NotificationCenter.default.publisher(
@@ -438,8 +438,8 @@ struct ContentView: View {
 
     /// Consumes a pending start request once the home screen is active.
     private func runPendingCommand() {
-        guard scenePhase == .active, commands.toggleRequested else { return }
-        commands.toggleRequested = false
+        guard scenePhase == .active, commands.startRequested else { return }
+        commands.startRequested = false
         isShowingSettings = false
         isShowingUserGuide = false
         startCameraIfNeeded()

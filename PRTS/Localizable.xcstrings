@@ -1549,13 +1549,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start is at the bottom"
+            "value" : "The camera starts automatically"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始在下方"
+            "value" : "相机自动启动"
           }
         }
       }
@@ -2549,13 +2549,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Starts guidance if it is off, or stops it if it is running."
+            "value" : "Starts the camera if needed, or exits text reading. A running camera stays on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未开始时开始避障，正在避障时停止。"
+            "value" : "启动相机或退出读文字；相机运行时不停止。"
           }
         }
       }
@@ -2566,13 +2566,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start or stop"
+            "value" : "Start"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始或停止"
+            "value" : "开始"
           }
         }
       }
@@ -2583,13 +2583,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start or Stop PRTS"
+            "value" : "Start PRTS"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始或停止 PRTS"
+            "value" : "开始 PRTS"
           }
         }
       }

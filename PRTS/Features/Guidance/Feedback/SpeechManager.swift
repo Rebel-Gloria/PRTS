@@ -102,10 +102,7 @@ final class SpeechManager: ObservableObject {
             cameraState == .running
             ? "speech.camera.liveStatus"
             : "speech.camera.readyStatus"
-        let cameraActionKey =
-            cameraState == .running
-            ? "speech.camera.stopAction"
-            : "speech.camera.startAction"
+        let cameraActionKey = "speech.camera.startAction"
 
         announce(
             localized(
