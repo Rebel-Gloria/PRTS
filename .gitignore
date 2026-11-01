@@ -13,3 +13,6 @@
 # Built by Vendor/LocalVLM/prepare.sh
 /Vendor/LocalVLM/.build/
 /Vendor/LocalVLM/PRTSLocalVLM.xcframework/
+
+# On-demand source inventory
+/build/code-inventory.md

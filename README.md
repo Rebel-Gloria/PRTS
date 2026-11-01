@@ -1,52 +1,51 @@
 # PRTS
 
-PRTS 是给视障和低视力用户用的 iPhone App：用 LiDAR 看路、用语音和震动带路，拍张照就能听到眼前是什么，三指按住屏幕就能读出面前的字。
+PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供障碍提示、画面描述和文字朗读。项目优先使用手机本地计算，减少对额外设备和网络的依赖。
 
-## 为什么做
+## 主要功能
 
-视障用户手里最常见的工具仍然是导盲杖，能告诉人的东西很少。导盲犬贵，也不好找。
+| 功能 | 使用方式 |
+|---|---|
+| 避障引导 | 点击“开始”，通过语音和振动接收障碍与方向提示 |
+| 画面描述 | 短按拍照按键，听取眼前画面的简短描述 |
+| 语音提问 | 按住拍照按键说话，松开后听取回答 |
+| 文字朗读 | 三指按住屏幕 0.8 秒，拍摄并朗读面前的文字 |
 
-现有的电子方案各有短板：
+拍照按键根据设备和设置使用相机控制按钮、音量键或屏幕按钮。App 也支持旁白、大字体、辅助触控、切换控制，以及 Siri 和快捷指令，详见[使用与无障碍](docs/features/usage.md)。
 
-- **专用硬件**（OrCam、MyEye 等）效果好，但贵，后续升级也靠厂商；
-- **纯云端 App**（Seeing AI、Be My Eyes 等）识别强，但要联网，有延迟，图片要传出去。
+## 使用条件
 
-我们想要的是：一部 iPhone 就够，主要功能不联网也能用，图片尽量不出手机。
+需要 iOS 17 及以上。仓库记录的应用版本为 1.0，构建编号为 25。
 
-最初的想法来自团队成员何梓仪的毕业设计。那个原型基于 MiniCPM-O，已经在 M 系列芯片、骁龙、Meta Quest 和 iOS（wasm）上跑过，能靠对话完成读文字、室内语音导航这类任务。
+避障引导使用 LiDAR。没有 LiDAR 的设备可通过模型估算深度，但目前只用于深度显示和路线示意，不能提供可靠的障碍距离或通行判断。项目尚未实现台阶与落差检测、目的地导航、等公交或红绿灯主动提醒。
 
-## 现在能做什么
+拍照描述和文字识别默认使用本地 MiniCPM-V 4.7，照片留在手机上。选择远端模型时，需要联网并允许上传照片。语音提问使用系统语音识别，可能调用 Apple 的服务。
 
-| 功能 | 怎么用 | 联网吗 | 说明 |
-|---|---|---|---|
-| 避障引导 | 点"开始" | 不联网 | LiDAR 测出地面和障碍，规划一条能走的路线，用语音和左右震动引导。前方空旷时只做播报；障碍较远时先引导走近；障碍很近时逐点绕行。没有 LiDAR 的机型用 Depth Anything V2 估算深度。 |
-| 拍照描述 | 短按拍照按键描述画面，长按说出问题。拍照按键是相机控制按钮、音量键或屏幕中间的相机按钮，看机型和设置 | 默认不联网 | 默认用打包在 App 里的 MiniCPM-V 4.7，照片不出手机；也可以在设置里换成联网的模型服务（通义千问、DeepSeek 或兼容 OpenAI 接口的服务）。回答用 App 的播报声音读出来。 |
-| 文字识别 | 三根手指按住屏幕 0.8 秒 | 不联网 | 主摄拍一张，本机的 MiniCPM-V 4.7 先判断字写在路标、牌子、纸张还是别的东西上，再照抄，读成"你面前的路标上写着：……"。 |
-| Siri 和快捷指令 | "开始引导""停止引导""描述画面" | 视功能而定 | 见 `PRTS/App/PRTSIntents.swift`。 |
+现有验证仍以少量设备和场景为主，尚未完成视障用户长期实测。具体数据和适用范围见[验证结果与已知问题](docs/validation.md)。
 
-App 支持 iOS 17 及以上，当前版本 1.0（build 25）。
+## 开发入门
 
-还没做的：
+在安装 Xcode 的 macOS 上准备本地模型与推理库，再打开 `PRTS.xcodeproj`，选择 PRTS scheme 构建。模型权重约 1.9 GB，不随 Git 仓库分发。
 
-- 主动提醒（等公交、等红绿灯）；
-- 目的地导航。
+```sh
+zsh Vendor/LocalVLM/prepare.sh
+```
+
+构建命令、开发版配置和验证入口见[开发指南](docs/development.md)。修改代码前请阅读[仓库规范](AGENTS.md)。
 
 ## 文档
 
-全部在 [docs/](docs/README.md)。常用的几份：
+| 主题 | 文档 |
+|---|---|
+| 使用与设置 | [使用与无障碍](docs/features/usage.md) |
+| 图像与文字 | [拍照描述与提问](docs/features/photo-description.md) · [文字识别](docs/features/text-reading.md) |
+| 本地模型 | [本地视觉模型](docs/features/local-vlm.md) |
+| 空间感知 | [空间几何](docs/architecture/spatial-geometry.md) · [无 LiDAR 模式](docs/features/no-lidar.md) |
+| 工程维护 | [工程架构](docs/architecture.md) · [开发指南](docs/development.md) · [诊断与采集](docs/diagnostics.md) |
+| 验证与约束 | [验证结果与已知问题](docs/validation.md) · [仓库规范](AGENTS.md) |
 
-- [代码结构](docs/architecture/code-structure.md)、[运行时数据流](docs/architecture/runtime-data-flow.md)
-- [拍照描述](docs/features/photo-description.md)、[文字识别](docs/features/text-reading.md)
-- [开发采集包](docs/guides/dev-capture.md)：编译时打开 `PRTS_DEV_CAPTURE` 才有，普通包里没有这部分代码。
+PPT、宣传视频和比赛讲稿单独维护在 `marketing` 分支。
 
-## 协议
+## 开源许可
 
-本仓库的代码按 [MIT 协议](LICENSE) 开源。
-
-App 里用到的第三方模型和库有各自的协议：
-
-| 组件 | 协议 | 怎么来的 |
-|---|---|---|
-| Depth Anything V2 Small | Apache 2.0，见 `PRTS/Spatial/Models/LICENSE-DepthAnythingV2.txt` | 在仓库里 |
-| llama.cpp | MIT | `Vendor/LocalVLM/prepare.sh` 编译时下载，不在仓库里 |
-| MiniCPM-V 4.7 1B 权重 | Apache 2.0（以 Hugging Face 上 openbmb 的说明为准） | `Vendor/LocalVLM/prepare.sh` 下载，不在仓库里 |
+仓库代码使用 [MIT 许可证](LICENSE)。Depth Anything V2 Small 使用 [Apache 2.0 许可证](PRTS/Spatial/Models/LICENSE-DepthAnythingV2.txt)；llama.cpp 使用 MIT；MiniCPM-V 4.7 1B 权重按 openbmb 发布的 Apache 2.0 许可使用。第三方组件以各自附带的许可和来源记录为准。
