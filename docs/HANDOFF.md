@@ -1,23 +1,32 @@
-# 接续任务（2026-11-01）
+# 接续任务
 
-仓库：PRTS，分支 main，最新提交 2819511（未完成，标记为 work in progress）。开始前阅读 AGENTS.md。提交身份 Oldcucumber，英文提交说明，不加 AI 署名。8 GB Mac：xcodebuild 加 `-jobs 2`，一次只跑一个重任务。
+本文记录自动启动与非盲模式改动的交付状态，以及尚需完成的真机验证。
 
-## 已完成（2819511）
-- 删除主界面开始按钮和“按住停止”手势；首页出现即调用 `startCameraFromButton()`，没有停止入口。操作按钮快捷指令和 Magic Tap 只负责“未运行时开始 / 读文字时退出”。
-- 设置首页新增“非盲模式”（`ContentView.lowVisionKey = "app.lowVisionMode"`，默认关），开启时弹窗确认。开启后相机照常运行，拍照描述、提问、读文字可用，`ContentView` 中 `quiet` 条件屏蔽避障语音和振动。首次弹出使用说明期间同样静音。
-- 删除 `GuidanceButton.swift`；新增 6 条 `settings.lowVision.*` 文案。
+## 已完成
+
+| 项目 | 结果 |
+|---|---|
+| App 编译 | 交接版本 `fece74a` 的 App 编译通过；`8203d35` 的 App、单元测试与 UI 测试目标编译通过 |
+| UI 测试修复 | 移除已删除按钮的引用，等待明确的“避障中”状态；更新首页边界检查 |
+| 首页状态清理 | 删除停止手势状态，保留辅助触控提问入口；将旁白“读文字”操作迁移至相机状态 |
+| 快捷指令 | 显示名称及短语改为“开始 PRTS”，保留原 intent 类型以兼容已有快捷指令 |
+| 使用说明 | 更新六份使用说明、README、功能操作和架构文档 |
+| 非盲模式测试 | 增加确认、取消、关闭和恢复设置的 UI 测试，以及反馈静音策略测试；启动状态反馈也使用同一静音策略 |
+| 验证 | 53 项仓库检查、4 种静音组合验证通过；`8203d35` 的格式检查、空间与契约测试、App 与测试目标编译均通过 |
 
 ## 待完成
-1. 让 App 编译通过并确认 CI `app-build` 通过（本次改动未本地编译）。
-2. 修 UI 测试（目前无法编译）：`PRTSUITests/PRTSUITests.swift` 中第 36 行、第 170 行附近及屏幕巡览测试（约 259–295 行）仍引用已删除的 `cameraButton`；去掉对它的点击和断言，等待运行改用 `waitForGuidance`（已改为等待 `homeTips` 消失）。巡览中 `camera.press(forDuration: 1.5)` 停止步骤应删除。
-3. 清理 `ContentView` 中已无作用的 `isHoldingStop`、`stopHoldTask`、`didCompleteStopHold`、`pointerCannotHold` 等状态。
-4. 快捷指令仍叫“开始或停止 PRTS”，现在只能开始：改名（如“开始 PRTS”），更新 `PRTSIntents.swift` 的 phrases 和 `intent.toggle.*` 文案。
-5. 更新 6 份使用说明（`PRTS/Features/Settings/UserGuide/*.md`）：删除“再按一次操作按钮停止 / 按住主按钮 1 秒停止 / 轻点开始”等内容，写明打开 App 即开始；增加“非盲模式”一句。同步 `docs/usage.md`、`README.md`、`docs/architecture.md` 中关于开始/停止的描述。
-6. 加测试：非盲模式开启需确认、取消后保持关闭；开启后无避障播报（可用单元测试覆盖设置键和 `quiet` 逻辑）。
-7. 在 iPhone 17 Pro Max（id 00008150-001928591AC0401C）上跑完整测试：
-   `xcodebuild test -project PRTS.xcodeproj -scheme PRTS -configuration Release -destination id=00008150-001928591AC0401C -jobs 2 -allowProvisioningUpdates DEVELOPMENT_TEAM=56PKSY3B35 ENABLE_TESTABILITY=YES -skip-testing:PRTSUITests/PRTSUITests/testCPUWithPreview -skip-testing:PRTSUITests/PRTSUITests/testCPUWithoutPreview`
-   UI 测试使用 `XCUIApplication.prts()`（跳过首次使用说明）。
+
+在已连接的 iPhone 17 Pro Max 上执行完整测试。目前 SSH 可登录 Mac，但系统拒绝读取 Documents 中的工作副本；需开放目录访问或提供可访问的完整副本。CI 使用模型占位库，只证明可编译，不代替真机测试。
+
+8 GB Mac 一次只运行一个重任务，使用：
+
+```sh
+xcodebuild test -project PRTS.xcodeproj -scheme PRTS -configuration Release -destination id=00008150-001928591AC0401C -jobs 2 -allowProvisioningUpdates DEVELOPMENT_TEAM=56PKSY3B35 ENABLE_TESTABILITY=YES -skip-testing:PRTSUITests/PRTSUITests/testCPUWithPreview -skip-testing:PRTSUITests/PRTSUITests/testCPUWithoutPreview
+```
+
+提交身份和格式遵循根目录 `AGENTS.md`。每项修改单独提交并推送；不得覆盖其他未提交改动。
 
 ## 需要用户决定
-- GPT 的文字识别改动（114a043）在远端设置缺失时静默改用离线识别，不再提示缺什么；是否恢复提示。
-- 未跟踪的根目录 `Marketing/`（445 MB）如何处理。
+
+- 远端文字识别设置缺失时，是否恢复配置提示；当前保留静默本机回退。
+- 原 Mac 上未跟踪的根目录 `Marketing/`（交接记录约 445 MB）如何处理；当前 Windows 工作副本没有该目录，未作删除或迁移。
