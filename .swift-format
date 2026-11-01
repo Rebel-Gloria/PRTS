@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "lineLength": 100,
+  "indentation": { "spaces": 4 },
+  "maximumBlankLines": 1,
+  "lineBreakBeforeEachArgument": true,
+  "lineBreakBeforeEachGenericRequirement": true,
+  "indentConditionalCompilationBlocks": false,
+  "rules": {
+    "DoNotUseSemicolons": true,
+    "OneVariableDeclarationPerLine": true,
+    "OneCasePerLine": true,
+    "OrderedImports": true,
+    "TypeNamesShouldBeCapitalized": true,
+    "AlwaysUseLowerCamelCase": false,
+    "UseEarlyExits": false,
+    "NeverForceUnwrap": false,
+    "NeverUseForceTry": false
+  }
+}

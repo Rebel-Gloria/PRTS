@@ -2,7 +2,6 @@
 //  PRTSUITestsLaunchTests.swift
 //  PRTSUITests
 //
-//  Created by yuanyuan on 2026/7/24.
 //
 
 import XCTest

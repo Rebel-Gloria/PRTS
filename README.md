@@ -28,7 +28,7 @@ PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供障碍提�
 在安装 Xcode 的 macOS 上准备本地模型与推理库，再打开 `PRTS.xcodeproj`，选择 PRTS scheme 构建。模型权重约 1.9 GB，不随 Git 仓库分发。
 
 ```sh
-zsh Vendor/LocalVLM/prepare.sh
+bash Packages/LocalVLM/prepare.sh
 ```
 
 构建命令、开发版配置和验证入口见[开发指南](docs/development.md)。修改代码前请阅读[仓库规范](AGENTS.md)。

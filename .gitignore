@@ -10,9 +10,15 @@
 /models/
 *.gguf
 
-# Built by Vendor/LocalVLM/prepare.sh
-/Vendor/LocalVLM/.build/
-/Vendor/LocalVLM/PRTSLocalVLM.xcframework/
+# Built by Packages/LocalVLM/prepare.sh
+/Packages/LocalVLM/.build/
+/Packages/LocalVLM/PRTSLocalVLM.xcframework/
 
 # On-demand source inventory
-/build/code-inventory.md
+/build/
+
+# Local tooling and generated Python files
+.venv/
+.ruff_cache/
+__pycache__/
+*.pyc

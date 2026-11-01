@@ -214,8 +214,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */,
-				F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */,
-				F1000000000000000000000B /* XCLocalSwiftPackageReference "Vendor/LocalVLM" */,
+				F10000000000000000000007 /* XCLocalSwiftPackageReference "Packages/SpatialCore" */,
+				F1000000000000000000000B /* XCLocalSwiftPackageReference "Packages/LocalVLM" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DDE04D7330132D31000C8361 /* Products */;
@@ -274,7 +274,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Bundles the offline photo model (Vendor/LocalVLM/prepare.sh downloads it). cp -c clones on APFS, so 1.9 GB costs no time or space.\nset -e\nfor i in 0 1; do\n  eval src=\\$SCRIPT_INPUT_FILE_$i dst=\\$SCRIPT_OUTPUT_FILE_$i\n  mkdir -p \"$(dirname \"$dst\")\"\n  rm -f \"$dst\"\n  cp -c \"$src\" \"$dst\"\ndone\n";
+			shellScript = "# Bundles the offline photo model (Packages/LocalVLM/prepare.sh downloads it). cp -c clones on APFS, so 1.9 GB costs no time or space.\nset -e\nfor i in 0 1; do\n  eval src=\\$SCRIPT_INPUT_FILE_$i dst=\\$SCRIPT_OUTPUT_FILE_$i\n  mkdir -p \"$(dirname \"$dst\")\"\n  rm -f \"$dst\"\n  cp -c \"$src\" \"$dst\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -666,13 +666,13 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Vendor/PRTSCore;
 		};
-		F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */ = {
+		F10000000000000000000007 /* XCLocalSwiftPackageReference "Packages/SpatialCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Vendor/SpatialCore;
+			relativePath = Packages/SpatialCore;
 		};
-		F1000000000000000000000B /* XCLocalSwiftPackageReference "Vendor/LocalVLM" */ = {
+		F1000000000000000000000B /* XCLocalSwiftPackageReference "Packages/LocalVLM" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Vendor/LocalVLM;
+			relativePath = Packages/LocalVLM;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -684,12 +684,12 @@
 		};
 		F10000000000000000000008 /* SpatialCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000007 /* XCLocalSwiftPackageReference "Vendor/SpatialCore" */;
+			package = F10000000000000000000007 /* XCLocalSwiftPackageReference "Packages/SpatialCore" */;
 			productName = SpatialCore;
 		};
 		F1000000000000000000000C /* LocalVLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F1000000000000000000000B /* XCLocalSwiftPackageReference "Vendor/LocalVLM" */;
+			package = F1000000000000000000000B /* XCLocalSwiftPackageReference "Packages/LocalVLM" */;
 			productName = LocalVLM;
 		};
 /* End XCSwiftPackageProductDependency section */

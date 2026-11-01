@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Validate dev-capture samples and lossless attachments. Does not decode video or upload data."""
+
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import zlib
+from pathlib import Path
 
 from read_diag import depth_frame
 
 MAX_BYTES = 64 * 1024 * 1024
+
 
 def decode(folder, ref):
     name = ref["file"]
@@ -32,12 +34,22 @@ def decode(folder, ref):
         raise ValueError("checksum mismatch")
     return raw
 
+
 def summarize(folder):
     manifest = json.loads((folder / "manifest.json").read_text())
     status = json.loads((folder / "status.json").read_text())
-    result = dict(source=manifest.get("source"), phase=status.get("phase"), samples=0,
-                  depthFrames=0, relativeFrames=0, missingDepth=0, sparseFeatures=0,
-                  meshReferences=0, issues=[], videoDecoded=False)
+    result = dict(
+        source=manifest.get("source"),
+        phase=status.get("phase"),
+        samples=0,
+        depthFrames=0,
+        relativeFrames=0,
+        missingDepth=0,
+        sparseFeatures=0,
+        meshReferences=0,
+        issues=[],
+        videoDecoded=False,
+    )
     last_pts = -1.0
     seen = set()
     for number, line in enumerate((folder / "samples.jsonl").read_text().splitlines(), 1):
@@ -48,7 +60,10 @@ def summarize(folder):
                 raise ValueError("duplicate frame identity")
             seen.add(identity)
             pts = row["videoPTSValue"] / row["videoPTSTimescale"]
-            if pts <= last_pts or abs(pts - (row["timestamp"] - manifest["originARTimestamp"])) > 1/60000:
+            if (
+                pts <= last_pts
+                or abs(pts - (row["timestamp"] - manifest["originARTimestamp"])) > 1 / 60000
+            ):
                 raise ValueError("invalid video/source timestamp mapping")
             last_pts = pts
             evidence = json.loads(decode(folder, row["evidence"]))
@@ -77,8 +92,11 @@ def summarize(folder):
         result["issues"].append("missing camera.mp4")
     if status.get("phase") != "completed":
         result["issues"].append("capture not finalized; video may be incomplete")
-    result["note"] = "Index and attachments verified only; verify MP4 playback/PTS on device. Mesh payloads are in parent DIAG and must be checked separately."
+    result["note"] = (
+        "Index and attachments verified only; verify MP4 playback/PTS on device. Mesh payloads are in parent DIAG and must be checked separately."
+    )
     return result
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

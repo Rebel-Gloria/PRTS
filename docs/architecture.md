@@ -7,20 +7,34 @@ PRTS 将相机采集、空间计算、界面渲染和用户反馈分开管理。
 | 目录 | 职责 |
 |---|---|
 | `PRTS/App/` | 启动、运行配置、Siri 与快捷指令 |
-| `PRTS/UI/`、`PRTS/Capture/` | 界面、设置、相机适配和预览 |
-| `PRTS/Spatial/Runtime/` | 唯一 ARSession、帧调度、快照和单目深度 |
+| `PRTS/Features/Home/`、`Settings/` | 首页组合、交互协调和通用设置 |
+| `PRTS/Features/Guidance/` | 避障入口、相机状态、语音和振动反馈 |
+| `PRTS/Features/PhotoDescription/` | 照片交互、模型服务、请求编码、流式解析和提示词 |
+| `PRTS/Features/TextReading/` | 文字识别流程、独立主摄、识别服务和阅读界面 |
+| `PRTS/Features/Developer/` | 开发叠加层、诊断设置和演示选项 |
+| `PRTS/Shared/` | 共享音频、外观和本地化能力 |
+| `PRTS/Spatial/Runtime/` | 唯一 ARSession、帧调度和共享状态 |
+| `PRTS/Spatial/Capture/`、`Depth/` | 帧与网格快照、单目深度实现 |
 | `PRTS/Spatial/Rendering/` | 从快照绘制相机与空间信息 |
-| `PRTS/Feedback/` | 语音播报与方向振动 |
-| `PRTS/PhotoDescription/`、`PRTS/TextReading/` | 画面描述、语音提问、文字识别及朗读 |
-| `PRTS/Spatial/Diagnostics/`、`PRTS/Spatial/DevCapture/` | 自动诊断、手动样本和开发录像 |
+| `PRTS/Spatial/Diagnostics/`、`DevCapture/` | 自动诊断、手动样本和开发录像 |
 | `PRTS/Spatial/Models/` | 深度模型、来源与许可证 |
-| `PRTS/Integration/` | 预留检测接口，当前避障不依赖该层 |
-| `Vendor/SpatialCore/` | 纯 Swift 几何分析、障碍建模和路线规划 |
-| `Vendor/LocalVLM/` | 本地视觉模型封装及依赖准备 |
-| `Vendor/PRTSCore/` | 旧后端契约与可选实现 |
+| `Packages/SpatialCore/` | 自有几何分析、障碍建模、路线规划与反馈策略 |
+| `Packages/LocalVLM/` | 自有本地视觉模型封装及依赖准备 |
+| `Vendor/PRTSCore/` | 保留来源与原有风格的上游契约和可选实现 |
 | `Experiments/`、`scripts/` | 独立实验、回放、验证与维护工具 |
 
 App 链接 `SpatialCore`、`LocalVLM` 和 `PRTSContracts`。`PRTSAppleModels`、`PRTSAppleModelsLite` 及实验工程不参与 App 编译。
+
+
+## 替换组件
+
+`ContentView` 负责组合首页和协调功能生命周期，展示部件分别位于首页、避障、照片和文字识别目录。替换控件时保留输入、回调和无障碍标识，避免同时改动业务流程。
+
+照片交互通过 `PhotoDescriptionServices`、`PhotoRecognizing` 和 `PhotoAnswerAudio` 获取能力。`PhotoDescriptionBackend` 集中选择本地或云端模型；请求、服务配置和流式解析分别维护。替换模型实现时保留异步返回与取消约定，协调器无需了解网络或推理细节。文字识别复用照片服务中的模型与凭据实现，不复制一套连接逻辑。
+
+`SpatialCore/Sources/SpatialCore/` 按 `Perception`、`Routing`、`Presentation`、`Feedback`、`Diagnostics` 和 `Contracts` 分组。`Routing` 再区分前向规划、目标点规划、几何检查、时序连续性和预测入口。对外继续使用 `PathPredictor`、`PathUpdate` 与发布结果；替换搜索策略时保留这些契约，采集、渲染和播报不应跟随算法内部结构变化。
+
+文件按职责拆分，相关的小型数据类型可以放在一起。状态所有者及其私有状态保留在同一文件，避免为了缩短文件而扩大访问权限。
 
 ## 避障数据流
 
@@ -68,7 +82,7 @@ ARSession
 
 渲染器只读取 `SharedSnapshot`，语音和振动只使用分析结果。开发叠加层不另建会话或计时器。隐藏画面不停止采集和分析；完全停止绘制应使用无画面模式。
 
-`SpatialCore` 不依赖 SwiftUI、ARKit、Metal、AVFoundation、Core ML 或 UIKit。包内 `AppendFile.swift` 仅兼容旧测试，App 不调用。`SpatialAnalyzer` 与冻结的 SpatialProbe 实现保持逐字节一致；`AnalysisResult` 比较时排除额外的 `planningObstacles` 字段。
+`SpatialCore` 不依赖 SwiftUI、ARKit、Metal、AVFoundation、Core ML 或 UIKit。包内 `AppendFile.swift` 仅兼容旧测试，App 不调用。源码一致性检查忽略排版和注释，保留算法表达式与字符串比较。`SpatialAnalyzer` 与冻结的 SpatialProbe 实现保持一致；`AnalysisResult` 仅排除额外的 `planningObstacles` 字段。产品触觉策略既有的进入阈值差异单独检查，不将整个文件排除。
 
 ## 依赖来源
 

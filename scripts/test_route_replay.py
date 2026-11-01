@@ -1,11 +1,16 @@
 import unittest
+
 from compare_route_replays import compare
 
 
 class RouteReplayTests(unittest.TestCase):
     def row(self, frame=1):
-        return {"epoch": 1, "frameID": frame, "timestamp": 1,
-                "update": {"milliseconds": 1, "reason": "synthetic"}}
+        return {
+            "epoch": 1,
+            "frameID": frame,
+            "timestamp": 1,
+            "update": {"milliseconds": 1, "reason": "synthetic"},
+        }
 
     def test_pairing_mismatch_is_rejected(self):
         with self.assertRaises(ValueError):

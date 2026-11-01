@@ -15,15 +15,15 @@ test "$(git -C "$temp" rev-parse FETCH_HEAD)" = "$revision"
 git -C "$temp" checkout -q --detach "$revision"
 
 mkdir -p "$root/Vendor/PRTSCore/Sources/PRTSContracts" \
-  "$root/Vendor/PRTSCore/Sources/PRTSAppleModels" \
-  "$root/Vendor/PRTSCore/Tests/PRTSContractsTests/Resources"
+    "$root/Vendor/PRTSCore/Sources/PRTSAppleModels" \
+    "$root/Vendor/PRTSCore/Tests/PRTSContractsTests/Resources"
 cp "$temp/apple/PRTSCore/Sources/PRTSContracts/"*.swift "$root/Vendor/PRTSCore/Sources/PRTSContracts/"
 cp "$temp/apple/PRTSCore/Sources/PRTSAppleModels/"*.swift "$root/Vendor/PRTSCore/Sources/PRTSAppleModels/"
 mkdir -p "$root/Vendor/PRTSCore/Sources/PRTSAppleModels/Resources/cues"
 cp "$temp/apple/PRTSCore/Sources/PRTSAppleModels/Resources/cues/"* "$root/Vendor/PRTSCore/Sources/PRTSAppleModels/Resources/cues/"
 cp "$temp/apple/PRTSCore/Tests/PRTSContractsTests/"*.swift "$root/Vendor/PRTSCore/Tests/PRTSContractsTests/"
 cp "$temp/apple/PRTSCore/Tests/PRTSContractsTests/Resources/python-parity.json" \
-  "$root/Vendor/PRTSCore/Tests/PRTSContractsTests/Resources/"
+    "$root/Vendor/PRTSCore/Tests/PRTSContractsTests/Resources/"
 
 printf 'Synchronized selected Apple files from %s at %s.\n' "$upstream" "$revision"
 printf 'Models/XCFrameworks were deliberately not copied. Review diff before committing.\n'
