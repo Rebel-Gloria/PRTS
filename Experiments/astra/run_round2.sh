@@ -18,4 +18,3 @@ python3 Experiments/astra/metrics.py Experiments/astra/results/replay.jsonl > Ex
 python3 Experiments/astra/audit.py > Experiments/astra/results/audit.log
 python3 Experiments/astra/annotation.py --extract > Experiments/astra/results/annotation.log
 swift test --disable-sandbox --package-path Packages/SpatialCore --scratch-path Experiments/astra/build -j 2 --filter 'PathPredictionTests|RouteProjectionTests|WaypointStabilityTests|OccupancyFootprintTests' > Experiments/astra/results/core-tests.log 2>&1
-python3 Experiments/astra/report.py

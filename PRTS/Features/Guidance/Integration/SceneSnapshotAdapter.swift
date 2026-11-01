@@ -1,50 +1,8 @@
-/// Compatibility boundary for future semantic detectors. Offline spatial perception does not depend on this layer.
-
 import ARKit
 import CoreVideo
-import Foundation
 import SpatialCore
 
-protocol SceneRGBFrameProviding: AnyObject {
-    /// Returns only the currently retained frame and only when epoch/frameID match exactly.
-    func rgbFrame(matching reference: SceneFrameReference) -> DetectionFrame?
-}
-
-struct DetectionFrame: @unchecked Sendable {
-    let reference: SceneFrameReference
-    let pixelBuffer: CVPixelBuffer
-}
-
-enum ObstacleDetectorCapability: Sendable, Equatable {
-    case available(modelName: String)
-    case unavailable(SemanticUnavailableReason)
-}
-
-struct ObstacleDetectionResult: Sendable {
-    let frame: SceneFrameReference
-    let detections: [ObjectDetection]
-    let latencyMilliseconds: Double
-    let validUntil: Double
-}
-
-protocol ObstacleDetector: Sendable {
-    var capability: ObstacleDetectorCapability { get }
-    func detect(frame: DetectionFrame) async -> ObstacleDetectionResult
-}
-
-struct UnavailableObstacleDetector: ObstacleDetector {
-    let capability: ObstacleDetectorCapability = .unavailable(.modelNotBundled)
-    func detect(frame: DetectionFrame) async -> ObstacleDetectionResult {
-        .init(
-            frame: frame.reference,
-            detections: [],
-            latencyMilliseconds: 0,
-            validUntil: frame.reference.validUntil
-        )
-    }
-}
-
-/// Compatibility output for optional future consumers: measured LiDAR results only.
+/// Adapts measured LiDAR results for the camera state and perception feedback.
 /// Prediction geometry remains explicitly typed in SharedSnapshot.monocular; never relabel it measured.
 enum SceneSnapshotAdapter {
     static func measuredResult(_ snapshot: SharedSnapshot, now: Double) -> SceneResult? {

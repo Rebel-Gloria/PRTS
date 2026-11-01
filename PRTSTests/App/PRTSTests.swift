@@ -62,15 +62,6 @@ struct PRTSTests {
         #expect(policy.cue(strategy: state, side: 1, hasHeading: true) == .turn(1))
     }
 
-    @Test func phaseOneRuntimeHasNoLargeModelProfiles() {
-        #expect(PRTSRuntimeProfile.offlineGeometry.rawValue == "offlineGeometry")
-    }
-
-    @Test @MainActor func missingDetectorIsExplicitlyUnavailable() {
-        let detector = UnavailableObstacleDetector()
-        #expect(detector.capability == .unavailable(.modelNotBundled))
-    }
-
     @Test @MainActor func feedbackCoordinatorStartsWithoutOldResultIdentity() {
         let coordinator = FeedbackCoordinator()
         #expect(coordinator.lastConsumedResultID == nil)

@@ -241,7 +241,9 @@ dev-capture-<UUID>/
 
 `replay_route_snapshots.swift` 默认使用 `obstacle_veto_v1` 策略，加 `--verified` 使用严格策略对照。从压缩栅格恢复的输入缺少原始样本数，结论中应注明。`confirmedModelFree` 为 unavailable 或缺少 `confirmedModelChecksPresent` 时，不能视为障碍检查通过。
 
-`Experiments/astra/run.sh` 重新运行当前源码的感知、规划、发布和反馈策略，并记录源码、二进制和工具的指纹。结果为离线代理指标，语音为模拟请求，不代表实际播报。产物不纳入版本控制。`prepare.py` 和 `round3_sources.py` 从固定的历史提交读取源码，仅用于复现旧实验。
+`Experiments/astra/run.sh` 重新运行当前源码的感知、规划、发布和反馈策略，并记录源码、二进制和工具的指纹。结果为离线代理指标，语音为模拟请求，不代表实际播报。产物不纳入版本控制。
+
+`prepare.py` 同时提供当前回放所需的数据索引，以及基于固定历史提交的第二轮实验副本。`run_round2.sh` 保留该实验的回放、指标和原始结果，不再生成过程报告。第三轮历史补丁重建工具及旧报告生成器已移除，已采用或撤回的结论统一维护在[验证结果](validation.md)中。
 
 ### SpatialProbe
 

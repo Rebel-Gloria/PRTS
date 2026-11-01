@@ -212,27 +212,3 @@ public struct SceneResult: Codable, Sendable, Identifiable {
     public func isFresh(at now: Double) -> Bool { frame.isFresh(at: now) }
     public var producesGuidance: Bool { availability == .ready && !candidateChannels.isEmpty }
 }
-
-public protocol SceneResultConsumer: AnyObject, Sendable {
-    func consume(sceneResult: SceneResult)
-}
-
-/// Accepts only fresh, in-order results from the active epoch and parameter version.
-public struct SceneResultGate: Sendable {
-    private var epoch: UInt64 = 0
-    private var parameterVersion: UInt64 = 0
-    private var lastFrameID: UInt64 = 0
-    public init() {}
-    public mutating func reset(epoch: UInt64, parameterVersion: UInt64) {
-        self.epoch = epoch
-        self.parameterVersion = parameterVersion
-        lastFrameID = 0
-    }
-    public mutating func accept(_ result: SceneResult, now: Double) -> Bool {
-        guard result.frame.sessionEpoch == epoch, result.frame.parameterVersion == parameterVersion,
-            result.frame.frameID > lastFrameID, result.isFresh(at: now)
-        else { return false }
-        lastFrameID = result.frame.frameID
-        return true
-    }
-}

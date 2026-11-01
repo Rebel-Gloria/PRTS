@@ -100,7 +100,7 @@ ARSession
 | 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | 部分 |
 | 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | 否 |
 
-`Diagnostics/AppendFile.swift` 仅供旧测试使用，应用不调用该文件。
+`Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
 ## 第三方代码
 
