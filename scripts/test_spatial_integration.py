@@ -280,7 +280,7 @@ class SpatialIntegrationTests(unittest.TestCase):
             ).read_text(encoding="utf-8"),
         }
         self.assertIn(".onAppear {", home)
-        self.assertIn("startCameraFromButton()", home)
+        self.assertIn("startCameraIfNeeded()", home)
         self.assertIn(".accessibilityAction(.magicTap)", home)
         self.assertIn("toggleTextReading()", home)
         self.assertNotIn('accessibilityIdentifier("cameraButton")', home)
