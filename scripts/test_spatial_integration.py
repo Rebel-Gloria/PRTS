@@ -280,10 +280,10 @@ class SpatialIntegrationTests(unittest.TestCase):
             ).read_text(encoding="utf-8"),
         }
         self.assertIn(".onAppear {", home)
-        self.assertIn("startCameraIfNeeded()", home)
+        self.assertIn("startCameraFromButton", home)
         self.assertIn(".accessibilityAction(.magicTap)", home)
         self.assertIn("toggleTextReading()", home)
-        self.assertNotIn('accessibilityIdentifier("cameraButton")', home)
+        self.assertIn("GuidanceButton(", home)
         theme = (ROOT / "PRTS/Shared/Appearance/AppColors.swift").read_text(encoding="utf-8")
         for color in (
             "Color(red: 0.025, green: 0.045, blue: 0.075)",

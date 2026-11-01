@@ -7,6 +7,7 @@ import SwiftUI
 @MainActor
 final class CameraManager: ObservableObject {
     let model = ProbeViewModel()
+    private var wantsCameraRunning = false
     @Published private(set) var state: CameraState = .idle
     @Published private(set) var status = "离线空间感知待启动"
     @Published private(set) var latestSceneResult: SceneResult?
@@ -33,11 +34,13 @@ final class CameraManager: ObservableObject {
         }
     }
     func startCamera() {
+        wantsCameraRunning = true
         guard !model.snapshot.running else { return }
         model.startOrStop()
         poll(suspendFeedback: true)
     }
     func stopCamera() {
+        wantsCameraRunning = false
         model.engine.stop()
         model.poll()
         latestSceneResult = nil
@@ -46,5 +49,6 @@ final class CameraManager: ObservableObject {
     func lifecycle(_ phase: ScenePhase) {
         model.lifecycle(phase)
         poll(suspendFeedback: phase != .active)
+        if phase == .active && wantsCameraRunning { startCamera() }
     }
 }

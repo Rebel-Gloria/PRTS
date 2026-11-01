@@ -26,14 +26,16 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launch()
         let settings = app.buttons["settingsButton"]
+        let camera = app.buttons["cameraButton"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        XCTAssertTrue(camera.exists)
         #if PRTS_DEV_CAPTURE
         // Developer visibility is persisted and tested separately.
         #else
         XCTAssertFalse(app.textFields["backendCommandField"].exists)
         XCTAssertFalse(app.otherElements["homeDemoMetrics"].exists)
         #endif
-        XCTAssertTrue(waitForGuidance(app, timeout: 10))
+        XCTAssertLessThan(settings.frame.midY, camera.frame.midY)
         let home = XCTAttachment(screenshot: app.screenshot())
         home.name = "Restored dark-teal home"
         home.lifetime = .keepAlways
@@ -94,7 +96,7 @@ final class PRTSUITests: XCTestCase {
         XCTAssertFalse(app.buttons["spatialSettingsButton"].exists)
         XCTAssertFalse(app.switches["devTechnicalOverlayToggle"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.buttons["settingsButton"].exists)
+        XCTAssertTrue(app.buttons["cameraButton"].exists)
         #endif
     }
 
@@ -159,10 +161,23 @@ final class PRTSUITests: XCTestCase {
         ]
         large.launch()
         let largeSettings = large.buttons["settingsButton"]
+        let camera = large.buttons["cameraButton"]
         XCTAssertTrue(largeSettings.waitForExistence(timeout: 10))
         XCTAssertTrue(largeSettings.isHittable)
-        XCTAssertTrue(waitForGuidance(large, timeout: 10))
+        XCTAssertTrue(camera.isHittable)
+        XCTAssertFalse(largeSettings.frame.intersects(camera.frame))
+        // Header stays one row: the settings button becomes icon-only beside the brand.
+        XCTAssertLessThan(
+            largeSettings.frame.maxY,
+            large.descendants(matching: .any)["homeTips"].frame.minY
+        )
         snap(large, "Home at accessibility XXXL")
+        camera.tap()
+        let running = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS '停止'"),
+            object: camera
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [running], timeout: 8), .completed)
         snap(large, "Running at accessibility XXXL")
     }
 
@@ -171,6 +186,9 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launchArguments += ["-AppleLanguages", "(en)"]
         app.launch()
+        let start = app.buttons["cameraButton"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        start.tap()
         XCTAssertTrue(waitForGuidance(app, timeout: 15))
         app.buttons["settingsButton"].tap()
         let toggle = app.switches["lowVisionToggle"]
@@ -204,14 +222,27 @@ final class PRTSUITests: XCTestCase {
     }
 
     @MainActor
-    func testCameraStartsOnLaunchAndResumesAfterBackground() throws {
+    func testCameraResumesOnlyAfterUserStartsIt() throws {
         let app = XCUIApplication.prts()
         app.launch()
+        let start = app.buttons["cameraButton"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        start.tap()
         XCTAssertTrue(waitForGuidance(app, timeout: 15))
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
         app.activate()
         XCTAssertTrue(waitForGuidance(app, timeout: 15))
+        app.buttons["settingsButton"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(waitForGuidance(app, timeout: 5))
+        start.press(forDuration: 1.5)
+        XCTAssertTrue(app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        app.activate()
+        XCTAssertTrue(app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["cameraStatus"].exists)
     }
 
     /// No-preview mode: guidance runs, nothing is drawn.
@@ -220,8 +251,9 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launchArguments += ["-display.noPreview", "YES"]
         app.launch()
-        // Guidance starts by itself when the app opens.
-        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
         XCTAssertTrue(
             app.descendants(matching: .any)["noPreviewNotice"].waitForExistence(timeout: 8)
         )
@@ -244,8 +276,9 @@ final class PRTSUITests: XCTestCase {
     func testTextReadingStartsCamera() throws {
         let app = XCUIApplication.prts()
         app.launch()
-        // Guidance starts by itself when the app opens.
-        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
         XCTAssertTrue(waitForGuidance(app, timeout: 10))
         let field = app.textFields["backendCommandField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -265,14 +298,19 @@ final class PRTSUITests: XCTestCase {
     }
     #endif
 
-    /// Wait for a positive running status; absent startup tips alone can also mean launch failed.
+    /// Guidance runs once the main button offers to stop. The photo button is no sign of it: phones
+    /// with Camera Control, or with the volume buttons turned on, have none.
     @MainActor
     private func waitForGuidance(_ app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        let running = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == %@ OR value == %@", "避障中", "Guiding"),
-            object: app.descendants(matching: .any)["cameraStatus"]
+        let stop = NSPredicate(
+            format: "label IN %@",
+            ["长按停止", "Press and hold to stop", "停止", "Stop"]
         )
-        return XCTWaiter.wait(for: [running], timeout: timeout) == .completed
+        let running = XCTNSPredicateExpectation(
+            predicate: stop,
+            object: app.buttons["cameraButton"]
+        )
+        return XCTWaiter().wait(for: [running], timeout: timeout) == .completed
     }
 
     /// Describes the view the way this phone does it: Camera Control, else the on-screen button.
@@ -296,7 +334,10 @@ final class PRTSUITests: XCTestCase {
             attachment.lifetime = .keepAlways
             add(attachment)
         }
-        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        shot("1 idle")
+        camera.tap()
         sleep(1)
         shot("2 starting")
         XCTAssertTrue(waitForGuidance(app, timeout: 10))
@@ -307,6 +348,8 @@ final class PRTSUITests: XCTestCase {
         shot("4 describing")
         sleep(6)
         shot("5 described")
+        camera.press(forDuration: 1.5)
+        sleep(1)
         app.buttons["settingsButton"].tap()
         sleep(1)
         shot("6 settings")
@@ -321,6 +364,8 @@ final class PRTSUITests: XCTestCase {
         // Scan mesh on, through the argument domain so the saved setting is left alone.
         app.launchArguments += ["-display.scanMesh", "YES"]
         app.launch()
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
         XCTAssertTrue(waitForGuidance(app, timeout: 10))
         sleep(4)
         shot("9 scan mesh")
@@ -336,8 +381,9 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launchArguments += ["-display.noPreview", noPreview ? "YES" : "NO"]
         app.launch()
-        // Guidance starts by itself when the app opens.
-        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        camera.tap()
         sleep(5)
         let options = XCTMeasureOptions()
         options.iterationCount = 1
@@ -355,8 +401,6 @@ final class PRTSUITests: XCTestCase {
         app.swipeUp()
         let toggle = app.switches["devCaptureToggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        let originallyEnabled = toggle.value as? String == "1"
-        if originallyEnabled { toggle.tap() }
         XCTAssertEqual(toggle.value as? String, "0")
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "1")
