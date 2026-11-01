@@ -1,21 +1,53 @@
 #!/usr/bin/env python3
 """Copy the exact product source tree, with a hash manifest. No algorithm patching."""
-import hashlib, json, pathlib, shutil, subprocess, sys, os
+
+import hashlib
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+
 import prepare
-REPO=prepare.ROOT; ROOT=pathlib.Path(os.environ.get("ASTRA_SOURCE_ROOT",str(REPO))); HERE=prepare.HERE
-prepare.sources=lambda:None
-prepare.ROOT=ROOT
+
+REPO = prepare.ROOT
+ROOT = pathlib.Path(os.environ.get("ASTRA_SOURCE_ROOT", str(REPO)))
+HERE = prepare.HERE
+prepare.sources = lambda: None
+prepare.ROOT = ROOT
 prepare.main()
-dest=HERE/'generated/ProductCore'
-if dest.exists():shutil.rmtree(dest)
-shutil.copytree(ROOT/'Vendor/SpatialCore',dest,ignore=shutil.ignore_patterns('.build','.swiftpm'))
-shutil.copyfile(ROOT/'PRTS/Feedback/ObstacleRouteAnnouncementPolicy.swift',HERE/'generated/ProductSpeech.swift')
-turns=(ROOT/'PRTS/Feedback/FeedbackCoordinator.swift').read_text().split('struct TurnAnnouncementPolicy {',1)[1]
-(HERE/'generated/ProductTurns.swift').write_text('import Foundation\nimport SpatialCore\nstruct TurnAnnouncementPolicy {'+turns)
-core=dest/'Sources/SpatialCore' 
-fresh=(core/'ObstacleFeedbackFreshness.swift').exists()
-drawing=(core/'GroundRouteDrawing.swift').exists()
-(HERE/'generated/ProductAdapter.swift').write_text('''import Foundation
+# Support current sources and the historical patch-series trees.
+package_root = ROOT / "Packages/SpatialCore"
+if not package_root.exists():
+    package_root = ROOT / "Vendor/SpatialCore"
+feedback_root = ROOT / "PRTS/Features/Guidance/Feedback"
+if not feedback_root.exists():
+    feedback_root = ROOT / "PRTS/Feedback"
+dest = HERE / "generated/ProductCore"
+if dest.exists():
+    shutil.rmtree(dest)
+shutil.copytree(package_root, dest, ignore=shutil.ignore_patterns(".build", ".swiftpm"))
+shutil.copyfile(
+    feedback_root / "ObstacleRouteAnnouncementPolicy.swift",
+    HERE / "generated/ProductSpeech.swift",
+)
+turns_file = feedback_root / "TurnAnnouncementPolicy.swift"
+if turns_file.exists():
+    shutil.copyfile(turns_file, HERE / "generated/ProductTurns.swift")
+else:
+    turns = (
+        (feedback_root / "FeedbackCoordinator.swift")
+        .read_text()
+        .split("struct TurnAnnouncementPolicy {", 1)[1]
+    )
+    (HERE / "generated/ProductTurns.swift").write_text(
+        "import Foundation\nimport SpatialCore\nstruct TurnAnnouncementPolicy {" + turns
+    )
+core = dest / "Sources/SpatialCore"
+fresh = any(core.rglob("ObstacleFeedbackFreshness.swift"))
+drawing = any(core.rglob("GroundRouteDrawing.swift"))
+(HERE / "generated/ProductAdapter.swift").write_text(
+    """import Foundation
 import simd
 @testable import SpatialCore
 func legacyFeedbackAllowed(_ update:PathUpdate,gate:ResultPresentationGate,now:Double)->Bool {
@@ -25,10 +57,18 @@ func legacyFeedbackAllowed(_ update:PathUpdate,gate:ResultPresentationGate,now:D
         context.frameID<=gate.frameID && now>=gate.frameTimestamp && now-gate.frameTimestamp<=gate.maxAge
 }
 func feedbackAllowed(_ update:PathUpdate,gate:ResultPresentationGate,now:Double)->Bool {
-'''+('    ObstacleFeedbackFreshness.allows(update,gate:gate,hazardWatermark:0,now:now)' if fresh else '    legacyFeedbackAllowed(update,gate:gate,now:now)')+'''
+"""
+    + (
+        "    ObstacleFeedbackFreshness.allows(update,gate:gate,hazardWatermark:0,now:now)"
+        if fresh
+        else "    legacyFeedbackAllowed(update,gate:gate,now:now)"
+    )
+    + """
 }
 func successfulCheck(_ update:PathUpdate)->Double? {
-'''+('    update.successfulObstacleCheck?.timestamp' if fresh else '    nil')+'''
+"""
+    + ("    update.successfulObstacleCheck?.timestamp" if fresh else "    nil")
+    + """
 }
 struct ProductDrawing:Encodable {
     var before:[V3],after:[V3],plane:GroundPlane,routeID:UInt64
@@ -45,22 +85,51 @@ func productDrawing(update:PathUpdate,recorded:PathUpdate?,result:AnalysisResult
     path.points=path.points.map(lift);path.plane=plane
     let p=PathPresentation(path:path,age:0,historical:false,approach:approach.map(lift))
     let start=ProcessInfo.processInfo.systemUptime
-'''+('''    let shape=GroundRouteDrawing.make(p,obstacles:update.confirmedObstacles,bodyWidth:result.parameters.bodyWidth)
+"""
+    + (
+        """    let shape=GroundRouteDrawing.make(p,obstacles:update.confirmedObstacles,bodyWidth:result.parameters.bodyWidth)
     let points=shape.points
     let fallback=shape.usedFallback
     let meshes=PathDrawing.meshes(p,obstacles:update.confirmedObstacles,bodyWidth:result.parameters.bodyWidth)
-''' if drawing else '''    let points=(p.approach.isEmpty ? []:[p.approach[0]])+p.path.points
+"""
+        if drawing
+        else """    let points=(p.approach.isEmpty ? []:[p.approach[0]])+p.path.points
     let fallback=false
     let meshes=PathDrawing.meshes(p)
-''')+'''    return .init(before:before,after:points,plane:plane,routeID:path.id,fallback:fallback,
+"""
+    )
+    + """    return .init(before:before,after:points,plane:plane,routeID:path.id,fallback:fallback,
         visible:meshes.contains{$0.role != .target && !$0.vertices.isEmpty},collision:collision(points,update.confirmedObstacles ?? [],0.6),
         ms:(ProcessInfo.processInfo.systemUptime-start)*1000)
 }
-''')
-def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
-files=sorted((ROOT/'Vendor/SpatialCore').rglob('*.swift'))
-files=[p for p in files if '.build' not in p.parts and '.swiftpm' not in p.parts]
-pairs={str(p.relative_to(ROOT)):{'source':sha(p),'copy':sha(dest/p.relative_to(ROOT/'Vendor/SpatialCore'))} for p in files}
-assert all(v['source']==v['copy'] for v in pairs.values())
-manifest={'commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=REPO,text=True).strip(),'dirty':subprocess.check_output(['git','status','--porcelain'],cwd=REPO,text=True),'appHashes':{str(p.relative_to(ROOT)):sha(p) for p in (ROOT/'PRTS').rglob('*.swift')},'sourceRoot':str(ROOT),'sourceTreeSHA256':hashlib.sha256(json.dumps(pairs,sort_keys=True).encode()).hexdigest(),'sources':pairs,'speech':sha(HERE/'generated/ProductSpeech.swift'),'turns':sha(HERE/'generated/ProductTurns.swift'),'adapter':sha(HERE/'generated/ProductAdapter.swift'),'features':{'freshness':fresh,'drawing':drawing}}
-(HERE/'results/product_manifest.json').write_text(json.dumps(manifest,indent=2))
+"""
+)
+
+
+def sha(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+files = sorted((package_root).rglob("*.swift"))
+files = [p for p in files if ".build" not in p.parts and ".swiftpm" not in p.parts]
+pairs = {
+    str(p.relative_to(ROOT)): {
+        "source": sha(p),
+        "copy": sha(dest / p.relative_to(package_root)),
+    }
+    for p in files
+}
+assert all(v["source"] == v["copy"] for v in pairs.values())
+manifest = {
+    "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
+    "dirty": subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO, text=True),
+    "appHashes": {str(p.relative_to(ROOT)): sha(p) for p in (ROOT / "PRTS").rglob("*.swift")},
+    "sourceRoot": str(ROOT),
+    "sourceTreeSHA256": hashlib.sha256(json.dumps(pairs, sort_keys=True).encode()).hexdigest(),
+    "sources": pairs,
+    "speech": sha(HERE / "generated/ProductSpeech.swift"),
+    "turns": sha(HERE / "generated/ProductTurns.swift"),
+    "adapter": sha(HERE / "generated/ProductAdapter.swift"),
+    "features": {"freshness": fresh, "drawing": drawing},
+}
+(HERE / "results/product_manifest.json").write_text(json.dumps(manifest, indent=2))

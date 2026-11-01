@@ -1,8 +1,8 @@
-#!/bin/zsh
+#!/bin/bash
 set -euo pipefail
-cd "${0:A:h:h:h}"
+cd "$(dirname "$0")/../.."
 label="${1:?usage: run_product.sh label [diag]}"
-diag_root="${2:-/private/tmp/claude-501/-Users-kyf-Documents-PRTS/458323fc-5623-4807-ac7a-fa70db4beaf4/scratchpad/diag/pull-17pm-1028}"
+diag_root="${2:?Pass the diagnostic capture directory}"
 mkdir -p Experiments/astra/{results,bin,generated}
 export CLANG_MODULE_CACHE_PATH="$PWD/Experiments/astra/build-product/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$CLANG_MODULE_CACHE_PATH"

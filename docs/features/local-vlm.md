@@ -20,16 +20,16 @@ PRTS 使用 MiniCPM-V 4.7 1B 完成离线画面描述和文字识别，模型随
 在 macOS 安装 cmake、ninja 后运行：
 
 ```sh
-zsh Vendor/LocalVLM/prepare.sh
+bash Packages/LocalVLM/prepare.sh
 ```
 
-可通过 Homebrew 或 `pip install cmake ninja` 安装构建工具。脚本编译 llama.cpp 与 `csrc/` 封装，生成支持真机和模拟器的 `Vendor/LocalVLM/PRTSLocalVLM.xcframework`，并下载、校验两份权重的 SHA-256。8 GB 内存的 Mac 默认使用 `-j 2`。
+可通过 Homebrew 或 `pip install cmake ninja` 安装构建工具。脚本编译 llama.cpp 与 `csrc/` 封装，生成支持真机和模拟器的 `Packages/LocalVLM/PRTSLocalVLM.xcframework`，并下载、校验两份权重的 SHA-256。8 GB 内存的 Mac 默认使用 `-j 2`。
 
 权重保存在 `models/MiniCPM-V-4.7-1B/`。权重和编译产物不进入 Git。Xcode 的“Copy offline model”阶段用 `cp -c` 复制到 `PRTS.app/LocalVLM/`；APFS 文件克隆可避免立即复制整份数据。
 
 ## 请求与生命周期
 
-`Vendor/LocalVLM` 是本地 Swift 包，首次请求时加载模型，之后保留在内存。请求通过同一串行队列执行，取消在两个 token 之间生效。`PRTS/PhotoDescription/PhotoLocalModel.swift` 指定安装包中的模型位置。
+`Packages/LocalVLM` 是本地 Swift 包，首次请求时加载模型，之后保留在内存。请求通过同一串行队列执行，取消在两个 token 之间生效。`PRTS/Features/PhotoDescription/PhotoLocalModel.swift` 指定安装包中的模型位置。
 
 `describe` 接收一张照片并回答问题；`ask` 在同一图像上下文中继续提问，无须重新进行视觉编码。两者支持逐步输出，并保证 UTF-8 字符完整。文字识别使用这两个接口分别完成分类和转写。
 

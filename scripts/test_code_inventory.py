@@ -1,7 +1,9 @@
 """Inventory tests use synthetic source files, never modify the real checkout."""
-from pathlib import Path
+
 import tempfile
 import unittest
+from pathlib import Path
+
 from code_inventory import inventory, report
 
 
@@ -11,8 +13,10 @@ class InventoryTests(unittest.TestCase):
             root = Path(folder)
             for name, contents in {
                 "PRTS/App/Example.swift": "// comment\n\nlet n = 1\n",
-                "Vendor/SpatialCore/Sources/SpatialCore/A.swift": "struct A {}\n",
-                "Vendor/SpatialCore/.build/Generated.swift": "ignored",
+                "Packages/SpatialCore/Sources/SpatialCore/A.swift": "struct A {}\n",
+                "Packages/SpatialCore/.build/Generated.swift": "ignored",
+                "Packages/LocalVLM/csrc/model.h": "// header\n",
+                "Packages/LocalVLM/PRTSLocalVLM.xcframework/Headers/model.h": "ignored",
                 "Experiments/SpatialProbe/App/Old.swift": "ignored",
                 "scripts/test_example.py": "# test\n",
                 "scripts/read_example.py": "# tool\n",
@@ -22,9 +26,10 @@ class InventoryTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(contents)
             rows = inventory(root)
-            self.assertEqual(len(rows), 4)
+            self.assertEqual(len(rows), 5)
             self.assertIn(("PRTS/App/Example.swift", "App", 3, 2), rows)
-            self.assertIn("| Total | 4 | 6 | 5 |", report(rows))
+            self.assertIn(("Packages/LocalVLM/csrc/model.h", "LocalVLM", 1, 1), rows)
+            self.assertIn("| Total | 5 | 7 | 6 |", report(rows))
             self.assertEqual(rows, sorted(rows))
 
     def test_contracts_optional_models_and_pruned_trees(self):

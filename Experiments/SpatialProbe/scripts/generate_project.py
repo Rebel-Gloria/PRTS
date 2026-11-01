@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Deterministic, dependency-free project generation; no signing identity is embedded."""
+
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parent.parent
-project = ROOT / 'PRTSSpatialProbe.xcodeproj'
+project = ROOT / "PRTSSpatialProbe.xcodeproj"
 project.mkdir(exist_ok=True)
-content = '''// !$*UTF8*$!
+content = """// !$*UTF8*$!
 {
  archiveVersion = 1;
  classes = {};
@@ -31,17 +33,17 @@ content = '''// !$*UTF8*$!
  };
  rootObject = A00000000000000000000001;
 }
-'''
-settings = '''CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "空间感知验证"; INFOPLIST_KEY_NSCameraUsageDescription = "使用相机和 ARKit 深度验证空间感知；仅在手动采样时保存现场图像，不自动上传。"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UIFileSharingEnabled = YES; INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)","@executable_path/Frameworks"); MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = org.prts.SpatialProbe; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = 1; ENABLE_USER_SCRIPT_SANDBOXING = YES;'''
-(project / 'project.pbxproj').write_text(content.replace('__TARGET_SETTINGS__', settings))
-scheme = project / 'xcshareddata/xcschemes/PRTSSpatialProbe.xcscheme'
-scheme.parent.mkdir(parents=True,exist_ok=True)
-scheme.write_text('''<?xml version="1.0" encoding="UTF-8"?>
+"""
+settings = """CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "空间感知验证"; INFOPLIST_KEY_NSCameraUsageDescription = "使用相机和 ARKit 深度验证空间感知；仅在手动采样时保存现场图像，不自动上传。"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UIFileSharingEnabled = YES; INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)","@executable_path/Frameworks"); MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = org.prts.SpatialProbe; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = 1; ENABLE_USER_SCRIPT_SANDBOXING = YES;"""
+(project / "project.pbxproj").write_text(content.replace("__TARGET_SETTINGS__", settings))
+scheme = project / "xcshareddata/xcschemes/PRTSSpatialProbe.xcscheme"
+scheme.parent.mkdir(parents=True, exist_ok=True)
+scheme.write_text("""<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="2660" version="1.3">
  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A00000000000000000000002" BuildableName="PRTSSpatialProbe.app" BlueprintName="PRTSSpatialProbe" ReferencedContainer="container:PRTSSpatialProbe.xcodeproj"/></BuildActionEntry></BuildActionEntries></BuildAction>
  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables/></TestAction>
  <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="NO"><BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A00000000000000000000002" BuildableName="PRTSSpatialProbe.app" BlueprintName="PRTSSpatialProbe" ReferencedContainer="container:PRTSSpatialProbe.xcodeproj"/></BuildableProductRunnable></LaunchAction>
  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A00000000000000000000002" BuildableName="PRTSSpatialProbe.app" BlueprintName="PRTSSpatialProbe" ReferencedContainer="container:PRTSSpatialProbe.xcodeproj"/></BuildableProductRunnable></ProfileAction>
  <AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
-</Scheme>''')
+</Scheme>""")
 print(project)

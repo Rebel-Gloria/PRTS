@@ -1,5 +1,5 @@
 // Offline Dev Capture replay. Reads local recorded analysis/depth; never starts sensors.
-// Build after swift build --package-path Vendor/SpatialCore, linking SpatialCore.build/*.o.
+// Build after swift build --package-path Packages/SpatialCore, linking SpatialCore.build/*.o.
 import Foundation
 
 @testable import SpatialCore
@@ -34,7 +34,10 @@ struct ReplayRow: Encodable {
 }
 let decoder = JSONDecoder()
 decoder.nonConformingFloatDecodingStrategy = .convertFromString(
-    positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+    positiveInfinity: "Infinity",
+    negativeInfinity: "-Infinity",
+    nan: "NaN"
+)
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.sortedKeys]
 func unpack(_ directory: URL, _ ref: Reference) throws -> Data {
@@ -47,7 +50,10 @@ func unpack(_ directory: URL, _ ref: Reference) throws -> Data {
 for path in CommandLine.arguments.dropFirst() {
     let directory = URL(fileURLWithPath: path)
     var predictor = PathPredictor()
-    let text = try String(contentsOf: directory.appendingPathComponent("samples.jsonl"), encoding: .utf8)
+    let text = try String(
+        contentsOf: directory.appendingPathComponent("samples.jsonl"),
+        encoding: .utf8
+    )
     for line in text.split(separator: "\n") {
         let sample = try decoder.decode(Sample.self, from: Data(line.utf8))
         let evidence = try decoder.decode(Evidence.self, from: unpack(directory, sample.evidence))
@@ -61,36 +67,60 @@ for path in CommandLine.arguments.dropFirst() {
             let depth = raw.withUnsafeBytes { bytes in
                 (0..<count).map {
                     Float(
-                        bitPattern: bytes.loadUnaligned(fromByteOffset: offset + $0 * 4, as: UInt32.self).littleEndian)
+                        bitPattern: bytes.loadUnaligned(
+                            fromByteOffset: offset + $0 * 4,
+                            as: UInt32.self
+                        ).littleEndian
+                    )
                 }
             }
             let confidence =
                 header.confidenceBytes > 0
-                ? Array(raw[(offset + count * 4)..<(offset + count * 4 + header.confidenceBytes)]) : nil
+                ? Array(raw[(offset + count * 4)..<(offset + count * 4 + header.confidenceBytes)])
+                : nil
             observation = .init(
-                width: header.width, height: header.height, depth: depth, confidence: confidence,
-                intrinsics: header.intrinsics, pose: header.pose, timestamp: header.timestamp, frameID: header.frameID,
-                epoch: header.epoch)
+                width: header.width,
+                height: header.height,
+                depth: depth,
+                confidence: confidence,
+                intrinsics: header.intrinsics,
+                pose: header.pose,
+                timestamp: header.timestamp,
+                frameID: header.frameID,
+                epoch: header.epoch
+            )
         }
         let result = evidence.analysis
-        let update = predictor.update(result: result, observation: observation, options: evidence.pathOptions,
-            cameraView: evidence.capture?.intrinsics.map { RouteCameraView(intrinsics: $0) })
+        let update = predictor.update(
+            result: result,
+            observation: observation,
+            options: evidence.pathOptions,
+            cameraView: evidence.capture?.intrinsics.map { RouteCameraView(intrinsics: $0) }
+        )
         let row = ReplayRow(
-            epoch: result.epoch, frameID: result.frameID, timestamp: result.timestamp, update: update,
+            epoch: result.epoch,
+            frameID: result.frameID,
+            timestamp: result.timestamp,
+            update: update,
             fresh: update.path?.validatedFrameID == result.frameID,
             supportedByCurrentGrid: update.path.flatMap { path in
-                RoutePlanningGrid(result: result, options: evidence.pathOptions)?.supports(path.points)
+                RoutePlanningGrid(result: result, options: evidence.pathOptions)?.supports(
+                    path.points
+                )
             },
             currentObstacleFree: update.path.map {
                 !PathObstacleCheck.intersects($0, result: result, observation: observation)
             },
             confirmedModelFree: update.path.flatMap { path in
                 update.confirmedObstacles.map { model in
-                    zip(path.points,path.points.dropFirst()).allSatisfy { a,b in
-                        !model.contains { $0.overlaps(from:a,to:b,radius:path.requiredWidth/2) }
+                    zip(path.points, path.points.dropFirst()).allSatisfy { a, b in
+                        !model.contains {
+                            $0.overlaps(from: a, to: b, radius: path.requiredWidth / 2)
+                        }
                     }
                 }
-            })
+            }
+        )
         print(String(decoding: try encoder.encode(row), as: UTF8.self))
     }
 }

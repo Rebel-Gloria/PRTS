@@ -53,4 +53,4 @@
 
 API Key 按服务分别存入钥匙串，访问级别为 `WhenUnlockedThisDeviceOnly`；千问保留旧 `api-key` 账户兼容已有配置。远端请求仅允许 HTTPS、拒绝重定向，不使用缓存或 Cookie。照片、录音、问题和回答仅保留在内存，不写入诊断或文件。本地处理照片时，语音识别仍可能调用 Apple 服务。
 
-实现集中在 `PRTS/PhotoDescription/`：`PhotoDescriptionCoordinator` 管理流程，`PhotoChatProtocol` 定义提示词与解析，`PhotoChatProvider` 定义服务，`PhotoChatClient` 发送请求。模型集成见[本地视觉模型](local-vlm.md)。
+实现集中在 `PRTS/Features/PhotoDescription/`：协调器管理交互生命周期，`Services/` 分别维护模型选择、提示词、请求、流式解析和凭据，`Views/` 管理触屏与实体按键交互。模型集成见[本地视觉模型](local-vlm.md)。

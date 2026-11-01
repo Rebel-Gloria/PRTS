@@ -33,6 +33,6 @@ App 提示拿稳手机，收到第一帧后等待 1 s，让对焦和曝光稳定
 
 ## 实现与限制
 
-`PRTS/TextReading/` 中，`TextReadingSession.swift` 管理相机、请求与朗读，`TextReadingPrompt.swift` 定义提示词和答案解析，`TextRecognizer.swift` 封装 Vision，`ThreeFingerHold.swift` 识别手势。
+`PRTS/Features/TextReading/` 中，`TextReadingSession.swift` 协调一次阅读的生命周期；`Capture/TextCamera.swift` 管理主摄；`Services/` 分别维护提示词、答案解析、服务选择和 Vision 识别；`Views/` 管理手势、预览和状态显示。
 
 尚需扩大反光、倾斜、远处小字、手写和密集文字的验证，并检查三指手势与长按停止的交互。已有识别质量和耗时记录统一见[验证结果](../validation.md)。

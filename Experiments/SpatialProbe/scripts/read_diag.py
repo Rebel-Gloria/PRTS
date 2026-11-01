@@ -2,14 +2,16 @@
 """Read local PRTS Diagnostics exports. No network or image generation.
 Reports data gaps honestly; depth frames are measurements, not safety ground truth.
 """
+
 import argparse
-from collections import Counter
 import hashlib
 import json
-from pathlib import Path
 import re
 import struct
 import zlib
+from collections import Counter
+from pathlib import Path
+
 from summarize_session import stats
 
 MAX_ATTACHMENT = 64 * 1024 * 1024
@@ -35,7 +37,9 @@ def attachment(directory, ref):
     name = ref.get("file", "")
     if not re.fullmatch(r"data-[0-9]{5,}\.bin", name) or ref.get("codec") != "deflate-raw":
         raise ValueError("invalid attachment filename or codec")
-    offset, length, expected = (ref.get(k) for k in ("offset", "compressedBytes", "uncompressedBytes"))
+    offset, length, expected = (
+        ref.get(k) for k in ("offset", "compressedBytes", "uncompressedBytes")
+    )
     if not all(isinstance(x, int) and not isinstance(x, bool) for x in (offset, length, expected)):
         raise ValueError("invalid attachment sizes")
     if offset < 0 or not 0 < length <= MAX_ATTACHMENT or not 0 <= expected <= MAX_ATTACHMENT:
@@ -66,11 +70,17 @@ def depth_frame(raw):
     size = struct.unpack_from("<I", raw)[0]
     if not 0 < size <= len(raw) - 4:
         raise ValueError("invalid depth header length")
-    header = json.loads(raw[4:4 + size])
+    header = json.loads(raw[4 : 4 + size])
     if header.get("kind") != "depth_frame" or header.get("schemaVersion") != 1:
         raise ValueError("unsupported depth container")
     w, h = header.get("width"), header.get("height")
-    if not isinstance(w, int) or not isinstance(h, int) or w <= 0 or h <= 0 or w * h > MAX_ATTACHMENT // 4:
+    if (
+        not isinstance(w, int)
+        or not isinstance(h, int)
+        or w <= 0
+        or h <= 0
+        or w * h > MAX_ATTACHMENT // 4
+    ):
         raise ValueError("invalid depth dimensions")
     count = w * h
     if header.get("depthBytes") != count * 4 or header.get("confidenceBytes") not in (0, count):
@@ -78,12 +88,19 @@ def depth_frame(raw):
     support = header.get("predictionSupportBytes", 0)
     if support not in (0, count):
         raise ValueError("prediction support byte count mismatch")
-    if support and (header.get("confidenceBytes") or header.get("depthEvidence") != "model_prediction_arkit_aligned_not_sensor_confidence"):
+    if support and (
+        header.get("confidenceBytes")
+        or header.get("depthEvidence") != "model_prediction_arkit_aligned_not_sensor_confidence"
+    ):
         raise ValueError("prediction support cannot masquerade as sensor confidence")
     pos = 4 + size
     if len(raw) != pos + header["depthBytes"] + header["confidenceBytes"] + support:
         raise ValueError("depth payload length mismatch")
-    return header, raw[pos:pos + count * 4], raw[pos + count * 4:pos + count * 4 + header["confidenceBytes"]]
+    return (
+        header,
+        raw[pos : pos + count * 4],
+        raw[pos + count * 4 : pos + count * 4 + header["confidenceBytes"]],
+    )
 
 
 def relative_frame(raw):
@@ -92,15 +109,25 @@ def relative_frame(raw):
     size = struct.unpack_from("<I", raw)[0]
     if not 0 < size <= len(raw) - 4:
         raise ValueError("invalid prediction header length")
-    header = json.loads(raw[4:4 + size])
+    header = json.loads(raw[4 : 4 + size])
     w, h = header.get("width"), header.get("height")
-    if header.get("schemaVersion") != 1 or header.get("kind") != "relative_depth_frame" or header.get("units") != "relative_inverse_depth_not_meters":
+    if (
+        header.get("schemaVersion") != 1
+        or header.get("kind") != "relative_depth_frame"
+        or header.get("units") != "relative_inverse_depth_not_meters"
+    ):
         raise ValueError("unsupported prediction container or ambiguous units")
-    if not isinstance(w, int) or not isinstance(h, int) or w <= 0 or h <= 0 or w*h > MAX_ATTACHMENT//4:
+    if (
+        not isinstance(w, int)
+        or not isinstance(h, int)
+        or w <= 0
+        or h <= 0
+        or w * h > MAX_ATTACHMENT // 4
+    ):
         raise ValueError("invalid prediction dimensions")
-    if header.get("depthBytes") != w*h*4 or len(raw) != 4+size+w*h*4:
+    if header.get("depthBytes") != w * h * 4 or len(raw) != 4 + size + w * h * 4:
         raise ValueError("prediction payload length mismatch")
-    return header, raw[4+size:]
+    return header, raw[4 + size :]
 
 
 def mesh_frame(raw):
@@ -110,19 +137,26 @@ def mesh_frame(raw):
     size = struct.unpack_from("<I", raw)[0]
     if not 0 < size <= len(raw) - 4:
         raise ValueError("invalid mesh header length")
-    header = json.loads(raw[4:4 + size])
+    header = json.loads(raw[4 : 4 + size])
     if header.get("kind") != "mesh_frame" or header.get("schemaVersion") != 1:
         raise ValueError("unsupported mesh container")
     v, i, c = (header.get(k) for k in ("vertexCount", "indexCount", "classificationCount"))
-    if not all(isinstance(n, int) and not isinstance(n, bool) for n in (v, i, c)) or not (0 <= v <= 150_000 and 0 <= i <= 600_000 and i % 3 == 0 and c == i // 3):
+    if not all(isinstance(n, int) and not isinstance(n, bool) for n in (v, i, c)) or not (
+        0 <= v <= 150_000 and 0 <= i <= 600_000 and i % 3 == 0 and c == i // 3
+    ):
         raise ValueError("invalid mesh counts")
     pos = 4 + size
     if len(raw) != pos + v * 12 + i * 4 + c:
         raise ValueError("mesh payload length mismatch")
-    vertices, indices, classes = raw[pos:pos + v * 12], raw[pos + v * 12:pos + v * 12 + i * 4], raw[pos + v * 12 + i * 4:]
+    vertices, indices, classes = (
+        raw[pos : pos + v * 12],
+        raw[pos + v * 12 : pos + v * 12 + i * 4],
+        raw[pos + v * 12 + i * 4 :],
+    )
     if any(index >= v for (index,) in struct.iter_unpack("<I", indices)):
         raise ValueError("mesh index outside vertex array")
     import math
+
     if any(not math.isfinite(x) for (x,) in struct.iter_unpack("<f", vertices)):
         raise ValueError("non-finite mesh vertex")
     return header, vertices, indices, classes
@@ -131,12 +165,24 @@ def mesh_frame(raw):
 def summarize(directory, verify=False):
     manifest = json.loads((directory / "manifest.json").read_text())
     issues = []
-    output = {"runID": manifest.get("runID"), "source": manifest.get("source"), "metadata": manifest.get("metadata"),
-              "launchedAt": manifest.get("launchedAt"), "status": None,
-              "counts": {}, "tracking": {}, "depthReadStatus": {}, "modelBlockReasons": {},
-              "modelStates": {}, "geometryGateReasons": {}, "guidanceGateReasons": {},
-              "renderPhases": {}, "attachmentVerified": 0, "attachmentErrors": [],
-              "note": "Analysis frames are not display frames. A rendered overlay is not proof of accurate/safe geometry. No RGB is recorded."}
+    output = {
+        "runID": manifest.get("runID"),
+        "source": manifest.get("source"),
+        "metadata": manifest.get("metadata"),
+        "launchedAt": manifest.get("launchedAt"),
+        "status": None,
+        "counts": {},
+        "tracking": {},
+        "depthReadStatus": {},
+        "modelBlockReasons": {},
+        "modelStates": {},
+        "geometryGateReasons": {},
+        "guidanceGateReasons": {},
+        "renderPhases": {},
+        "attachmentVerified": 0,
+        "attachmentErrors": [],
+        "note": "Analysis frames are not display frames. A rendered overlay is not proof of accurate/safe geometry. No RGB is recorded.",
+    }
     if (directory / "status.json").exists():
         output["status"] = json.loads((directory / "status.json").read_text())
     tracking, depth, blocks, models, geometry, guidance, phases = (Counter() for _ in range(7))
@@ -152,7 +198,16 @@ def summarize(directory, verify=False):
     path_targets, path_approaches, path_reachable = [], [], []
     path_approach_renders = path_target_renders = 0
     path_present = path_renders = historical_path_renders = 0
-    for stream in ("events", "capture", "analysis", "render", "mesh", "heartbeat", "prediction", "path"):
+    for stream in (
+        "events",
+        "capture",
+        "analysis",
+        "render",
+        "mesh",
+        "heartbeat",
+        "prediction",
+        "path",
+    ):
         count = 0
         for row in records(directory / (stream + ".jsonl"), issues):
             count += 1
@@ -164,7 +219,9 @@ def summarize(directory, verify=False):
                 depth[diagnostic.get("depthReadStatus", "missing")] += 1
                 models[diagnostic.get("modelState", "missing")] += 1
                 blocks.update(diagnostic.get("modelBlockReasons", []))
-                reference_modes[diagnostic.get("groundReferenceMode") or "legacy_or_unavailable"] += 1
+                reference_modes[
+                    diagnostic.get("groundReferenceMode") or "legacy_or_unavailable"
+                ] += 1
                 ages.append(frame.get("metrics", {}).get("sourceAgeMS"))
                 coverage.append(frame.get("validDepthCoverage"))
                 if frame.get("surfaceModel") is not None:
@@ -172,11 +229,19 @@ def summarize(directory, verify=False):
                     moving_models += frame.get("sourceDirectionStable") is False
                 raw_frames += "attachment" in row
                 if p.get("depthAttachmentExpected") and "attachment" not in row:
-                    issues.append({"file": "analysis.jsonl", "sequence": row.get("sequence"), "error": "depth expected but attachment absent"})
+                    issues.append(
+                        {
+                            "file": "analysis.jsonl",
+                            "sequence": row.get("sequence"),
+                            "error": "depth expected but attachment absent",
+                        }
+                    )
             elif stream == "prediction" and not p.get("manual", False):
                 decision = p.get("scaleDecision") or {}
                 scale_reasons[decision.get("reason", "legacy_unavailable")] += 1
-                prediction_ground[(p.get("groundReference") or {}).get("mode", "legacy_unavailable")] += 1
+                prediction_ground[
+                    (p.get("groundReference") or {}).get("mode", "legacy_unavailable")
+                ] += 1
                 confirmed_predictions += p.get("calibration") is not None
                 provisional_fits += p.get("provisionalFit") is not None
                 temporal_errors.append(decision.get("medianRelativeError"))
@@ -198,7 +263,12 @@ def summarize(directory, verify=False):
                     path_present += update.get("path") is not None
                     points = (update.get("path") or {}).get("points", [])
                     if len(points) > 1:
-                        path_lengths.append(sum(sum((float(a[k])-float(b[k]))**2 for k in range(3))**.5 for a, b in zip(points, points[1:])))
+                        path_lengths.append(
+                            sum(
+                                sum((float(a[k]) - float(b[k])) ** 2 for k in range(3)) ** 0.5
+                                for a, b in zip(points, points[1:])
+                            )
+                        )
                 elif p.get("phase") == "feedback":
                     haptic_status[p.get("status", "unknown")] += 1
                     path_angles.append((p.get("heading") or {}).get("angleDegrees"))
@@ -210,7 +280,9 @@ def summarize(directory, verify=False):
                     path_renders += (p.get("pathVertices") or 0) > 0
                     path_approach_renders += (p.get("pathApproachVertices") or 0) > 0
                     path_target_renders += (p.get("pathTargetVertices") or 0) > 0
-                    historical_path_renders += (p.get("pathVertices") or 0) > 0 and p.get("pathHistorical") is True
+                    historical_path_renders += (p.get("pathVertices") or 0) > 0 and p.get(
+                        "pathHistorical"
+                    ) is True
                     geometry[p.get("geometryBlockReason") or "eligible"] += 1
                     surface_modes[p.get("surfacePresentationMode") or "legacy_or_unavailable"] += 1
                     guidance[p.get("guidanceBlockReason") or "eligible"] += 1
@@ -238,24 +310,59 @@ def summarize(directory, verify=False):
                                 raise ValueError("mesh/log identity mismatch")
                     output["attachmentVerified"] += 1
                 except (ValueError, OSError, zlib.error) as e:
-                    output["attachmentErrors"].append({"stream": stream, "sequence": row.get("sequence"), "error": str(e)})
+                    output["attachmentErrors"].append(
+                        {"stream": stream, "sequence": row.get("sequence"), "error": str(e)}
+                    )
         output["counts"][stream] = count
-    output.update(fixedGoalChanges=dict(goal_changes), distinctFixedGoals=len(goal_ids), fixedGoalWithoutPathFrames=held_without_path,
-                  pathReasons=dict(path_reasons), pathAvailableAnalysisFrames=path_present,
-                  pathLengthMeters=stats(path_lengths), pathPlanningMilliseconds=stats(path_ms), pathAngleDegrees=stats(path_angles),
-                  pathRenderSubmissions=path_renders, historicalPathRenderSubmissions=historical_path_renders,
-                  pathTargetDistanceMeters=stats(path_targets), pathUnknownApproachMeters=stats(path_approaches),
-                  pathReachableCells=stats(path_reachable), pathApproachRenderSubmissions=path_approach_renders,
-                  pathTargetRenderSubmissions=path_target_renders,
-                  hapticStatuses=dict(haptic_status), hapticRequestedPulseKinds=dict(pulse_kinds))
-    output.update(predictionScaleReasons=dict(scale_reasons), predictionGroundModes=dict(prediction_ground),
-                  predictionConfirmedFrames=confirmed_predictions, predictionProvisionalFits=provisional_fits,
-                  predictionTemporalRelativeResidual=stats(temporal_errors), predictionTemporalInliers=stats(temporal_inliers))
-    output.update(groundReferenceModes=dict(reference_modes), surfacePresentationModes=dict(surface_modes), tracking=dict(tracking), depthReadStatus=dict(depth), modelBlockReasons=dict(blocks), modelStates=dict(models),
-                  geometryGateReasons=dict(geometry), guidanceGateReasons=dict(guidance), renderPhases=dict(phases),
-                  depthFrameAttachments=raw_frames, modelAnalysisFrames=models_present, unstableDirectionModelFrames=moving_models,
-                  sourceAgeMilliseconds=stats(ages), depthCoverage=stats(coverage), jsonIssues=issues)
-    output["unexpectedImageFiles"] = [str(p.relative_to(directory)) for p in directory.rglob("*") if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".heic", ".mp4", ".mov")]
+    output.update(
+        fixedGoalChanges=dict(goal_changes),
+        distinctFixedGoals=len(goal_ids),
+        fixedGoalWithoutPathFrames=held_without_path,
+        pathReasons=dict(path_reasons),
+        pathAvailableAnalysisFrames=path_present,
+        pathLengthMeters=stats(path_lengths),
+        pathPlanningMilliseconds=stats(path_ms),
+        pathAngleDegrees=stats(path_angles),
+        pathRenderSubmissions=path_renders,
+        historicalPathRenderSubmissions=historical_path_renders,
+        pathTargetDistanceMeters=stats(path_targets),
+        pathUnknownApproachMeters=stats(path_approaches),
+        pathReachableCells=stats(path_reachable),
+        pathApproachRenderSubmissions=path_approach_renders,
+        pathTargetRenderSubmissions=path_target_renders,
+        hapticStatuses=dict(haptic_status),
+        hapticRequestedPulseKinds=dict(pulse_kinds),
+    )
+    output.update(
+        predictionScaleReasons=dict(scale_reasons),
+        predictionGroundModes=dict(prediction_ground),
+        predictionConfirmedFrames=confirmed_predictions,
+        predictionProvisionalFits=provisional_fits,
+        predictionTemporalRelativeResidual=stats(temporal_errors),
+        predictionTemporalInliers=stats(temporal_inliers),
+    )
+    output.update(
+        groundReferenceModes=dict(reference_modes),
+        surfacePresentationModes=dict(surface_modes),
+        tracking=dict(tracking),
+        depthReadStatus=dict(depth),
+        modelBlockReasons=dict(blocks),
+        modelStates=dict(models),
+        geometryGateReasons=dict(geometry),
+        guidanceGateReasons=dict(guidance),
+        renderPhases=dict(phases),
+        depthFrameAttachments=raw_frames,
+        modelAnalysisFrames=models_present,
+        unstableDirectionModelFrames=moving_models,
+        sourceAgeMilliseconds=stats(ages),
+        depthCoverage=stats(coverage),
+        jsonIssues=issues,
+    )
+    output["unexpectedImageFiles"] = [
+        str(p.relative_to(directory))
+        for p in directory.rglob("*")
+        if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".heic", ".mp4", ".mov")
+    ]
     return output
 
 
@@ -277,9 +384,13 @@ def extract(directory, identity, destination):
             if confidence:
                 (target / "confidence.u8").write_bytes(confidence)
             if header.get("predictionSupportBytes"):
-                (target / "prediction-support.u8").write_bytes(raw[-header["predictionSupportBytes"]:])
+                (target / "prediction-support.u8").write_bytes(
+                    raw[-header["predictionSupportBytes"] :]
+                )
             return target
-    raise ValueError("Frame not found; it may not have been analyzed, or its diagnostic packet was dropped")
+    raise ValueError(
+        "Frame not found; it may not have been analyzed, or its diagnostic packet was dropped"
+    )
 
 
 def extract_prediction(directory, identity, destination):
@@ -308,7 +419,11 @@ def main():
     if args.extract_depth or args.extract_prediction:
         if args.output is None:
             p.error("--extract-depth requires --output directory")
-        print(extract_prediction(args.directory, args.extract_prediction, args.output) if args.extract_prediction else extract(args.directory, args.extract_depth, args.output))
+        print(
+            extract_prediction(args.directory, args.extract_prediction, args.output)
+            if args.extract_prediction
+            else extract(args.directory, args.extract_depth, args.output)
+        )
     else:
         result = summarize(args.directory, args.verify_data)
         text = json.dumps(result, ensure_ascii=False, indent=2)
