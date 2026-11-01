@@ -102,6 +102,8 @@ ARSession
 
 `Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
+首页出现时请求启动相机。开始快捷指令不会停止正在运行的相机，文字识别期间则退出识别并恢复之前的相机状态。非盲模式与首次使用说明展示期间暂停避障反馈；非盲模式不关闭相机，也不禁用描述、提问或文字识别。
+
 ## 第三方代码
 
 `Vendor/PRTSCore` 来自 [Oldcucumber/PRTS_Core](https://github.com/Oldcucumber/PRTS_Core)，固定在提交 `0469479b`（2026-09-24 核对）。应用仅链接其中的 `PRTSContracts`。同步范围包括契约、测试、部分 Apple 平台实现和提示音，不包括网页端、Python 运行时和模型文件。
