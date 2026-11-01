@@ -40,7 +40,7 @@ bash Packages/LocalVLM/prepare.sh
 | 使用与设置 | [使用与无障碍](docs/features/usage.md) |
 | 图像与文字 | [拍照描述与提问](docs/features/photo-description.md) · [文字识别](docs/features/text-reading.md) |
 | 本地模型 | [本地视觉模型](docs/features/local-vlm.md) |
-| 空间感知 | [空间几何](docs/architecture/spatial-geometry.md) · [无 LiDAR 模式](docs/features/no-lidar.md) |
+| 空间感知 | [空间几何](docs/spatial-geometry.md) · [无 LiDAR 模式](docs/features/no-lidar.md) |
 | 工程维护 | [工程架构](docs/architecture.md) · [开发指南](docs/development.md) · [诊断与采集](docs/diagnostics.md) |
 | 验证与约束 | [验证结果与已知问题](docs/validation.md) · [仓库规范](AGENTS.md) |
 

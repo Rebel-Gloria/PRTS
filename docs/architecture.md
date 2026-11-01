@@ -92,4 +92,4 @@ ARSession
 
 更新依赖前审查候选版本，再同步修改 `scripts/sync-prts-core.sh` 的固定提交和本文记录，运行相关测试。脚本只同步选定源码和测试，不复制模型。本地视觉模型依赖见[本地视觉模型](features/local-vlm.md)。
 
-几何细节见[空间几何](architecture/spatial-geometry.md)，设备差异见[无 LiDAR 模式](features/no-lidar.md)，日志字段见[诊断与采集](diagnostics.md)。
+几何细节见[空间几何](spatial-geometry.md)，设备差异见[无 LiDAR 模式](features/no-lidar.md)，日志字段见[诊断与采集](diagnostics.md)。
