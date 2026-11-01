@@ -147,8 +147,11 @@ enum ForwardObstacleTrigger {
             clipped = next
         }
         guard clipped.count >= 3 else { return false }
-        let twiceArea = zip(clipped, Array(clipped.dropFirst()) + [clipped[0]]).reduce(Float(0)) {
-            $0 + $1.0.x * $1.1.y - $1.0.y * $1.1.x
+        let successors: [SIMD2<Float>] = Array(clipped.dropFirst()) + [clipped[0]]
+        let twiceArea: Float = zip(clipped, successors).reduce(Float(0)) { total, edge in
+            let forwardProduct: Float = edge.0.x * edge.1.y
+            let backwardProduct: Float = edge.0.y * edge.1.x
+            return total + forwardProduct - backwardProduct
         }
         return abs(twiceArea) > 0.000001  // Pure tangency does not occupy the trigger volume.
     }
