@@ -67,7 +67,7 @@ python scripts/style.py --fix    # 应用格式和 Python 安全修复
 bash scripts/validate_spatial.sh
 ```
 
-脚本执行 SpatialCore 的 Debug、Release 测试，PRTSContracts 测试，Python 测试，以及模拟器 Debug 和真机 Release 的无签名编译。它不替代真机交互验证。
+脚本执行 SpatialCore 的 Debug、Release 测试，PRTSContracts 测试，Python 测试，以及模拟器 Debug 和真机 Release 的无签名编译。LocalVLM 的模拟器库只有 arm64，模拟器编译因此只编 arm64。它不替代真机交互验证。
 
 单独检查对应模块：
 
