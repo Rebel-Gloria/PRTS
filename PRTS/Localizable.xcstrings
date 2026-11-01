@@ -846,40 +846,6 @@
         }
       }
     },
-    "settings.language.followSystem.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uses the iPhone language for automatic speech"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自动语音播报使用 iPhone 语言"
-          }
-        }
-      }
-    },
-    "settings.language.followSystem.offHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Disabled while Follow system language is on"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开启跟随系统语言时不可用"
-          }
-        }
-      }
-    },
     "settings.language.footer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -944,23 +910,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "播报语言"
-          }
-        }
-      }
-    },
-    "settings.language.picker.chooseHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Selects the language for automatic speech"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择自动语音播报的语言"
           }
         }
       }
@@ -2968,40 +2917,6 @@
         }
       }
     },
-    "settings.ocr.service.onDevice" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On-device VLM"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本地 VLM"
-          }
-        }
-      }
-    },
-    "settings.ocr.service.remote" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remote API"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "远端 API"
-          }
-        }
-      }
-    },
     "settings.ocr.service.footer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3015,57 +2930,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "VLLM 跟随智能设置中的服务商，远端不可用时自动使用本机模型。Apple Vision 离线识别文字，不判断文字所在的物体。"
-          }
-        }
-      }
-    },
-    "ocr.error.remoteService" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remote reading needs an online service chosen under Intelligence settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "联网识别要先在\"智能设置\"里选一个联网服务"
-          }
-        }
-      }
-    },
-    "ocr.error.remoteUpload" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remote reading needs photo upload allowed in Settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "联网识别要先在设置里允许发送照片"
-          }
-        }
-      }
-    },
-    "ocr.error.remoteKey" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remote reading needs an API key saved in Settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "联网识别要先在设置里保存 API Key"
           }
         }
       }
