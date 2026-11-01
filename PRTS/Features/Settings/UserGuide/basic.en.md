@@ -4,12 +4,15 @@ PRTS uses your iPhone camera to find obstacles ahead. It can also describe the s
 
 ## How to use
 
-- **Start**: Open the app to start the camera automatically. Leave Low vision mode off for guidance.
+- **Start**: Tap Start on the screen or run the Start PRTS shortcut.
+- **Stop**: Hold the main button for 1 second.
 - **Describe**: While guidance runs, press either volume button.
 - **Ask**: Hold a volume button, speak after the tone, and release to send.
 - **Read text**: Hold three fingers on the screen.
 
 If the screen is hard to use, say "Start PRTS" to Siri, or go to Settings → Accessibility → Touch → Back Tap and select Start PRTS. Then tap the back of your iPhone to open the app and start the camera. To keep the volume buttons for volume, turn off Volume button shortcut in Intelligence settings and use the on-screen photo button instead.
+
+The camera keeps running in Settings while guidance cues pause. A running session resumes when you return from the background; a session you stopped stays off.
 
 ## What you can set
 
