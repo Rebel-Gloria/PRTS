@@ -34,6 +34,11 @@
 - [台阶检测提案](experiments/step-detection-proposal.md)
 - [障碍地图记忆](experiments/scene-memory.md)：离开视野的障碍继续参与绕行（已撤回，留作记录）
 
+## 宣传
+
+- [PPT 制作说明](pitch/ppt-brief.md)：交给做 PPT 的模型，逐页文字、讲稿、素材和不能说的话
+- [视频脚本](pitch/script.md)：宣传视频的分镜、配音和重建方法
+
 ## 报告
 
 按日期记录当时做了什么、测出了什么。
