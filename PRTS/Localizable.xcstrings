@@ -1549,13 +1549,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The camera starts automatically"
+            "value" : "Start is at the bottom"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相机自动启动"
+            "value" : "开始在下方"
           }
         }
       }
