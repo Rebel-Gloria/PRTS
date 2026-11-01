@@ -40,6 +40,12 @@ xcodebuild -create-xcframework -output $here/PRTSLocalVLM.xcframework \
     -library $work/iphoneos/libPRTSLocalVLM.a -headers $work/include \
     -library $work/iphonesimulator/libPRTSLocalVLM.a -headers $work/include > /dev/null
 
+# CI only compiles the app, so it sets PRTS_SKIP_WEIGHTS=1 and bundles empty placeholders instead.
+if [[ ${PRTS_SKIP_WEIGHTS:-} == 1 ]]; then
+    echo "PRTSLocalVLM.xcframework is ready; weights skipped"
+    exit 0
+fi
+
 # Official files from openbmb/MiniCPM-V-4.7-1B-gguf; hashes are the LFS SHA-256 on Hugging Face.
 models=$root/models/MiniCPM-V-4.7-1B
 mkdir -p $models
