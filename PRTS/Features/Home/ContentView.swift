@@ -183,6 +183,8 @@ struct ContentView: View {
                     textReading.cancel()
                     feedback.reset()
                     speechManager.cancelPerceptionSpeech()
+                } else if scenePhase == .active {
+                    startCameraIfNeeded()
                 }
             }
             .onChange(of: scenePhase) { _, phase in
@@ -191,6 +193,9 @@ struct ContentView: View {
                     textReading.cancel()
                 }
                 camera.lifecycle(phase)
+                if phase == .active, !isShowingSettings, textReading.phase == .idle {
+                    startCameraIfNeeded()
+                }
                 if phase != .active {
                     feedback.reset()
                     speechManager.cancelPerceptionSpeech()
@@ -206,8 +211,8 @@ struct ContentView: View {
                     userGuideShown = true
                     isShowingUserGuide = true
                 }
-                // There is no start button: the camera runs whenever the app is open.
-                startCameraIfNeeded()
+                // The first appearance can precede activation. The phase change starts it then.
+                if scenePhase == .active { startCameraIfNeeded() }
                 runPendingCommand()
             }
             .onChange(of: commands.startRequested) { _, _ in runPendingCommand() }
