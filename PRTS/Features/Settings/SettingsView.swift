@@ -12,6 +12,8 @@ struct SettingsView: View {
     @EnvironmentObject private var speech: SpeechManager
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
     @State private var showUserGuide = false
+    @AppStorage(ContentView.lowVisionKey) private var lowVisionMode = false
+    @State private var confirmLowVision = false
 
     var body: some View {
         Form {
@@ -63,6 +65,25 @@ struct SettingsView: View {
             #endif
             Section("settings.photo.section") {
                 NavigationLink("settings.photo.service") { PhotoDescriptionSettingsView() }
+            }
+            Section {
+                // Turning it on stops obstacle guidance, so it asks first; turning it off does not.
+                Toggle(
+                    "settings.lowVision",
+                    isOn: Binding(
+                        get: { lowVisionMode },
+                        set: { on in on ? (confirmLowVision = true) : (lowVisionMode = false) }
+                    )
+                )
+                .accessibilityIdentifier("lowVisionToggle")
+                .alert("settings.lowVision.confirm.title", isPresented: $confirmLowVision) {
+                    Button("settings.lowVision.confirm.turnOn") { lowVisionMode = true }
+                    Button("settings.lowVision.confirm.cancel", role: .cancel) {}
+                } message: {
+                    Text("settings.lowVision.confirm.message")
+                }
+            } footer: {
+                Text("settings.lowVision.footer")
             }
             Section("settings.voice.section") {
                 Toggle(

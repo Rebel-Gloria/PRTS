@@ -26,9 +26,7 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launch()
         let settings = app.buttons["settingsButton"]
-        let camera = app.buttons["cameraButton"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
-        XCTAssertTrue(camera.exists)
         #if PRTS_DEV_CAPTURE
         // Developer visibility is persisted and tested separately.
         #else
@@ -96,7 +94,7 @@ final class PRTSUITests: XCTestCase {
         XCTAssertFalse(app.buttons["spatialSettingsButton"].exists)
         XCTAssertFalse(app.switches["devTechnicalOverlayToggle"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.buttons["cameraButton"].exists)
+        XCTAssertTrue(app.buttons["settingsButton"].exists)
         #endif
     }
 
@@ -161,11 +159,8 @@ final class PRTSUITests: XCTestCase {
         ]
         large.launch()
         let largeSettings = large.buttons["settingsButton"]
-        let camera = large.buttons["cameraButton"]
         XCTAssertTrue(largeSettings.waitForExistence(timeout: 10))
         XCTAssertTrue(largeSettings.isHittable)
-        XCTAssertTrue(camera.isHittable)
-        XCTAssertFalse(largeSettings.frame.intersects(camera.frame))
         // Header stays one row: the settings button becomes icon-only beside the brand.
         XCTAssertLessThan(
             largeSettings.frame.maxY,
@@ -187,9 +182,8 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launchArguments += ["-display.noPreview", "YES"]
         app.launch()
-        let camera = app.buttons["cameraButton"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 10))
-        camera.tap()
+        // Guidance starts by itself when the app opens.
+        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
         XCTAssertTrue(
             app.descendants(matching: .any)["noPreviewNotice"].waitForExistence(timeout: 8)
         )
@@ -212,9 +206,8 @@ final class PRTSUITests: XCTestCase {
     func testTextReadingStartsCamera() throws {
         let app = XCUIApplication.prts()
         app.launch()
-        let camera = app.buttons["cameraButton"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 10))
-        camera.tap()
+        // Guidance starts by itself when the app opens.
+        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
         XCTAssertTrue(waitForGuidance(app, timeout: 10))
         let field = app.textFields["backendCommandField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -238,15 +231,8 @@ final class PRTSUITests: XCTestCase {
     /// with Camera Control, or with the volume buttons turned on, have none.
     @MainActor
     private func waitForGuidance(_ app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        let stop = NSPredicate(
-            format: "label IN %@",
-            ["长按停止", "Press and hold to stop", "停止", "Stop"]
-        )
-        let running = XCTNSPredicateExpectation(
-            predicate: stop,
-            object: app.buttons["cameraButton"]
-        )
-        return XCTWaiter().wait(for: [running], timeout: timeout) == .completed
+        // The start tips leave the home screen once the camera runs.
+        app.descendants(matching: .any)["homeTips"].waitForNonExistence(timeout: timeout)
     }
 
     /// Describes the view the way this phone does it: Camera Control, else the on-screen button.
@@ -317,9 +303,8 @@ final class PRTSUITests: XCTestCase {
         let app = XCUIApplication.prts()
         app.launchArguments += ["-display.noPreview", noPreview ? "YES" : "NO"]
         app.launch()
-        let camera = app.buttons["cameraButton"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 10))
-        camera.tap()
+        // Guidance starts by itself when the app opens.
+        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 10))
         sleep(5)
         let options = XCTMeasureOptions()
         options.iterationCount = 1

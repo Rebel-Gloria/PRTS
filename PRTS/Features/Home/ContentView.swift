@@ -27,6 +27,9 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
+    @AppStorage(Self.lowVisionKey) private var lowVisionMode = false
+    /// For people with some sight: photos, questions and reading, without obstacle guidance.
+    static let lowVisionKey = "app.lowVisionMode"
     /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
     /// touches but cannot hold a press, so held gestures get a tap alternative.
     @State private var pointerCannotHold = Self.assistivePointerRunning
@@ -87,7 +90,6 @@ struct ContentView: View {
                         GlassGroup(spacing: 0) {
                             VStack(spacing: 20) {
                                 controls
-                                primaryButton
                             }
                         }
                     }
@@ -115,10 +117,10 @@ struct ContentView: View {
                 }
             }
             .background(ThreeFingerHold { if threeFingerReading { toggleTextReading() } })
-            // VoiceOver two-finger double-tap runs the main action from anywhere on the screen.
+            // VoiceOver two-finger double-tap restarts guidance if it stopped, or leaves reading.
             .accessibilityAction(.magicTap) {
                 guard !isShowingSettings else { return }
-                camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()
+                startCameraFromButton()
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingSettings) {
@@ -138,11 +140,14 @@ struct ContentView: View {
             .onReceive(pollTimer) { _ in
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
+                // Low vision mode keeps the camera for photos and reading but gives no guidance.
+                let quiet = lowVisionMode || isShowingUserGuide
                 camera.poll(
                     suspendFeedback: photo.busy || reading || isShowingSettings || isHoldingStop
-                        || scenePhase != .active
+                        || quiet || scenePhase != .active
                 )
-                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, scenePhase == .active
+                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, !quiet,
+                    scenePhase == .active
                 {
                     let snapshot = camera.model.snapshot
                     if snapshot.pathOptions.enabled && snapshot.pathUpdate.waypointGuidance != nil {
@@ -211,6 +216,8 @@ struct ContentView: View {
                     userGuideShown = true
                     isShowingUserGuide = true
                 }
+                // There is no start button: the camera runs whenever the app is open.
+                startCameraFromButton()
                 runPendingCommand()
             }
             .onChange(of: commands.toggleRequested) { _, _ in runPendingCommand() }
@@ -285,11 +292,6 @@ struct ContentView: View {
             .padding(.bottom, 12)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .safeAreaInset(edge: .bottom) {
-            primaryButton
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-        }
     }
 
     @ViewBuilder
@@ -425,56 +427,6 @@ struct ContentView: View {
 
     #endif
 
-    private var primaryButton: some View {
-        GuidanceButton(
-            state: camera.state,
-            pointerCannotHold: pointerCannotHold,
-            isLargeText: isLargeText,
-            threeFingerReading: threeFingerReading,
-            stopGesture: stopGesture,
-            start: startCameraFromButton,
-            stop: stopFromAssistiveTechnology,
-            readText: toggleTextReading
-        )
-    }
-
-    private var stopGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                guard camera.state == .running, !isHoldingStop else { return }
-
-                isHoldingStop = true
-                didCompleteStopHold = false
-                hapticManager.startHoldFeedback()
-                stopHoldTask?.cancel()
-                stopHoldTask = Task { @MainActor in
-                    do {
-                        try await Task.sleep(for: .seconds(1))
-                    } catch {
-                        return
-                    }
-
-                    guard !Task.isCancelled, isHoldingStop, camera.state == .running else {
-                        return
-                    }
-
-                    isHoldingStop = false
-                    didCompleteStopHold = true
-                    hapticManager.stopHoldFeedback()
-                    camera.stopCamera()
-                }
-            }
-            .onEnded { _ in
-                stopHoldTask?.cancel()
-                stopHoldTask = nil
-                isHoldingStop = false
-                hapticManager.stopHoldFeedback()
-                DispatchQueue.main.async {
-                    didCompleteStopHold = false
-                }
-            }
-    }
-
     private func startCameraFromButton() {
         // During text reading the main button (and magic tap) leaves it instead.
         if textReading.phase != .idle {
@@ -503,7 +455,7 @@ struct ContentView: View {
         commands.toggleRequested = false
         isShowingSettings = false
         isShowingUserGuide = false
-        camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()
+        startCameraFromButton()
     }
 
     /// Three-finger hold or the VoiceOver action: reading pauses guidance, which resumes after.
@@ -532,11 +484,5 @@ struct ContentView: View {
             }
         }
         textReading.start(intro: resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start")
-    }
-
-    private func stopFromAssistiveTechnology() {
-        guard camera.state == .running else { return }
-        hapticManager.buttonTapped()
-        camera.stopCamera()
     }
 }
