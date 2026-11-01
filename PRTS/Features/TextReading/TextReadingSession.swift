@@ -108,6 +108,7 @@ final class TextReadingSession: ObservableObject {
                 try await read(jpeg, image, with: reader, id)
             }
         } catch is CancellationError {
+            if generation == id { end() }
             return
         } catch {
             // Preserve any text already read if every available reader fails.
