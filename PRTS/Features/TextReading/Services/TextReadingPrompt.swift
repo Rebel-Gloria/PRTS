@@ -2,7 +2,7 @@ import Foundation
 import LocalVLM
 
 /// Reading text with the bundled MiniCPM-V 4.7: two questions about one photo, tuned on the Mac
-/// harness (docs/features/text-reading.md). Asked in one go ("say what it is on, then copy it") the
+/// harness (docs/vision.md). Asked in one go ("say what it is on, then copy it") the
 /// small model ignored the format; asked one after the other it gets both right.
 nonisolated enum TextReadingPrompt {
     static let system = """

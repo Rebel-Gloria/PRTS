@@ -11,7 +11,7 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     enum ThinkingSwitch: Sendable { case qwenFlag, deepseekObject, standard }
 
     /// qwen-vl-ocr over qwen3.5-ocr: as fast and as accurate on text, and it said "无" on photos
-    /// where qwen3.5-ocr made up a word (docs/features/text-reading.md).
+    /// where qwen3.5-ocr made up a word (docs/validation.md).
     static let qwen = PhotoChatService(
         endpoint: PhotoChatProtocol.endpoint,
         model: PhotoChatProtocol.model,

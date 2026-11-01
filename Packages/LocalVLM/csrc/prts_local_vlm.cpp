@@ -1,5 +1,5 @@
 // On-device MiniCPM-V 4.7 photo description for PRTS, built on llama.cpp + mtmd.
-// Prompt layout and decoding match the benchmark in docs/features/local-vlm.md.
+// Prompt layout and decoding match the benchmark in docs/validation.md.
 #include "prts_local_vlm.h"
 #include "llama.h"
 #include "mtmd.h"

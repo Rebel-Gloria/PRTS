@@ -1,95 +1,122 @@
 # 工程架构
 
-PRTS 将相机采集、空间计算、界面渲染和用户反馈分开管理。避障使用同一条数据处理流程；拍照描述复用当前帧，文字识别则协调切换到后置主摄。
+本文介绍 PRTS 的代码组织、避障数据流、路线与反馈规则，以及修改代码时需要遵守的约束。
 
-## 模块职责
+PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位于 `Packages/SpatialCore`，该包不依赖 ARKit、UIKit 或 SwiftUI，可在 macOS 上独立测试和回放。应用层负责数据采集、画面渲染和语音振动反馈。
 
-| 目录 | 职责 |
+## 目录结构
+
+| 路径 | 说明 |
 |---|---|
-| `PRTS/App/` | 启动、运行配置、Siri 与快捷指令 |
-| `PRTS/Features/Home/`、`Settings/` | 首页组合、交互协调和通用设置 |
-| `PRTS/Features/Guidance/` | 避障入口、相机状态、语音和振动反馈 |
-| `PRTS/Features/PhotoDescription/` | 照片交互、模型服务、请求编码、流式解析和提示词 |
-| `PRTS/Features/TextReading/` | 文字识别流程、独立主摄、识别服务和阅读界面 |
-| `PRTS/Features/Developer/` | 开发叠加层、诊断设置和演示选项 |
-| `PRTS/Shared/` | 共享音频、外观和本地化能力 |
-| `PRTS/Spatial/Runtime/` | 唯一 ARSession、帧调度和共享状态 |
-| `PRTS/Spatial/Capture/`、`Depth/` | 帧与网格快照、单目深度实现 |
-| `PRTS/Spatial/Rendering/` | 从快照绘制相机与空间信息 |
-| `PRTS/Spatial/Diagnostics/`、`DevCapture/` | 自动诊断、手动样本和开发录像 |
-| `PRTS/Spatial/Models/` | 深度模型、来源与许可证 |
-| `Packages/SpatialCore/` | 自有几何分析、障碍建模、路线规划与反馈策略 |
-| `Packages/LocalVLM/` | 自有本地视觉模型封装及依赖准备 |
-| `Vendor/PRTSCore/` | 保留来源与原有风格的上游契约和可选实现 |
-| `Experiments/`、`scripts/` | 独立实验、回放、验证与维护工具 |
-
-App 链接 `SpatialCore`、`LocalVLM` 和 `PRTSContracts`。`PRTSAppleModels`、`PRTSAppleModelsLite` 及实验工程不参与 App 编译。
-
-
-## 替换组件
-
-`ContentView` 负责组合首页和协调功能生命周期，展示部件分别位于首页、避障、照片和文字识别目录。替换控件时保留输入、回调和无障碍标识，避免同时改动业务流程。
-
-照片交互通过 `PhotoDescriptionServices`、`PhotoRecognizing` 和 `PhotoAnswerAudio` 获取能力。`PhotoDescriptionBackend` 集中选择本地或云端模型；请求、服务配置和流式解析分别维护。替换模型实现时保留异步返回与取消约定，协调器无需了解网络或推理细节。文字识别复用照片服务中的模型与凭据实现，不复制一套连接逻辑。
-
-`SpatialCore/Sources/SpatialCore/` 按 `Perception`、`Routing`、`Presentation`、`Feedback`、`Diagnostics` 和 `Contracts` 分组。`Routing` 再区分前向规划、目标点规划、几何检查、时序连续性和预测入口。对外继续使用 `PathPredictor`、`PathUpdate` 与发布结果；替换搜索策略时保留这些契约，采集、渲染和播报不应跟随算法内部结构变化。
-
-文件按职责拆分，相关的小型数据类型可以放在一起。状态所有者及其私有状态保留在同一文件，避免为了缩短文件而扩大访问权限。
+| `PRTS/Spatial/` | ARKit 会话（`ProbeEngine`）、帧快照、渲染和诊断记录 |
+| `PRTS/Features/Guidance/` | 避障入口、语音和振动反馈 |
+| `PRTS/Features/PhotoDescription/` | 拍照描述和语音提问。模型后端在 `Services/PhotoDescriptionBackend.swift` 中选择，提示词定义在 `Services/PhotoPrompts.swift` 中 |
+| `PRTS/Features/TextReading/` | 文字识别：主摄拍照、识别和朗读 |
+| `PRTS/Features/Home/`、`Settings/`、`Developer/` | 首页、设置和开发版专用界面 |
+| `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与振动策略（`Feedback/`） |
+| `Packages/LocalVLM/` | llama.cpp 封装，用于在设备上运行 MiniCPM-V |
+| `Vendor/PRTSCore/` | 上游契约代码。应用链接此包，但当前未调用 |
+| `Experiments/` | 实验工程和回放工具，不参与应用编译 |
 
 ## 避障数据流
 
+每一帧 ARKit 数据按以下顺序处理：
+
 ```text
 ARSession
-  → ProbeEngine / FrameSnapshot：采集与调度
-  → SpatialAnalyzer：地面、障碍和未知栅格
-  → PathPredictor：会话与时序检查
-    → TemporalOccupancyGrid：持续障碍确认
-    → ObstacleWaypointPlanner：目标与路线搜索
-  → RoutePublicationPolicy：整体发布路线状态
+  → ProbeEngine：生成 FrameSnapshot
+  → SpatialAnalyzer：生成地面、障碍、未知三态栅格
+  → PathPredictor
+      → TemporalOccupancyGrid：确认持续 300 ms 以上的障碍
+      → ObstacleWaypointPlanner：选择目标点并搜索路线
+  → RoutePublicationPolicy：确定发布的路线状态
   → SharedSnapshot
-    ├─ ProbeRenderer：画面
-    ├─ FeedbackCoordinator：语音与振动
-    └─ DiagnosticRecorder：诊断
+      ├─ ProbeRenderer：渲染画面
+      ├─ FeedbackCoordinator：输出语音和振动
+      └─ DiagnosticRecorder：写入 DIAG 日志
 ```
 
-`ProbeEngine` 将同一帧的时间戳、epoch、frameID、跟踪状态、位姿、内参及可用的深度、置信度、网格打包为 `FrameSnapshot`。队列只保留一帧正在分析的数据和一帧最新待处理数据，新帧替换尚未处理的旧帧。
+`FrameSnapshot` 包含时间戳、epoch、frameID、相机位姿和内参，以及该帧的深度图、置信度和网格。分析在串行队列中执行，待处理队列通过 `LatestMailbox` 仅保留最新一帧；分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。
 
-`SpatialAnalyzer` 生成地面、障碍、未知三态栅格。规划使用独立副本，只把持续至少 300 ms 的确认障碍作为阻挡，未知格仍允许搜索。地面或深度短暂缺失不会立即撤销路线，因此“没有确认障碍”不能等同于已经确认安全。
+路线规划仅将已确认的障碍视为阻挡，未知栅格允许通过。
 
-## 路线与反馈
+> [!NOTE]
+> “没有已确认障碍”不等同于“已确认安全”。地面或深度短暂缺失时，系统保留现有路线，而不是立即撤销。
 
-| 状态 | 路线行为 | 主要播报 |
+## 路线状态
+
+系统根据前方最近的已确认障碍，将路线分为三种状态：
+
+| 状态 | 路线行为 | 语音播报 |
 |---|---|---|
-| 前方通行带无确认障碍 | 不绘制路线 | 进入状态时播报“前方畅通” |
-| 障碍超过 2 m | 在障碍前 0.55 m 设置接近目标 | “有障碍” |
-| 障碍在 2 m 以内 | 逐点绕行 | 障碍状态与转向；距离小于 1 m 时可播报“障碍很近” |
+| 前方无已确认障碍 | 不绘制路线 | 进入该状态时播报“前方畅通” |
+| 障碍距离大于 2 m | 在障碍前 0.55 m 处设置接近目标 | “有障碍” |
+| 障碍距离在 2 m 以内 | 逐点绕行 | 障碍状态和转向；距离很近时播报“障碍很近” |
 
-进入近障后，距离回到 2.15 m 以上才考虑切回远障；近障退为远障需持续 0.75 s，转为空旷需持续 0.6 s。当前规划总宽为 0.50 m，身体宽度参数为 0.60 m，两者不一致的问题见[验证结果](validation.md)。
+状态切换设有迟滞，以避免在阈值附近反复切换：
 
-只有当前目标用于显示、播报和振动。距离目标 1.2 m 内开始准备下一目标，约每 250 ms 更新；进入 0.35 m 范围后复核下一段，再整体切换。绕行优先选择画面中的拐点，没有可见目标时提示“有障碍，转动手机”。
+- 进入近距离状态后，障碍距离超过 2.15 m 才会返回远距离状态。
+- 从近距离状态切换到远距离状态需持续 0.75 s；切换到无障碍状态需持续 0.6 s。
 
-原地转向超过 45° 并稳定 3 s、目标离开画面或路线被确认障碍挡住时重新规划。画面边缘外 4% 以内的目标允许保留 0.35 s；超出 25% 或位于身后时立即处理。已开始绕行时保持当前目标，不因另一个更远障碍成为最近障碍而退回接近状态。绕行优先每侧多留 8 cm，必要时退回 0.50 m 总宽。
+## 目标点与路线更新
 
-`OccupancyFootprint` 保存确认障碍格的完整世界坐标方块，时间关联点仅用于计时。搜索、路线扫掠、停靠间距和已提交路线检查使用同一组障碍，包含规划窗口外的障碍，避免旋转或裁切栅格时丢失障碍面积。
+同一时刻只有一个当前目标点用于显示、播报和振动。
 
-跟踪丢失、epoch 或参数变化会使旧结果失效。`RoutePublicationPolicy` 区分前方空旷与路线未就绪，迟到结果不得覆盖新结果。核心参数见 `ObstacleWaypointState.swift`。
+1. 与当前目标点的距离小于 1.2 m 时，系统开始准备下一段路线，每 0.25 s 更新一次。
+2. 与当前目标点的距离小于 0.35 m 时，系统复核下一段路线。复核通过则整体切换，否则重新搜索。
+3. 目标点超出画面边缘 4% 以内时保留；超出 25% 或位于用户身后时立即重新选择。
 
-`FeedbackCoordinator` 使用发布结果控制反馈频率。同侧目标 ID 变化不重复播报；最短间隔为 2.5 s，场景变化需稳定 0.6 s，距离或远近等级变化的重播间隔为 4 s。无法绕行时播报“有障碍，无法绕行”，感知不可用时播报“暂时看不清”。
+绕行时优先在两侧各增加 8 cm 余量；无法满足时，使用 0.50 m 的规划总宽。
 
-## 会话与显示边界
+已确认障碍以世界坐标中的完整栅格方块保存（`OccupancyFootprint`）。路线搜索、路线扫掠和已提交路线的复核使用同一组障碍，包括规划窗口以外的障碍，因此栅格旋转或裁切不会丢失障碍面积。
 
-只有 `ProbeEngine` 持有 ARSession。拍照描述读取当前帧；文字识别先停止 ARKit，再使用主摄会话，退出后按进入前状态恢复。异步请求均需处理取消与过期结果。
+发生跟踪丢失、epoch 变化或参数变化时，之前的结果全部失效，较晚返回的旧结果不会覆盖新结果。规划参数定义在 `ObstacleWaypointState.swift` 和 `PathOptions.swift` 中。
 
-渲染器只读取 `SharedSnapshot`，语音和振动只使用分析结果。开发叠加层不另建会话或计时器。隐藏画面不停止采集和分析；完全停止绘制应使用无画面模式。
+> [!NOTE]
+> 规划总宽为 0.50 m，而身体宽度参数为 0.60 m，二者目前不一致。相关回放数据请参阅[验证结果](validation.md)。
 
-`SpatialCore` 不依赖 SwiftUI、ARKit、Metal、AVFoundation、Core ML 或 UIKit。包内 `AppendFile.swift` 仅兼容旧测试，App 不调用。源码一致性检查忽略排版和注释，保留算法表达式与字符串比较。`SpatialAnalyzer` 与冻结的 SpatialProbe 实现保持一致；`AnalysisResult` 仅排除额外的 `planningObstacles` 字段。产品触觉策略既有的进入阈值差异单独检查，不将整个文件排除。
+## 播报频率
 
-## 依赖来源
+`ObstacleRouteAnnouncementPolicy` 按以下规则控制播报频率：
 
-`Vendor/PRTSCore` 来自 `https://github.com/Oldcucumber/PRTS_Core.git`，固定提交为 `0469479b0d6775940b7e50d95b2095fb7d7fedeb`，核对日期为 2026-09-24。App 仅链接其中的 `PRTSContracts`，现有业务代码没有调用该契约，主要功能不依赖它。
+| 规则 | 取值 |
+|---|---|
+| 两次播报的最短间隔 | 2.5 s |
+| 场景变化后的稳定时间 | 0.6 s |
+| 远近等级变化的最短重播间隔 | 4 s |
+| 同侧目标点变化 | 不重复播报 |
 
-保留内容包括契约与测试、部分 Apple 端实现、BGRA 适配和提示音；未引入网页端、Python 运行时、视频、模型权重或 XCFramework。缺少 `Artifacts/prts_vlm.xcframework` 时，可选实现使用 `PRTSAppleModelsLite` 并返回模型不可用。
+无法绕行时播报“有障碍，无法绕行”；没有可用深度时播报“暂时看不清”。
 
-更新依赖前审查候选版本，再同步修改 `scripts/sync-prts-core.sh` 的固定提交和本文记录，运行相关测试。脚本只同步选定源码和测试，不复制模型。本地视觉模型依赖见[本地视觉模型](features/local-vlm.md)。
+## 设计约束
 
-几何细节见[空间几何](spatial-geometry.md)，设备差异见[无 LiDAR 模式](features/no-lidar.md)，日志字段见[诊断与采集](diagnostics.md)。
+修改代码时，请遵守以下约束。标注了测试的约束由 `scripts/test_repository_layout.py` 或 `scripts/test_spatial_integration.py` 自动检查。
+
+| 约束 | 自动检查 |
+|---|---|
+| 仅 `ProbeEngine` 创建 `ARSession`。拍照描述读取当前帧；文字识别先停止 ARKit 会话、切换到主摄，退出后恢复之前的状态 | 是 |
+| `SpatialCore` 不得导入 ARKit、UIKit、SwiftUI、AVFoundation、Metal 或 Core ML | 是 |
+| `SpatialAnalyzer` 与 `Experiments/SpatialProbe` 中冻结的对照实现保持一致，比较时忽略格式和注释 | 是 |
+| 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | 部分 |
+| 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | 否 |
+
+`Diagnostics/AppendFile.swift` 仅供旧测试使用，应用不调用该文件。
+
+## 第三方代码
+
+`Vendor/PRTSCore` 来自 [Oldcucumber/PRTS_Core](https://github.com/Oldcucumber/PRTS_Core)，固定在提交 `0469479b`（2026-09-24 核对）。应用仅链接其中的 `PRTSContracts`。同步范围包括契约、测试、部分 Apple 平台实现和提示音，不包括网页端、Python 运行时和模型文件。
+
+如需升级 `Vendor/PRTSCore`，请执行以下步骤：
+
+1. 审查上游候选版本，然后将 `scripts/sync-prts-core.sh` 中的 `revision` 改为该版本的完整提交哈希。
+2. 运行该脚本同步源码。
+3. 运行契约测试：`PRTS_CONTRACTS_ONLY=1 swift test --package-path Vendor/PRTSCore`。
+4. 更新本节记录的提交和核对日期。
+
+llama.cpp 和 MiniCPM-V 由 `Packages/LocalVLM/prepare.sh` 下载并编译，不纳入版本控制。版本信息请参阅[图像与文字识别](vision.md#本地视觉模型)。
+
+## 相关文档
+
+- [空间感知](spatial.md)：坐标约定、地面确认、栅格和无 LiDAR 模式
+- [图像与文字识别](vision.md)：拍照描述、语音提问和文字识别
+- [开发指南](development.md)：构建、测试、诊断记录和回放工具

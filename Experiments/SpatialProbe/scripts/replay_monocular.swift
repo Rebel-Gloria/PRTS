@@ -1,6 +1,6 @@
 import CryptoKit
 // Offline gate replay of RECORDED MODEL OUTPUT, never real-time performance or physical GT.
-// Build with the local SpatialCore module; see docs/features/no-lidar.md.
+// Build with the local SpatialCore module; see docs/spatial.md.
 import Foundation
 import SpatialCore
 
