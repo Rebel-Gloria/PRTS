@@ -203,6 +203,17 @@ final class PRTSUITests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testCameraStartsOnLaunchAndResumesAfterBackground() throws {
+        let app = XCUIApplication.prts()
+        app.launch()
+        XCTAssertTrue(waitForGuidance(app, timeout: 15))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        app.activate()
+        XCTAssertTrue(waitForGuidance(app, timeout: 15))
+    }
+
     /// No-preview mode: guidance runs, nothing is drawn.
     @MainActor
     func testNoPreviewModeSkipsRendering() throws {
