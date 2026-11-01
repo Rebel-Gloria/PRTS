@@ -1,51 +1,66 @@
 # PRTS
 
-PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供障碍提示、画面描述和文字朗读。项目优先使用手机本地计算，减少对额外设备和网络的依赖。
+PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供避障引导、画面描述、语音提问和文字朗读。避障和默认的图像识别均在设备上完成，不依赖额外硬件或网络。
 
-## 主要功能
+## 功能
 
-| 功能 | 使用方式 |
+| 功能 | 说明 |
 |---|---|
-| 避障引导 | 点击“开始”，通过语音和振动接收障碍与方向提示 |
-| 画面描述 | 短按拍照按键，听取眼前画面的简短描述 |
-| 语音提问 | 按住拍照按键说话，松开后听取回答 |
-| 文字朗读 | 三指按住屏幕 0.8 秒，拍摄并朗读面前的文字 |
+| 避障引导 | 使用 LiDAR 深度识别地面和障碍，通过语音和振动提示障碍与绕行方向 |
+| 画面描述 | 短按拍照按键，听取对眼前画面的简短描述 |
+| 语音提问 | 按住拍照按键提问，松开后听取回答 |
+| 文字朗读 | 三指按住屏幕，拍摄并朗读面前的文字 |
 
-拍照按键根据设备和设置使用相机控制按钮、音量键或屏幕按钮。App 也支持旁白、大字体、辅助触控、切换控制，以及 Siri 和快捷指令，详见[使用与无障碍](docs/features/usage.md)。
+应用支持旁白、动态字体、辅助触控、切换控制、Siri 和快捷指令。操作方式请参阅[功能与操作](docs/usage.md)。
 
-## 使用条件
+## 系统要求与限制
 
-需要 iOS 17 及以上。仓库记录的应用版本为 1.0，构建编号为 25。
+- iOS 17 或更高版本。当前版本为 1.0（构建 25）。
+- 避障引导需要 LiDAR。无 LiDAR 设备可通过模型估计深度，但仅用于显示和路线示意，不提供可靠的障碍距离或通行判断。
+- 尚不支持台阶和落差检测、目的地导航、公交或信号灯提醒。
+- 画面描述和文字朗读默认使用设备上的 MiniCPM-V 4.7，照片不离开设备。选择联网服务时需要网络连接，并允许上传照片。语音提问使用系统语音识别，可能调用 Apple 的服务。
+- 现有验证以少量设备和场景为主，尚未进行视障用户的长期实测。详情请参阅[验证结果](docs/validation.md)。
 
-避障引导使用 LiDAR。没有 LiDAR 的设备可通过模型估算深度，但目前只用于深度显示和路线示意，不能提供可靠的障碍距离或通行判断。项目尚未实现台阶与落差检测、目的地导航、等公交或红绿灯主动提醒。
+## 构建
 
-拍照描述和文字识别默认使用本地 MiniCPM-V 4.7，照片留在手机上。选择远端模型时，需要联网并允许上传照片。语音提问使用系统语音识别，可能调用 Apple 的服务。
+需要安装了 Xcode 26 或更高版本的 Mac，以及 cmake 和 ninja。
 
-现有验证仍以少量设备和场景为主，尚未完成视障用户长期实测。具体数据和适用范围见[验证结果与已知问题](docs/validation.md)。
+1. 准备本地视觉模型和推理库（下载约 1.9 GB 权重，权重不纳入版本控制）：
 
-## 开发入门
+   ```sh
+   bash Packages/LocalVLM/prepare.sh
+   ```
 
-在安装 Xcode 的 macOS 上准备本地模型与推理库，再打开 `PRTS.xcodeproj`，选择 PRTS scheme 构建。模型权重约 1.9 GB，不随 Git 仓库分发。
+2. 打开 `PRTS.xcodeproj`，选择 `PRTS` scheme 进行构建。
 
-```sh
-bash Packages/LocalVLM/prepare.sh
-```
-
-构建命令、开发版配置和验证入口见[开发指南](docs/development.md)。修改代码前请阅读[仓库规范](AGENTS.md)。
+命令行构建、开发版配置和测试方法请参阅[开发指南](docs/development.md)。
 
 ## 文档
 
-| 主题 | 文档 |
+| 文档 | 内容 |
 |---|---|
-| 使用与设置 | [使用与无障碍](docs/features/usage.md) |
-| 图像与文字 | [拍照描述与提问](docs/features/photo-description.md) · [文字识别](docs/features/text-reading.md) |
-| 本地模型 | [本地视觉模型](docs/features/local-vlm.md) |
-| 空间感知 | [空间几何](docs/spatial-geometry.md) · [无 LiDAR 模式](docs/features/no-lidar.md) |
-| 工程维护 | [工程架构](docs/architecture.md) · [开发指南](docs/development.md) · [诊断与采集](docs/diagnostics.md) |
-| 验证与约束 | [验证结果与已知问题](docs/validation.md) · [仓库规范](AGENTS.md) |
+| [功能与操作](docs/usage.md) | 操作方式、设置项和无障碍支持 |
+| [工程架构](docs/architecture.md) | 目录结构、避障数据流、路线与播报规则、设计约束 |
+| [空间感知](docs/spatial.md) | 坐标约定、地面确认、栅格、距离测量和无 LiDAR 模式 |
+| [图像与文字识别](docs/vision.md) | 模型服务、提示词、文字识别流程和本地视觉模型 |
+| [开发指南](docs/development.md) | 构建、测试、持续集成、诊断记录和回放工具 |
+| [验证结果](docs/validation.md) | 测试数据、采用或撤回的决定和已知问题 |
+| [AGENTS.md](AGENTS.md) | 编码、文档和提交规范 |
 
-PPT、宣传视频和比赛讲稿单独维护在 `marketing` 分支。
+宣传材料维护在 `marketing` 分支。
 
-## 开源许可
+## 参与贡献
 
-仓库代码使用 [MIT 许可证](LICENSE)。Depth Anything V2 Small 使用 [Apache 2.0 许可证](PRTS/Spatial/Models/LICENSE-DepthAnythingV2.txt)；llama.cpp 使用 MIT；MiniCPM-V 4.7 1B 权重按 openbmb 发布的 Apache 2.0 许可使用。第三方组件以各自附带的许可和来源记录为准。
+欢迎提交问题和拉取请求。提交代码前，请阅读 [AGENTS.md](AGENTS.md)，并运行[开发指南](docs/development.md#测试)中的检查。
+
+## 许可证
+
+本项目代码采用 [MIT 许可证](LICENSE)。第三方组件的许可证如下：
+
+| 组件 | 许可证 |
+|---|---|
+| Depth Anything V2 Small | [Apache 2.0](PRTS/Spatial/Models/LICENSE-DepthAnythingV2.txt) |
+| llama.cpp | MIT |
+| MiniCPM-V 4.7 1B 权重 | Apache 2.0（openbmb 发布） |
+
+各组件以其附带的许可证和来源记录为准。

@@ -1,7 +1,7 @@
 import Foundation
 import LocalVLM
 
-/// The bundled MiniCPM-V 4.7 1B (docs/features/local-vlm.md). The "Copy offline model" build
+/// The bundled MiniCPM-V 4.7 1B (docs/vision.md). The "Copy offline model" build
 /// phase puts both weight files in the app's LocalVLM folder.
 enum PhotoLocalModel {
     static let shared = LocalVLM(

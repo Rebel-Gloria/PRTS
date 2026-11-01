@@ -4,7 +4,7 @@ nonisolated enum PhotoPrompts {
     static let prompt = "描述眼前。"
 
     /// Shared by every provider and the short-tap/question paths. Tuned on-device against MiniCPM-V
-    /// (docs/features/photo-description.md): rules plus "don't" list plus concrete examples; placeholder
+    /// (docs/validation.md): rules plus "don't" list plus concrete examples; placeholder
     /// templates made the small model fill in every template and invent signs.
     static let system = """
         你在为盲人描述手机镜头前方的景象。用户举着手机，镜头朝着他要走的方向。
@@ -32,7 +32,7 @@ nonisolated enum PhotoPrompts {
     /// Long-press questions to a cloud model. Mostly follow-ups for detail after the short
     /// description (what colour is the cat); more open than `system` (reading, translating,
     /// explaining), still at most three sentences and no permission to walk. Tuned on Qwen and
-    /// DeepSeek (docs/features/photo-description.md).
+    /// DeepSeek (docs/validation.md).
     static let questionSystem = """
         你在帮盲人回答关于手机镜头前方的问题。用户已经听过一句简短的描述，现在想知道更多细节，比如东西是什么颜色、什么样子、上面写了什么、有几个、在哪边。
 
