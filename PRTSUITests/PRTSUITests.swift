@@ -169,13 +169,15 @@ final class PRTSUITests: XCTestCase {
     @MainActor
     func testLowVisionRequiresConfirmationAndCancellationKeepsItOff() throws {
         let app = XCUIApplication.prts()
-        app.launchArguments += ["-AppleLanguages", "(en)", "-app.lowVisionMode", "NO"]
+        app.launchArguments += ["-AppleLanguages", "(en)"]
         app.launch()
         XCTAssertTrue(waitForGuidance(app, timeout: 15))
         app.buttons["settingsButton"].tap()
         let toggle = app.switches["lowVisionToggle"]
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let originallyEnabled = toggle.value as? String == "1"
+        if originallyEnabled { toggle.tap() }
         XCTAssertEqual(toggle.value as? String, "0")
         toggle.tap()
         let alert = app.alerts.firstMatch
@@ -194,6 +196,11 @@ final class PRTSUITests: XCTestCase {
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "0")
         XCTAssertFalse(alert.exists)
+        if originallyEnabled {
+            toggle.tap()
+            XCTAssertTrue(alert.waitForExistence(timeout: 3))
+            alert.buttons["Turn On"].tap()
+        }
     }
 
     /// No-preview mode: guidance runs, nothing is drawn.
@@ -337,6 +344,8 @@ final class PRTSUITests: XCTestCase {
         app.swipeUp()
         let toggle = app.switches["devCaptureToggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let originallyEnabled = toggle.value as? String == "1"
+        if originallyEnabled { toggle.tap() }
         XCTAssertEqual(toggle.value as? String, "0")
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "1")
