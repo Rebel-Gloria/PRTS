@@ -15,6 +15,7 @@ import UIKit
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @StateObject private var photo = PhotoDescriptionCoordinator()
+    @StateObject private var liveCaption = LiveCaptionSession()
     @StateObject private var feedback = FeedbackCoordinator()
     @StateObject private var textReading = TextReadingSession()
     @EnvironmentObject private var speechManager: SpeechManager
@@ -102,10 +103,12 @@ struct ContentView: View {
 
                 if camera.state == .running && !isShowingSettings {
                     PhotoInteractionView(
-                        photo: photo,
+                        message: liveCaption.message.isEmpty ? photo.message : liveCaption.message,
+                        busy: photo.busy,
                         volumeButtons: volumeButtons,
-                        snapshot: { camera.model.snapshot.frame },
-                        silence: { speechManager.stopCurrentSpeech() },
+                        down: photoDown,
+                        up: { photo.up() },
+                        cancel: cancelPhotoPress,
                         strings: .init(
                             label: speechManager.interfaceString("photo.button.label"),
                             hint: speechManager.interfaceString("photo.button.hint"),
@@ -133,9 +136,12 @@ struct ContentView: View {
                 UserGuideView().environmentObject(speechManager)
             }
             .onChange(of: camera.state) { _, newState in
-                if newState != .running { photo.cancel() }
+                if newState != .running {
+                    liveCaption.stop()
+                    photo.cancel()
+                }
                 guard scenePhase == .active, !isShowingSettings, !photo.busy,
-                    textReading.phase == .idle, !guidanceSuppressed
+                    textReading.phase == .idle, !liveCaption.suspendsFeedback, !guidanceSuppressed
                 else { return }
                 speechManager.announceCameraState(newState)
                 if newState == .running { hapticManager.cameraStarted() }
@@ -144,10 +150,12 @@ struct ContentView: View {
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
                 camera.poll(
-                    suspendFeedback: photo.busy || reading || isShowingSettings || isHoldingStop
+                    suspendFeedback: photo.busy || reading || liveCaption.suspendsFeedback
+                        || isShowingSettings || isHoldingStop
                         || guidanceSuppressed || scenePhase != .active
                 )
-                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, !guidanceSuppressed,
+                if !photo.busy, !reading, !liveCaption.suspendsFeedback, !isShowingSettings,
+                    !isHoldingStop, !guidanceSuppressed,
                     scenePhase == .active
                 {
                     let snapshot = camera.model.snapshot
@@ -183,8 +191,14 @@ struct ContentView: View {
                     SpeechManager.postQueuedAnnouncement(message)
                 }
             }
+            .onChange(of: liveCaption.message) { _, message in
+                if !message.isEmpty, UIAccessibility.isVoiceOverRunning {
+                    SpeechManager.postQueuedAnnouncement(message)
+                }
+            }
             .onChange(of: isShowingSettings) { _, shown in
                 if shown {
+                    liveCaption.stop()
                     photo.cancel()
                     textReading.cancel()
                     feedback.reset()
@@ -194,6 +208,7 @@ struct ContentView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { pointerCannotHold = Self.assistivePointerRunning }
                 if phase != .active {
+                    liveCaption.stop()
                     photo.cancel()
                     textReading.cancel()
                     stopHoldTask?.cancel()
@@ -240,11 +255,13 @@ struct ContentView: View {
                 if let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                     AVAudioSession.InterruptionType(rawValue: raw) == .began
                 {
+                    liveCaption.stop()
                     photo.cancel()
                     textReading.cancel()
                 }
             }
             .onDisappear {
+                liveCaption.stop()
                 photo.cancel()
                 textReading.cancel()
             }
@@ -329,6 +346,7 @@ struct ContentView: View {
                 askingByTap = false
                 photo.up()
             } else {
+                liveCaption.interruptAnnouncement()
                 photo.down(
                     snapshot: { camera.model.snapshot.frame },
                     silence: { speechManager.stopCurrentSpeech() }
@@ -346,7 +364,7 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, minHeight: 52)
         }
         .glassButtonStyle()
-        .disabled(photo.busy && !askingByTap)
+        .disabled(liveCaption.isRunning || (photo.busy && !askingByTap))
         .accessibilityIdentifier("photoAskButton")
     }
 
@@ -516,6 +534,35 @@ struct ContentView: View {
         startCameraFromButton()
     }
 
+    private func photoDown() {
+        switch liveCaption.down() {
+        case .photo:
+            liveCaption.interruptAnnouncement()
+            photo.down(
+                snapshot: { camera.model.snapshot.frame },
+                silence: { speechManager.stopCurrentSpeech() }
+            )
+        case .confirm:
+            photo.cancel()
+            speechManager.stopCurrentSpeech()
+            liveCaption.announce(speechManager.interfaceString("liveCaption.confirm"))
+        case .start:
+            photo.cancel()
+            speechManager.stopCurrentSpeech()
+            liveCaption.start(snapshot: { camera.model.snapshot.frame })
+            camera.poll(suspendFeedback: true)
+        case .stop:
+            liveCaption.stop()
+            liveCaption.announce(speechManager.interfaceString("liveCaption.off"))
+        case .none: break
+        }
+    }
+
+    private func cancelPhotoPress() {
+        liveCaption.cancelPress()
+        photo.cancel()
+    }
+
     /// Three-finger hold or the VoiceOver action: reading pauses guidance, which resumes after.
     private func toggleTextReading() {
         if textReading.phase != .idle {
@@ -527,6 +574,7 @@ struct ContentView: View {
         stopHoldTask = nil
         isHoldingStop = false
         hapticManager.stopHoldFeedback()
+        liveCaption.stop()
         photo.cancel()
         feedback.reset()
         speechManager.stopCurrentSpeech()
