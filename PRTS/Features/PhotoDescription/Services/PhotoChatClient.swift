@@ -10,6 +10,7 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
         service: PhotoChatService? = .qwen,
         system: String? = PhotoPrompts.system,
         thinking: Bool = false,
+        maxTokens: Int? = nil,
         configuration: URLSessionConfiguration = .ephemeral
     ) async throws -> String {
         try Task.checkCancellation()
@@ -20,7 +21,8 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
             key: key,
             service: service,
             system: system,
-            thinking: thinking
+            thinking: thinking,
+            maxTokens: maxTokens
         )
         configuration.timeoutIntervalForResource = 120
         configuration.urlCache = nil

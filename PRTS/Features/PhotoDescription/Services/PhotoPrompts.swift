@@ -29,6 +29,23 @@ nonisolated enum PhotoPrompts {
         - 右前方有块牌子写着"便利店"。
         """
 
+    static let liveCaptionSystem = """
+        你为盲人做实时口述影像。用户拿着手机不动，已经听过开场描述和上一句。
+        你会收到最新照片。只说和上一句相比，画面里新发生的变化。
+
+        规则：
+        1. 只输出一句话，最多 15 个字，句末用句号。
+        2. 句式：谁或什么，在哪里，在做什么。方位只用"正前方、左边、右边"。
+        3. 只说看得见的动作，以及新出现或离开的人和东西。开场描述和上一句说过的，不再说。
+        4. 画面没有明显变化时，只输出一个字：无。
+        5. 不说"照片""画面""镜头"，不猜身份、情绪和目的，不说能不能走。
+
+        示例：
+        上一句：桌上放着一台电脑。 → 一只手把杯子放到桌上。
+        上一句：一只手把杯子放到桌上。 → 无
+        上一句：无 → 一个人从右边走过。
+        """
+
     /// Cloud questions and optional enhanced local questions. Mostly follow-ups after the short
     /// description (what colour is the cat); more open than `system` (reading, translating,
     /// explaining), still at most three sentences and no permission to walk. Tuned on Qwen and

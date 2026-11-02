@@ -13,7 +13,8 @@ nonisolated enum PhotoChatProtocol {
         key: String,
         service: PhotoChatService = .qwen,
         system: String? = PhotoPrompts.system,
-        thinking: Bool = false
+        thinking: Bool = false,
+        maxTokens: Int? = nil
     ) throws -> URLRequest {
         let credential = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !credential.isEmpty, !credential.contains("\r"), !credential.contains("\n") else {
@@ -48,6 +49,7 @@ nonisolated enum PhotoChatProtocol {
         case .deepseekObject: body["thinking"] = ["type": thinking ? "enabled" : "disabled"]
         case .standard: break
         }
+        if let maxTokens { body["max_tokens"] = maxTokens }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }
