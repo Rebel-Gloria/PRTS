@@ -27,7 +27,9 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
-    @AppStorage(HomeFeedbackPolicy.lowVisionKey) private var lowVisionMode = false
+    @AppStorage(Self.lowVisionKey) private var lowVisionMode = false
+    /// For people with some sight: photos, questions and reading, without obstacle guidance.
+    static let lowVisionKey = "app.lowVisionMode"
     @AppStorage(Self.tapToStopKey) private var tapToStop = false
     static let tapToStopKey = "accessibility.tapToStop"
     /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
@@ -141,12 +143,11 @@ struct ContentView: View {
             .onReceive(pollTimer) { _ in
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
-                let quiet = guidanceSuppressed
                 camera.poll(
                     suspendFeedback: photo.busy || reading || isShowingSettings || isHoldingStop
-                        || quiet || scenePhase != .active
+                        || guidanceSuppressed || scenePhase != .active
                 )
-                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, !quiet,
+                if !photo.busy, !reading, !isShowingSettings, !isHoldingStop, !guidanceSuppressed,
                     scenePhase == .active
                 {
                     let snapshot = camera.model.snapshot
@@ -209,7 +210,6 @@ struct ContentView: View {
                 runPendingCommand()
             }
             .onAppear {
-                pointerCannotHold = Self.assistivePointerRunning
                 camera.poll(suspendFeedback: true)
                 speechManager.speakHomeScreen(cameraState: camera.state)
                 // The guide opens once, on the first launch. A launch from the Action button skips
@@ -271,12 +271,8 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
     }
 
-    private var guidanceSuppressed: Bool {
-        HomeFeedbackPolicy.suppressesGuidance(
-            lowVisionMode: lowVisionMode,
-            showingUserGuide: isShowingUserGuide
-        )
-    }
+    /// Low vision mode gives no guidance; the first-launch guide keeps it quiet while open.
+    private var guidanceSuppressed: Bool { lowVisionMode || isShowingUserGuide }
 
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -539,10 +535,8 @@ struct ContentView: View {
         hapticManager.buttonTapped()
         textReading.localized = { key in speechManager.interfaceString(key) }
         textReading.finished = {
-            camera.finishTextReading(
-                isActive: scenePhase == .active
-                    && UIApplication.shared.applicationState == .active
-            )
+            // Read the app state now: scenePhase here is the value from when reading started.
+            camera.finishTextReading(isActive: UIApplication.shared.applicationState == .active)
         }
         textReading.start(intro: resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start")
     }

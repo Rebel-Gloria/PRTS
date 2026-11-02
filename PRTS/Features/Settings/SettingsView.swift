@@ -13,7 +13,7 @@ struct SettingsView: View {
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
     @AppStorage(ContentView.tapToStopKey) private var tapToStop = false
     @State private var showUserGuide = false
-    @AppStorage(HomeFeedbackPolicy.lowVisionKey) private var lowVisionMode = false
+    @AppStorage(ContentView.lowVisionKey) private var lowVisionMode = false
     @State private var confirmLowVision = false
 
     var body: some View {
