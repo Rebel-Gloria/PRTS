@@ -8,13 +8,18 @@ final class LiveCaptionSession: ObservableObject {
     @Published private(set) var message = ""
     var suspendsFeedback: Bool { isRunning || isAnnouncing }
 
+    var localized: (String) -> String = { String(localized: String.LocalizationValue($0)) }
+
     private var press = LiveCaptionPressState()
+    private var pressTimer: Task<Void, Never>?
     private let audio: any PhotoAnswerAudio
     private let services: PhotoDescriptionServices
-    private let describeChange: @Sendable (Data, String, String?, String) async throws -> String
+    private let provider: () -> PhotoChatProvider
+    private let describeOpening: @Sendable (Data, String) async throws -> String
+    private let describeChange: @Sendable ([Data], String?, String) async throws -> String
     private let sleep: (TimeInterval) async throws -> Void
     private(set) var work: Task<Void, Never>?
-    private var imageTask: Task<Data, Error>?
+    private var sampling: Task<Void, Never>?
     private var speech: (startedAt: TimeInterval, characters: Int)?
     private var speechWaiter: CheckedContinuation<Void, Never>?
     private var charactersPerSecond = LiveCaptionPolicy.initialCharactersPerSecond
@@ -26,32 +31,52 @@ final class LiveCaptionSession: ObservableObject {
     init(
         audio: any PhotoAnswerAudio,
         services: PhotoDescriptionServices,
-        describeChange: @escaping @Sendable (Data, String, String?, String) async throws -> String =
-            {
-                try await PhotoDescriptionBackend.caption(
-                    jpeg: $0,
-                    opening: $1,
-                    previous: $2,
-                    key: $3
-                )
-            },
+        provider: @escaping () -> PhotoChatProvider = { PhotoChatProvider.current() },
+        describeOpening: @escaping @Sendable (Data, String) async throws -> String = {
+            try await PhotoDescriptionBackend.captionOpening(jpeg: $0, key: $1)
+        },
+        describeChange: @escaping @Sendable ([Data], String?, String) async throws -> String = {
+            try await PhotoDescriptionBackend.caption(video: $0, previous: $1, key: $2)
+        },
         sleep: @escaping (TimeInterval) async throws -> Void = {
             try await Task.sleep(for: .seconds($0))
         }
     ) {
         self.audio = audio
         self.services = services
+        self.provider = provider
+        self.describeOpening = describeOpening
         self.describeChange = describeChange
         self.sleep = sleep
         audio.onFinished = { [weak self] in self?.speechFinished() }
     }
 
-    func down() -> LiveCaptionPressState.Action {
-        press.down(at: services.now())
+    func down(perform: @escaping (LiveCaptionPressState.Action) -> Void) {
+        for action in press.down(at: services.now(), running: isRunning) { perform(action) }
+        schedulePress(perform: perform)
+    }
+
+    func up(perform: @escaping (LiveCaptionPressState.Action) -> Void) {
+        for action in press.up(at: services.now()) { perform(action) }
+        schedulePress(perform: perform)
     }
 
     func cancelPress() {
-        press.cancelPress()
+        pressTimer?.cancel()
+        pressTimer = nil
+        press.cancel()
+    }
+
+    private func schedulePress(perform: @escaping (LiveCaptionPressState.Action) -> Void) {
+        pressTimer?.cancel()
+        guard let deadline = press.deadline else { return }
+        pressTimer = Task {
+            do {
+                try await Task.sleep(for: .seconds(deadline - services.now()))
+            } catch { return }
+            for action in press.advance(to: services.now()) { perform(action) }
+            schedulePress(perform: perform)
+        }
     }
 
     func announce(_ text: String) {
@@ -82,22 +107,24 @@ final class LiveCaptionSession: ObservableObject {
 
     func start(capture: @escaping () throws -> Task<Data, Error>) {
         interruptAnnouncement()
-        var key = ""
-        if !services.onDevice() {
-            guard services.uploadAllowed() else {
-                stop()
-                message = "先在设置里允许发送照片"
-                return
+        guard provider() == .qwen else {
+            announce(localized("liveCaption.requiresQwen"))
+            return
+        }
+        guard services.uploadAllowed() else {
+            stop()
+            message = "先在设置里允许发送照片"
+            return
+        }
+        let key: String
+        do {
+            guard let credential = try services.credential(), !credential.isEmpty else {
+                throw PhotoChatError.missingKey
             }
-            do {
-                guard let credential = try services.credential(), !credential.isEmpty else {
-                    throw PhotoChatError.missingKey
-                }
-                key = credential
-            } catch {
-                fail(error)
-                return
-            }
+            key = credential
+        } catch {
+            fail(error)
+            return
         }
         isRunning = true
         charactersPerSecond = LiveCaptionPolicy.initialCharactersPerSecond
@@ -113,52 +140,76 @@ final class LiveCaptionSession: ObservableObject {
     func stop() {
         work?.cancel()
         work = nil
-        imageTask?.cancel()
-        imageTask = nil
+        sampling?.cancel()
+        sampling = nil
         audio.stop()
         speech = nil
         speechWaiter?.resume()
         speechWaiter = nil
         isRunning = false
         isAnnouncing = false
-        press = LiveCaptionPressState()
+        cancelPress()
         message = ""
     }
 
-    private func run(capture: () throws -> Task<Data, Error>, key: String) async throws {
+    private func run(
+        capture: @escaping () throws -> Task<Data, Error>,
+        key: String
+    ) async throws {
+        let stream = AsyncThrowingStream<[Data], Error>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        let sampler = Task {
+            var frames: [Data] = []
+            do {
+                while !Task.isCancelled {
+                    let sampledAt = services.now()
+                    let task = try capture()
+                    let jpeg = try await withTaskCancellationHandler {
+                        try await task.value
+                    } onCancel: {
+                        task.cancel()
+                    }
+                    frames.append(jpeg)
+                    if frames.count > 4 { frames.removeFirst() }
+                    stream.continuation.yield(frames)
+                    try await wait(until: sampledAt + 1)
+                }
+                stream.continuation.finish()
+            } catch {
+                stream.continuation.finish(throwing: error)
+            }
+        }
+        sampling = sampler
+        defer { sampler.cancel() }
+        var images = stream.stream.makeAsyncIterator()
+        guard let first = try await images.next() else { return }
         let comparison = LiveCaptionImageComparison()
-        let jpeg = try await image(capture)
-        _ = try await comparison.accept(jpeg)
+        _ = try await comparison.accept(first[0])
         var lastRequest = services.now()
-        let opening = try await services.describe(jpeg, nil, key)
+        let opening = try await describeOpening(first[0], key)
         try Task.checkCancellation()
         var modelDuration = services.now() - lastRequest
         try say(opening)
-        var previous: String?
+        var previous: String? = opening
 
-        while true {
+        while !Task.isCancelled {
             let speechEnd = speech.map {
                 $0.startedAt + Double($0.characters) / charactersPerSecond
             }
-            let requestTime = LiveCaptionPolicy.requestTime(
-                now: services.now(),
-                lastRequest: lastRequest,
-                speechEnd: speechEnd,
-                modelDuration: modelDuration
-            )
-            try await wait(until: requestTime)
-            var windowStart = services.now()
-            var jpeg = try await image(capture)
-            while try await !comparison.accept(jpeg) {
-                let now = services.now()
-                if now >= windowStart + LiveCaptionPolicy.changeWindow { windowStart = now }
-                try await wait(
-                    until: LiveCaptionPolicy.nextCheck(now: now, windowStart: windowStart)
+            try await wait(
+                until: LiveCaptionPolicy.requestTime(
+                    now: services.now(),
+                    lastRequest: lastRequest,
+                    speechEnd: speechEnd,
+                    modelDuration: modelDuration
                 )
-                jpeg = try await image(capture)
-            }
+            )
+            guard let frames = try await images.next() else { return }
+            if frames.count < 4 { continue }
+            if try await !comparison.accept(frames[3]) { continue }
             lastRequest = services.now()
-            let response = try await describeChange(jpeg, opening, previous, key)
+            let response = try await describeChange(frames, previous, key)
             try Task.checkCancellation()
             modelDuration = services.now() - lastRequest
             if let answer = LiveCaptionPolicy.answer(response, previous: previous) {
@@ -172,18 +223,9 @@ final class LiveCaptionSession: ObservableObject {
         }
     }
 
-    private func image(_ capture: () throws -> Task<Data, Error>) async throws -> Data {
-        let task = try capture()
-        imageTask = task
-        defer { imageTask = nil }
-        return try await task.value
-    }
-
     private func wait(until time: TimeInterval) async throws {
         let delay = time - services.now()
         if delay > 0 { try await sleep(delay) }
-        // The injected sleep need not throw on cancellation, so a stop during the wait ends here.
-        try Task.checkCancellation()
     }
 
     private func say(_ text: String) throws {

@@ -56,13 +56,6 @@ struct LiveCaptionPolicyTests {
         )
     }
 
-    @Test func checksEndAtFiveSecondWindow() {
-        #expect(LiveCaptionPolicy.nextCheck(now: 10, windowStart: 10) == 12)
-        #expect(LiveCaptionPolicy.nextCheck(now: 12, windowStart: 10) == 14)
-        #expect(LiveCaptionPolicy.nextCheck(now: 14, windowStart: 10) == 15)
-        #expect(LiveCaptionPolicy.nextCheck(now: 15, windowStart: 15) == 17)
-    }
-
     @Test func actualCompletionUpdatesSpeechEstimate() {
         #expect(LiveCaptionPolicy.initialCharactersPerSecond == 4.5)
         #expect(

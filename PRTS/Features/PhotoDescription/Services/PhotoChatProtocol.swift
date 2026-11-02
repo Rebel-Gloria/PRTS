@@ -16,11 +16,55 @@ nonisolated enum PhotoChatProtocol {
         thinking: Bool = false,
         maxTokens: Int? = nil
     ) throws -> URLRequest {
+        guard !jpeg.isEmpty else { throw PhotoChatError.emptyInput }
+        return try request(
+            content: [
+                ["type": "text", "text": text],
+                ["type": "image_url", "image_url": ["url": dataURL(jpeg)]],
+            ],
+            text: text,
+            key: key,
+            service: service,
+            system: system,
+            thinking: thinking,
+            maxTokens: maxTokens
+        )
+    }
+
+    static func request(video: [Data], previous: String?, key: String) throws -> URLRequest {
+        let text = "上一句：\(previous ?? "无")"
+        return try request(
+            content: [
+                ["type": "video", "video": video.map(dataURL)],
+                ["type": "text", "text": text],
+            ],
+            text: text,
+            key: key,
+            service: .qwen,
+            system: PhotoPrompts.liveCaptionSystem,
+            thinking: false,
+            maxTokens: 24
+        )
+    }
+
+    private static func dataURL(_ jpeg: Data) -> String {
+        "data:image/jpeg;base64,\(jpeg.base64EncodedString())"
+    }
+
+    private static func request(
+        content: [[String: Any]],
+        text: String,
+        key: String,
+        service: PhotoChatService,
+        system: String?,
+        thinking: Bool,
+        maxTokens: Int?
+    ) throws -> URLRequest {
         let credential = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !credential.isEmpty, !credential.contains("\r"), !credential.contains("\n") else {
             throw PhotoChatError.missingKey
         }
-        guard !jpeg.isEmpty, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw PhotoChatError.emptyInput
         }
         var request = URLRequest(url: service.endpoint)
@@ -31,16 +75,7 @@ nonisolated enum PhotoChatProtocol {
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         var messages: [[String: Any]] = []
         if let system, !system.isEmpty { messages.append(["role": "system", "content": system]) }
-        messages.append([
-            "role": "user",
-            "content": [
-                ["type": "text", "text": text],
-                [
-                    "type": "image_url",
-                    "image_url": ["url": "data:image/jpeg;base64,\(jpeg.base64EncodedString())"],
-                ],
-            ],
-        ])
+        messages.append(["role": "user", "content": content])
         var body: [String: Any] = ["model": service.model, "stream": true, "messages": messages]
         // Thinking is off unless asked for: a one-glance description doesn't need it and answers
         // arrive much sooner.
