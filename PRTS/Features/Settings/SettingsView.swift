@@ -11,6 +11,7 @@ struct SettingsView: View {
     #endif
     @EnvironmentObject private var speech: SpeechManager
     @AppStorage(ContentView.noPreviewKey) private var noPreview = false
+    @AppStorage(ContentView.tapToStopKey) private var tapToStop = false
     @State private var showUserGuide = false
     @AppStorage(HomeFeedbackPolicy.lowVisionKey) private var lowVisionMode = false
     @State private var confirmLowVision = false
@@ -65,6 +66,12 @@ struct SettingsView: View {
             #endif
             Section("settings.photo.section") {
                 NavigationLink("settings.photo.service") { PhotoDescriptionSettingsView() }
+            }
+            Section {
+                Toggle("settings.tapToStop", isOn: $tapToStop)
+                    .accessibilityIdentifier("tapToStopToggle")
+            } footer: {
+                Text("settings.tapToStop.footer")
             }
             Section {
                 // Turning it on stops obstacle guidance, so it asks first; turning it off does not.

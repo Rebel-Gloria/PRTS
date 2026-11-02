@@ -28,6 +28,8 @@ struct ContentView: View {
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
     @AppStorage(HomeFeedbackPolicy.lowVisionKey) private var lowVisionMode = false
+    @AppStorage(Self.tapToStopKey) private var tapToStop = false
+    static let tapToStopKey = "accessibility.tapToStop"
     /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
     /// touches but cannot hold a press, so held gestures get a tap alternative.
     @State private var pointerCannotHold = Self.assistivePointerRunning
@@ -189,6 +191,7 @@ struct ContentView: View {
                 }
             }
             .onChange(of: scenePhase) { _, phase in
+                if phase == .active { pointerCannotHold = Self.assistivePointerRunning }
                 if phase != .active {
                     photo.cancel()
                     textReading.cancel()
@@ -206,6 +209,7 @@ struct ContentView: View {
                 runPendingCommand()
             }
             .onAppear {
+                pointerCannotHold = Self.assistivePointerRunning
                 camera.poll(suspendFeedback: true)
                 speechManager.speakHomeScreen(cameraState: camera.state)
                 // The guide opens once, on the first launch. A launch from the Action button skips
@@ -277,6 +281,8 @@ struct ContentView: View {
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private static var assistivePointerRunning: Bool {
+        // AssistiveTouch reports reliably only with Guided Access. The tap-to-stop setting
+        // keeps stopping accessible when the system cannot report the user's input method.
         UIAccessibility.isAssistiveTouchRunning || UIAccessibility.isSwitchControlRunning
     }
 
@@ -438,7 +444,7 @@ struct ContentView: View {
     private var primaryButton: some View {
         GuidanceButton(
             state: camera.state,
-            pointerCannotHold: pointerCannotHold,
+            pointerCannotHold: pointerCannotHold || tapToStop,
             isLargeText: isLargeText,
             threeFingerReading: threeFingerReading,
             stopGesture: stopGesture,
