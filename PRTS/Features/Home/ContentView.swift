@@ -107,7 +107,7 @@ struct ContentView: View {
                         busy: photo.busy,
                         volumeButtons: volumeButtons,
                         down: photoDown,
-                        up: { photo.up() },
+                        up: { liveCaption.up(perform: performPhotoAction) },
                         cancel: cancelPhotoPress,
                         strings: .init(
                             label: speechManager.interfaceString("photo.button.label"),
@@ -346,6 +346,7 @@ struct ContentView: View {
                 askingByTap = false
                 photo.up()
             } else {
+                liveCaption.cancelPress()
                 liveCaption.interruptAnnouncement()
                 photo.down(
                     snapshot: { camera.model.snapshot.frame },
@@ -535,26 +536,29 @@ struct ContentView: View {
     }
 
     private func photoDown() {
-        switch liveCaption.down() {
-        case .photo:
+        liveCaption.down(perform: performPhotoAction)
+    }
+
+    private func performPhotoAction(_ action: LiveCaptionPressState.Action) {
+        switch action {
+        case .photo(let action):
             liveCaption.interruptAnnouncement()
-            photo.down(
+            if !photo.perform(
+                action,
                 snapshot: { camera.model.snapshot.frame },
                 silence: { speechManager.stopCurrentSpeech() }
-            )
-        case .confirm:
-            photo.cancel()
-            speechManager.stopCurrentSpeech()
-            liveCaption.announce(speechManager.interfaceString("liveCaption.confirm"))
+            ) {
+                liveCaption.cancelPress()
+            }
         case .start:
             photo.cancel()
             speechManager.stopCurrentSpeech()
+            liveCaption.localized = { speechManager.interfaceString($0) }
             liveCaption.start(snapshot: { camera.model.snapshot.frame })
-            camera.poll(suspendFeedback: true)
+            camera.poll(suspendFeedback: liveCaption.suspendsFeedback)
         case .stop:
             liveCaption.stop()
             liveCaption.announce(speechManager.interfaceString("liveCaption.off"))
-        case .none: break
         }
     }
 

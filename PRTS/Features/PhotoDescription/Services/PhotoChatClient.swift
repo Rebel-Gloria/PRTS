@@ -24,6 +24,13 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
             thinking: thinking,
             maxTokens: maxTokens
         )
+        return try await send(request, configuration: configuration)
+    }
+
+    func send(
+        _ request: URLRequest,
+        configuration: URLSessionConfiguration = .ephemeral
+    ) async throws -> String {
         configuration.timeoutIntervalForResource = 120
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil

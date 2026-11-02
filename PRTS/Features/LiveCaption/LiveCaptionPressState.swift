@@ -2,40 +2,67 @@ import Foundation
 
 /// Press timestamps share the monotonic clock used by photo interactions.
 nonisolated struct LiveCaptionPressState {
-    enum Action: Equatable { case photo, none, confirm, start, stop }
-    enum Phase: Equatable {
-        case normal
-        case confirming(until: TimeInterval)
-        case running
+    enum Action: Equatable {
+        case photo(PhotoPressState.Action)
+        case start, stop
+    }
+    static let interval: TimeInterval = 0.35
+
+    private var photo = PhotoPressState()
+    private var beganAt: TimeInterval?
+    private var lastDown: TimeInterval?
+    private var taps = 0
+
+    var deadline: TimeInterval? {
+        if let beganAt, lastDown != nil { return beganAt + 0.5 }
+        return lastDown.map { ($0 + Self.interval).nextUp }
     }
 
-    private(set) var phase: Phase = .normal
-    private var previousPress: TimeInterval?
-
-    mutating func down(at time: TimeInterval) -> Action {
-        if case .confirming(let deadline) = phase, time > deadline {
-            phase = .normal
-            previousPress = nil
+    mutating func down(at time: TimeInterval, running: Bool) -> [Action] {
+        if running {
+            cancel()
+            return [.stop]
         }
-        if let previousPress, time <= previousPress + 0.3 {
-            self.previousPress = nil
-            switch phase {
-            case .normal:
-                phase = .confirming(until: time + 5)
-                return .confirm
-            case .confirming:
-                phase = .running
-                return .start
-            case .running:
-                phase = .normal
-                return .stop
+        let actions = advance(to: time)
+        beganAt = time
+        lastDown = time
+        photo.begin(at: time)
+        return actions
+    }
+
+    mutating func advance(to time: TimeInterval) -> [Action] {
+        if photo.advance(to: time) == .startRecording {
+            taps = 0
+            lastDown = nil
+            return [.photo(.startRecording)]
+        }
+        if beganAt == nil, let lastDown, time > lastDown + Self.interval {
+            cancel()
+            return [.photo(.shortCapture)]
+        }
+        return []
+    }
+
+    mutating func up(at time: TimeInterval) -> [Action] {
+        let actions = photo.release(at: time)
+        beganAt = nil
+        if actions == [.shortCapture] {
+            taps += 1
+            // Release distinguishes the third tap from a held question.
+            if taps == 3 {
+                cancel()
+                return [.start]
             }
+            return advance(to: time)
         }
-        previousPress = time
-        return phase == .running ? .none : .photo
+        cancel()
+        return actions.map { .photo($0) }
     }
 
-    mutating func cancelPress() {
-        previousPress = nil
+    mutating func cancel() {
+        photo.cancel()
+        beganAt = nil
+        lastDown = nil
+        taps = 0
     }
 }

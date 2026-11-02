@@ -591,23 +591,6 @@
     "RGB画面已隐藏；采集状态见主按钮" : {
 
     },
-    "liveCaption.confirm" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Double-press again to start live captions"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再次双击以启用流式字幕"
-          }
-        }
-      }
-    },
     "liveCaption.off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -621,6 +604,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已退出流式字幕"
+          }
+        }
+      }
+    },
+    "liveCaption.requiresQwen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live captions need Qwen in Intelligence settings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流式字幕需要在智能设置中选择通义千问。"
           }
         }
       }

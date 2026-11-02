@@ -2,7 +2,6 @@ import Foundation
 
 nonisolated enum LiveCaptionPolicy {
     static let minimumRequestInterval: TimeInterval = 2
-    static let changeWindow: TimeInterval = 5
     static let initialCharactersPerSecond = 4.5
 
     static func answer(_ response: String, previous: String?) -> String? {
@@ -21,10 +20,6 @@ nonisolated enum LiveCaptionPolicy {
         modelDuration: TimeInterval
     ) -> TimeInterval {
         max(now, lastRequest + minimumRequestInterval, (speechEnd ?? now) - modelDuration)
-    }
-
-    static func nextCheck(now: TimeInterval, windowStart: TimeInterval) -> TimeInterval {
-        min(now + minimumRequestInterval, windowStart + changeWindow)
     }
 
     static func updatedSpeechRate(

@@ -9,9 +9,20 @@ private final class CaptionTestAudio: PhotoAnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     var stops = 0
+    private var arrival: CheckedContinuation<Void, Never>?
+
     func cue(_ cue: PhotoAudioOutput.Cue) throws {}
-    func speak(_ text: String) throws { spoken.append(text) }
+    func speak(_ text: String) throws {
+        spoken.append(text)
+        arrival?.resume()
+        arrival = nil
+    }
     func stop() { stops += 1 }
+
+    func waitForSpeech() async {
+        if !spoken.isEmpty { return }
+        await withCheckedContinuation { arrival = $0 }
+    }
 }
 
 private actor CaptionTestResponse {
@@ -19,7 +30,7 @@ private actor CaptionTestResponse {
     private var arrival: CheckedContinuation<Void, Never>?
 
     func request() async -> String {
-        await withCheckedContinuation {
+        return await withCheckedContinuation {
             response = $0
             arrival?.resume()
             arrival = nil
@@ -38,6 +49,44 @@ private actor CaptionTestResponse {
 }
 
 @MainActor
+private final class CaptionTestClock {
+    var now: TimeInterval = 0
+    private var sleepers: [(TimeInterval, CheckedContinuation<Void, Error>)] = []
+    private var arrival: (TimeInterval, Int, CheckedContinuation<Void, Never>)?
+
+    func sleep(_ duration: TimeInterval) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            let deadline = now + duration
+            sleepers.append((deadline, continuation))
+            if let arrival, arrival.0 == deadline,
+                sleepers.filter({ $0.0 == deadline }).count == arrival.1
+            {
+                self.arrival = nil
+                arrival.2.resume()
+            }
+        }
+    }
+
+    func waitForSleep(at deadline: TimeInterval, count: Int = 1) async {
+        if sleepers.filter({ $0.0 == deadline }).count >= count { return }
+        await withCheckedContinuation { arrival = (deadline, count, $0) }
+    }
+
+    func advance(to time: TimeInterval) {
+        now = time
+        let ready = sleepers.filter { $0.0 <= time }
+        sleepers.removeAll { $0.0 <= time }
+        for (_, continuation) in ready { continuation.resume() }
+    }
+
+    func finish() {
+        let pending = sleepers
+        sleepers = []
+        for (_, continuation) in pending { continuation.resume(throwing: CancellationError()) }
+    }
+}
+
+@MainActor
 struct LiveCaptionSessionTests {
     private func jpeg() -> Data {
         UIGraphicsImageRenderer(size: CGSize(width: 64, height: 64)).jpegData(
@@ -50,22 +99,61 @@ struct LiveCaptionSessionTests {
         }
     }
 
+    private func services(clock: CaptionTestClock) -> PhotoDescriptionServices {
+        var services = PhotoDescriptionServices()
+        services.now = { clock.now }
+        services.uploadAllowed = { true }
+        services.credential = { "synthetic-test-key" }
+        return services
+    }
+
+    @Test(arguments: [PhotoChatProvider.onDevice, .deepseek, .custom])
+    func otherProvidersAnnounceQwenRequirementBeforeCapture(provider: PhotoChatProvider) {
+        let audio = CaptionTestAudio()
+        var services = PhotoDescriptionServices()
+        services.uploadAllowed = {
+            Issue.record("Upload consent must only be checked for Qwen")
+            return false
+        }
+        services.credential = {
+            Issue.record("Credentials must only be read for Qwen")
+            return nil
+        }
+        let session = LiveCaptionSession(audio: audio, services: services, provider: { provider })
+        session.localized = { key in
+            #expect(key == "liveCaption.requiresQwen")
+            return "流式字幕需要在智能设置中选择通义千问。"
+        }
+        session.start(capture: {
+            Issue.record("Unsupported providers must not capture")
+            return Task { Data() }
+        })
+        #expect(session.work == nil)
+        #expect(!session.isRunning)
+        #expect(audio.spoken == ["流式字幕需要在智能设置中选择通义千问。"])
+        #expect(session.suspendsFeedback)
+        audio.onFinished?()
+        #expect(!session.suspendsFeedback)
+    }
+
     @Test func lateOpeningAfterStopStaysSilent() async {
         let response = CaptionTestResponse()
         let audio = CaptionTestAudio()
-        var services = PhotoDescriptionServices()
-        services.onDevice = { true }
-        services.describe = { _, question, _ in
-            #expect(question == nil)
-            return await response.request()
-        }
-        let session = LiveCaptionSession(audio: audio, services: services)
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            provider: { .qwen },
+            describeOpening: { _, _ in await response.request() },
+            sleep: clock.sleep
+        )
         let image = jpeg()
         session.start(capture: { Task { image } })
         let work = session.work
         await response.waitForRequest()
         #expect(session.isRunning)
         session.stop()
+        clock.finish()
         await response.reply("桌上放着一台电脑。")
         await work?.value
         #expect(audio.spoken.isEmpty)
@@ -75,9 +163,13 @@ struct LiveCaptionSessionTests {
     @Test func stopCancelsImagePreparation() async {
         let response = CaptionTestResponse()
         let audio = CaptionTestAudio()
-        var services = PhotoDescriptionServices()
-        services.onDevice = { true }
-        let session = LiveCaptionSession(audio: audio, services: services)
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            provider: { .qwen },
+            sleep: clock.sleep
+        )
         let image = jpeg()
         var imageTask: Task<Data, Error>?
         session.start(capture: {
@@ -101,30 +193,43 @@ struct LiveCaptionSessionTests {
     @Test func cloudConsentIsRequiredBeforeCapture() {
         let audio = CaptionTestAudio()
         var services = PhotoDescriptionServices()
-        services.onDevice = { false }
         services.uploadAllowed = { false }
-        let session = LiveCaptionSession(audio: audio, services: services)
-        var captured = false
+        let session = LiveCaptionSession(audio: audio, services: services, provider: { .qwen })
         session.start(capture: {
-            captured = true
+            Issue.record("Capture requires upload consent")
             return Task { Data() }
         })
-        #expect(!captured)
         #expect(!session.isRunning)
         #expect(session.message == "先在设置里允许发送照片")
     }
 
-    @Test func stopDuringPrefetchWaitKeepsLoopStopped() async {
-        let wakeup = CaptionTestResponse()
+    @Test func qwenKeyIsRequiredBeforeCapture() {
         let audio = CaptionTestAudio()
         var services = PhotoDescriptionServices()
-        services.now = { 10 }
-        services.onDevice = { true }
-        services.describe = { _, _, _ in "桌上放着一台电脑。" }
+        services.uploadAllowed = { true }
+        services.credential = { nil }
+        let session = LiveCaptionSession(audio: audio, services: services, provider: { .qwen })
+        session.start(capture: {
+            Issue.record("Capture requires a Qwen key")
+            return Task { Data() }
+        })
+        #expect(!session.isRunning)
+        #expect(session.message == PhotoChatError.missingKey.localizedDescription)
+    }
+
+    @Test func fewerThanFourFramesNeverRequestChanges() async {
+        let audio = CaptionTestAudio()
+        let clock = CaptionTestClock()
         let session = LiveCaptionSession(
             audio: audio,
-            services: services,
-            sleep: { _ in _ = await wakeup.request() }
+            services: services(clock: clock),
+            provider: { .qwen },
+            describeOpening: { _, _ in "门口。" },
+            describeChange: { _, _, _ in
+                Issue.record("A video request requires four frames")
+                return "无"
+            },
+            sleep: clock.sleep
         )
         let image = jpeg()
         var captures = 0
@@ -133,19 +238,56 @@ struct LiveCaptionSessionTests {
             return Task { image }
         })
         let work = session.work
-        await wakeup.waitForRequest()
-        #expect(audio.spoken == ["桌上放着一台电脑。"])
+        await audio.waitForSpeech()
+        await clock.waitForSleep(at: 1)
+        clock.advance(to: 1)
+        await clock.waitForSleep(at: 2, count: 2)
+        clock.advance(to: 2)
+        await clock.waitForSleep(at: 3)
+        #expect(captures == 3)
         session.stop()
-        await wakeup.reply("")
+        clock.finish()
         await work?.value
-        #expect(captures == 1)
-        #expect(!session.isRunning)
+        #expect(audio.spoken == ["门口。"])
     }
 
-    @Test func confirmationAudioOwnsFeedbackUntilFinished() {
+    @Test func samplingContinuesDuringOpeningRequestAndStopsWithSession() async {
+        let response = CaptionTestResponse()
+        let audio = CaptionTestAudio()
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            provider: { .qwen },
+            describeOpening: { _, _ in await response.request() },
+            sleep: clock.sleep
+        )
+        let image = jpeg()
+        var captureTimes: [TimeInterval] = []
+        session.start(capture: {
+            captureTimes.append(clock.now)
+            return Task { image }
+        })
+        let work = session.work
+        await response.waitForRequest()
+        for second in 1...5 {
+            await clock.waitForSleep(at: Double(second))
+            clock.advance(to: Double(second))
+        }
+        await clock.waitForSleep(at: 6)
+        #expect(captureTimes == [0, 1, 2, 3, 4, 5])
+        session.stop()
+        clock.finish()
+        await response.reply("门口。")
+        await work?.value
+        #expect(captureTimes.count == 6)
+        #expect(audio.spoken.isEmpty)
+    }
+
+    @Test func exitAudioOwnsFeedbackUntilFinished() {
         let audio = CaptionTestAudio()
         let session = LiveCaptionSession(audio: audio, services: .init())
-        session.announce("再次双击以启用流式字幕")
+        session.announce("已退出流式字幕")
         #expect(session.suspendsFeedback)
         #expect(!session.isRunning)
         audio.onFinished?()

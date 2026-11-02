@@ -30,7 +30,7 @@
 | 场景 | 系统提示词 | 约束 |
 |---|---|---|
 | 短按描述 | `PhotoPrompts.system` | 用户消息固定为“描述眼前。”。先说明最近的物体及其位置，再说明路面；一到两句，四十字以内 |
-| 流式字幕 | 开场使用 `PhotoPrompts.system`，后续使用 `PhotoPrompts.liveCaptionSystem` | 开场沿用短按描述；变化请求附开场和上一句，只描述可见变化，最多 24 个 token，关闭深度思考；无变化时保持安静 |
+| 流式字幕 | 开场使用 `PhotoPrompts.liveCaptionOpeningSystem`，变化使用 `PhotoPrompts.liveCaptionSystem` | 仅支持通义千问；开场以第一帧单图请求描述地点和主要物体，最多 20 字、40 个 token；每秒采帧，凑满最近 4 帧后以视频请求描述动作，附上一句，最多 15 字、24 个 token；关闭深度思考，无变化时保持安静 |
 | 语音提问（联网服务） | `PhotoPrompts.questionSystem` | 直接回答问题，可以描述颜色、穿着、数量、文字和用途，也可以翻译；最多三句 |
 | 语音提问（本机，增强模式关闭） | `PhotoPrompts.localQuestionSystem` | 在描述提示词的基础上调整，以问答示例约束回答细节；最多三句 |
 | 语音提问（本机，增强模式开启） | `PhotoPrompts.questionSystem` | 复用联网提问提示词，允许更广泛的细节、翻译与解释；最多三句 |

@@ -19,17 +19,19 @@ nonisolated enum PhotoDescriptionBackend {
         return question == nil ? answer : PhotoPrompts.threeSentences(answer)
     }
 
-    static func caption(jpeg: Data, opening: String, previous: String?, key: String) async throws
-        -> String
-    {
-        try await generate(
+    static func captionOpening(jpeg: Data, key: String) async throws -> String {
+        try await PhotoChatClient().describe(
             jpeg: jpeg,
-            text: "开场：\(opening)\n上一句：\(previous ?? "无")",
+            text: PhotoPrompts.prompt,
             key: key,
-            provider: PhotoChatProvider.current(),
-            system: PhotoPrompts.liveCaptionSystem,
-            thinking: false,
-            maxTokens: 24
+            system: PhotoPrompts.liveCaptionOpeningSystem,
+            maxTokens: 40
+        )
+    }
+
+    static func caption(video: [Data], previous: String?, key: String) async throws -> String {
+        try await PhotoChatClient().send(
+            PhotoChatProtocol.request(video: video, previous: previous, key: key)
         )
     }
 
@@ -39,15 +41,14 @@ nonisolated enum PhotoDescriptionBackend {
         key: String,
         provider: PhotoChatProvider,
         system: String,
-        thinking: Bool,
-        maxTokens: Int? = nil
+        thinking: Bool
     ) async throws -> String {
         if provider == .onDevice {
             let answer = try await PhotoLocalModel.shared.describe(
                 jpeg: jpeg,
                 prompt: text,
                 system: system,
-                maxTokens: maxTokens ?? 160
+                maxTokens: 160
             )
             guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
             return answer
@@ -58,8 +59,7 @@ nonisolated enum PhotoDescriptionBackend {
             key: key,
             service: provider.service(),
             system: system,
-            thinking: thinking,
-            maxTokens: maxTokens
+            thinking: thinking
         )
     }
 }

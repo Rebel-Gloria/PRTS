@@ -34,29 +34,66 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     func down(snapshot: @escaping () -> FrameSnapshot?, silence: () -> Void) {
+        down(capture: captureOperation(snapshot: snapshot), silence: silence)
+    }
+
+    func perform(
+        _ action: PhotoPressState.Action,
+        snapshot: @escaping () -> FrameSnapshot?,
+        silence: () -> Void
+    ) -> Bool {
+        perform(action, capture: captureOperation(snapshot: snapshot), silence: silence)
+    }
+
+    func perform(
+        _ action: PhotoPressState.Action,
+        capture: @escaping () throws -> Task<Data, Error>,
+        silence: () -> Void
+    ) -> Bool {
+        if action == .shortCapture || action == .startRecording {
+            guard prepare(capture: capture, silence: silence) else { return false }
+        }
+        perform(action)
+        return busy
+    }
+
+    private func captureOperation(
+        snapshot: @escaping () -> FrameSnapshot?
+    ) -> () throws -> Task<Data, Error> {
         let now = services.now
-        down(
-            capture: {
-                guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
-                    throw PhotoChatError.emptyInput
-                }
-                return Task.detached(priority: .userInitiated) {
-                    try Task.checkCancellation()
-                    let data = try PhotoImageEncoder.jpeg(frame: frame)
-                    try Task.checkCancellation()
-                    return data
-                }
-            },
-            silence: silence
-        )
+        return {
+            guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
+                throw PhotoChatError.emptyInput
+            }
+            return Task.detached(priority: .userInitiated) {
+                try Task.checkCancellation()
+                let data = try PhotoImageEncoder.jpeg(frame: frame)
+                try Task.checkCancellation()
+                return data
+            }
+        }
     }
 
     func down(capture: @escaping () throws -> Task<Data, Error>, silence: () -> Void) {
-        guard !busy else { return }
+        guard prepare(capture: capture, silence: silence) else { return }
+        press.begin(at: services.now())
+        let id = generation
+        timer = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            guard let self, self.generation == id else { return }
+            self.advancePress()
+        }
+    }
+
+    private func prepare(
+        capture: @escaping () throws -> Task<Data, Error>,
+        silence: () -> Void
+    ) -> Bool {
+        guard !busy else { return false }
         if !services.onDevice() {
             guard services.uploadAllowed() else {
                 message = "先在设置里允许发送照片"
-                return
+                return false
             }
             do {
                 guard let credential = try services.credential(), !credential.isEmpty else {
@@ -65,7 +102,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 key = credential
             } catch {
                 message = error.localizedDescription
-                return
+                return false
             }
         }
         silence()
@@ -73,13 +110,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         captureOperation = capture
         busy = true
         message = "松手描述，长按提问"
-        press.begin(at: services.now())
-        let id = generation
-        timer = Task { [weak self] in
-            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
-            guard let self, self.generation == id else { return }
-            self.advancePress()
-        }
+        return true
     }
 
     /// Timer and deterministic tests use the same transition; the clock is authoritative.
@@ -90,38 +121,39 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     func up() {
         timer?.cancel()
         timer = nil
-        let actions = press.release(at: services.now())
-        for action in actions {
-            switch action {
-            case .shortCapture:
-                do {
-                    try capture()
-                    try audio.cue(.submit)
-                    submit(question: nil)
-                } catch { fail(error) }
-            case .startRecording: startRecording()
-            case .stopRecording:
-                guard imageTask != nil else { return }
-                recognizer.endCapture()
-                do { try audio.cue(.submit) } catch {
-                    fail(error)
-                    return
-                }
-                message = "正在识别"
-                let id = generation
-                work = Task { [weak self] in
-                    guard let self else { return }
-                    do {
-                        let text = try await self.recognizer.finish()
-                        try Task.checkCancellation()
-                        guard self.generation == id else { return }
-                        self.submit(question: text)
-                    } catch {
-                        if self.generation == id { self.fail(error) }
-                    }
-                }
-            case .none: break
+        for action in press.release(at: services.now()) { perform(action) }
+    }
+
+    private func perform(_ action: PhotoPressState.Action) {
+        switch action {
+        case .shortCapture:
+            do {
+                try capture()
+                try audio.cue(.submit)
+                submit(question: nil)
+            } catch { fail(error) }
+        case .startRecording: startRecording()
+        case .stopRecording:
+            guard imageTask != nil else { return }
+            recognizer.endCapture()
+            do { try audio.cue(.submit) } catch {
+                fail(error)
+                return
             }
+            message = "正在识别"
+            let id = generation
+            work = Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let text = try await self.recognizer.finish()
+                    try Task.checkCancellation()
+                    guard self.generation == id else { return }
+                    self.submit(question: text)
+                } catch {
+                    if self.generation == id { self.fail(error) }
+                }
+            }
+        case .none: break
         }
     }
 
