@@ -47,7 +47,7 @@ private final class CaptionPhotoFixture {
             case .photo(let action):
                 if !photo.perform(
                     action,
-                    capture: {
+                    capture: { _ in
                         self.captures += 1
                         return Task { Data([1]) }
                     },

@@ -218,7 +218,11 @@ struct PhotoImageTests {
         }
         CVPixelBufferUnlockBaseAddress(buffer, [])
         for orientation in ImageOrientation.allCases {
-            let data = try PhotoImageEncoder.jpeg(pixelBuffer: buffer, orientation: orientation)
+            let data = try PhotoImageEncoder.jpeg(
+                pixelBuffer: buffer,
+                orientation: orientation,
+                longestSide: 1280
+            )
             let image = try #require(UIImage(data: data)?.cgImage)
             #expect(image.width == (orientation.swapsAxes ? 480 : 640))
             #expect(image.height == (orientation.swapsAxes ? 640 : 480))

@@ -45,7 +45,11 @@ struct PhotoImageAlignmentTests {
             (.portraitUpsideDown, [1, 3, 0, 2]),
         ]
         for (orientation, expected) in rotations {
-            let jpeg = try PhotoImageEncoder.jpeg(pixelBuffer: buffer, orientation: orientation)
+            let jpeg = try PhotoImageEncoder.jpeg(
+                pixelBuffer: buffer,
+                orientation: orientation,
+                longestSide: 1280
+            )
             let image = try #require(UIImage(data: jpeg)?.cgImage)
             for quadrant in 0..<4 {
                 let x = image.width * (quadrant % 2 == 0 ? 1 : 3) / 4

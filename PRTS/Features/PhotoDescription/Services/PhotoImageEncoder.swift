@@ -3,15 +3,42 @@ import CoreImage
 import ImageIO
 import SpatialCore
 
-/// Encodes a retained AR frame on the worker task, never starts a second camera session.
-/// Rotation precedes proportional downsampling; no crop, overlay, or metadata is exported.
+nonisolated enum PhotoImagePurpose {
+    case description, question, textReading, liveCaption
+
+    static let highResolutionKey = "photoDescription.highResolution"
+
+    func longestSide(highResolution: Bool) -> CGFloat {
+        switch self {
+        case .question, .textReading: highResolution ? 1920 : 1280
+        case .description, .liveCaption: 1280
+        }
+    }
+}
+
+/// Rotation precedes proportional downsampling to preserve the full camera view.
 nonisolated enum PhotoImageEncoder {
-    static func jpeg(frame: FrameSnapshot) throws -> Data {
-        try jpeg(pixelBuffer: frame.frame.capturedImage, orientation: frame.orientation)
+    static func jpeg(frame: FrameSnapshot, longestSide: CGFloat) throws -> Data {
+        try jpeg(
+            pixelBuffer: frame.frame.capturedImage,
+            orientation: frame.orientation,
+            longestSide: longestSide
+        )
     }
 
-    static func jpeg(pixelBuffer: CVPixelBuffer, orientation imageOrientation: ImageOrientation)
-        throws -> Data
+    static func jpeg(
+        pixelBuffer: CVPixelBuffer,
+        orientation: ImageOrientation,
+        longestSide: CGFloat
+    ) throws -> Data {
+        try jpeg(
+            image: image(pixelBuffer: pixelBuffer, orientation: orientation),
+            longestSide: longestSide
+        )
+    }
+
+    static func image(pixelBuffer: CVPixelBuffer, orientation imageOrientation: ImageOrientation)
+        -> CIImage
     {
         let orientation: CGImagePropertyOrientation
         switch imageOrientation {
@@ -20,13 +47,12 @@ nonisolated enum PhotoImageEncoder {
         case .landscapeLeft: orientation = .down
         case .landscapeRight: orientation = .up
         }
-        return try jpeg(image: CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation))
+        return CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation)
     }
 
-    /// Upright image, longest side at most 1280.
-    static func jpeg(image: CIImage) throws -> Data {
+    static func jpeg(image: CIImage, longestSide: CGFloat) throws -> Data {
         var image = image
-        let scale = min(1, 1280 / max(image.extent.width, image.extent.height))
+        let scale = min(1, longestSide / max(image.extent.width, image.extent.height))
         image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         let context = CIContext(options: [.cacheIntermediates: false])
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),

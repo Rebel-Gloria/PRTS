@@ -95,9 +95,12 @@ final class TextReadingSession: ObservableObject {
     }
 
     private func read(_ image: CIImage?, _ id: UUID) async {
+        let longestSide = PhotoImagePurpose.textReading.longestSide(
+            highResolution: UserDefaults.standard.bool(forKey: PhotoImagePurpose.highResolutionKey)
+        )
         guard let image,
             let jpeg = try? await Task.detached(operation: {
-                try PhotoImageEncoder.jpeg(image: image)
+                try PhotoImageEncoder.jpeg(image: image, longestSide: longestSide)
             }).value
         else {
             return finishModel(id)
