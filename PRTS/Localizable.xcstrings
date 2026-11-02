@@ -733,13 +733,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Broadens on-device answers and may reduce accuracy."
+            "value" : "Lets the on-device model answer more detail, translation and explanation questions."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扩大本机模型的回答范围，可能降低准确性。"
+            "value" : "让本机模型回答更多细节、翻译和解释类问题。"
           }
         }
       }
@@ -750,13 +750,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allows broader answers about details, translations, and explanations, but may reduce answer accuracy. Applies only to voice questions on device."
+            "value" : "Applies only to voice questions. Answers cover more, but may be less accurate."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "允许本机模型回答更多细节、翻译和解释类问题，但可能降低回答准确性。仅影响语音提问。"
+            "value" : "只影响语音提问。回答范围更广，准确性可能下降。"
           }
         }
       }
@@ -1345,13 +1345,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VLLM follows your provider in Intelligence settings. Apple Vision reads text on device."
+            "value" : "Smart reading follows your provider in Intelligence settings. Apple Vision reads text on device."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VLLM 跟随智能设置中的服务商；Apple Vision 在本机识别文字。"
+            "value" : "智能识别跟随智能设置中的服务商；Apple Vision 在本机识别文字。"
           }
         }
       }
@@ -2583,13 +2583,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Starts the camera if needed, or exits text reading. A running camera stays on."
+            "value" : "Starts the camera, or exits text reading."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启动相机或退出读文字；相机运行时不停止。"
+            "value" : "启动相机，或退出读文字。"
           }
         }
       }
@@ -3025,13 +3025,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VLLM"
+            "value" : "Smart reading"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VLLM"
+            "value" : "智能识别"
           }
         }
       }
@@ -3059,13 +3059,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VLLM follows your provider in Intelligence settings and automatically uses the on-device model when the remote service is unavailable. Apple Vision reads text offline without identifying what it is on."
+            "value" : "Smart reading follows your provider in Intelligence settings and uses the on-device model when the remote service is unavailable. Apple Vision reads text offline but can't tell what the text is on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VLLM 跟随智能设置中的服务商，远端不可用时自动使用本机模型。Apple Vision 离线识别文字，不判断文字所在的物体。"
+            "value" : "智能识别跟随智能设置中的服务商，远端不可用时使用本机模型。Apple Vision 离线识别文字，说不出字写在什么上面。"
           }
         }
       }

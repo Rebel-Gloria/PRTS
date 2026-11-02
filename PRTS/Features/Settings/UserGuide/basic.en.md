@@ -12,15 +12,11 @@ PRTS uses your iPhone camera to find obstacles ahead. It can also describe the s
 
 If the screen is hard to use, say "Start PRTS" to Siri, or go to Settings → Accessibility → Touch → Back Tap and select Start PRTS. Then tap the back of your iPhone to open the app and start the camera. To keep the volume buttons for volume, turn off Volume button shortcut in Intelligence settings and use the on-screen photo button instead.
 
-The camera keeps running in Settings while guidance cues pause. A running session resumes when you return from the background; a session you stopped stays off.
-
 ## What you can set
 
-- **Tap to stop**: Off by default. Turn it on if you use AssistiveTouch, eye tracking, or find holding a press difficult. You can then tap the main button to stop.
-- **Low vision mode**: Off by default and requires confirmation to enable. Keeps the camera, descriptions, questions, and text reading available without obstacle speech or vibration.
+- **Tap to stop**: Tap the main button to stop, for people who find holding difficult.
+- **Low vision mode**: Keeps descriptions, questions and text reading, without obstacle guidance.
 - **Intelligence settings**: Choose what describes the scene and answers questions, and set up the photo button and text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Enhanced mode**: Available with the on-device provider and off by default. Allows broader voice answers but may reduce accuracy. It does not affect short descriptions or text reading.
-- **Text reader**: Choose VLLM or Apple Vision. VLLM is the default and follows your provider in Intelligence settings. If the remote service is unavailable, it silently uses the on-device model.
 - **Voice**: Turn announcements on or off, and set the speech rate and language.
 - **Display**: Hide the camera view to save battery, or show the scan mesh.
 

@@ -8,23 +8,19 @@ On your iPhone, go to Settings → Action Button, choose Shortcut, and select St
 
 ## How to use
 
-- **Start**: Tap Start on the screen or run the Start PRTS shortcut.
+- **Start**: Press the Action button, or tap Start on the screen.
 - **Stop**: Hold the main button for 1 second.
 - **Describe**: While guidance runs, press either volume button.
 - **Ask**: Hold a volume button, speak after the tone, and release to send.
 - **Read text**: Hold three fingers on the screen.
 
-Pressing the Action button again keeps the camera running. To keep the volume buttons for volume, turn off Volume button shortcut in Intelligence settings and use the on-screen photo button instead.
-
-The camera keeps running in Settings while guidance cues pause. A running session resumes when you return from the background; a session you stopped stays off.
+To keep the volume buttons for volume, turn off Volume button shortcut in Intelligence settings and use the on-screen photo button instead.
 
 ## What you can set
 
-- **Tap to stop**: Off by default. Turn it on if you use AssistiveTouch, eye tracking, or find holding a press difficult. You can then tap the main button to stop.
-- **Low vision mode**: Off by default and requires confirmation to enable. Keeps the camera, descriptions, questions, and text reading available without obstacle speech or vibration.
+- **Tap to stop**: Tap the main button to stop, for people who find holding difficult.
+- **Low vision mode**: Keeps descriptions, questions and text reading, without obstacle guidance.
 - **Intelligence settings**: Choose what describes the scene and answers questions, and set up the photo button and text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Enhanced mode**: Available with the on-device provider and off by default. Allows broader voice answers but may reduce accuracy. It does not affect short descriptions or text reading.
-- **Text reader**: Choose VLLM or Apple Vision. VLLM is the default and follows your provider in Intelligence settings. If the remote service is unavailable, it silently uses the on-device model.
 - **Voice**: Turn announcements on or off, and set the speech rate and language.
 - **Display**: Hide the camera view to save battery, or show the scan mesh.
 
