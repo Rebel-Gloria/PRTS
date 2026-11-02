@@ -238,6 +238,8 @@ final class PRTSUITests: XCTestCase {
         app.buttons["settingsButton"].tap()
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(waitForGuidance(app, timeout: 5))
+        start.tap()
+        XCTAssertTrue(waitForGuidance(app, timeout: 3))
         start.press(forDuration: 1.5)
         XCTAssertTrue(
             app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5),
