@@ -1,8 +1,8 @@
 # 图像与文字识别
 
-本文介绍拍照描述、语音提问和文字识别的实现，包括模型服务、提示词、本地视觉模型和数据处理方式。操作方式请参阅[功能与操作](usage.md)。
+本文介绍拍照描述、语音提问、流式字幕和文字识别的实现，包括模型服务、提示词、本地视觉模型和数据处理方式。操作方式请参阅[功能与操作](usage.md)。
 
-这两项功能默认使用随应用打包的 MiniCPM-V 4.7 1B，在设备上离线运行。用户也可以选择联网服务。视觉模型不参与避障，避障由 `SpatialCore` 独立完成。
+拍照描述、语音提问和文字识别默认使用随应用打包的 MiniCPM-V 4.7 1B，在设备上离线运行，用户也可以选择联网服务。流式字幕仅支持通义千问。视觉模型不参与避障，避障由 `SpatialCore` 独立完成。
 
 ## 模型服务
 
@@ -21,16 +21,17 @@
 
 本机服务在同一位置提供默认关闭的“增强模式”，开启后本机语音提问改用联网服务的提问提示词，见下文“提示词”。
 
-模型后端由 `Services/PhotoDescriptionBackend.swift` 选择，协调器只通过 `PhotoDescriptionServices` 调用，不直接依赖网络或推理实现。
+请求、凭据和本机模型的公共实现位于 `PRTS/Shared/Intelligence/`。拍照描述的模型后端由 `PhotoDescription/Services/PhotoDescriptionBackend.swift` 选择，协调器只通过 `PhotoDescriptionServices` 调用，不直接依赖网络或推理实现。
 
 ## 提示词
 
-提示词定义在 `PRTS/Features/PhotoDescription/Services/PhotoPrompts.swift` 中：
+拍照描述和语音提问的提示词定义在 `PRTS/Features/PhotoDescription/Services/PhotoPrompts.swift` 中，流式字幕的提示词定义在 `PRTS/Features/LiveCaption/LiveCaptionPrompts.swift` 中：
 
 | 场景 | 系统提示词 | 约束 |
 |---|---|---|
 | 短按描述 | `PhotoPrompts.system` | 用户消息固定为“描述眼前。”。先说明最近的物体及其位置，再说明路面；一到两句，四十字以内 |
-| 流式字幕 | 开场使用 `PhotoPrompts.liveCaptionOpeningSystem`，变化使用 `PhotoPrompts.liveCaptionSystem` | 仅支持通义千问；开场以第一帧单图请求描述地点和主要物体，最多 20 字、40 个 token；每 0.25 s 采帧，从最近 2 s 的最多 8 帧中按累计运动量等间距选取 4 帧，以视频请求描述动作，附上一句，最多 15 字、24 个 token；关闭深度思考，无变化时保持安静 |
+| 流式字幕开场 | `LiveCaptionPrompts.opening` | 用户消息固定为“描述眼前。”。一句话说明地点和面前主要的一两样东西，最多 20 字 |
+| 流式字幕动作 | `LiveCaptionPrompts.system` | 输入 4 帧视频和上一句。只说谁或什么做了什么动作，最多 15 字；没有明显动作时只输出“无” |
 | 语音提问（联网服务） | `PhotoPrompts.questionSystem` | 直接回答问题，可以描述颜色、穿着、数量、文字和用途，也可以翻译；最多三句 |
 | 语音提问（本机，增强模式关闭） | `PhotoPrompts.localQuestionSystem` | 在描述提示词的基础上调整，以问答示例约束回答细节；最多三句 |
 | 语音提问（本机，增强模式开启） | `PhotoPrompts.questionSystem` | 复用联网提问提示词，允许更广泛的细节、翻译与解释；最多三句 |
@@ -39,10 +40,36 @@
 
 `PhotoPrompts.localSystem` 在每次本机请求时读取 `photoDescription.localEnhanced`：没有问题时使用 `system`，有问题时根据开关选择 `localQuestionSystem` 或 `questionSystem`。联网提问继续使用 `questionSystem`；OCR 始终使用 `TextReadingPrompt`，包括远端失败后的本机回退。增强模式不增加新的固定提示词。
 
-所有提示词都要求只描述可见内容，不编造、不估计米数、不给出通行许可或绕行建议，无法判断时明确说明。
+描述和提问提示词要求只描述可见内容，不编造、不估计米数、不给出通行许可或绕行建议，无法判断时明确说明。流式字幕提示词禁止猜测身份、情绪和目的，不判断能否通行。文字识别提示词只要求按原样转写。
 
 > [!NOTE]
 > 提示词无法完全消除模型错误，台阶方向和“能否通行”类问题尤其容易出错。通行判断应以避障功能为准。各版本提示词的评估结果请参阅[验证结果](validation.md#拍照描述与提问)。
+
+## 流式字幕
+
+流式字幕使用通义千问的视频输入。千问要求视频至少包含 4 帧，其他服务在测试中会编造动作，因此该功能只对千问开放。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`LiveCaptionBackend.swift` 组装请求。
+
+### 请求流程
+
+1. 开始时以第一帧发出单图请求，生成开场句，生成上限为 40 个 token。
+2. 之后每 0.25 s 取一次 ARKit 当前帧，只保留最近 2 s 的最多 8 帧。每帧保存最长边 1280 像素的 JPEG 和 48×64 灰度图。
+3. 每次请求前，比较窗口最新一帧与上一次请求的最新一帧的 Vision 特征距离（`VNGenerateImageFeaturePrintRequest`），低于 0.4 时跳过本次请求。
+4. 从窗口中按运动量选取 4 帧，按时间顺序作为视频发送，并附上一句文字。生成上限为 24 个 token，关闭深度思考。
+
+运动量为相邻两帧灰度图逐像素绝对差的平均值。以窗口首帧为起点累计运动量，在总量的 0、1/3、2/3、1 处依次选择累计值最近且尚未选中的帧。运动量为 0 的重复帧不参与选择；可选帧不足 4 帧时不发送请求。
+
+### 调度与回答处理
+
+两次请求的间隔不少于 2 s。上一句仍在朗读时，应用按“字数 ÷ 每秒字数”估算朗读结束时间，并按最近一次请求的耗时提前发出下一次请求。每秒字数初始为 4.5，并用实际朗读时长更新。
+
+开场句直接朗读。动作句由 `LiveCaptionPolicy.answer` 处理，只取第一行，以下情况不朗读：
+
+| 情况 | 说明 |
+|---|---|
+| 回答为“无”或“无。” | 画面中没有动作 |
+| 超过 20 字 | 提示词要求最多 15 字，超出较多的回答不朗读 |
+| 包含“照片”“画面”或“镜头” | 模型在描述画面而不是动作 |
+| 与上一句相同 | 重复描述 |
 
 ## 文字识别
 
@@ -61,7 +88,7 @@
 
 1. 停止 ARKit 会话，改用后置主摄。相机在应用启动时预先配置，从开始识别到显示预览约 0.3 s；10 s 内未收到图像时，提示“无法打开相机”并退出。
 2. 收到第一帧后等待 1 s，使对焦和曝光稳定，然后自动拍照并振动。
-3. 按下文“图像与数据处理”的最长边规则缩放照片，向模型提问：文字位于路标、牌子、纸张还是物体上。只接受这四种回答。
+3. 按下文“图像与数据处理”的最长边规则缩放照片，向模型提问：文字位于路标、牌子、纸张还是物体上。应用在回答中查找这四个词，找不到时按“物体”处理。
 4. 在同一对话中继续提问，转写照片里的文字；没有文字时回答“无”。此步骤复用已编码的图像，不重新进行视觉编码。
 5. 转写结果按行或句逐步朗读，无须等待全部生成。
 
@@ -78,9 +105,7 @@
 | `remotePrompt` | 联网识别的用户消息：“读出照片里的文字。” |
 | `ocrSystem` | 专用 OCR 模型的系统提示词，只转写文字，不输出分类 |
 
-拍照描述、语音提问和文字识别共使用上述两个文件中的 10 条固定提示词。语音提问另附用户的语音识别原文。
-
-实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄，`Services/` 包含提示词、回答解析、服务选择和 Vision 识别。
+实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingService.swift` 选择服务并处理回退，`TextRecognizer.swift` 调用 Apple Vision。
 
 ## 本地视觉模型
 
@@ -96,13 +121,7 @@
 
 ### 准备与打包
 
-如需准备模型和推理库，请在安装了 cmake 和 ninja 的 Mac 上运行：
-
-```sh
-bash Packages/LocalVLM/prepare.sh
-```
-
-该脚本编译 llama.cpp 和 `csrc/` 中的封装，生成包含真机和模拟器（仅 arm64）的 `Packages/LocalVLM/PRTSLocalVLM.xcframework`，并下载两个权重文件、校验 SHA-256。权重保存在 `models/MiniCPM-V-4.7-1B/`。编译产物和权重均不纳入版本控制。在 8 GB 内存的 Mac 上，脚本默认使用 `-j 2`，可通过环境变量 `JOBS` 修改。
+模型和推理库由 `Packages/LocalVLM/prepare.sh` 准备。该脚本编译 llama.cpp 和 `csrc/` 中的封装，生成包含真机和模拟器（仅 arm64）的 `Packages/LocalVLM/PRTSLocalVLM.xcframework`，并下载两个权重文件、校验 SHA-256。权重保存在 `models/MiniCPM-V-4.7-1B/`。编译产物和权重均不纳入版本控制。运行方法请参阅[开发指南](development.md#构建)。
 
 构建应用时，Xcode 的“Copy offline model”阶段使用 `cp -c` 将权重复制到 `PRTS.app/LocalVLM/`。在 APFS 上该操作创建文件克隆，不会立即占用额外空间。权重使安装包增加约 1.9 GB。
 
@@ -113,15 +132,13 @@ bash Packages/LocalVLM/prepare.sh
 - `describe`：接收一张照片和一个问题，返回回答。
 - `ask`：在同一图像上下文中继续提问，无须重新进行视觉编码。
 
-两个接口都支持流式输出，并保证不会截断 UTF-8 字符。模型在首次请求时加载，之后常驻内存。所有请求在同一串行队列上执行，取消在两个 token 之间生效。模型偶尔在回答后输出 `</think>` 并继续生成，推理封装在该标记处停止，应用也会丢弃 `<` 之后的内容。
+两个接口都支持流式输出，并保证不会截断 UTF-8 字符。模型在首次请求时加载，之后常驻内存。所有请求在同一串行队列上执行，取消在两个 token 之间生效。模型偶尔在回答后输出 `</think>` 并继续生成，推理封装在该标记处停止；文字识别解析流式回答时还会丢弃 `<` 之后的内容。
 
-`PRTS/Features/PhotoDescription/Services/PhotoLocalModel.swift` 指定安装包中的模型路径。
+`PRTS/Shared/Intelligence/PhotoLocalModel.swift` 指定安装包中的模型路径。
 
 ## 图像与数据处理
 
-短按描述、语音提问和流式字幕使用 ARKit 当前帧，读文字使用后置主摄照片。图像转正后保留完整画面，最长边默认缩放至 1280 像素；开启“高分辨率”（`photoDescription.highResolution`，默认关闭）后，语音提问和读文字的最长边为 1920 像素，短按描述和流式字幕仍为 1280 像素。所有模型后端共用 `PhotoImageEncoder`，以 0.8 的质量编码为 JPEG。
-
-流式字幕每 0.25 s 取一次当前帧，只保留最近 2 s 的最多 8 帧，每帧保存 JPEG 和 48×64 灰度图。相邻灰度图逐像素绝对差的平均值作为运动量，以窗口首帧为累计运动量起点，在总量的 0、1/3、2/3、1 处依次选择累计值最近且尚未选中的帧，再按时间排序。后续运动量为 0 的重复帧跳过，可选帧不足 4 帧时等待下一次采样。变化判断继续比较窗口最新帧与上一次请求的最新帧；两次请求的最短间隔保持 2 s，端到端延迟以 2 s 为目标，实际延迟仍受模型响应和朗读时长影响。
+短按描述、语音提问和流式字幕使用 ARKit 当前帧，读文字使用后置主摄照片。图像转正后保留完整画面，最长边默认缩放至 1280 像素；开启“高分辨率”（`photoDescription.highResolution`，默认关闭）后，语音提问和读文字的最长边为 1920 像素，短按描述和流式字幕仍为 1280 像素。所有模型后端共用 `PRTS/Shared/Imaging/PhotoImageEncoder.swift`，以 0.8 的质量编码为 JPEG。
 
 | 数据 | 处理方式 |
 |---|---|

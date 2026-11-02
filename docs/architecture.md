@@ -11,7 +11,10 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 | `PRTS/Spatial/` | ARKit 会话（`ProbeEngine`）、帧快照、渲染和诊断记录 |
 | `PRTS/Features/Guidance/` | 避障入口、语音和振动反馈 |
 | `PRTS/Features/PhotoDescription/` | 拍照描述和语音提问。模型后端在 `Services/PhotoDescriptionBackend.swift` 中选择，提示词定义在 `Services/PhotoPrompts.swift` 中 |
+| `PRTS/Features/LiveCaption/` | 流式字幕：连按判定、采样、请求和朗读 |
 | `PRTS/Features/TextReading/` | 文字识别：主摄拍照、识别和朗读 |
+| `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型 |
+| `PRTS/Shared/Imaging/`、`Audio/` | 照片缩放与 JPEG 编码；回答朗读和提示音 |
 | `PRTS/Features/Home/`、`Settings/`、`Developer/` | 首页、设置和开发版专用界面 |
 | `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与振动策略（`Feedback/`） |
 | `Packages/LocalVLM/` | llama.cpp 封装，用于在设备上运行 MiniCPM-V |
@@ -32,11 +35,12 @@ ARSession
   → RoutePublicationPolicy：确定发布的路线状态
   → SharedSnapshot
       ├─ ProbeRenderer：渲染画面
-      ├─ FeedbackCoordinator：输出语音和振动
+      ├─ FeedbackCoordinator：输出语音
+      ├─ ProbeViewModel → PathHaptics：输出方向振动
       └─ DiagnosticRecorder：写入 DIAG 日志
 ```
 
-`FrameSnapshot` 包含时间戳、epoch、frameID、相机位姿和内参，以及该帧的深度图、置信度和网格。分析在串行队列中执行，待处理队列通过 `LatestMailbox` 仅保留最新一帧；分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。
+`FrameSnapshot` 持有该帧的 `ARFrame`，以及时间戳、epoch、frameID、相机位姿和内参；LiDAR 设备的深度图和置信度从 `ARFrame` 读取，无 LiDAR 设备由深度模型估计。环境网格由独立的网格队列维护在 `SharedSnapshot.meshes` 中，按自身的回调时间更新，分析时作为先验读取。分析在串行队列中执行，待处理队列通过 `LatestMailbox` 仅保留最新一帧；分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。
 
 路线规划仅将已确认的障碍视为阻挡，未知栅格允许通过。
 
@@ -90,15 +94,16 @@ ARSession
 
 ## 设计约束
 
-修改代码时，请遵守以下约束。标注了测试的约束由 `scripts/test_repository_layout.py` 或 `scripts/test_spatial_integration.py` 自动检查。
+修改代码时，请遵守以下约束。“自动检查”列中的脚本位于 `scripts/`，Swift 测试位于 `PRTSTests/`。
 
 | 约束 | 自动检查 |
 |---|---|
-| 仅 `ProbeEngine` 创建 `ARSession`。拍照描述读取当前帧；文字识别先停止 ARKit 会话、切换到主摄，退出后恢复之前的状态 | 是 |
-| `SpatialCore` 不得导入 ARKit、UIKit、SwiftUI、AVFoundation、Metal 或 Core ML | 是 |
-| `SpatialAnalyzer` 与 `Experiments/SpatialProbe` 中冻结的对照实现保持一致，比较时忽略格式和注释 | 是 |
-| 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | 部分 |
-| 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | 否 |
+| 仅 `ProbeEngine` 创建 `ARSession` | `test_repository_layout.py` |
+| 拍照描述和流式字幕读取当前帧；文字识别先停止 ARKit 会话、切换到主摄，退出后恢复之前的状态 | `CameraRecoveryTests` 覆盖识别结束、中断、显式停止和从空闲状态开始的恢复；不覆盖相机交接时序 |
+| `SpatialCore` 不得导入 ARKit、UIKit、SwiftUI、AVFoundation、Metal 或 Core ML | `test_repository_layout.py` |
+| `SpatialAnalyzer` 与 `Experiments/SpatialProbe` 中冻结的对照实现保持一致，比较时忽略格式和注释 | `test_spatial_integration.py` |
+| 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | `test_spatial_integration.py`，部分覆盖 |
+| 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | 无 |
 
 `Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
@@ -122,5 +127,5 @@ llama.cpp 和 MiniCPM-V 由 `Packages/LocalVLM/prepare.sh` 下载并编译，不
 ## 相关文档
 
 - [空间感知](spatial.md)：坐标约定、地面确认、栅格和无 LiDAR 模式
-- [图像与文字识别](vision.md)：拍照描述、语音提问和文字识别
+- [图像与文字识别](vision.md)：拍照描述、语音提问、流式字幕和文字识别
 - [开发指南](development.md)：构建、测试、诊断记录和回放工具
