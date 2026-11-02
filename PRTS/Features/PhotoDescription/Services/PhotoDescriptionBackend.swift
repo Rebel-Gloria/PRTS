@@ -19,22 +19,6 @@ nonisolated enum PhotoDescriptionBackend {
         return question == nil ? answer : PhotoPrompts.threeSentences(answer)
     }
 
-    static func captionOpening(jpeg: Data, key: String) async throws -> String {
-        try await PhotoChatClient().describe(
-            jpeg: jpeg,
-            text: PhotoPrompts.prompt,
-            key: key,
-            system: PhotoPrompts.liveCaptionOpeningSystem,
-            maxTokens: 40
-        )
-    }
-
-    static func caption(video: [Data], previous: String?, key: String) async throws -> String {
-        try await PhotoChatClient().send(
-            PhotoChatProtocol.request(video: video, previous: previous, key: key)
-        )
-    }
-
     private static func generate(
         jpeg: Data,
         text: String,

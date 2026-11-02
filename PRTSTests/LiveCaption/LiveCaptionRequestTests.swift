@@ -7,7 +7,7 @@ struct LiveCaptionRequestTests {
     @Test(arguments: [nil, "一个人从左边走过。"] as [String?])
     func videoContainsFourFramesThenPreviousSentence(previous: String?) throws {
         let frames = [Data([1]), Data([2]), Data([3]), Data([4])]
-        let request = try PhotoChatProtocol.request(
+        let request = try LiveCaptionBackend.request(
             video: frames,
             previous: previous,
             key: "synthetic-test-key"
@@ -22,7 +22,7 @@ struct LiveCaptionRequestTests {
         let messages = try #require(body["messages"] as? [[String: Any]])
         #expect(messages.count == 2)
         #expect(messages[0]["role"] as? String == "system")
-        #expect(messages[0]["content"] as? String == PhotoPrompts.liveCaptionSystem)
+        #expect(messages[0]["content"] as? String == LiveCaptionPrompts.system)
         #expect(messages[1]["role"] as? String == "user")
         let content = try #require(messages[1]["content"] as? [[String: Any]])
         #expect(content.count == 2)
@@ -40,7 +40,7 @@ struct LiveCaptionRequestTests {
             jpeg: Data([1]),
             text: PhotoPrompts.prompt,
             key: "synthetic-test-key",
-            system: PhotoPrompts.liveCaptionOpeningSystem,
+            system: LiveCaptionPrompts.opening,
             maxTokens: 40
         )
         let data = try #require(request.httpBody)
@@ -49,7 +49,7 @@ struct LiveCaptionRequestTests {
         #expect(body["enable_thinking"] as? Bool == false)
         #expect(body["stream"] as? Bool == true)
         let messages = try #require(body["messages"] as? [[String: Any]])
-        #expect(messages[0]["content"] as? String == PhotoPrompts.liveCaptionOpeningSystem)
+        #expect(messages[0]["content"] as? String == LiveCaptionPrompts.opening)
         let content = try #require(messages[1]["content"] as? [[String: Any]])
         #expect(content[0]["text"] as? String == "描述眼前。")
         #expect(content[1]["type"] as? String == "image_url")

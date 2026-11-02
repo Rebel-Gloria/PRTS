@@ -49,4 +49,42 @@ nonisolated struct TextReadingAnswer {
         spokeText = true
         return ["\(lead)：\(text)"]
     }
+
+    /// First line names the surface. A first line without one of the four words is already text.
+    static func split(_ answer: String) -> (Surface, String) {
+        let text = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = text.prefix { $0 != "\n" }
+        guard let surface = Surface(word: String(head)) else { return (.object, text) }
+        return (surface, String(text.dropFirst(head.count)))
+    }
+
+    enum Surface: String, CaseIterable {
+        case roadSign = "路标"
+        case sign = "牌子"
+        case paper = "纸张"
+        case object = "物体"
+
+        /// The first of the four words in the answer; anything else counts as an object.
+        init(answer: String) { self = Surface(word: answer) ?? .object }
+
+        init?(word: String) {
+            guard
+                let first = Self.allCases
+                    .compactMap({ surface in
+                        word.range(of: surface.rawValue).map { (surface, $0.lowerBound) }
+                    })
+                    .min(by: { $0.1 < $1.1 })
+            else { return nil }
+            self = first.0
+        }
+
+        var localizationKey: String {
+            switch self {
+            case .roadSign: "ocr.lead.roadSign"
+            case .sign: "ocr.lead.sign"
+            case .paper: "ocr.lead.paper"
+            case .object: "ocr.lead.object"
+            }
+        }
+    }
 }

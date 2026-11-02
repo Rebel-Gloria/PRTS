@@ -1,5 +1,4 @@
 import Foundation
-import LocalVLM
 
 /// Reading text with the bundled MiniCPM-V 4.7: two questions about one photo, tuned on the Mac
 /// harness (docs/vision.md). Asked in one go ("say what it is on, then copy it") the
@@ -28,23 +27,6 @@ nonisolated enum TextReadingPrompt {
     /// About a page of text.
     static let maxTokens = 400
 
-    /// First question: looks at the photo (the slow part, about 1.3 s) and says what the text is on.
-    static func surface(of jpeg: Data) async throws -> Surface {
-        Surface(
-            answer: try await PhotoLocalModel.shared.describe(
-                jpeg: jpeg,
-                prompt: surfaceQuestion,
-                system: system,
-                maxTokens: 8
-            )
-        )
-    }
-
-    /// Second question about the photo `surface(of:)` just looked at; the copy streams into `onText`.
-    static func copy(onText: @escaping @Sendable (String) -> Void) async throws -> String {
-        try await PhotoLocalModel.shared.ask(copyQuestion, maxTokens: maxTokens, onText: onText)
-    }
-
     /// The cloud models keep a format, so they get both questions in one request: what the text is
     /// on in the first line, the copy below it.
     static let remoteSystem = """
@@ -59,79 +41,4 @@ nonisolated enum TextReadingPrompt {
     /// For a dedicated OCR model, which copies text but does not keep the two-part format.
     static let ocrSystem =
         "你帮盲人读出手机镜头前的文字。照抄照片里的文字：一字不差，保持原来的语言，不翻译、不总结、不描述画面；按阅读顺序，从上到下、从左到右；看不清的字直接跳过，不要猜。照片里没有能看清的文字时，只回答一个字：无。"
-
-    /// The cloud provider chosen for photo descriptions. With an OCR model (Qwen) its chat model
-    /// says what the text is on while the OCR model copies it, both at once; otherwise one request
-    /// asks for both.
-    static func remote(jpeg: Data, key: String, service: PhotoChatService) async throws -> (
-        Surface, String
-    ) {
-        guard let ocrModel = service.ocrModel else {
-            return split(
-                try await PhotoChatClient().describe(
-                    jpeg: jpeg,
-                    text: remotePrompt,
-                    key: key,
-                    service: service,
-                    system: remoteSystem
-                )
-            )
-        }
-        let ocr = PhotoChatService(endpoint: service.endpoint, model: ocrModel, thinking: .standard)
-        // The chat model (qwen3.8-flash) judges the surface. qwen-plus is cheaper but cannot see
-        // images; qwen3-vl-plus is a little faster but costs more.
-        async let surface = PhotoChatClient().describe(
-            jpeg: jpeg,
-            text: surfaceQuestion,
-            key: key,
-            service: service,
-            system: nil
-        )
-        async let text = PhotoChatClient().describe(
-            jpeg: jpeg,
-            text: remotePrompt,
-            key: key,
-            service: ocr,
-            system: ocrSystem
-        )
-        return (Surface(answer: try await surface), try await text)
-    }
-
-    /// First line names the surface. A first line without one of the four words is already text.
-    static func split(_ answer: String) -> (Surface, String) {
-        let text = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        let head = text.prefix { $0 != "\n" }
-        guard let surface = Surface(word: String(head)) else { return (.object, text) }
-        return (surface, String(text.dropFirst(head.count)))
-    }
-
-    enum Surface: String, CaseIterable {
-        case roadSign = "路标"
-        case sign = "牌子"
-        case paper = "纸张"
-        case object = "物体"
-
-        /// The first of the four words in the answer; anything else counts as an object.
-        init(answer: String) { self = Surface(word: answer) ?? .object }
-
-        init?(word: String) {
-            guard
-                let first = Self.allCases
-                    .compactMap({ surface in
-                        word.range(of: surface.rawValue).map { (surface, $0.lowerBound) }
-                    })
-                    .min(by: { $0.1 < $1.1 })
-            else { return nil }
-            self = first.0
-        }
-
-        var localizationKey: String {
-            switch self {
-            case .roadSign: "ocr.lead.roadSign"
-            case .sign: "ocr.lead.sign"
-            case .paper: "ocr.lead.paper"
-            case .object: "ocr.lead.object"
-            }
-        }
-    }
 }

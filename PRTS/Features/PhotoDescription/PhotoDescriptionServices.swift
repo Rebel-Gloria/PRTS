@@ -29,4 +29,3 @@ struct PhotoDescriptionServices {
 }
 
 extension PhotoSpeechRecognizer: PhotoRecognizing {}
-extension PhotoAudioOutput: PhotoAnswerAudio {}
