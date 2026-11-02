@@ -1,3 +1,4 @@
+import ARKit
 import Combine
 import Foundation
 
@@ -99,13 +100,20 @@ final class LiveCaptionSession: ObservableObject {
             guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
                 throw PhotoChatError.emptyInput
             }
+            let sampledAt = now()
             return Task.detached(priority: .userInitiated) {
-                try PhotoImageEncoder.jpeg(frame: frame)
+                try LiveCaptionFrame.capture(
+                    image: PhotoImageEncoder.image(
+                        pixelBuffer: frame.frame.capturedImage,
+                        orientation: frame.orientation
+                    ),
+                    sampledAt: sampledAt
+                )
             }
         })
     }
 
-    func start(capture: @escaping () throws -> Task<Data, Error>) {
+    func start(capture: @escaping () throws -> Task<LiveCaptionFrame, Error>) {
         interruptAnnouncement()
         guard provider() == .qwen else {
             announce(localized("liveCaption.requiresQwen"))
@@ -153,27 +161,28 @@ final class LiveCaptionSession: ObservableObject {
     }
 
     private func run(
-        capture: @escaping () throws -> Task<Data, Error>,
+        capture: @escaping () throws -> Task<LiveCaptionFrame, Error>,
         key: String
     ) async throws {
-        let stream = AsyncThrowingStream<[Data], Error>.makeStream(
+        let stream = AsyncThrowingStream<[LiveCaptionFrame], Error>.makeStream(
             bufferingPolicy: .bufferingNewest(1)
         )
         let sampler = Task {
-            var frames: [Data] = []
+            var frames: [LiveCaptionFrame] = []
             do {
                 while !Task.isCancelled {
                     let sampledAt = services.now()
                     let task = try capture()
-                    let jpeg = try await withTaskCancellationHandler {
+                    let frame = try await withTaskCancellationHandler {
                         try await task.value
                     } onCancel: {
                         task.cancel()
                     }
-                    frames.append(jpeg)
-                    if frames.count > 4 { frames.removeFirst() }
+                    frames.append(frame)
+                    frames.removeAll { frame.sampledAt - $0.sampledAt >= 2 }
+                    if frames.count > 8 { frames.removeFirst() }
                     stream.continuation.yield(frames)
-                    try await wait(until: sampledAt + 1)
+                    try await wait(until: sampledAt + 0.25)
                 }
                 stream.continuation.finish()
             } catch {
@@ -185,9 +194,9 @@ final class LiveCaptionSession: ObservableObject {
         var images = stream.stream.makeAsyncIterator()
         guard let first = try await images.next() else { return }
         let comparison = LiveCaptionImageComparison()
-        _ = try await comparison.accept(first[0])
+        _ = try await comparison.accept(first[0].jpeg)
         var lastRequest = services.now()
-        let opening = try await describeOpening(first[0], key)
+        let opening = try await describeOpening(first[0].jpeg, key)
         try Task.checkCancellation()
         var modelDuration = services.now() - lastRequest
         try say(opening)
@@ -206,10 +215,12 @@ final class LiveCaptionSession: ObservableObject {
                 )
             )
             guard let frames = try await images.next() else { return }
-            if frames.count < 4 { continue }
-            if try await !comparison.accept(frames[3]) { continue }
+            let recent = frames.filter { services.now() - $0.sampledAt < 2 }
+            let selected = LiveCaptionFrame.select(recent)
+            if selected.isEmpty { continue }
+            if try await !comparison.accept(recent.last!.jpeg) { continue }
             lastRequest = services.now()
-            let response = try await describeChange(frames, previous, key)
+            let response = try await describeChange(selected.map(\.jpeg), previous, key)
             try Task.checkCancellation()
             modelDuration = services.now() - lastRequest
             if let answer = LiveCaptionPolicy.answer(response, previous: previous) {

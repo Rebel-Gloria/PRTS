@@ -8,6 +8,9 @@ struct PhotoDescriptionServices {
     var uploadAllowed: () -> Bool = {
         UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed")
     }
+    var highResolution: () -> Bool = {
+        UserDefaults.standard.bool(forKey: PhotoImagePurpose.highResolutionKey)
+    }
     var credential: () throws -> String? = {
         try PhotoCredentialStore.read(account: PhotoChatProvider.current().keyAccount)
     }

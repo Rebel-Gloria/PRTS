@@ -8,6 +8,8 @@ private final class PhotoTestState {
     var time: TimeInterval = 0
     var allowUpload = true
     var onDevice = false
+    var highResolution = false
+    var capturedLongestSide: CGFloat?
     var hasCredential = true
     var speechAuthorized = true
     var events: [String] = []
@@ -87,6 +89,7 @@ private final class PhotoFixture {
         var services = PhotoDescriptionServices()
         services.now = { state.time }
         services.onDevice = { state.onDevice }
+        services.highResolution = { state.highResolution }
         services.uploadAllowed = { state.allowUpload }
         services.credential = { state.hasCredential ? "synthetic-test-key" : nil }
         services.speechAuthorized = { state.speechAuthorized }
@@ -100,7 +103,8 @@ private final class PhotoFixture {
     }
     func down() {
         coordinator.down(
-            capture: { [state] in
+            capture: { [state] longestSide in
+                state.capturedLongestSide = longestSide
                 state.events.append("capture")
                 return Task { Data([0xff, 0xd8, 0xff, 0xd9]) }
             },
@@ -111,6 +115,28 @@ private final class PhotoFixture {
 
 @MainActor
 struct PhotoLifecycleTests {
+    @Test(arguments: [false, true], [false, true])
+    func highResolutionAppliesAtQuestionCapture(highResolution: Bool, onDevice: Bool) async {
+        let f = PhotoFixture()
+        f.state.highResolution = highResolution
+        f.state.onDevice = onDevice
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        #expect(f.state.capturedLongestSide == (highResolution ? 1920 : 1280))
+        f.coordinator.cancel()
+
+        f.state.time = 1
+        f.down()
+        f.state.time = 1.1
+        f.coordinator.up()
+        #expect(f.state.capturedLongestSide == 1280)
+        await f.network.waitForRequests(1)
+        await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+    }
+
     @Test func shortPressUsesReleaseFrameAndFixedQuestion() async throws {
         let f = PhotoFixture()
         f.down()

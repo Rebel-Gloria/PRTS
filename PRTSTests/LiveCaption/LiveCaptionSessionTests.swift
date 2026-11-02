@@ -126,7 +126,7 @@ struct LiveCaptionSessionTests {
         }
         session.start(capture: {
             Issue.record("Unsupported providers must not capture")
-            return Task { Data() }
+            return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
         })
         #expect(session.work == nil)
         #expect(!session.isRunning)
@@ -148,7 +148,9 @@ struct LiveCaptionSessionTests {
             sleep: clock.sleep
         )
         let image = jpeg()
-        session.start(capture: { Task { image } })
+        session.start(capture: {
+            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
+        })
         let work = session.work
         await response.waitForRequest()
         #expect(session.isRunning)
@@ -171,12 +173,12 @@ struct LiveCaptionSessionTests {
             sleep: clock.sleep
         )
         let image = jpeg()
-        var imageTask: Task<Data, Error>?
+        var imageTask: Task<LiveCaptionFrame, Error>?
         session.start(capture: {
             let task = Task {
                 _ = await response.request()
                 try Task.checkCancellation()
-                return image
+                return LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0])
             }
             imageTask = task
             return task
@@ -197,7 +199,7 @@ struct LiveCaptionSessionTests {
         let session = LiveCaptionSession(audio: audio, services: services, provider: { .qwen })
         session.start(capture: {
             Issue.record("Capture requires upload consent")
-            return Task { Data() }
+            return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
         })
         #expect(!session.isRunning)
         #expect(session.message == "先在设置里允许发送照片")
@@ -211,7 +213,7 @@ struct LiveCaptionSessionTests {
         let session = LiveCaptionSession(audio: audio, services: services, provider: { .qwen })
         session.start(capture: {
             Issue.record("Capture requires a Qwen key")
-            return Task { Data() }
+            return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
         })
         #expect(!session.isRunning)
         #expect(session.message == PhotoChatError.missingKey.localizedDescription)
@@ -235,15 +237,16 @@ struct LiveCaptionSessionTests {
         var captures = 0
         session.start(capture: {
             captures += 1
-            return Task { image }
+            return Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
         })
         let work = session.work
         await audio.waitForSpeech()
-        await clock.waitForSleep(at: 1)
-        clock.advance(to: 1)
-        await clock.waitForSleep(at: 2, count: 2)
+        await clock.waitForSleep(at: 0.25)
+        clock.advance(to: 0.25)
+        await clock.waitForSleep(at: 0.5)
+        await clock.waitForSleep(at: 2)
         clock.advance(to: 2)
-        await clock.waitForSleep(at: 3)
+        await clock.waitForSleep(at: 2.25)
         #expect(captures == 3)
         session.stop()
         clock.finish()
@@ -266,21 +269,22 @@ struct LiveCaptionSessionTests {
         var captureTimes: [TimeInterval] = []
         session.start(capture: {
             captureTimes.append(clock.now)
-            return Task { image }
+            return Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
         })
         let work = session.work
         await response.waitForRequest()
-        for second in 1...5 {
-            await clock.waitForSleep(at: Double(second))
-            clock.advance(to: Double(second))
+        for tick in 1...20 {
+            let time = Double(tick) * 0.25
+            await clock.waitForSleep(at: time)
+            clock.advance(to: time)
         }
-        await clock.waitForSleep(at: 6)
-        #expect(captureTimes == [0, 1, 2, 3, 4, 5])
+        await clock.waitForSleep(at: 5.25)
+        #expect(captureTimes == (0...20).map { Double($0) * 0.25 })
         session.stop()
         clock.finish()
         await response.reply("门口。")
         await work?.value
-        #expect(captureTimes.count == 6)
+        #expect(captureTimes.count == 21)
         #expect(audio.spoken.isEmpty)
     }
 

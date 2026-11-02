@@ -10,6 +10,7 @@ struct PhotoDescriptionSettingsView: View {
     @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
     @AppStorage(PhotoPrompts.questionThinkingKey) private var questionThinking = false
     @AppStorage(PhotoPrompts.localEnhancedKey) private var localEnhanced = false
+    @AppStorage(PhotoImagePurpose.highResolutionKey) private var highResolution = false
     @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
     @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
     @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService
@@ -144,6 +145,13 @@ struct PhotoDescriptionSettingsView: View {
                 } else if PhotoHardwareButtons.volumeAvailable {
                     Text("settings.photo.volumeButtons.footer")
                 }
+            }
+            Section {
+                Toggle("photo.settings.highResolution", isOn: $highResolution)
+                    .accessibilityHint("photo.settings.highResolution.footer")
+                    .accessibilityIdentifier("highResolutionToggle")
+            } footer: {
+                Text("photo.settings.highResolution.footer")
             }
             Section {
                 Toggle("settings.ocr.threeFinger", isOn: $threeFingerReading)

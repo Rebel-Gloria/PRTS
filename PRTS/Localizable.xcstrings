@@ -2322,6 +2322,40 @@
         }
       }
     },
+    "photo.settings.highResolution" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High resolution"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高分辨率"
+          }
+        }
+      }
+    },
+    "photo.settings.highResolution.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questions and text reading use sharper photos, so small text reads better, at about half a second more per request."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提问和读文字使用更清晰的照片，小字更容易读出，每次多等约半秒。"
+          }
+        }
+      }
+    },
     "photo.settings.keyPlaceholder" : {
       "extractionState" : "manual",
       "localizations" : {

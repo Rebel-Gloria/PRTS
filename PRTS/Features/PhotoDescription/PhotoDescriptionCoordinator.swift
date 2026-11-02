@@ -12,7 +12,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private(set) var work: Task<Void, Never>?
     private var imageTask: Task<Data, Error>?
     private var generation = UUID()
-    private var captureOperation: (() throws -> Task<Data, Error>)?
+    private var captureOperation: ((CGFloat) throws -> Task<Data, Error>)?
     private var key = ""
     private let recognizer: any PhotoRecognizing
     private let audio: any PhotoAnswerAudio
@@ -47,7 +47,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     func perform(
         _ action: PhotoPressState.Action,
-        capture: @escaping () throws -> Task<Data, Error>,
+        capture: @escaping (CGFloat) throws -> Task<Data, Error>,
         silence: () -> Void
     ) -> Bool {
         if action == .shortCapture || action == .startRecording {
@@ -59,22 +59,19 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     private func captureOperation(
         snapshot: @escaping () -> FrameSnapshot?
-    ) -> () throws -> Task<Data, Error> {
+    ) -> (CGFloat) throws -> Task<Data, Error> {
         let now = services.now
-        return {
+        return { longestSide in
             guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
                 throw PhotoChatError.emptyInput
             }
             return Task.detached(priority: .userInitiated) {
-                try Task.checkCancellation()
-                let data = try PhotoImageEncoder.jpeg(frame: frame)
-                try Task.checkCancellation()
-                return data
+                try PhotoImageEncoder.jpeg(frame: frame, longestSide: longestSide)
             }
         }
     }
 
-    func down(capture: @escaping () throws -> Task<Data, Error>, silence: () -> Void) {
+    func down(capture: @escaping (CGFloat) throws -> Task<Data, Error>, silence: () -> Void) {
         guard prepare(capture: capture, silence: silence) else { return }
         press.begin(at: services.now())
         let id = generation
@@ -86,7 +83,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func prepare(
-        capture: @escaping () throws -> Task<Data, Error>,
+        capture: @escaping (CGFloat) throws -> Task<Data, Error>,
         silence: () -> Void
     ) -> Bool {
         guard !busy else { return false }
@@ -128,7 +125,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         switch action {
         case .shortCapture:
             do {
-                try capture()
+                try capture(purpose: .description)
                 try audio.cue(.submit)
                 submit(question: nil)
             } catch { fail(error) }
@@ -174,10 +171,12 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         if clearMessage { message = "" }
     }
 
-    private func capture() throws {
+    private func capture(purpose: PhotoImagePurpose) throws {
         guard let captureOperation else { throw PhotoChatError.emptyInput }
         self.captureOperation = nil
-        imageTask = try captureOperation()
+        imageTask = try captureOperation(
+            purpose.longestSide(highResolution: services.highResolution())
+        )
     }
 
     private func startRecording() {
@@ -193,7 +192,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             return
         }
         do {
-            try capture()
+            try capture(purpose: .question)
             try audio.cue(.record)
             try recognizer.start()
             message = "请说话，松手发送"
