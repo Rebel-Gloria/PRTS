@@ -19,6 +19,8 @@
    bash Packages/LocalVLM/prepare.sh
    ```
 
+   脚本默认以 `-j 2` 编译，适合 8 GB 内存的 Mac；如需修改并行数，请设置环境变量 `JOBS`。
+
 2. 构建应用。标准版和开发版使用不同的 DerivedData 目录，避免产物混用：
 
    ```sh
@@ -119,7 +121,7 @@ python scripts/style.py --fix    # 应用格式修正
 |---|---|---|
 | 自动 DIAG | 标准版和开发版每次启动时自动创建，不会自动打开相机 | `Documents/Diagnostics/<UTC 时间>-<UUID>/`；不包含画面、音频和位置 |
 | 开发采集 | 开发版在“设置 → 开发者选项”中手动开启 | DIAG 目录内的 `dev-capture-<UUID>/`；包含视频、传感器和分析数据 |
-| Sessions | 开发版手动保存 | `Sessions/`；单帧深度、元数据、分析结果和网格 |
+| Sessions | 每次开始避障时自动创建；开发版可额外手动保存单帧样本 | `Sessions/`；逐帧记录 `frames.jsonl` 和 `metrics.csv`，手动样本包含单帧深度、元数据、分析结果和网格 |
 
 ### 采集与导出
 
@@ -210,7 +212,10 @@ dev-capture-<UUID>/
 
 队列满时会丢弃记录，DIAG 和开发采集的丢弃计数需要分别检查。强制退出或断电可能丢失最后约 1 s 的 DIAG，并留下未完成的 MP4；缺少终止事件不代表发生了崩溃。
 
-### 排查地面未显示
+### 地面显示诊断
+
+如需排查地面未显示的原因，请按以下顺序检查：
+
 
 1. 检查 `analysis.payload.diagnostics` 中的深度和置信度读取状态、像素数量、`groundConfirmed`、连续确认次数和平面差异。地面需要连续 3 次确认，高度差小于 4 cm，法向差小于 3°。
 2. 检查 `groundReferenceMode`（`current_confirmed` 或 `retained_world_reference`），以及 `modelState` 和 `modelBlockReasons`。
