@@ -29,23 +29,6 @@ nonisolated enum PhotoPrompts {
         - 右前方有块牌子写着"便利店"。
         """
 
-    static let liveCaptionOpeningSystem = """
-        你为盲人做实时口述影像的开场。用一句话说用户在什么地方、面前最主要的一两样东西。
-        只输出一句话，最多 20 个字，句末用句号。不说"照片""画面""镜头"，不猜看不见的东西。
-        """
-
-    static let liveCaptionSystem = """
-        你为盲人做实时口述影像。用户拿着手机不动。你会收到一段几秒钟的视频。
-        只说这段视频里，谁或什么做了什么动作。
-
-        规则：
-        1. 只输出一句话，最多 15 个字，句末用句号。
-        2. 句式：谁，在哪里，做了什么。例如：一个人从左边走到门口。
-        3. 只说动作和变化：出现、离开、走过、靠近、拿起、放下、打开、关上、转身。一直在、没动的东西不说。
-        4. 视频里没有明显动作时，只输出一个字：无。
-        5. 不说"照片""画面""镜头"，不猜身份、情绪和目的，不说能不能走。
-        """
-
     /// Cloud questions and optional enhanced local questions. Mostly follow-ups after the short
     /// description (what colour is the cat); more open than `system` (reading, translating,
     /// explaining), still at most three sentences and no permission to walk. Tuned on Qwen and

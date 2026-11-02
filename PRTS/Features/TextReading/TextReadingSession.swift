@@ -129,17 +129,17 @@ final class TextReadingSession: ObservableObject {
     {
         switch reader {
         case .onDevice:
-            let surface = try await TextReadingPrompt.surface(of: jpeg)
+            let surface = try await TextReadingBackend.surface(of: jpeg)
             try Task.checkCancellation()
             answer = TextReadingAnswer(lead: localized(surface.localizationKey))
-            _ = try await TextReadingPrompt.copy { [weak self] piece in
+            _ = try await TextReadingBackend.copy { [weak self] piece in
                 // Main-queue order keeps the pieces in order, ahead of the flush below.
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.received(piece, id) } }
             }
             await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
         case .remote:
             guard let cloud else { throw PhotoChatError.invalidService }
-            let (surface, text) = try await TextReadingPrompt.remote(
+            let (surface, text) = try await TextReadingBackend.remote(
                 jpeg: jpeg,
                 key: cloud.key,
                 service: cloud.service
@@ -152,7 +152,7 @@ final class TextReadingSession: ObservableObject {
             let text = try await Task.detached(operation: { try TextRecognizer.read(image) }).value
             try Task.checkCancellation()
             answer = TextReadingAnswer(
-                lead: localized(TextReadingPrompt.Surface.object.localizationKey)
+                lead: localized(TextReadingAnswer.Surface.object.localizationKey)
             )
             received(text, id)
         }

@@ -34,10 +34,10 @@ final class LiveCaptionSession: ObservableObject {
         services: PhotoDescriptionServices,
         provider: @escaping () -> PhotoChatProvider = { PhotoChatProvider.current() },
         describeOpening: @escaping @Sendable (Data, String) async throws -> String = {
-            try await PhotoDescriptionBackend.captionOpening(jpeg: $0, key: $1)
+            try await LiveCaptionBackend.captionOpening(jpeg: $0, key: $1)
         },
         describeChange: @escaping @Sendable ([Data], String?, String) async throws -> String = {
-            try await PhotoDescriptionBackend.caption(video: $0, previous: $1, key: $2)
+            try await LiveCaptionBackend.caption(video: $0, previous: $1, key: $2)
         },
         sleep: @escaping (TimeInterval) async throws -> Void = {
             try await Task.sleep(for: .seconds($0))

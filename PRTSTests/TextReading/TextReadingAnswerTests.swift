@@ -38,7 +38,7 @@ struct TextReadingAnswerTests {
     }
 
     @Test func surfaceIsTheFirstOfTheFourWords() {
-        typealias Surface = TextReadingPrompt.Surface
+        typealias Surface = TextReadingAnswer.Surface
         #expect(Surface(answer: "路标") == .roadSign)
         #expect(Surface(answer: "牌子：店铺招牌、门牌、") == .sign)
         #expect(Surface(answer: "纸张。") == .paper)
@@ -47,12 +47,12 @@ struct TextReadingAnswerTests {
     }
 
     @Test func remoteAnswerSplitsIntoSurfaceAndText() {
-        #expect(TextReadingPrompt.split("路标\n人民路\n地铁站 200米") == (.roadSign, "\n人民路\n地铁站 200米"))
-        #expect(TextReadingPrompt.split("无") == (.object, "无"))
+        #expect(TextReadingAnswer.split("路标\n人民路\n地铁站 200米") == (.roadSign, "\n人民路\n地铁站 200米"))
+        #expect(TextReadingAnswer.split("无") == (.object, "无"))
         // No surface word in the first line: it is already text.
-        #expect(TextReadingPrompt.split("幸福便利店\n24小时营业") == (.object, "幸福便利店\n24小时营业"))
+        #expect(TextReadingAnswer.split("幸福便利店\n24小时营业") == (.object, "幸福便利店\n24小时营业"))
         var answer = TextReadingAnswer(lead: "你面前的路标上写着")
-        #expect(answer.append(TextReadingPrompt.split("路标\n人民路").1) == [])
+        #expect(answer.append(TextReadingAnswer.split("路标\n人民路").1) == [])
         #expect(answer.finish() == ["你面前的路标上写着：人民路"])
     }
 

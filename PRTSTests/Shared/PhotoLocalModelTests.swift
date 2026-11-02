@@ -88,10 +88,10 @@ extension PhotoLocalModelTests {
         return try #require(image.jpegData(compressionQuality: 0.85))
     }
 
-    private func read(_ jpeg: Data) async throws -> (TextReadingPrompt.Surface, String) {
+    private func read(_ jpeg: Data) async throws -> (TextReadingAnswer.Surface, String) {
         let start = Date()
-        let surface = try await TextReadingPrompt.surface(of: jpeg)
-        let text = try await TextReadingPrompt.copy { _ in }
+        let surface = try await TextReadingBackend.surface(of: jpeg)
+        let text = try await TextReadingBackend.copy { _ in }
         print(
             "PRTS_OCR \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(surface.rawValue) | \(text)"
         )
@@ -204,7 +204,7 @@ struct RemoteTextReadingTests {
 
     private func check(_ service: PhotoChatService, key: String) async throws {
         let start = Date()
-        let (surface, text) = try await TextReadingPrompt.remote(
+        let (surface, text) = try await TextReadingBackend.remote(
             jpeg: try roadSign(),
             key: key,
             service: service

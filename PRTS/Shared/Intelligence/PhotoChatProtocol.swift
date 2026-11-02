@@ -31,27 +31,11 @@ nonisolated enum PhotoChatProtocol {
         )
     }
 
-    static func request(video: [Data], previous: String?, key: String) throws -> URLRequest {
-        let text = "上一句：\(previous ?? "无")"
-        return try request(
-            content: [
-                ["type": "video", "video": video.map(dataURL)],
-                ["type": "text", "text": text],
-            ],
-            text: text,
-            key: key,
-            service: .qwen,
-            system: PhotoPrompts.liveCaptionSystem,
-            thinking: false,
-            maxTokens: 24
-        )
-    }
-
-    private static func dataURL(_ jpeg: Data) -> String {
+    static func dataURL(_ jpeg: Data) -> String {
         "data:image/jpeg;base64,\(jpeg.base64EncodedString())"
     }
 
-    private static func request(
+    static func request(
         content: [[String: Any]],
         text: String,
         key: String,
