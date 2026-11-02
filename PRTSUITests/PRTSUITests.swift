@@ -192,7 +192,10 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(waitForGuidance(app, timeout: 15))
         app.buttons["settingsButton"].tap()
         let toggle = app.switches["lowVisionToggle"]
-        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        for _ in 0..<6
+        where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 80 {
+            app.swipeUp()
+        }
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         let originallyEnabled = toggle.value as? String == "1"
         if originallyEnabled {
@@ -212,7 +215,10 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(waitForGuidance(app, timeout: 10))
         // Disabling the mode takes effect directly, without a second confirmation.
         app.buttons["settingsButton"].tap()
-        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        for _ in 0..<6
+        where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 80 {
+            app.swipeUp()
+        }
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "0")
         XCTAssertFalse(alert.exists)

@@ -16,6 +16,7 @@ The camera keeps running in Settings while guidance cues pause. A running sessio
 
 ## What you can set
 
+- **Tap to stop**: Off by default. Turn it on if you use AssistiveTouch, eye tracking, or find holding a press difficult. You can then tap the main button to stop.
 - **Low vision mode**: Off by default and requires confirmation to enable. Keeps the camera, descriptions, questions, and text reading available without obstacle speech or vibration.
 - **Intelligence settings**: Choose what describes the scene and answers questions, and set up the photo button and text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
 - **Enhanced mode**: Available with the on-device provider and off by default. Allows broader voice answers but may reduce accuracy. It does not affect short descriptions or text reading.

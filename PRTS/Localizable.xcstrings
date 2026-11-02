@@ -999,6 +999,40 @@
         }
       }
     },
+    "settings.tapToStop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to stop"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按停止"
+          }
+        }
+      }
+    },
+    "settings.tapToStop.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the main button to stop without holding it. Enable this for AssistiveTouch, eye tracking, or difficulty holding a press."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按主按钮即可停止，无需长按。使用辅助触控、眼动追踪或不便长按时可开启。"
+          }
+        }
+      }
+    },
     "settings.voice.announcements" : {
       "extractionState" : "manual",
       "localizations" : {
