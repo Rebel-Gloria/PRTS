@@ -8,6 +8,7 @@ import SwiftUI
 final class CameraManager: ObservableObject {
     let model = ProbeViewModel()
     private var wantsCameraRunning = false
+    private var pausedForTextReading = false
     @Published private(set) var state: CameraState = .idle
     @Published private(set) var status = "离线空间感知待启动"
     @Published private(set) var latestSceneResult: SceneResult?
@@ -35,12 +36,28 @@ final class CameraManager: ObservableObject {
     }
     func startCamera() {
         wantsCameraRunning = true
+        resumeCameraIfNeeded()
+    }
+    private func resumeCameraIfNeeded() {
+        guard wantsCameraRunning, !pausedForTextReading else { return }
         guard !model.snapshot.running else { return }
         model.startOrStop()
         poll(suspendFeedback: true)
     }
     func stopCamera() {
         wantsCameraRunning = false
+        pauseCamera()
+    }
+    /// OCR temporarily owns the camera without changing the user's guidance intent.
+    func pauseForTextReading() {
+        pausedForTextReading = true
+        pauseCamera()
+    }
+    func finishTextReading(isActive: Bool) {
+        pausedForTextReading = false
+        if isActive { resumeCameraIfNeeded() }
+    }
+    private func pauseCamera() {
         model.engine.stop()
         model.poll()
         latestSceneResult = nil
@@ -49,6 +66,6 @@ final class CameraManager: ObservableObject {
     func lifecycle(_ phase: ScenePhase) {
         model.lifecycle(phase)
         poll(suspendFeedback: phase != .active)
-        if phase == .active && wantsCameraRunning { startCamera() }
+        if phase == .active { resumeCameraIfNeeded() }
     }
 }

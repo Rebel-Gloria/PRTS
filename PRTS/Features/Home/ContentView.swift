@@ -529,15 +529,14 @@ struct ContentView: View {
         feedback.reset()
         speechManager.stopCurrentSpeech()
         let resumeGuidance = camera.state == .running
-        if resumeGuidance { camera.stopCamera() }
+        camera.pauseForTextReading()
         hapticManager.buttonTapped()
         textReading.localized = { key in speechManager.interfaceString(key) }
         textReading.finished = {
-            if resumeGuidance && UIApplication.shared.applicationState == .active
-                && !isShowingSettings
-            {
-                camera.startCamera()
-            }
+            camera.finishTextReading(
+                isActive: scenePhase == .active
+                    && UIApplication.shared.applicationState == .active
+            )
         }
         textReading.start(intro: resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start")
     }
