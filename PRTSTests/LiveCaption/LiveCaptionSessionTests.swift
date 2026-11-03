@@ -6,13 +6,13 @@ import Vision
 @testable import PRTS
 
 @MainActor
-private final class CaptionTestAudio: PhotoAnswerAudio {
+private final class CaptionTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     var stops = 0
     private var arrival: CheckedContinuation<Void, Never>?
 
-    func cue(_ cue: PhotoAudioOutput.Cue) throws {}
+    func cue(_ cue: AnswerAudioOutput.Cue) throws {}
     func speak(_ text: String) throws {
         spoken.append(text)
         arrival?.resume()
@@ -116,7 +116,7 @@ struct LiveCaptionSessionTests {
         defaults.set(provider.rawValue, forKey: PhotoChatProvider.selectionKey)
         defaults.set(true, forKey: "photoDescription.uploadAllowed")
         let response = CaptionTestResponse()
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         var services = PhotoDescriptionServices(defaults: defaults)
         services.now = { clock.now }
@@ -148,7 +148,7 @@ struct LiveCaptionSessionTests {
 
     @Test func lateOpeningAfterStopStaysSilent() async {
         let response = CaptionTestResponse()
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         let session = LiveCaptionSession(
             audio: audio,
@@ -175,7 +175,7 @@ struct LiveCaptionSessionTests {
 
     @Test func stopCancelsImagePreparation() async {
         let response = CaptionTestResponse()
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         let session = LiveCaptionSession(
             audio: audio,
@@ -205,7 +205,7 @@ struct LiveCaptionSessionTests {
     }
 
     @Test func cloudConsentIsRequiredBeforeCapture() {
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         var services = PhotoDescriptionServices()
         services.uploadAllowed = { false }
         let session = LiveCaptionSession(
@@ -225,7 +225,7 @@ struct LiveCaptionSessionTests {
     }
 
     @Test func qwenKeyIsRequiredBeforeCapture() {
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         var services = PhotoDescriptionServices()
         services.uploadAllowed = { true }
         let session = LiveCaptionSession(
@@ -253,7 +253,7 @@ struct LiveCaptionSessionTests {
     }
 
     @Test func fewerThanFourFramesNeverRequestChanges() async {
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         let session = LiveCaptionSession(
             audio: audio,
@@ -293,7 +293,7 @@ struct LiveCaptionSessionTests {
 
     @Test func samplingContinuesDuringOpeningRequestAndStopsWithSession() async {
         let response = CaptionTestResponse()
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         let session = LiveCaptionSession(
             audio: audio,
@@ -327,7 +327,7 @@ struct LiveCaptionSessionTests {
     }
 
     @Test func exitAudioOwnsFeedbackUntilFinished() {
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let session = LiveCaptionSession(audio: audio, services: .init())
         session.announce("已退出流式字幕")
         #expect(session.suspendsFeedback)
@@ -346,7 +346,7 @@ struct LiveCaptionSessionTests {
         let restarted = TestSignal()
         let release = DispatchSemaphore(value: 0)
         let overlap = CaptionExtractionState()
-        let audio = CaptionTestAudio()
+        let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         let response = CaptionTestResponse()
         var passes = 0

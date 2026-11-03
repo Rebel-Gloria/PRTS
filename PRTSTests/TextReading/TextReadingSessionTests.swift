@@ -37,14 +37,14 @@ nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sen
 }
 
 @MainActor
-private final class ReadingTestAudio: PhotoAnswerAudio {
+private final class ReadingTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     var failure: String?
     var active = false
     private var waiter: (Int, CheckedContinuation<Void, Never>)?
 
-    func cue(_ cue: PhotoAudioOutput.Cue) throws {}
+    func cue(_ cue: AnswerAudioOutput.Cue) throws {}
     func speak(_ text: String) throws {
         active = true
         if text == failure { throw ReadingTestError.failed }
@@ -65,7 +65,7 @@ private final class ReadingTestAudio: PhotoAnswerAudio {
 @MainActor
 private final class ReadingHarness {
     let camera = ReadingTestCamera()
-    let audio = ReadingTestAudio()
+    let audio = ReadingTestAnswerAudio()
     var now: TimeInterval = 0
     var ended = 0
     var encoded: [Float] = []

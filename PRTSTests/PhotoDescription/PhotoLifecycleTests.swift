@@ -30,12 +30,12 @@ private final class PhotoTestRecognizer: PhotoRecognizing {
 }
 
 @MainActor
-private final class PhotoTestAudio: PhotoAnswerAudio {
+private final class PhotoTestAnswerAudio: AnswerAudio {
     let state: PhotoTestState
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     init(_ state: PhotoTestState) { self.state = state }
-    func cue(_ cue: PhotoAudioOutput.Cue) throws { state.events.append(cue == .submit ? "A" : "B") }
+    func cue(_ cue: AnswerAudioOutput.Cue) throws { state.events.append(cue == .submit ? "A" : "B") }
     func speak(_ text: String) throws {
         state.events.append("speak")
         spoken.append(text)
@@ -78,13 +78,13 @@ private actor PhotoTestNetwork {
 private final class PhotoFixture {
     let state = PhotoTestState()
     let network = PhotoTestNetwork()
-    let audio: PhotoTestAudio
+    let audio: PhotoTestAnswerAudio
     let recognizer: PhotoTestRecognizer
     let coordinator: PhotoDescriptionCoordinator
     init(configure: (inout PhotoDescriptionServices) -> Void = { _ in }) {
         let state = self.state
         let network = self.network
-        audio = PhotoTestAudio(state)
+        audio = PhotoTestAnswerAudio(state)
         recognizer = PhotoTestRecognizer(state)
         var services = PhotoDescriptionServices()
         services.now = { state.time }

@@ -1,4 +1,6 @@
 /// Owns the single ARSession, bounded frame mailbox, analysis worker, mesh cache and diagnostic journal.
+/// This is the app's runtime implementation; the same-named type in Experiments/SpatialProbe/
+/// is a frozen reference excluded from the app build.
 
 import ARKit
 import AVFoundation

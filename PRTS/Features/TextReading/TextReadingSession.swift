@@ -24,7 +24,7 @@ final class TextReadingSession: ObservableObject {
 
     let camera: any TextCapturing
     /// One voice for the whole pass: statuses and text queue up instead of cutting each other off.
-    private let voice: any PhotoAnswerAudio
+    private let voice: any AnswerAudio
     private let services: TextReadingServices
     private let selectedService: () -> TextReadingService
     private let cloudSetup: () -> (key: String, service: PhotoChatService)?
@@ -42,7 +42,7 @@ final class TextReadingSession: ObservableObject {
     convenience init() {
         self.init(
             camera: TextCamera(),
-            voice: PhotoAudioOutput(),
+            voice: AnswerAudioOutput(),
             services: TextReadingServices(),
             selectedService: { TextReadingService.current() },
             cloudSetup: { TextReadingSession.cloudSetup() }
@@ -51,7 +51,7 @@ final class TextReadingSession: ObservableObject {
 
     init(
         camera: any TextCapturing,
-        voice: any PhotoAnswerAudio,
+        voice: any AnswerAudio,
         services: TextReadingServices,
         selectedService: @escaping () -> TextReadingService,
         cloudSetup: @escaping () -> (key: String, service: PhotoChatService)?

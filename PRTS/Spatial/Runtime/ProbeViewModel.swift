@@ -1,4 +1,6 @@
 /// Main-actor presentation state for the home screen and spatial settings.
+/// This is the app's runtime implementation; the same-named type in Experiments/SpatialProbe/
+/// is a frozen reference excluded from the app build.
 
 import AVFoundation
 import Combine

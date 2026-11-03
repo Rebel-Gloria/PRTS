@@ -37,8 +37,8 @@ struct PhotoPresentationTests {
     }
 
     @Test func nativeToneAssetsAreDistinctAndDecodableWithoutPlayback() throws {
-        let a = PhotoAudioOutput.toneData(for: .submit)
-        let b = PhotoAudioOutput.toneData(for: .record)
+        let a = AnswerAudioOutput.toneData(for: .submit)
+        let b = AnswerAudioOutput.toneData(for: .record)
         #expect(a != b)
         for data in [a, b] {
             let player = try AVAudioPlayer(data: data)
@@ -58,7 +58,7 @@ struct PhotoPresentationTests {
             defaults.set(language.rawValue, forKey: "selectedLanguage")
             for rate in SpeechRateOption.allCases {
                 defaults.set(rate.rawValue, forKey: "speechRateOption")
-                let answer = PhotoAudioOutput.answerUtterance("前方有门。", defaults: defaults)
+                let answer = AnswerAudioOutput.answerUtterance("前方有门。", defaults: defaults)
                 let announcement = SpeechManager.announcementUtterance(
                     "前方有门。",
                     rate: rate,
@@ -82,12 +82,12 @@ struct PhotoPresentationTests {
         defaults.set(false, forKey: "followSystemLanguageEnabled")
         defaults.set(SpeechLanguage.chinese.rawValue, forKey: "selectedLanguage")
         defaults.set(SpeechRateOption.slow.rawValue, forKey: "speechRateOption")
-        let first = PhotoAudioOutput.answerUtterance("门在左边。", defaults: defaults)
+        let first = AnswerAudioOutput.answerUtterance("门在左边。", defaults: defaults)
         #expect(first.rate == SpeechRateOption.slow.avSpeechRate)
 
         defaults.set(SpeechRateOption.fast.rawValue, forKey: "speechRateOption")
         defaults.set(SpeechLanguage.english.rawValue, forKey: "selectedLanguage")
-        let second = PhotoAudioOutput.answerUtterance(
+        let second = AnswerAudioOutput.answerUtterance(
             "The door is on the left.",
             defaults: defaults
         )
@@ -95,7 +95,7 @@ struct PhotoPresentationTests {
         #expect(second.voice?.identifier == AVSpeechSynthesisVoice(language: "en-US")?.identifier)
         // The automatic-announcement switch must not mute a manually requested answer.
         defaults.set(false, forKey: "voiceAnnouncementsEnabled")
-        #expect(PhotoAudioOutput.answerUtterance("回答", defaults: defaults).speechString == "回答")
+        #expect(AnswerAudioOutput.answerUtterance("回答", defaults: defaults).speechString == "回答")
     }
 
     @Test func answerSpeechUsesTheSameSystemLanguageAndDefaultsAsAnnouncements() throws {
@@ -107,7 +107,7 @@ struct PhotoPresentationTests {
             rate: .normal,
             language: .fromSystemLanguage()
         )
-        let answer = PhotoAudioOutput.answerUtterance("回答", defaults: defaults)
+        let answer = AnswerAudioOutput.answerUtterance("回答", defaults: defaults)
         #expect(answer.voice?.identifier == expected.voice?.identifier)
         #expect(answer.rate == expected.rate)
         #expect(answer.pitchMultiplier == expected.pitchMultiplier)
@@ -115,7 +115,7 @@ struct PhotoPresentationTests {
         defaults.set(true, forKey: "followSystemLanguageEnabled")
         defaults.set(SpeechLanguage.chinese.rawValue, forKey: "selectedLanguage")
         #expect(
-            PhotoAudioOutput.answerUtterance("回答", defaults: defaults).voice?.identifier
+            AnswerAudioOutput.answerUtterance("回答", defaults: defaults).voice?.identifier
                 == expected.voice?.identifier
         )
     }

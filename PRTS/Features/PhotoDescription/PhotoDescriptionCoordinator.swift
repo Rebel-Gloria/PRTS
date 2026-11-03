@@ -15,16 +15,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private var captureOperation: ((CGFloat) throws -> Task<Data, Error>)?
     private var key = ""
     private let recognizer: any PhotoRecognizing
-    private let audio: any PhotoAnswerAudio
+    private let audio: any AnswerAudio
     private let services: PhotoDescriptionServices
 
     convenience init() {
-        self.init(recognizer: PhotoSpeechRecognizer(), audio: PhotoAudioOutput(), services: .init())
+        self.init(recognizer: PhotoSpeechRecognizer(), audio: AnswerAudioOutput(), services: .init())
     }
 
     init(
         recognizer: any PhotoRecognizing,
-        audio: any PhotoAnswerAudio,
+        audio: any AnswerAudio,
         services: PhotoDescriptionServices
     ) {
         self.recognizer = recognizer

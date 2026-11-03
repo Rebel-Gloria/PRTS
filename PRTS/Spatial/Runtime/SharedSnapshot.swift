@@ -3,6 +3,11 @@ import Foundation
 import SpatialCore
 import simd
 
+/// Cross-queue state snapshot whose fields may come from different processing stages.
+/// Validate results through activeGeometryResult(now:), activeGuidanceResult(now:),
+/// activeSurfacePresentation(now:), activeRouteProjection(now:), activePath(now:),
+/// activeWaypointUpdate(now:) or pathHeading(now:) as appropriate; monocular results use
+/// activeMonocular and retainedNativeGround(now:).
 struct SharedSnapshot: Sendable {
     var usesMonocular = false
     var orientation: ImageOrientation = .portrait
