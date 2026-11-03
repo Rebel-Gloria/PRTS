@@ -647,13 +647,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warns about obstacles and points the way"
+            "value" : "Scans for obstacles ahead"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提示前方障碍，指引方向"
+            "value" : "扫描前方障碍"
           }
         }
       }
@@ -664,13 +664,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the middle of the screen to describe what's ahead"
+            "value" : "Quickly describes what's in front of you"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "轻点屏幕中间，描述眼前的东西"
+            "value" : "快速描述眼前内容"
           }
         }
       }
@@ -681,13 +681,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hold three fingers on the screen to read text"
+            "value" : "Hold three fingers on the screen to read the text in front of you"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "三指长按屏幕，读出文字"
+            "value" : "三指长按屏幕阅读面前文本"
           }
         }
       }
@@ -698,13 +698,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap Start when you're ready"
+            "value" : "Tap Start once you're sure your surroundings are safe"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "准备好了就轻点开始"
+            "value" : "在确定目前环境安全下点击开始"
           }
         }
       }
@@ -846,6 +846,23 @@
         }
       }
     },
+    "liveCaption.on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live captions on. Press once to stop."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流式字幕已开启，按一下退出"
+          }
+        }
+      }
+    },
     "liveCaption.requiresQwen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -931,23 +948,6 @@
         }
       }
     },
-    "ocr.error.speech" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Can’t read the text aloud"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法朗读文字"
-          }
-        }
-      }
-    },
     "ocr.start" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1022,13 +1022,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Applies only to voice questions. Answers cover more, but may be less accurate."
+            "value" : "Lets the on-device model answer more broadly, but answers may be less accurate."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "只影响语音提问。回答范围更广，准确性可能下降。"
+            "value" : "使得本地模型回答范围更发散，准确性可能下降。"
           }
         }
       }
@@ -1056,13 +1056,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Answers to spoken questions may be more careful, but take longer: Qwen sometimes needs over 20 seconds. Describing the scene never thinks."
+            "value" : "Thinks more carefully when answering questions, but takes noticeably longer."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提问的回答可能更仔细，但要多等一会儿，千问有时要 20 秒以上。短按描述画面不受影响。"
+            "value" : "提问时会更仔细的思考，但会显著增加耗时。"
           }
         }
       }
@@ -1073,13 +1073,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scan mesh"
+            "value" : "Show scan mesh"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扫描网格"
+            "value" : "显示扫描网格"
           }
         }
       }
@@ -1090,13 +1090,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scan mesh draws a 3D mesh of your surroundings and the planned route over the camera view, so you can see which way it leads. It doesn't affect guidance."
+            "value" : "Scan mesh: draws a 3D mesh of your surroundings and the planned route over the camera view."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扫描网格：边扫描边在画面上画出周围环境的立体网格和规划的路线，方便看出往哪走。不影响避障。"
+            "value" : "扫描网格：在画面上画出周围环境的立体网格和规划的路线。"
           }
         }
       }
@@ -1322,40 +1322,6 @@
         }
       }
     },
-    "settings.voice.announcements.off" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Off"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭"
-          }
-        }
-      }
-    },
-    "settings.voice.announcements.on" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开启"
-          }
-        }
-      }
-    },
     "settings.voice.rate" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1402,7 +1368,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "非盲模式"
+            "value" : "低视力模式"
           }
         }
       }
@@ -1413,13 +1379,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "For people with some sight: scene descriptions, voice questions and text reading, without obstacle guidance."
+            "value" : "Intelligence features for people with some sight, with obstacle guidance turned off."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "为视力较弱的用户提供画面描述、语音提问和读文字，不提供避障提示。"
+            "value" : "为视力较弱的用户提供智能功能，禁用避障。"
           }
         }
       }
@@ -1436,7 +1402,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启非盲模式？"
+            "value" : "开启低视力模式？"
           }
         }
       }
@@ -1447,13 +1413,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Obstacle and direction cues will stop. Use it only if you can see your surroundings."
+            "value" : "Designed for people with low vision who don't need obstacle guidance. Turning it on turns off only guidance; intelligence features stay available."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后不再提示障碍和方向。请只在你能看清周围环境时使用。"
+            "value" : "为无需避障功能的低视力用户设计，启用后仅关闭避障相关内容，仍可使用智能功能。"
           }
         }
       }
@@ -1515,13 +1481,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photos and questions are sent only when you press the photo button."
+            "value" : "Allows sending photos and questions when you press the photo button."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "只在按下拍照按钮时发送照片和问题。"
+            "value" : "允许按下拍照按钮时发送照片和问题。"
           }
         }
       }
@@ -1549,13 +1515,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hides the camera view. Guidance keeps working."
+            "value" : "Doesn't draw the camera view. Everything else keeps working."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "不显示相机画面，避障照常工作。"
+            "value" : "不渲染画面，其余功能正常工作。"
           }
         }
       }
@@ -1981,23 +1947,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开启"
-          }
-        }
-      }
-    },
-    "speech.voice.disabled" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice off."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语音已关。"
           }
         }
       }
@@ -2447,13 +2396,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sent only when you press the photo button. Speech recognition may use Apple services. Photos, recordings, questions and answers are not saved."
+            "value" : "Speech recognition may use Apple services. Photos, recordings, questions and answers are not saved."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "只在按下拍照按钮时发送。语音识别可能使用 Apple 服务。照片、录音、提问和回答都不保存。"
+            "value" : "语音识别可能使用 Apple 服务。照片、录音、提问和回答都不保存。"
           }
         }
       }
@@ -2481,13 +2430,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questions and text reading use sharper photos, so small text reads better, at about half a second more per request."
+            "value" : "Questions and text reading use sharper photos, with slightly longer responses and more tokens."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提问和读文字使用更清晰的照片，小字更容易读出，每次多等约半秒。"
+            "value" : "提问和读文字使用更清晰的照片，略微增加响应时间和Token消耗。"
           }
         }
       }
@@ -2804,13 +2753,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The camera view isn’t drawn. Guidance, vibration and photo description work as usual, with less battery use and heat."
+            "value" : "The camera view isn't drawn. Everything else works as usual, with less battery use and heat."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "不显示相机画面。避障、振动和拍照描述照常工作，更省电，发热更少。"
+            "value" : "不渲染画面。其余功能照常工作，更省电，发热更少。"
           }
         }
       }
@@ -2872,13 +2821,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photos are described on this phone and never leave it. Works without a network. The first photo takes about 3 seconds to load the model, later ones about 2 seconds. Descriptions are less detailed than the online services."
+            "value" : "Photos are processed only on this phone. No network connection is needed, but battery use may increase."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "照片只在手机上处理，不联网也能用。第一次要加载约 3 秒，之后每张约 2 秒。描述比联网的服务粗一些。"
+            "value" : "照片只在手机上处理，无需网络连接，可能会增加耗电量。"
           }
         }
       }
@@ -2940,13 +2889,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The address must start with https://, and a model is required."
+            "value" : "Use an https address, and enter a model."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "地址要以 https:// 开头，并填写模型。"
+            "value" : "地址要使用https，并填写模型。"
           }
         }
       }
@@ -2957,13 +2906,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Any OpenAI-compatible service whose model accepts images. /chat/completions is added automatically."
+            "value" : "Supports OpenAI-compatible vision-language models."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "支持兼容 OpenAI 格式、能看图的模型。地址会自动补上 /chat/completions。"
+            "value" : "支持兼容 OpenAI 格式、VLM模型。"
           }
         }
       }
@@ -3059,13 +3008,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When on, while guidance runs, press a volume button to describe the scene or hold it to ask a question. The volume buttons then don’t change the volume, and the on-screen photo button is hidden."
+            "value" : "When on, while guidance runs, press a volume button to describe the scene, or hold it to ask a question."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后，避障运行时按一下音量键描述画面，按住提问；这期间音量键不调节音量，屏幕上也不再显示拍照按钮。"
+            "value" : "开启后，避障运行时按一下音量键描述画面，按住提问。"
           }
         }
       }
@@ -3144,13 +3093,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use default provider follows your default selection. If the remote service is unavailable, text reading uses the on-device model, then Apple Vision. Apple Vision reads text offline but cannot tell what the text is on."
+            "value" : "Use default provider follows your default selection. If the remote service is unavailable, text reading uses the on-device model, then Apple Vision. Apple Vision reads the text without the surrounding scene."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“跟随默认服务商”使用默认选择。远端不可用时依次使用本机模型和 Apple Vision。Apple Vision 离线识别文字，说不出字写在什么上面。"
+            "value" : "“跟随默认服务商”使用默认选择。远端不可用时依次使用本机模型和 Apple Vision。Apple Vision 识别文字无法结合场景。"
           }
         }
       }
