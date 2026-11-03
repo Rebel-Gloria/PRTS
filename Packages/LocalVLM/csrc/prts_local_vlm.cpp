@@ -128,8 +128,8 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const prts_vlm_ca
 
 prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size_t jpeg_len,
                                   const char *system_prompt, const char *prompt, int max_tokens,
-                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
-                                  char **answer) {
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text,
+                                  void *user, char **answer) {
     // MiniCPM-V chat template.
     std::string text;
     if (system_prompt && *system_prompt)
@@ -171,8 +171,8 @@ prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size
 }
 
 prts_vlm_status prts_vlm_continue(prts_vlm *vlm, const char *prompt, int max_tokens,
-                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
-                                  char **answer) {
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text,
+                                  void *user, char **answer) {
     const std::string text = std::string("<|im_end|>\n<|im_start|>user\n") + prompt + kAssistant;
     const llama_vocab *vocab = llama_model_get_vocab(vlm->model);
     std::vector<llama_token> tokens(text.size() + 8);
