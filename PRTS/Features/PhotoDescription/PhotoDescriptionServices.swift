@@ -1,6 +1,7 @@
 import Foundation
 
-/// Replaceable time, configuration, permissions and description calls, partly reused by live captions.
+/// Replaceable time, configuration, permissions and description calls.
+/// Live captions reuse part of them.
 @MainActor
 struct PhotoDescriptionServices {
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }

@@ -34,14 +34,14 @@ typedef void (*prts_vlm_text_fn)(void *user, const char *text, size_t len);
 /// string the caller frees. `cancel` is polled between chunks and tokens. `on_text` may be NULL.
 prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size_t jpeg_len,
                                   const char *system_prompt, const char *prompt, int max_tokens,
-                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
-                                  char **answer);
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text,
+                                  void *user, char **answer);
 
 /// Asks a follow-up about the same photo: the conversation so far, image included, stays in the
 /// context, so only the new question is evaluated. Call after prts_vlm_describe.
 prts_vlm_status prts_vlm_continue(prts_vlm *vlm, const char *prompt, int max_tokens,
-                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
-                                  char **answer);
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text,
+                                  void *user, char **answer);
 
 void prts_vlm_close(prts_vlm *vlm);
 
