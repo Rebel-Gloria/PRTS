@@ -2,7 +2,7 @@
 
 本文介绍拍照描述、语音提问、流式字幕和文字识别的实现，包括模型服务、提示词、本地视觉模型和数据处理方式。操作方式请参阅[功能与操作](usage.md)。
 
-拍照描述、语音提问和文字识别默认使用随应用打包的 MiniCPM-V 4.7 1B，在设备上离线运行，用户也可以选择联网服务。流式字幕仅支持通义千问。视觉模型不参与避障，避障由 `SpatialCore` 独立完成。
+拍照描述、语音提问和文字识别默认使用随应用打包的 MiniCPM-V 4.7 1B，在设备上离线运行，也可以改用联网服务；流式字幕使用通义千问。视觉模型不参与避障，避障由 `SpatialCore` 独立完成。
 
 ## 模型服务
 
@@ -53,7 +53,7 @@
 
 ## 流式字幕
 
-流式字幕使用通义千问的视频输入，与默认服务商无关。千问要求视频至少包含 4 帧，其他服务在测试中会编造动作，因此该功能固定使用千问。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`LiveCaptionBackend.swift` 组装请求。
+流式字幕以 4 帧视频的形式向千问发送画面。其他服务在测试中会编造动作，因此该功能不跟随服务配比，配置要求见上文“服务配比”。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，并先对拍照按键做连按判定（见[工程架构](architecture.md#拍照按键)），`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`LiveCaptionBackend.swift` 组装请求。
 
 ### 请求流程
 
@@ -86,7 +86,7 @@
 | 跟随默认服务商（默认），或指定服务商 | 使用所选服务商。本机模型分两次完成分类和转写；千问并行调用分类模型（`qwen3.8-flash`）和转写模型（`qwen-vl-ocr`）；其他联网服务在一次请求中完成分类和转写 | 远端不可用时静默改用本机模型，本机模型失败后改用 Apple Vision |
 | Apple Vision | 系统离线文字识别，不判断物体类型，统一使用“你面前的物体上写着” | 不调用其他服务 |
 
-所选服务商为联网服务、允许上传照片并保存了该服务商的 API Key 时，先使用远端识别；否则直接在本机识别。远端连接失败、超时或返回错误时改用本机模型，本机模型失败时改用 Apple Vision。取消识别会结束整个过程，包括网络层以 `URLError.cancelled` 报告的取消。
+所选服务商为联网服务、允许上传照片并保存了该服务商的 API Key 时，先使用远端识别；否则直接在本机识别。远端连接失败、超时或返回错误时改用本机模型，本机模型失败时改用 Apple Vision。所有服务都失败或照片无法编码时，应用播报“读文字失败，请重试”，并丢弃尚未读出的文字。取消识别会结束整个过程，包括网络层以 `URLError.cancelled` 报告的取消。
 
 旧版的“远端 API”选项按“跟随默认服务商”处理，“本地 VLM”按“本机”处理。
 
@@ -111,7 +111,7 @@
 | `remotePrompt` | 联网识别的用户消息：“读出照片里的文字。” |
 | `ocrSystem` | 专用 OCR 模型的系统提示词，只转写文字，不输出分类 |
 
-实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingService.swift` 选择服务并处理回退，`TextRecognizer.swift` 调用 Apple Vision。
+实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄，`Services/TextReadingServices.swift` 集中了会话用到的时钟、编码和识别调用，测试可以替换。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingService.swift` 选择服务并处理回退，`TextRecognizer.swift` 调用 Apple Vision。
 
 ## 本地视觉模型
 

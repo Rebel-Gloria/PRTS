@@ -6,24 +6,46 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 
 ## 目录结构
 
-| 路径 | 说明 |
-|---|---|
-| `PRTS/Spatial/` | ARKit 会话（`ProbeEngine`）、帧快照、渲染和诊断记录 |
-| `PRTS/Features/Guidance/` | 避障入口、语音和振动反馈 |
-| `PRTS/Features/PhotoDescription/` | 拍照描述和语音提问。模型后端在 `Services/PhotoDescriptionBackend.swift` 中选择，提示词定义在 `Services/PhotoPrompts.swift` 中 |
-| `PRTS/Features/LiveCaption/` | 流式字幕：连按判定、采样、请求和朗读 |
-| `PRTS/Features/TextReading/` | 文字识别：主摄拍照、识别和朗读 |
-| `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型 |
-| `PRTS/Shared/Imaging/`、`Audio/` | 照片缩放与 JPEG 编码；回答朗读和提示音 |
-| `PRTS/Features/Home/`、`Settings/`、`Developer/` | 首页、设置和开发版专用界面 |
-| `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与振动策略（`Feedback/`） |
-| `Packages/LocalVLM/` | llama.cpp 封装，用于在设备上运行 MiniCPM-V |
-| `Vendor/PRTSCore/` | 上游契约代码。应用链接此包，但当前未调用 |
-| `Experiments/` | 实验工程和回放工具，不参与应用编译 |
+| 路径 | 职责 | 入口类型 |
+|---|---|---|
+| `PRTS/App/` | 应用入口和快捷指令 | `PRTSApp`、`ToggleGuidanceIntent`、`HomeCommandCenter` |
+| `PRTS/Features/Home/` | 首页界面；同时协调各功能的生命周期，并轮询避障反馈 | `ContentView` |
+| `PRTS/Features/Guidance/` | 避障相机的运行意图，语音和振动反馈 | `CameraManager`、`FeedbackCoordinator`、`SpeechManager`、`PathHaptics` |
+| `PRTS/Spatial/` | ARKit 会话、帧快照、渲染和诊断记录 | `ProbeEngine`、`ProbeViewModel`、`ProbeRenderer` |
+| `PRTS/Features/PhotoDescription/` | 拍照描述和语音提问。模型后端在 `Services/PhotoDescriptionBackend.swift` 中选择，提示词在 `Services/PhotoPrompts.swift` 中 | `PhotoDescriptionCoordinator` |
+| `PRTS/Features/LiveCaption/` | 流式字幕：采样、请求和朗读；同时负责拍照按键的连按判定 | `LiveCaptionSession` |
+| `PRTS/Features/TextReading/` | 读文字：主摄拍照、识别和朗读 | `TextReadingSession` |
+| `PRTS/Features/Settings/` | 设置、智能服务设置和使用说明 | `SettingsView`、`IntelligenceSettingsView` |
+| `PRTS/Features/Developer/` | 开发版专用界面 | `ProbeSettingsView` |
+| `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型路径 | `PhotoChatService`、`IntelligenceFeature` |
+| `PRTS/Shared/Imaging/`、`Audio/` | 照片缩放与 JPEG 编码；回答朗读和提示音 | `PhotoImageEncoder`、`AnswerAudioOutput` |
+| `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与振动策略（`Feedback/`） | `SpatialAnalyzer`、`PathPredictor` |
+| `Packages/LocalVLM/` | llama.cpp 封装，在设备上运行 MiniCPM-V | `LocalVLM` |
+| `Vendor/PRTSCore/` | 上游契约代码。应用链接此包，但当前未调用 | — |
+| `Experiments/` | 实验工程和回放工具，不参与应用编译 | — |
+
+`PRTS/Spatial/` 中以 `Probe` 开头的类型是应用实际运行的代码。`Experiments/SpatialProbe/` 中有同名类型，它们是冻结的对照实现，只用于一致性检查和回放。
+
+## 应用装配
+
+```text
+PRTSApp
+  ├─ SpeechManager、HapticManager（环境对象）
+  └─ ContentView
+       ├─ CameraManager → ProbeViewModel → ProbeEngine → ARSession
+       ├─ PhotoDescriptionCoordinator
+       ├─ LiveCaptionSession
+       ├─ TextReadingSession → TextCamera（AVCaptureSession）
+       └─ FeedbackCoordinator
+
+ToggleGuidanceIntent → HomeCommandCenter.startRequested → ContentView.runPendingCommand
+```
+
+`ContentView` 持有各功能的协调对象，并负责它们之间的交接：打开设置、进入后台、音频中断和离开首页时停止字幕、描述和读文字；读文字开始和结束时交出、收回相机。快捷指令只设置 `HomeCommandCenter` 中的请求标志，应用回到前台后由 `ContentView` 启动避障。
 
 ## 避障数据流
 
-每一帧 ARKit 数据按以下顺序处理：
+进入分析的帧按以下顺序处理：
 
 ```text
 ARSession
@@ -33,19 +55,29 @@ ARSession
       → TemporalOccupancyGrid：确认持续 300 ms 以上的障碍
       → ObstacleWaypointPlanner：选择目标点并搜索路线
   → RoutePublicationPolicy：确定发布的路线状态
-  → SharedSnapshot
-      ├─ ProbeRenderer：渲染画面
-      ├─ FeedbackCoordinator：输出语音
-      ├─ ProbeViewModel → PathHaptics：输出方向振动
-      └─ DiagnosticRecorder：写入 DIAG 日志
+  → SharedStore
 ```
 
-`FrameSnapshot` 持有该帧的 `ARFrame`，以及时间戳、epoch、frameID、相机位姿和内参；LiDAR 设备的深度图和置信度从 `ARFrame` 读取，无 LiDAR 设备由深度模型估计。环境网格由独立的网格队列维护在 `SharedSnapshot.meshes` 中，按自身的回调时间更新，分析时作为先验读取。分析在串行队列中执行，待处理队列通过 `LatestMailbox` 仅保留最新一帧；分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。
+`FrameSnapshot` 持有该帧的 `ARFrame`，以及时间戳、epoch、frameID、相机位姿和内参；LiDAR 设备的深度图和置信度从 `ARFrame` 读取，无 LiDAR 设备由深度模型估计。
 
 路线规划仅将已确认的障碍视为阻挡，未知栅格允许通过。
 
 > [!NOTE]
 > “没有已确认障碍”不等同于“已确认安全”。地面或深度短暂缺失时，系统保留现有路线，而不是立即撤销。
+
+### 运行调度
+
+采集、分析、反馈和渲染分别在不同的队列或时钟上运行，通过 `SharedStore` 交换数据：
+
+| 位置 | 触发 | 工作 |
+|---|---|---|
+| `probe.session` 队列 | ARKit 帧回调 | 生成 `FrameSnapshot`，放入 `LatestMailbox`。会话的启动和停止也在此队列上按请求顺序执行 |
+| `probe.analysis` 队列 | 信箱中有新帧 | `drainAnalysis` 运行上图的分析和规划，将每个候选结果写入 DIAG 日志，只把通过时效检查的结果写入 `SharedStore` |
+| `probe.mesh` 队列 | ARKit 网格锚点更新 | 经 `MeshInbox` 合并后写入 `SharedStore.meshes`，分析时作为先验读取 |
+| 主线程，每 0.1 s | `ContentView` 中的定时器 | `CameraManager.poll` → `ProbeViewModel.poll` 读取快照，由 `PathHaptics` 输出方向振动，每 1 s 写一次 DIAG 心跳；随后 `ContentView` 把结果交给 `FeedbackCoordinator`，由 `SpeechManager` 播报 |
+| 主线程，每秒 30 次 | `MTKView` 绘制回调 | `ProbeRenderer` 读取 `SharedStore` 绘制画面 |
+
+`LatestMailbox` 只保留最新一帧，分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。语音和振动在同一次轮询中使用同一个暂停条件：拍照操作、读文字、流式字幕、设置页、停止手势、低视力模式或使用说明、应用不在前台，任一成立时两者都暂停。
 
 ## 路线状态
 
@@ -92,6 +124,43 @@ ARSession
 
 无法绕行时播报“有障碍，无法绕行”；没有可用深度时播报“暂时看不清”。
 
+## 相机交接
+
+避障使用 `ProbeEngine` 中的 `ARSession`，读文字使用 `TextCamera` 中独立的 `AVCaptureSession`，两者不同时运行。`CameraManager` 保存用户是否要运行避障（运行意图），交接规则如下：
+
+| 事件 | 处理 | 负责类型 |
+|---|---|---|
+| 点按开始 | 设置运行意图，请求相机权限后启动会话 | `CameraManager` |
+| 停止避障 | 清除运行意图，取消尚未完成的权限请求，立即暂停反馈 | `CameraManager` |
+| 开始读文字 | 停止字幕和描述；`pauseForTextReading()` 暂停会话但保留运行意图；`TextReadingSession` 打开主摄 | `ContentView`、`CameraManager` |
+| 读文字结束、失败或取消 | `finishTextReading(isActive:)` 解除占用；在前台时立即恢复已启动的避障，在后台时等到回到前台 | `TextReadingSession`、`CameraManager` |
+| 用户取消读文字 | 播报取消提示，读完后释放音频会话 | `TextReadingSession` |
+| 进入后台、音频中断、打开设置、离开首页 | 字幕、描述和读文字静默结束；进入后台时暂停会话并取消尚未完成的权限请求，保留运行意图 | `ContentView`、`CameraManager` |
+| 回到前台 | 仅恢复用户已启动、且未被读文字占用的会话 | `CameraManager` |
+| 快捷指令开始 | 不停止正在运行的相机；读文字期间退出读文字，并恢复之前的相机状态 | `ContentView` |
+| 低视力模式、首次使用说明 | 暂停避障反馈，不关闭相机，不禁用描述、提问或读文字 | `ContentView` |
+
+停止之后，较晚到达的权限结果和读文字结束回调都不会重新启动相机。
+
+设置中开启“点按停止”，或系统已识别到辅助触控、切换控制时，主按钮改为点按停止，不使用长按停止手势。
+
+> [!NOTE]
+> `UIAccessibility.isAssistiveTouchRunning` 仅在启用引导式访问时保证返回正确状态，因此普通辅助触控用户需要在设置中开启“点按停止”。
+
+## 拍照按键
+
+屏幕拍照按钮和音量键都先经过流式字幕的连按判定，再交给对应功能：
+
+```text
+ContentView.photoDown
+  → LiveCaptionSession.down → LiveCaptionPressState
+      ├─ .photo：PhotoDescriptionCoordinator.perform（短按描述，按住提问）
+      ├─ .start：连按三下，停止描述并开启流式字幕
+      └─ .stop：字幕运行中按下，退出流式字幕
+```
+
+时间阈值和提示音请参阅[功能与操作](usage.md)。
+
 ## 设计约束
 
 修改代码时，请遵守以下约束。“自动检查”列中的脚本位于 `scripts/`，Swift 测试位于 `PRTSTests/`。
@@ -99,17 +168,13 @@ ARSession
 | 约束 | 自动检查 |
 |---|---|
 | 仅 `ProbeEngine` 创建 `ARSession` | `test_repository_layout.py` |
-| 拍照描述和流式字幕读取当前帧；文字识别先停止 ARKit 会话、切换到主摄，退出后恢复之前的状态 | `CameraRecoveryTests` 覆盖识别结束、中断、显式停止和从空闲状态开始的恢复；不覆盖相机交接时序 |
+| 拍照描述和流式字幕读取当前帧；读文字先停止 ARKit 会话、切换到主摄，退出后恢复之前的状态 | `CameraRecoveryTests` 覆盖启停顺序、迟到的相机授权、读文字结束、中断、显式停止和从空闲状态开始的恢复 |
 | `SpatialCore` 不得导入 ARKit、UIKit、SwiftUI、AVFoundation、Metal 或 Core ML | `test_repository_layout.py` |
 | `SpatialAnalyzer` 与 `Experiments/SpatialProbe` 中冻结的对照实现保持一致，比较时忽略格式和注释 | `test_spatial_integration.py` |
 | 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | `test_spatial_integration.py`，部分覆盖 |
-| 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | 无 |
+| 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | `TextReadingSessionTests`、`LiveCaptionSessionTests`、`test_stability_boundaries.py`，部分覆盖 |
 
 `Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
-
-首页通过按钮显式启动和停止相机，`CameraManager` 保存用户的运行意图。进入设置不停止采集；进入后台暂停采集但保留运行意图，返回前台时仅恢复用户已启动的会话。开始快捷指令不会停止正在运行的相机，文字识别期间则退出识别并恢复之前的相机状态。低视力模式与首次使用说明展示期间暂停避障反馈；低视力模式不关闭相机，也不禁用描述、提问或文字识别。
-
-文字识别通过 `pauseForTextReading()` 临时占用相机，不清除用户的运行意图。识别结束、失败或取消时，`finishTextReading(isActive:)` 解除占用；前台立即恢复已启动的避障会话，后台则延迟到返回前台。主动停止会清除运行意图，后续识别回调不能重新启动相机。设置中的“点按停止”或系统已识别的辅助输入使用单击停止，不参与主按钮的长按停止手势。`UIAccessibility.isAssistiveTouchRunning` 仅在启用引导式访问时保证返回正确状态，因此普通辅助触控用户可通过“点按停止”显式选择操作方式。
 
 ## 第三方代码
 
