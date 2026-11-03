@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import UIKit
+import Vision
 
 @testable import PRTS
 
@@ -87,8 +88,6 @@ private final class CaptionTestClock {
     }
 }
 
-/// Serialized: concurrent Vision feature prints from several sessions stalled on device, and the
-/// app runs one session at a time.
 @MainActor @Suite(.serialized)
 struct LiveCaptionSessionTests {
     private func jpeg() -> Data {
@@ -337,6 +336,92 @@ struct LiveCaptionSessionTests {
         #expect(!session.suspendsFeedback)
     }
 
+    @Test func restartWaitsForOldFeatureExtraction() async throws {
+        let image = jpeg()
+        let observation = try await LiveCaptionFeatureGenerator.shared.generate(
+            image,
+            extract: LiveCaptionFeatureGenerator.extract
+        )
+        let entered = TestSignal()
+        let restarted = TestSignal()
+        let release = DispatchSemaphore(value: 0)
+        let overlap = CaptionExtractionState()
+        let audio = CaptionTestAudio()
+        let clock = CaptionTestClock()
+        let response = CaptionTestResponse()
+        var passes = 0
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            credential: { _ in "test-key" },
+            describeOpening: { _, _ in await response.request() },
+            makeComparison: {
+                passes += 1
+                let first = passes == 1
+                if !first { Task { await restarted.signal() } }
+                return LiveCaptionImageComparison { _ in
+                    overlap.begin()
+                    defer { overlap.end() }
+                    if first {
+                        Task { await entered.signal() }
+                        release.wait()
+                    }
+                    return observation
+                }
+            },
+            sleep: clock.sleep
+        )
+        session.localized = { $0 }
+        let capture: () throws -> Task<LiveCaptionFrame, Error> = {
+            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
+        }
+        session.start(capture: capture)
+        let oldWork = session.work
+        await entered.wait()
+        session.stop()
+        clock.finish()
+        session.start(capture: capture)
+        let newWork = session.work
+        await restarted.wait()
+        release.signal()
+        await oldWork?.value
+        await response.waitForRequest()
+        #expect(overlap.maximum == 1)
+        #expect(overlap.count == 2)
+        #expect(session.isRunning)
+        session.stop()
+        clock.finish()
+        await response.reply("new pass")
+        await newWork?.value
+        #expect(audio.spoken == ["liveCaption.on", "liveCaption.on"])
+    }
+
+    @Test func cancelledQueuedFeatureDoesNotStartExtraction() async throws {
+        let image = jpeg()
+        let observation = try await LiveCaptionFeatureGenerator.shared.generate(
+            image,
+            extract: LiveCaptionFeatureGenerator.extract
+        )
+        let entered = TestSignal()
+        let release = DispatchSemaphore(value: 0)
+        let old = LiveCaptionImageComparison { _ in
+            Task { await entered.signal() }
+            release.wait()
+            return observation
+        }
+        let oldTask = Task { try await old.accept(image) }
+        await entered.wait()
+        let next = LiveCaptionImageComparison { _ in
+            Issue.record("Cancelled queued work must not enter Vision")
+            return observation
+        }
+        let nextTask = Task { try await next.accept(image) }
+        nextTask.cancel()
+        release.signal()
+        _ = try await oldTask.value
+        await #expect(throws: CancellationError.self) { try await nextTask.value }
+    }
+
     @Test func identicalFramesStayBelowThreshold() async throws {
         let comparison = LiveCaptionImageComparison()
         let image = jpeg()
@@ -344,4 +429,21 @@ struct LiveCaptionSessionTests {
         #expect(try await !comparison.accept(image))
         #expect(try await !comparison.accept(image))
     }
+}
+
+nonisolated private final class CaptionExtractionState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var active = 0
+    private var peak = 0
+    private var total = 0
+    var maximum: Int { lock.withLock { peak } }
+    var count: Int { lock.withLock { total } }
+    func begin() {
+        lock.withLock {
+            active += 1
+            total += 1
+            peak = max(peak, active)
+        }
+    }
+    func end() { lock.withLock { active -= 1 } }
 }
