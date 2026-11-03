@@ -19,9 +19,10 @@ private final class CaptionTestAudio: PhotoAnswerAudio {
     }
     func stop() { stops += 1 }
 
-    func waitForSpeech() async {
-        if !spoken.isEmpty { return }
-        await withCheckedContinuation { arrival = $0 }
+    func waitForSpeech(count: Int = 1) async {
+        while spoken.count < count {
+            await withCheckedContinuation { arrival = $0 }
+        }
     }
 }
 
@@ -86,7 +87,9 @@ private final class CaptionTestClock {
     }
 }
 
-@MainActor
+/// Serialized: concurrent Vision feature prints from several sessions stalled on device, and the
+/// app runs one session at a time.
+@MainActor @Suite(.serialized)
 struct LiveCaptionSessionTests {
     private func jpeg() -> Data {
         UIGraphicsImageRenderer(size: CGSize(width: 64, height: 64)).jpegData(
@@ -155,6 +158,7 @@ struct LiveCaptionSessionTests {
             describeOpening: { _, _ in await response.request() },
             sleep: clock.sleep
         )
+        session.localized = { $0 }
         let image = jpeg()
         session.start(capture: {
             Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
@@ -166,7 +170,7 @@ struct LiveCaptionSessionTests {
         clock.finish()
         await response.reply("桌上放着一台电脑。")
         await work?.value
-        #expect(audio.spoken.isEmpty)
+        #expect(audio.spoken == ["liveCaption.on"])
         #expect(!session.suspendsFeedback)
     }
 
@@ -180,6 +184,7 @@ struct LiveCaptionSessionTests {
             credential: { _ in "synthetic-test-key" },
             sleep: clock.sleep
         )
+        session.localized = { $0 }
         let image = jpeg()
         var imageTask: Task<LiveCaptionFrame, Error>?
         session.start(capture: {
@@ -197,7 +202,7 @@ struct LiveCaptionSessionTests {
         #expect(imageTask?.isCancelled == true)
         await response.reply("")
         await work?.value
-        #expect(audio.spoken.isEmpty)
+        #expect(audio.spoken == ["liveCaption.on"])
     }
 
     @Test func cloudConsentIsRequiredBeforeCapture() {
@@ -262,6 +267,7 @@ struct LiveCaptionSessionTests {
             },
             sleep: clock.sleep
         )
+        session.localized = { $0 }
         let image = jpeg()
         var captures = 0
         session.start(capture: {
@@ -270,6 +276,9 @@ struct LiveCaptionSessionTests {
         })
         let work = session.work
         await audio.waitForSpeech()
+        // The opening waits until the start cue has been read.
+        audio.onFinished?()
+        await audio.waitForSpeech(count: 2)
         await clock.waitForSleep(at: 0.25)
         clock.advance(to: 0.25)
         await clock.waitForSleep(at: 0.5)
@@ -280,7 +289,7 @@ struct LiveCaptionSessionTests {
         session.stop()
         clock.finish()
         await work?.value
-        #expect(audio.spoken == ["门口。"])
+        #expect(audio.spoken == ["liveCaption.on", "门口。"])
     }
 
     @Test func samplingContinuesDuringOpeningRequestAndStopsWithSession() async {
@@ -294,6 +303,7 @@ struct LiveCaptionSessionTests {
             describeOpening: { _, _ in await response.request() },
             sleep: clock.sleep
         )
+        session.localized = { $0 }
         let image = jpeg()
         var captureTimes: [TimeInterval] = []
         session.start(capture: {
@@ -314,7 +324,7 @@ struct LiveCaptionSessionTests {
         await response.reply("门口。")
         await work?.value
         #expect(captureTimes.count == 21)
-        #expect(audio.spoken.isEmpty)
+        #expect(audio.spoken == ["liveCaption.on"])
     }
 
     @Test func exitAudioOwnsFeedbackUntilFinished() {

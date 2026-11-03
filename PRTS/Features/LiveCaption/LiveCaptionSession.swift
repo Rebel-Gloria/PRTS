@@ -136,6 +136,10 @@ final class LiveCaptionSession: ObservableObject {
         }
         isRunning = true
         charactersPerSecond = LiveCaptionPolicy.initialCharactersPerSecond
+        do { try say(localized("liveCaption.on")) } catch {
+            fail(error)
+            return
+        }
         work = Task {
             do {
                 try await run(capture: capture, key: key)
@@ -199,7 +203,7 @@ final class LiveCaptionSession: ObservableObject {
         let opening = try await describeOpening(first[0].jpeg, key)
         try Task.checkCancellation()
         var modelDuration = services.now() - lastRequest
-        try say(opening)
+        try await sayAfterCurrentSpeech(opening)
         var previous: String? = opening
 
         while !Task.isCancelled {
@@ -224,11 +228,7 @@ final class LiveCaptionSession: ObservableObject {
             try Task.checkCancellation()
             modelDuration = services.now() - lastRequest
             if let answer = LiveCaptionPolicy.answer(response, previous: previous) {
-                if speech != nil {
-                    await withCheckedContinuation { speechWaiter = $0 }
-                }
-                try Task.checkCancellation()
-                try say(answer)
+                try await sayAfterCurrentSpeech(answer)
                 previous = answer
             }
         }
@@ -237,6 +237,14 @@ final class LiveCaptionSession: ObservableObject {
     private func wait(until time: TimeInterval) async throws {
         let delay = time - services.now()
         if delay > 0 { try await sleep(delay) }
+    }
+
+    private func sayAfterCurrentSpeech(_ text: String) async throws {
+        if speech != nil {
+            await withCheckedContinuation { speechWaiter = $0 }
+        }
+        try Task.checkCancellation()
+        try say(text)
     }
 
     private func say(_ text: String) throws {
