@@ -5,10 +5,31 @@
 #include "mtmd.h"
 #include "mtmd-helper.h"
 
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
+
+struct prts_vlm_cancel {
+    std::atomic<bool> requested{false};
+};
+
+prts_vlm_cancel *prts_vlm_cancel_create(void) {
+    return new prts_vlm_cancel;
+}
+
+void prts_vlm_cancel_set(prts_vlm_cancel *cancel) {
+    cancel->requested.store(true, std::memory_order_relaxed);
+}
+
+int prts_vlm_cancel_is_requested(const prts_vlm_cancel *cancel) {
+    return cancel->requested.load(std::memory_order_relaxed);
+}
+
+void prts_vlm_cancel_free(prts_vlm_cancel *cancel) {
+    delete cancel;
+}
 
 // Opens the assistant's turn; the empty think block is how enable_thinking=false is written.
 static const char *kAssistant = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n";
@@ -53,7 +74,7 @@ prts_vlm *prts_vlm_open(const char *model_path, const char *mmproj_path, int n_c
 
 // Greedy decoding from the current end of the conversation. Stops at end of turn, or when the
 // small model starts a second, made-up turn with a stray think tag.
-static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const volatile int *cancel,
+static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const prts_vlm_cancel *cancel,
                                 prts_vlm_text_fn on_text, void *user, char **answer) {
     prts_vlm_status status = PRTS_VLM_OK;
     const llama_vocab *vocab = llama_model_get_vocab(vlm->model);
@@ -61,7 +82,7 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const volatile in
     std::string out;
     size_t sent = 0;
     for (int i = 0; i < max_tokens; i++) {
-        if (*cancel) {
+        if (prts_vlm_cancel_is_requested(cancel)) {
             status = PRTS_VLM_CANCELLED;
             break;
         }
@@ -107,7 +128,7 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const volatile in
 
 prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size_t jpeg_len,
                                   const char *system_prompt, const char *prompt, int max_tokens,
-                                  const volatile int *cancel, prts_vlm_text_fn on_text, void *user,
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
                                   char **answer) {
     // MiniCPM-V chat template.
     std::string text;
@@ -131,7 +152,7 @@ prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size
     llama_pos n_past = 0;
     const size_t n_chunks = mtmd_input_chunks_size(chunks);
     for (size_t c = 0; status == PRTS_VLM_OK && c < n_chunks; c++) {
-        if (*cancel) {
+        if (prts_vlm_cancel_is_requested(cancel)) {
             status = PRTS_VLM_CANCELLED;
             break;
         }
@@ -150,7 +171,7 @@ prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size
 }
 
 prts_vlm_status prts_vlm_continue(prts_vlm *vlm, const char *prompt, int max_tokens,
-                                  const volatile int *cancel, prts_vlm_text_fn on_text, void *user,
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
                                   char **answer) {
     const std::string text = std::string("<|im_end|>\n<|im_start|>user\n") + prompt + kAssistant;
     const llama_vocab *vocab = llama_model_get_vocab(vlm->model);
@@ -160,7 +181,7 @@ prts_vlm_status prts_vlm_continue(prts_vlm *vlm, const char *prompt, int max_tok
     if (n < 0)
         return PRTS_VLM_EVAL_FAILED;
     tokens.resize(n);
-    if (*cancel)
+    if (prts_vlm_cancel_is_requested(cancel))
         return PRTS_VLM_CANCELLED;
     llama_batch batch = llama_batch_get_one(tokens.data(), n);
     if (llama_decode(vlm->ctx, batch) != 0)
