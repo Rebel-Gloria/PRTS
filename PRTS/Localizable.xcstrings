@@ -914,6 +914,23 @@
         }
       }
     },
+    "ocr.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't read the text. Try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读文字失败，请重试"
+          }
+        }
+      }
+    },
     "ocr.empty" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -198,7 +198,7 @@ struct ContentView: View {
                 if shown {
                     liveCaption.stop()
                     photo.cancel()
-                    textReading.cancel()
+                    textReading.terminate()
                     feedback.reset()
                     speechManager.cancelPerceptionSpeech()
                 }
@@ -208,7 +208,7 @@ struct ContentView: View {
                 if phase != .active {
                     liveCaption.stop()
                     photo.cancel()
-                    textReading.cancel()
+                    textReading.terminate()
                     stopHoldTask?.cancel()
                     stopHoldTask = nil
                     isHoldingStop = false
@@ -255,13 +255,13 @@ struct ContentView: View {
                 {
                     liveCaption.stop()
                     photo.cancel()
-                    textReading.cancel()
+                    textReading.terminate()
                 }
             }
             .onDisappear {
                 liveCaption.stop()
                 photo.cancel()
-                textReading.cancel()
+                textReading.terminate()
             }
             .onReceive(
                 NotificationCenter.default.publisher(

@@ -6,7 +6,7 @@ import UIKit
 /// The back main (wide) camera, outside ARKit: sharper on small print than the ultra-wide.
 /// Preview frames are reported five times a second; stills are full resolution.
 nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate,
-    AVCapturePhotoCaptureDelegate, @unchecked Sendable
+    TextCapturing, @unchecked Sendable
 {
     let session = AVCaptureSession()
     private let video = AVCaptureVideoDataOutput()
@@ -15,7 +15,7 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
     private var configured = false
     private var lastFrame: TimeInterval = 0
     private var onFrame: (@MainActor () -> Void)?
-    private var onPhoto: ((CIImage?) -> Void)?
+    private var requests: [Int64: TextPhotoRequest] = [:]
 
     /// Adding the camera input waits, sometimes for seconds, until ARKit lets go of the camera.
     /// Doing it at launch, before guidance ever runs, makes starting a pass take ~0.3 s.
@@ -37,10 +37,16 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
 
     func capture(_ done: @escaping (CIImage?) -> Void) {
         queue.async {
-            self.onPhoto = done
             let settings = AVCapturePhotoSettings()
             settings.photoQualityPrioritization = .balanced
-            self.photo.capturePhoto(with: settings, delegate: self)
+            let request = TextPhotoRequest { image in
+                self.queue.async {
+                    self.requests.removeValue(forKey: settings.uniqueID)
+                    done(image)
+                }
+            }
+            self.requests[settings.uniqueID] = request
+            self.photo.capturePhoto(with: settings, delegate: request)
         }
     }
 
@@ -90,16 +96,43 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         lastFrame = now
         Task { @MainActor in onFrame() }
     }
+}
+
+nonisolated protocol TextCapturing: AnyObject {
+    var session: AVCaptureSession { get }
+    func start(frame: @escaping @MainActor () -> Void, failed: @escaping @MainActor () -> Void)
+    func capture(_ done: @escaping (CIImage?) -> Void)
+    func stop()
+}
+
+/// Each delegate keeps the completion of the capture that created it.
+nonisolated final class TextPhotoRequest: NSObject, AVCapturePhotoCaptureDelegate {
+    private let completion: (CIImage?) -> Void
+    private var image: CIImage?
+
+    init(completion: @escaping (CIImage?) -> Void) {
+        self.completion = completion
+    }
+
+    func complete(_ image: CIImage?) {
+        completion(image)
+    }
 
     func photoOutput(
         _ output: AVCapturePhotoOutput,
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
-        let image = photo.fileDataRepresentation().flatMap {
+        image = photo.fileDataRepresentation().flatMap {
             CIImage(data: $0, options: [.applyOrientationProperty: true])
         }
-        onPhoto?(image)
-        onPhoto = nil
+    }
+
+    func photoOutput(
+        _ output: AVCapturePhotoOutput,
+        didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+        error: Error?
+    ) {
+        complete(error == nil ? image : nil)
     }
 }
