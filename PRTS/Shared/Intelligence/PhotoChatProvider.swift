@@ -18,6 +18,20 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
             ?? .onDevice
     }
 
+    var localizationKey: String { "photo.settings.provider.\(rawValue)" }
+
+    var questionThinkingKey: String {
+        self == .qwen
+            ? PhotoPrompts.questionThinkingKey : "photoDescription.questionThinking.deepseek"
+    }
+
+    func questionThinking(_ defaults: UserDefaults = .standard) -> Bool {
+        switch self {
+        case .qwen, .deepseek: defaults.bool(forKey: questionThinkingKey)
+        case .onDevice, .custom: false
+        }
+    }
+
     /// The Qwen key keeps the original Keychain account so existing installs stay configured.
     var keyAccount: String { self == .qwen ? "api-key" : "api-key.\(rawValue)" }
 

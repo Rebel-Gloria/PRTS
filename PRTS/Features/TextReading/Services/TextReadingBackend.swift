@@ -23,7 +23,7 @@ nonisolated enum TextReadingBackend {
         )
     }
 
-    /// The cloud provider chosen for photo descriptions. With an OCR model (Qwen) its chat model
+    /// The cloud provider chosen for text reading. With an OCR model (Qwen) its chat model
     /// says what the text is on while the OCR model copies it, both at once; otherwise one request
     /// asks for both.
     static func remote(jpeg: Data, key: String, service: PhotoChatService) async throws -> (

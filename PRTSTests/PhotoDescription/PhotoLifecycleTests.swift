@@ -81,19 +81,20 @@ private final class PhotoFixture {
     let audio: PhotoTestAudio
     let recognizer: PhotoTestRecognizer
     let coordinator: PhotoDescriptionCoordinator
-    init() {
+    init(configure: (inout PhotoDescriptionServices) -> Void = { _ in }) {
         let state = self.state
         let network = self.network
         audio = PhotoTestAudio(state)
         recognizer = PhotoTestRecognizer(state)
         var services = PhotoDescriptionServices()
         services.now = { state.time }
-        services.onDevice = { state.onDevice }
+        services.onDevice = { _ in state.onDevice }
         services.highResolution = { state.highResolution }
         services.uploadAllowed = { state.allowUpload }
-        services.credential = { state.hasCredential ? "synthetic-test-key" : nil }
+        services.credential = { _ in state.hasCredential ? "synthetic-test-key" : nil }
         services.speechAuthorized = { state.speechAuthorized }
         services.requestSpeechPermission = { false }
+        configure(&services)
         services.describe = { try await network.send($0, $1, $2) }
         coordinator = PhotoDescriptionCoordinator(
             recognizer: recognizer,
@@ -261,20 +262,95 @@ struct PhotoLifecycleTests {
         f.state.hasCredential = false
         f.down()
         f.coordinator.up()
-        #expect(f.state.events.isEmpty)
+        #expect(!f.state.events.contains("capture"))
+        #expect(!f.state.events.contains("record"))
         #expect(await f.network.requests.isEmpty)
     }
 
-    @Test func onDeviceNeedsNeitherUploadPermissionNorKey() async {
+    @Test(arguments: [false, true])
+    func onDeviceNeedsNeitherUploadPermissionNorKey(question: Bool) async {
         let f = PhotoFixture()
         f.state.onDevice = true
         f.state.allowUpload = false
         f.state.hasCredential = false
         f.down()
+        if question {
+            f.state.time = 0.5
+            f.coordinator.advancePress()
+        }
         f.coordinator.up()
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
         #expect(requests[0].key.isEmpty)
+        await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+    }
+
+    @Test(arguments: [false, true])
+    func eachActionUsesItsSelectedProviderAndCredential(question: Bool) async {
+        let name = "PhotoLifecycleTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("custom", forKey: PhotoChatProvider.selectionKey)
+        defaults.set("qwen", forKey: IntelligenceFeature.description.selectionKey)
+        defaults.set("deepseek", forKey: IntelligenceFeature.question.selectionKey)
+        defaults.set(true, forKey: "photoDescription.uploadAllowed")
+        var accounts: [String] = []
+        let f = PhotoFixture { services in
+            let configured = PhotoDescriptionServices(defaults: defaults) { account in
+                accounts.append(account)
+                return "test-\(account)"
+            }
+            services.onDevice = configured.onDevice
+            services.uploadAllowed = configured.uploadAllowed
+            services.credential = configured.credential
+        }
+        f.down()
+        #expect(accounts.isEmpty)
+        if question {
+            f.state.time = 0.5
+            f.coordinator.advancePress()
+        }
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        let request = await f.network.requests[0]
+        let account = question ? "api-key.deepseek" : "api-key"
+        #expect(accounts == [account])
+        #expect(request.key == "test-\(account)")
+        #expect((request.question != nil) == question)
+        await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+    }
+
+    @Test(arguments: [false, true])
+    func localOverrideWorksWhenOtherActionHasNoConsentOrKey(question: Bool) async {
+        let name = "PhotoLifecycleTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("qwen", forKey: PhotoChatProvider.selectionKey)
+        let localFeature: IntelligenceFeature = question ? .question : .description
+        defaults.set("onDevice", forKey: localFeature.selectionKey)
+        let f = PhotoFixture { services in
+            let configured = PhotoDescriptionServices(defaults: defaults) { _ in
+                Issue.record("On-device actions must not read a credential")
+                return nil
+            }
+            services.onDevice = configured.onDevice
+            services.uploadAllowed = configured.uploadAllowed
+            services.credential = configured.credential
+        }
+        f.down()
+        if question {
+            f.state.time = 0.5
+            f.coordinator.advancePress()
+        }
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        #expect(await f.network.requests[0].key.isEmpty)
+        await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
         f.coordinator.cancel()
     }
 

@@ -1,6 +1,244 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "photo.settings.provider.deepseek" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DeepSeek"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DeepSeek"
+          }
+        }
+      }
+    },
+    "photo.settings.provider.qwen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通义千问"
+          }
+        }
+      }
+    },
+    "intelligence.notConfigured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set up"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未配置"
+          }
+        }
+      }
+    },
+    "intelligence.configured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已配置"
+          }
+        }
+      }
+    },
+    "intelligence.liveCaptions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live captions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流式字幕"
+          }
+        }
+      }
+    },
+    "intelligence.question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask a question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音提问"
+          }
+        }
+      }
+    },
+    "intelligence.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe scene"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述画面"
+          }
+        }
+      }
+    },
+    "intelligence.provider.default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use default provider"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随默认服务商"
+          }
+        }
+      }
+    },
+    "intelligence.allServices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All services"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全局"
+          }
+        }
+      }
+    },
+    "intelligence.servicesByFeature" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Services by feature"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务配比"
+          }
+        }
+      }
+    },
+    "intelligence.providerSettings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provider settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务商设置"
+          }
+        }
+      }
+    },
+    "intelligence.defaultProvider" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default provider"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认服务商"
+          }
+        }
+      }
+    },
+    "settings.languageAndSpeech.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language and Speech"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言和语音"
+          }
+        }
+      }
+    },
+    "settings.interaction.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interaction"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "交互"
+          }
+        }
+      }
+    },
     "0.50m仅是预测线的通道宽度要求，不额外叠加身体宽度/余量，也不代表所有人的身体都能通过。原有净空检查参数不变。" : {
 
     },
@@ -614,13 +852,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Live captions need Qwen in Intelligence settings."
+            "value" : "Live captions need a Qwen API key"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "流式字幕需要在智能设置中选择通义千问。"
+            "value" : "流式字幕需要通义千问的 API Key"
           }
         }
       }
@@ -948,23 +1186,6 @@
         }
       }
     },
-    "settings.language.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Language"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语言"
-          }
-        }
-      }
-    },
     "settings.rate.fast" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1169,23 +1390,6 @@
         }
       }
     },
-    "settings.voice.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语音"
-          }
-        }
-      }
-    },
     "settings.lowVision" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1288,23 +1492,6 @@
         }
       }
     },
-    "settings.photo.buttons.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Photo button"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "拍照按键"
-          }
-        }
-      }
-    },
     "settings.ocr.section" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1379,13 +1566,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Smart reading follows your provider in Intelligence settings. Apple Vision reads text on device."
+            "value" : "Choose a provider for text reading, or use Apple Vision on device."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "智能识别跟随智能设置中的服务商；Apple Vision 在本机识别文字。"
+            "value" : "选择读文字的服务商，或使用本机 Apple Vision。"
           }
         }
       }
@@ -2186,53 +2373,19 @@
         }
       }
     },
-    "settings.photo.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PRTS intelligence"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PRTS intelligence"
-          }
-        }
-      }
-    },
-    "settings.photo.service" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Intelligence settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "智能设置"
-          }
-        }
-      }
-    },
     "photo.settings.title" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Intelligence settings"
+            "value" : "Intelligence"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "智能设置"
+            "value" : "智能"
           }
         }
       }
@@ -2301,23 +2454,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "只在按下拍照按钮时发送。语音识别可能使用 Apple 服务。照片、录音、提问和回答都不保存。"
-          }
-        }
-      }
-    },
-    "photo.settings.keySaved" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saved. Type to replace"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已保存，输入新的可替换"
           }
         }
       }
@@ -2441,23 +2577,6 @@
         }
       }
     },
-    "photo.settings.permissions" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice questions"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语音提问"
-          }
-        }
-      }
-    },
     "photo.settings.permissionsGranted" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2522,40 +2641,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请到设置里允许麦克风和语音识别"
-          }
-        }
-      }
-    },
-    "photo.settings.usage" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usage"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用法"
-          }
-        }
-      }
-    },
-    "photo.settings.usageText" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap: take a photo and describe it. Hold for half a second, ask after the tone, release to send."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "轻点：拍照并描述。按住半秒，听到提示音后提问，松手发送。"
           }
         }
       }
@@ -2696,23 +2781,6 @@
         }
       }
     },
-    "settings.display.section" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Display"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示"
-          }
-        }
-      }
-    },
     "settings.display.noPreview" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2781,36 +2849,19 @@
         }
       }
     },
-    "photo.settings.provider" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Provider"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "服务商"
-          }
-        }
-      }
-    },
     "photo.settings.provider.onDevice" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "On this phone (offline)"
+            "value" : "On device"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机（离线）"
+            "value" : "本机"
           }
         }
       }
@@ -3070,40 +3121,6 @@
         }
       }
     },
-    "settings.ocr.service" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Text reader"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "识别服务"
-          }
-        }
-      }
-    },
-    "settings.ocr.service.vlm" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Smart reading"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "智能识别"
-          }
-        }
-      }
-    },
     "settings.ocr.service.vision" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3127,13 +3144,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Smart reading follows your provider in Intelligence settings and uses the on-device model when the remote service is unavailable. Apple Vision reads text offline but can't tell what the text is on."
+            "value" : "Use default provider follows your default selection. If the remote service is unavailable, text reading uses the on-device model, then Apple Vision. Apple Vision reads text offline but cannot tell what the text is on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "智能识别跟随智能设置中的服务商，远端不可用时使用本机模型。Apple Vision 离线识别文字，说不出字写在什么上面。"
+            "value" : "“跟随默认服务商”使用默认选择。远端不可用时依次使用本机模型和 Apple Vision。Apple Vision 离线识别文字，说不出字写在什么上面。"
           }
         }
       }

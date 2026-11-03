@@ -1,19 +1,33 @@
 import Foundation
 
-/// The user chooses a model following Intelligence settings, or Apple's offline OCR.
+/// Text reading can follow the default provider, select a provider, or use Apple Vision.
 nonisolated enum TextReadingService: String, CaseIterable, Identifiable {
-    case vlm, vision
+    case vlm, onDevice, qwen, deepseek, custom, vision
 
     var id: String { rawValue }
     static let selectionKey = "ocr.service"
 
-    /// The former "onDevice" and "remote" values no longer decode, so they read as .vlm.
+    /// The former "remote" value no longer decodes, so it reads as .vlm.
     static func current(_ defaults: UserDefaults = .standard) -> TextReadingService {
         defaults.string(forKey: selectionKey).flatMap(TextReadingService.init(rawValue:))
             ?? .vlm
     }
 
-    var localizationKey: String { "settings.ocr.service.\(rawValue)" }
+    func provider(_ defaults: UserDefaults = .standard) -> PhotoChatProvider? {
+        switch self {
+        case .vlm: PhotoChatProvider.current(defaults)
+        case .vision: nil
+        case .onDevice, .qwen, .deepseek, .custom: PhotoChatProvider(rawValue: rawValue)!
+        }
+    }
+
+    var localizationKey: String {
+        switch self {
+        case .vlm: "intelligence.provider.default"
+        case .vision: "settings.ocr.service.vision"
+        case .onDevice, .qwen, .deepseek, .custom: "photo.settings.provider.\(rawValue)"
+        }
+    }
 
     enum Reader: Equatable { case remote, onDevice, vision }
 
@@ -26,7 +40,9 @@ nonisolated enum TextReadingService: String, CaseIterable, Identifiable {
     ) async throws {
         let readers: [Reader] =
             switch self {
-            case .vlm: remoteAvailable ? [.remote, .onDevice, .vision] : [.onDevice, .vision]
+            case .vlm, .qwen, .deepseek, .custom:
+                remoteAvailable ? [.remote, .onDevice, .vision] : [.onDevice, .vision]
+            case .onDevice: [.onDevice, .vision]
             case .vision: [.vision]
             }
         for (index, reader) in readers.enumerated() {

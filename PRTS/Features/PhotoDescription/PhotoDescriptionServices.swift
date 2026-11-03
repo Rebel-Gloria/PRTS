@@ -4,16 +4,12 @@ import Foundation
 struct PhotoDescriptionServices {
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     /// On device needs neither the upload permission nor a key.
-    var onDevice: () -> Bool = { PhotoChatProvider.current() == .onDevice }
-    var uploadAllowed: () -> Bool = {
-        UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed")
-    }
+    var onDevice: (IntelligenceFeature) -> Bool
+    var uploadAllowed: () -> Bool
     var highResolution: () -> Bool = {
         UserDefaults.standard.bool(forKey: PhotoImagePurpose.highResolutionKey)
     }
-    var credential: () throws -> String? = {
-        try PhotoCredentialStore.read(account: PhotoChatProvider.current().keyAccount)
-    }
+    var credential: (IntelligenceFeature) throws -> String?
     var speechAuthorized: () -> Bool = { PhotoSpeechRecognizer.authorized }
     var requestSpeechPermission: () async -> Bool = {
         await PhotoSpeechRecognizer.requestPermissions()
@@ -25,6 +21,17 @@ struct PhotoDescriptionServices {
         question,
         key in
         try await PhotoDescriptionBackend.describe(jpeg: jpeg, question: question, key: key)
+    }
+
+    init(
+        defaults: UserDefaults = .standard,
+        readCredential: @escaping (String) throws -> String? = {
+            try PhotoCredentialStore.read(account: $0)
+        }
+    ) {
+        onDevice = { $0.provider(defaults) == .onDevice }
+        credential = { try readCredential($0.provider(defaults)!.keyAccount) }
+        uploadAllowed = { defaults.bool(forKey: "photoDescription.uploadAllowed") }
     }
 }
 

@@ -31,7 +31,7 @@ private final class CaptionPhotoFixture {
     lazy var photo: PhotoDescriptionCoordinator = {
         var services = PhotoDescriptionServices()
         services.now = { [unowned self] in self.time }
-        services.onDevice = { true }
+        services.onDevice = { _ in true }
         services.speechAuthorized = { true }
         services.describe = { _, _, _ in "门口有人。" }
         return PhotoDescriptionCoordinator(

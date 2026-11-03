@@ -16,13 +16,12 @@ struct PhotoLocalModelTests {
 
     @Test(.enabled(if: FileManager.default.fileExists(atPath: photos.path)))
     func describesBundledPhotosOffline() async throws {
-        UserDefaults.standard.set(
-            PhotoChatProvider.onDevice.rawValue,
-            forKey: PhotoChatProvider.selectionKey
-        )
-        defer { UserDefaults.standard.removeObject(forKey: PhotoChatProvider.selectionKey) }
+        let selectionKey = IntelligenceFeature.description.selectionKey
+        let selection = UserDefaults.standard.object(forKey: selectionKey)
+        UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: selectionKey)
+        defer { UserDefaults.standard.set(selection, forKey: selectionKey) }
         let services = PhotoDescriptionServices()
-        #expect(services.onDevice())
+        #expect(services.onDevice(.description))
         let files = try FileManager.default.contentsOfDirectory(
             at: Self.photos,
             includingPropertiesForKeys: nil
@@ -49,11 +48,10 @@ struct PhotoLocalModelTests {
             .first { $0.pathExtension == "jpg" }
         )
         let jpeg = try Data(contentsOf: file)
-        UserDefaults.standard.set(
-            PhotoChatProvider.onDevice.rawValue,
-            forKey: PhotoChatProvider.selectionKey
-        )
-        defer { UserDefaults.standard.removeObject(forKey: PhotoChatProvider.selectionKey) }
+        let selectionKey = IntelligenceFeature.description.selectionKey
+        let selection = UserDefaults.standard.object(forKey: selectionKey)
+        UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: selectionKey)
+        defer { UserDefaults.standard.set(selection, forKey: selectionKey) }
         let describe = PhotoDescriptionServices().describe
         let task = Task { try await describe(jpeg, nil, "") }
         try await Task.sleep(for: .milliseconds(300))
@@ -154,11 +152,10 @@ extension PhotoLocalModelTests {
         )
     )
     func answersAQuestionOffline() async throws {
-        UserDefaults.standard.set(
-            PhotoChatProvider.onDevice.rawValue,
-            forKey: PhotoChatProvider.selectionKey
-        )
-        defer { UserDefaults.standard.removeObject(forKey: PhotoChatProvider.selectionKey) }
+        let selectionKey = IntelligenceFeature.question.selectionKey
+        let selection = UserDefaults.standard.object(forKey: selectionKey)
+        UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: selectionKey)
+        defer { UserDefaults.standard.set(selection, forKey: selectionKey) }
         let jpeg = try photo(
             ["人民路", "地铁站 200米"],
             background: .systemTeal,
