@@ -55,32 +55,21 @@ public final class LocalVLM: @unchecked Sendable {
     }
 
     private typealias Call = (
-        OpaquePointer?, UnsafeMutablePointer<Int32>, prts_vlm_text_fn?, UnsafeMutableRawPointer?,
+        OpaquePointer?, OpaquePointer?, prts_vlm_text_fn?, UnsafeMutableRawPointer?,
         UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
     ) -> prts_vlm_status
 
     private func run(onText: (@Sendable (String) -> Void)?, _ call: @escaping Call) async throws
         -> String
     {
-        let cancel = UnsafeMutablePointer<Int32>.allocate(capacity: 1)
-        cancel.initialize(to: 0)
-        defer { cancel.deallocate() }
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    continuation.resume(
-                        with: Result { try self.call(call, cancel: cancel, onText: onText) }
-                    )
-                }
-            }
-        } onCancel: {
-            cancel.pointee = 1
+        try await LocalVLMCancellation.run(on: queue) { cancel in
+            try self.call(call, cancel: cancel, onText: onText)
         }
     }
 
     private func call(
         _ call: Call,
-        cancel: UnsafeMutablePointer<Int32>,
+        cancel: LocalVLMCancellation,
         onText: (@Sendable (String) -> Void)?
     ) throws -> String {
         if handle == nil {
@@ -102,7 +91,7 @@ public final class LocalVLM: @unchecked Sendable {
                     )
                 )
             }
-        switch call(handle, cancel, textFn, sink?.toOpaque(), &answer) {
+        switch call(handle, cancel.handle, textFn, sink?.toOpaque(), &answer) {
         case PRTS_VLM_OK:
             defer { free(answer) }
             return String(cString: answer!).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -116,4 +105,29 @@ public final class LocalVLM: @unchecked Sendable {
 private final class TextSink {
     let send: @Sendable (String) -> Void
     init(_ send: @escaping @Sendable (String) -> Void) { self.send = send }
+}
+
+/// Both the queued call and the cancellation handler retain the C++ storage.
+final class LocalVLMCancellation: @unchecked Sendable {
+    let handle = prts_vlm_cancel_create()
+
+    func cancel() { prts_vlm_cancel_set(handle) }
+
+    static func run(
+        on queue: DispatchQueue,
+        operation: @escaping (LocalVLMCancellation) throws -> String
+    ) async throws -> String {
+        let cancel = LocalVLMCancellation()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                queue.async {
+                    continuation.resume(with: Result { try operation(cancel) })
+                }
+            }
+        } onCancel: {
+            cancel.cancel()
+        }
+    }
+
+    deinit { prts_vlm_cancel_free(handle) }
 }

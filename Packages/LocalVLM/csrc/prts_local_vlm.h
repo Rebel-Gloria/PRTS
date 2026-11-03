@@ -9,6 +9,14 @@ extern "C" {
 /// the Swift side runs every call on one serial queue.
 typedef struct prts_vlm prts_vlm;
 
+/// Cancellation storage is shared between the caller and the inference queue.
+/// Release it only after the inference call and cancellation handler have finished.
+typedef struct prts_vlm_cancel prts_vlm_cancel;
+prts_vlm_cancel *prts_vlm_cancel_create(void);
+void prts_vlm_cancel_set(prts_vlm_cancel *cancel);
+int prts_vlm_cancel_is_requested(const prts_vlm_cancel *cancel);
+void prts_vlm_cancel_free(prts_vlm_cancel *cancel);
+
 typedef enum {
     PRTS_VLM_OK = 0,
     PRTS_VLM_BAD_IMAGE = 1,
@@ -26,13 +34,13 @@ typedef void (*prts_vlm_text_fn)(void *user, const char *text, size_t len);
 /// string the caller frees. `cancel` is polled between chunks and tokens. `on_text` may be NULL.
 prts_vlm_status prts_vlm_describe(prts_vlm *vlm, const unsigned char *jpeg, size_t jpeg_len,
                                   const char *system_prompt, const char *prompt, int max_tokens,
-                                  const volatile int *cancel, prts_vlm_text_fn on_text, void *user,
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
                                   char **answer);
 
 /// Asks a follow-up about the same photo: the conversation so far, image included, stays in the
 /// context, so only the new question is evaluated. Call after prts_vlm_describe.
 prts_vlm_status prts_vlm_continue(prts_vlm *vlm, const char *prompt, int max_tokens,
-                                  const volatile int *cancel, prts_vlm_text_fn on_text, void *user,
+                                  const prts_vlm_cancel *cancel, prts_vlm_text_fn on_text, void *user,
                                   char **answer);
 
 void prts_vlm_close(prts_vlm *vlm);
