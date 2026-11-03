@@ -1,4 +1,4 @@
-/// Application composition root. Creates shared speech/haptic services and hosts the restored home screen.
+/// Application composition root. Creates shared speech/haptic services and hosts the home screen.
 
 import SwiftUI
 

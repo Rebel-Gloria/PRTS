@@ -1,8 +1,10 @@
 import AVFoundation
 
 /// App announcement voice profile and deterministic A/B tones, synthesized locally.
+/// Handles user-requested answers, status prompts and tones for descriptions, live captions and
+/// text reading; SpeechManager handles obstacle announcements.
 @MainActor
-final class PhotoAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
+final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     enum Cue { case submit, record }
     private let synthesizer = AVSpeechSynthesizer()
     private var player: AVAudioPlayer?

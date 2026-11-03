@@ -1,6 +1,7 @@
 import Foundation
 
 /// Press timestamps share the monotonic clock used by photo interactions.
+/// Arbitrates photo-button presses between ordinary photo actions and live-caption start/stop.
 nonisolated struct LiveCaptionPressState {
     enum Action: Equatable {
         case photo(PhotoPressState.Action)

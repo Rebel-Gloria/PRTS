@@ -41,7 +41,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         )
         for implementation in ("URLSession", "PhotoChatClient", "PhotoLocalModel"):
             self.assertNotIn(implementation, source)
-        for boundary in ("PhotoRecognizing", "PhotoAnswerAudio", "PhotoDescriptionServices"):
+        for boundary in ("PhotoRecognizing", "AnswerAudio", "PhotoDescriptionServices"):
             self.assertIn(boundary, source)
 
     def test_source_comparison_keeps_literal_content(self):

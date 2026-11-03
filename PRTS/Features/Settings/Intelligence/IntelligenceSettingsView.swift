@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PhotoDescriptionSettingsView: View {
+struct IntelligenceSettingsView: View {
     @AppStorage("photoDescription.uploadAllowed") private var uploadAllowed = false
     @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.onDevice
     @AppStorage(IntelligenceFeature.description.selectionKey) private var descriptionProvider = ""

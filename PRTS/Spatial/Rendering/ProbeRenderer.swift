@@ -1,4 +1,6 @@
 /// Metal renderer for RGB/depth and world-space overlays. It never performs sensor analysis.
+/// This is the app's runtime implementation; the same-named type in Experiments/SpatialProbe/
+/// is a frozen reference excluded from the app build.
 
 import ARKit
 import MetalKit

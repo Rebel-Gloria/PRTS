@@ -1,8 +1,6 @@
 import Foundation
 
-/// Photo description providers. `onDevice` runs the bundled MiniCPM-V with no network, key or
-/// upload. The cloud ones speak OpenAI-compatible streaming Chat Completions with an inline JPEG;
-/// presets only differ in endpoint, model and one Qwen-specific flag.
+/// Provider selection shared across features; transport configuration lives in PhotoChatService.
 nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable {
     case onDevice, qwen, deepseek, custom
 

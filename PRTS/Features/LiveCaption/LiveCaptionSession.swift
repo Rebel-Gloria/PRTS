@@ -2,6 +2,8 @@ import ARKit
 import Combine
 import Foundation
 
+/// Coordinates photo-button multi-press arbitration, sampling, requests and speech; ordinary
+/// photo-button events also pass through this session first.
 @MainActor
 final class LiveCaptionSession: ObservableObject {
     @Published private(set) var isRunning = false
@@ -13,7 +15,7 @@ final class LiveCaptionSession: ObservableObject {
 
     private var press = LiveCaptionPressState()
     private var pressTimer: Task<Void, Never>?
-    private let audio: any PhotoAnswerAudio
+    private let audio: any AnswerAudio
     private let services: PhotoDescriptionServices
     private let credential: (String) throws -> String?
     private let describeOpening: @Sendable (Data, String) async throws -> String
@@ -27,11 +29,11 @@ final class LiveCaptionSession: ObservableObject {
     private var charactersPerSecond = LiveCaptionPolicy.initialCharactersPerSecond
 
     convenience init() {
-        self.init(audio: PhotoAudioOutput(), services: .init())
+        self.init(audio: AnswerAudioOutput(), services: .init())
     }
 
     init(
-        audio: any PhotoAnswerAudio,
+        audio: any AnswerAudio,
         services: PhotoDescriptionServices,
         credential: @escaping (String) throws -> String? = {
             try PhotoCredentialStore.read(account: $0)

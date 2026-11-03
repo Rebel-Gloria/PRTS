@@ -4,10 +4,10 @@ import Testing
 @testable import PRTS
 
 @MainActor
-private final class CaptionPhotoAudio: PhotoAnswerAudio {
+private final class CaptionPhotoTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
-    var cues: [PhotoAudioOutput.Cue] = []
-    func cue(_ cue: PhotoAudioOutput.Cue) throws { cues.append(cue) }
+    var cues: [AnswerAudioOutput.Cue] = []
+    func cue(_ cue: AnswerAudioOutput.Cue) throws { cues.append(cue) }
     func speak(_ text: String) throws {}
     func stop() {}
 }
@@ -26,7 +26,7 @@ private final class CaptionPhotoFixture {
     var time: TimeInterval = 0
     var captures = 0
     var state = LiveCaptionPressState()
-    let audio = CaptionPhotoAudio()
+    let audio = CaptionPhotoTestAnswerAudio()
     let recognizer = CaptionPhotoRecognizer()
     lazy var photo: PhotoDescriptionCoordinator = {
         var services = PhotoDescriptionServices()

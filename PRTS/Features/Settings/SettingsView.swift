@@ -23,7 +23,7 @@ struct SettingsView: View {
         Form {
             Section("photo.settings.title") {
                 NavigationLink {
-                    PhotoDescriptionSettingsView()
+                    IntelligenceSettingsView()
                 } label: {
                     LabeledContent("photo.settings.title") {
                         Text(LocalizedStringKey(provider.localizationKey))

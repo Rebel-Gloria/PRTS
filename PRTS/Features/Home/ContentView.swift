@@ -1,4 +1,6 @@
-/// Restored product home screen. Technical overlays are embedded here instead of a separate demo mode.
+/// Home screen and cross-feature coordinator owning camera, description, caption, text-reading
+/// and feedback coordinators; drives obstacle feedback with timer polling and handles
+/// foreground/background transitions and Shortcuts commands.
 
 //
 //  ContentView.swift

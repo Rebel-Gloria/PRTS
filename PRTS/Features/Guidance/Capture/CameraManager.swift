@@ -3,7 +3,8 @@ import Combine
 import SpatialCore
 import SwiftUI
 
-/// UI adapter only. The sole camera owner is ProbeEngine's ARSession.
+/// Maintains guidance camera intent and UI state, coordinating pause/resume for text reading.
+/// ProbeEngine owns the AR session; TextCamera uses its own capture session for text reading.
 @MainActor
 final class CameraManager: ObservableObject {
     let model: ProbeViewModel
