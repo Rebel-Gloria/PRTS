@@ -6,7 +6,7 @@
 
 ## 模型服务
 
-在“设置 → 智能设置”中选择服务：
+在“设置 → 智能”中选择默认服务商，并在“服务商设置”中为每个服务商分别配置：
 
 | 服务 | 模型与接口 | 默认思考设置 |
 |---|---|---|
@@ -17,9 +17,15 @@
 
 联网服务使用兼容 OpenAI 的流式 Chat Completions 请求，照片以 `data:image/jpeg;base64` 形式写入请求正文。应用只读取第一个 choice 的 `delta.content`，忽略思考内容，并在收到完整回答后开始朗读。连接中断或缺少结束标志时，未完成的回答会被丢弃。
 
-开启“提问时深度思考”后，千问请求发送 `enable_thinking: true`，DeepSeek 请求发送 `thinking: {type: enabled}`。该设置只影响语音提问，自定义服务和本机服务不提供此选项。测试中开启后等待时间明显增加，质量没有稳定提升，因此默认关闭。
+开启“提问时深度思考”后，千问请求发送 `enable_thinking: true`，DeepSeek 请求发送 `thinking: {type: enabled}`。该开关按服务商分别保存：千问使用 `photoDescription.questionThinking`，DeepSeek 使用 `photoDescription.questionThinking.deepseek`。该设置只影响语音提问，自定义服务和本机服务不提供此选项。测试中开启后等待时间明显增加，质量没有稳定提升，因此默认关闭。
 
-本机服务在同一位置提供默认关闭的“增强模式”，开启后本机语音提问改用联网服务的提问提示词，见下文“提示词”。
+本机服务的设置页提供默认关闭的“增强模式”，开启后本机语音提问改用联网服务的提问提示词，见下文“提示词”。
+
+### 服务配比
+
+描述画面、语音提问和读文字可以分别选择服务商，默认跟随默认服务商。选择保存在 `intelligence.provider.description`、`intelligence.provider.question` 和 `ocr.service` 中，没有保存值时跟随默认服务商；`ocr.service` 为 `vlm` 时同样跟随默认服务商，为 `vision` 时使用 Apple Vision。`IntelligenceFeature` 负责按功能解析服务商，拍照描述在确定是短按还是提问后检查对应服务商的上传许可和 API Key。
+
+流式字幕固定使用通义千问，与默认服务商无关，开始前要求允许发送照片并已保存千问的 API Key。
 
 请求、凭据和本机模型的公共实现位于 `PRTS/Shared/Intelligence/`。拍照描述的模型后端由 `PhotoDescription/Services/PhotoDescriptionBackend.swift` 选择，协调器只通过 `PhotoDescriptionServices` 调用，不直接依赖网络或推理实现。
 
@@ -47,7 +53,7 @@
 
 ## 流式字幕
 
-流式字幕使用通义千问的视频输入。千问要求视频至少包含 4 帧，其他服务在测试中会编造动作，因此该功能只对千问开放。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`LiveCaptionBackend.swift` 组装请求。
+流式字幕使用通义千问的视频输入，与默认服务商无关。千问要求视频至少包含 4 帧，其他服务在测试中会编造动作，因此该功能固定使用千问。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`LiveCaptionBackend.swift` 组装请求。
 
 ### 请求流程
 
@@ -73,16 +79,16 @@
 
 ## 文字识别
 
-文字识别提供两种服务，在“设置 → 智能设置 → 读文字 → 识别服务”中选择：
+文字识别的服务在“设置 → 智能 → 服务配比 → 读文字”中选择：
 
 | 服务 | 处理方式 | 失败时 |
 |---|---|---|
-| 智能识别（默认） | 跟随智能设置中的服务商。本机模型分两次完成分类和转写；千问并行调用分类模型（`qwen3.8-flash`）和转写模型（`qwen-vl-ocr`）；其他联网服务在一次请求中完成分类和转写 | 远端不可用时静默改用本机模型，本机模型失败后改用 Apple Vision |
+| 跟随默认服务商（默认），或指定服务商 | 使用所选服务商。本机模型分两次完成分类和转写；千问并行调用分类模型（`qwen3.8-flash`）和转写模型（`qwen-vl-ocr`）；其他联网服务在一次请求中完成分类和转写 | 远端不可用时静默改用本机模型，本机模型失败后改用 Apple Vision |
 | Apple Vision | 系统离线文字识别，不判断物体类型，统一使用“你面前的物体上写着” | 不调用其他服务 |
 
-选择了联网服务、允许上传照片并保存了 API Key 时，先使用远端识别；否则直接在本机识别。远端连接失败、超时或返回错误时改用本机模型，本机模型失败时改用 Apple Vision。取消识别会结束整个过程，包括网络层以 `URLError.cancelled` 报告的取消。
+所选服务商为联网服务、允许上传照片并保存了该服务商的 API Key 时，先使用远端识别；否则直接在本机识别。远端连接失败、超时或返回错误时改用本机模型，本机模型失败时改用 Apple Vision。取消识别会结束整个过程，包括网络层以 `URLError.cancelled` 报告的取消。
 
-旧版的“本地 VLM”和“远端 API”选项都按“智能识别”处理。
+旧版的“远端 API”选项按“跟随默认服务商”处理，“本地 VLM”按“本机”处理。
 
 ### 本地识别流程
 
