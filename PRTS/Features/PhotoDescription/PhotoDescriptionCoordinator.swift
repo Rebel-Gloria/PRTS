@@ -19,7 +19,11 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private let services: PhotoDescriptionServices
 
     convenience init() {
-        self.init(recognizer: PhotoSpeechRecognizer(), audio: AnswerAudioOutput(), services: .init())
+        self.init(
+            recognizer: PhotoSpeechRecognizer(),
+            audio: AnswerAudioOutput(),
+            services: .init()
+        )
     }
 
     init(
