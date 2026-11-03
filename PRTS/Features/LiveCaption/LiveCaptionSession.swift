@@ -19,6 +19,7 @@ final class LiveCaptionSession: ObservableObject {
     private let describeOpening: @Sendable (Data, String) async throws -> String
     private let describeChange: @Sendable ([Data], String?, String) async throws -> String
     private let sleep: (TimeInterval) async throws -> Void
+    private let makeComparison: () -> LiveCaptionImageComparison
     private(set) var work: Task<Void, Never>?
     private var sampling: Task<Void, Never>?
     private var speech: (startedAt: TimeInterval, characters: Int)?
@@ -41,6 +42,9 @@ final class LiveCaptionSession: ObservableObject {
         describeChange: @escaping @Sendable ([Data], String?, String) async throws -> String = {
             try await LiveCaptionBackend.caption(video: $0, previous: $1, key: $2)
         },
+        makeComparison: @escaping () -> LiveCaptionImageComparison = {
+            LiveCaptionImageComparison()
+        },
         sleep: @escaping (TimeInterval) async throws -> Void = {
             try await Task.sleep(for: .seconds($0))
         }
@@ -51,6 +55,7 @@ final class LiveCaptionSession: ObservableObject {
         self.describeOpening = describeOpening
         self.describeChange = describeChange
         self.sleep = sleep
+        self.makeComparison = makeComparison
         audio.onFinished = { [weak self] in self?.speechFinished() }
     }
 
@@ -197,7 +202,7 @@ final class LiveCaptionSession: ObservableObject {
         defer { sampler.cancel() }
         var images = stream.stream.makeAsyncIterator()
         guard let first = try await images.next() else { return }
-        let comparison = LiveCaptionImageComparison()
+        let comparison = makeComparison()
         _ = try await comparison.accept(first[0].jpeg)
         var lastRequest = services.now()
         let opening = try await describeOpening(first[0].jpeg, key)
