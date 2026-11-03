@@ -18,9 +18,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     let devCapture: DevCaptureRecorder
     #endif
     let recorder: SessionRecorder
-    let capabilities = DeviceCapabilities.detect()
-    private let session = ARSession()
-    private let sessionQueue = DispatchQueue(label: "probe.session", qos: .userInitiated)
+    let capabilities: DeviceCapabilities
+    private let session: any ProbeSession
+    private let sessionQueue: DispatchQueue
     private let analysisQueue = DispatchQueue(label: "probe.analysis", qos: .userInitiated)
     private let meshQueue = DispatchQueue(label: "probe.mesh", qos: .utility)
     private let mailbox = LatestMailbox<AnalysisJob>()
@@ -41,14 +41,20 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     private var lastAnalysisCompletion: Double = 0  // analysisQueue only
     private var analysisBarrier: UInt64 = 0  // analysisQueue only
     private var captureFPS: Double = 0
-    override init() {
+    init(
+        session: any ProbeSession = ARSession(),
+        capabilities: DeviceCapabilities = .detect(),
+        sessionQueue: DispatchQueue = DispatchQueue(label: "probe.session", qos: .userInitiated)
+    ) {
+        self.session = session
+        self.capabilities = capabilities
+        self.sessionQueue = sessionQueue
         #if PRTS_DEV_CAPTURE
         devCapture = DevCaptureRecorder(root: diagnostics.journal.directory)
         #endif
         recorder = SessionRecorder(diagnostics: diagnostics)
         super.init()
-        session.delegate = self
-        session.delegateQueue = sessionQueue
+        session.configure(delegate: self, queue: sessionQueue)
         let mono = DepthBackendPolicy(
             supportsSceneDepth: capabilities.depth,
             requestedSimulation: UserDefaults.standard.bool(forKey: "simulateNoLiDAR")
@@ -65,8 +71,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             epoch: 0
         )
     }
-    func start(device: [String: String]) {
+    func start(device: [String: String], completion: @escaping @Sendable () -> Void = {}) {
         sessionQueue.async { [self] in
+            defer { completion() }
             guard !store.read().running else { return }
             guard capabilities.world else {
                 store.update { $0.status = "缺少世界追踪；模拟器仅验证界面，不能验收 LiDAR" }
@@ -129,7 +136,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     "backend=\(s.usesMonocular ? "monocular" : "lidar"),frameSemantics=\(config.frameSemantics.rawValue),sceneReconstruction=\(config.sceneReconstruction.rawValue),planeDetection=\(config.planeDetection.rawValue)",
                 epoch: epoch
             )
-            session.run(config, options: [.resetTracking, .removeExistingAnchors])
+            session.run(config)
             recorder.event(
                 "session_started",
                 details: capabilities.description + "; backend="
@@ -139,37 +146,40 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             )
         }
     }
-    func stop(reason: String = "用户停止") {
-        #if PRTS_DEV_CAPTURE
-        devCapture.stop()
-        #endif
+    func stop(
+        reason: String = "用户停止",
+        completion: @escaping @Sendable () -> Void = {}
+    ) {
         diagnostics.event("stop_requested", details: reason, epoch: store.read().epoch)
-        // Immediately blank outputs, without waiting for background work.
-        store.update {
-            $0.running = false
-            $0.geometryEnabled = false
-            $0.frame = nil
-            $0.frozen = nil
-            $0.result = nil
-            $0.surfaceHistory.reset()
-            $0.pathUpdate = .init(reason: "invalidated")
-            $0.diagnosticResult = nil
-            $0.analyzedFrame = nil
-            $0.meshes = [:]
-            $0.monocular = nil
-            $0.frozenMonocular = nil
-            $0.nativePlanes = []
-            $0.nativePlaneFrameID = 0
-            $0.monocularStatus = "已停止；无当前预测或尺度"
-            $0.status = reason
-        }
-        mailbox.discardPending()
-        meshInbox.clear()
         sessionQueue.async { [self] in
+            #if PRTS_DEV_CAPTURE
+            devCapture.stop()
+            #endif
+            store.update {
+                $0.running = false
+                $0.geometryEnabled = false
+                $0.frame = nil
+                $0.frozen = nil
+                $0.result = nil
+                $0.surfaceHistory.reset()
+                $0.pathUpdate = .init(reason: "invalidated")
+                $0.diagnosticResult = nil
+                $0.analyzedFrame = nil
+                $0.meshes = [:]
+                $0.monocular = nil
+                $0.frozenMonocular = nil
+                $0.nativePlanes = []
+                $0.nativePlaneFrameID = 0
+                $0.monocularStatus = "已停止；无当前预测或尺度"
+                $0.status = reason
+            }
+            mailbox.discardPending()
+            meshInbox.clear()
             session.pause()
             directionGate.reset()
             recorder.event("invalidated", details: reason, epoch: epoch)
             recorder.finish(epoch: epoch)
+            completion()
         }
     }
     func flushDiagnostics(lifecycle: String, completion: @escaping @Sendable () -> Void) {

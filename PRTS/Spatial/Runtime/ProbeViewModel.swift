@@ -7,7 +7,7 @@ import SwiftUI
 
 @MainActor
 final class ProbeViewModel: ObservableObject {
-    let engine = ProbeEngine()
+    let engine: ProbeEngine
     @Published var snapshot = SharedSnapshot()
     @Published var options = RenderOptions() {
         didSet {
@@ -24,8 +24,10 @@ final class ProbeViewModel: ObservableObject {
     var scanMesh: Bool {
         get { options.showMesh }
         set {
-            options.showMesh = newValue
-            options.showPath = newValue
+            var updated = options
+            updated.showMesh = newValue
+            updated.showPath = newValue
+            options = updated
             UserDefaults.standard.set(newValue, forKey: Self.scanMeshKey)
         }
     }
@@ -49,7 +51,13 @@ final class ProbeViewModel: ObservableObject {
     private var lastThermal = -1
     private var lastHeartbeat: Double = 0
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    init() {
+    // Default arguments are evaluated outside the main actor, so the app uses this initializer.
+    convenience init() {
+        self.init(engine: ProbeEngine())
+    }
+
+    init(engine: ProbeEngine) {
+        self.engine = engine
         #if PRTS_DEV_CAPTURE
         if let data = UserDefaults.standard.data(forKey: "homeRenderOptions.v1"),
             let saved = try? JSONDecoder().decode(RenderOptions.self, from: data)
@@ -193,49 +201,23 @@ final class ProbeViewModel: ObservableObject {
         engine.setSimulatedNoLiDAR(value, device: deviceMetadata)
         poll()
     }
-    func startOrStop() {
-        if snapshot.running {
-            engine.stop()
-            poll()
-            return
-        }
-        guard !requestingPermission else { return }
-        guard capabilities.world else {
-            engine.start(device: deviceMetadata)
-            poll()
-            return
-        }
+    func start(allowed: Bool, isActive: Bool) async {
         engine.diagnostics.event(
-            "camera_start_requested",
-            details: "user_action",
+            "camera_permission_result",
+            details: allowed ? "authorized" : "denied_or_restricted",
             epoch: snapshot.epoch
         )
-        requestingPermission = true
-        Task {
-            defer { requestingPermission = false }
-            let allowed: Bool
-            switch AVCaptureDevice.authorizationStatus(for: .video) {
-            case .authorized: allowed = true
-            case .notDetermined: allowed = await AVCaptureDevice.requestAccess(for: .video)
-            case .denied, .restricted: allowed = false
-            @unknown default: allowed = false
+        if allowed && isActive {
+            permissionMessage = nil
+            engine.updateParameters(parameters)
+            engine.updateOptions(options)
+            await withCheckedContinuation { done in
+                engine.start(device: deviceMetadata) { done.resume() }
             }
-            engine.diagnostics.event(
-                "camera_permission_result",
-                details: allowed ? "authorized" : "denied_or_restricted",
-                epoch: snapshot.epoch
-            )
-            if allowed && UIApplication.shared.applicationState == .active {
-                permissionMessage = nil
-                engine.updateParameters(parameters)
-                engine.updateOptions(options)
-                engine.start(device: deviceMetadata)
-            } else if allowed {
-                permissionMessage = "已授权，回到 PRTS 后点“开始”。"
-            } else {
-                permissionMessage = "没有相机权限。请到“设置”里打开。"
-            }
-            poll()
+        } else if allowed {
+            permissionMessage = "已授权，回到 PRTS 后点“开始”。"
+        } else {
+            permissionMessage = "没有相机权限。请到“设置”里打开。"
         }
     }
     var deviceMetadata: [String: String] {

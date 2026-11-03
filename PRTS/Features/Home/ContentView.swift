@@ -149,15 +149,13 @@ struct ContentView: View {
             .onReceive(pollTimer) { _ in
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
-                camera.poll(
-                    suspendFeedback: photo.busy || reading || liveCaption.suspendsFeedback
-                        || isShowingSettings || isHoldingStop
-                        || guidanceSuppressed || scenePhase != .active
-                )
-                if !photo.busy, !reading, !liveCaption.suspendsFeedback, !isShowingSettings,
-                    !isHoldingStop, !guidanceSuppressed,
-                    scenePhase == .active
-                {
+                let suspendFeedback =
+                    camera.suspendsFeedback
+                    || photo.busy || reading || liveCaption.suspendsFeedback
+                    || isShowingSettings || isHoldingStop
+                    || guidanceSuppressed || scenePhase != .active
+                camera.poll(suspendFeedback: suspendFeedback)
+                if !suspendFeedback {
                     let snapshot = camera.model.snapshot
                     if snapshot.pathOptions.enabled && snapshot.pathUpdate.waypointGuidance != nil {
                         // One committed route state owns open/far/near speech. Do not also
