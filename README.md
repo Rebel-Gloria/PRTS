@@ -40,10 +40,17 @@ PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供避障引�
 
 ## 文档
 
+如需阅读代码，建议按以下顺序：
+
+1. 阅读[工程架构](docs/architecture.md)中的目录结构和应用装配，了解各目录的入口类型。
+2. 阅读 `PRTS/Features/Home/ContentView.swift`，了解首页如何持有并协调各功能。
+3. 按要修改的部分阅读专题文档：避障算法请参阅[空间感知](docs/spatial.md)，模型和识别功能请参阅[图像与文字识别](docs/vision.md)。
+4. 修改前阅读[开发指南](docs/development.md)中的构建、测试和回放方法。
+
 | 文档 | 内容 |
 |---|---|
 | [功能与操作](docs/usage.md) | 操作方式、设置项和无障碍支持 |
-| [工程架构](docs/architecture.md) | 目录结构、避障数据流、路线与播报规则、设计约束 |
+| [工程架构](docs/architecture.md) | 目录结构、应用装配、避障数据流与运行调度、相机交接、路线与播报规则、设计约束 |
 | [空间感知](docs/spatial.md) | 坐标约定、地面确认、栅格、距离测量和无 LiDAR 模式 |
 | [图像与文字识别](docs/vision.md) | 模型服务、提示词、文字识别流程和本地视觉模型 |
 | [开发指南](docs/development.md) | 构建、测试、持续集成、诊断记录和回放工具 |

@@ -248,7 +248,14 @@ dev-capture-<UUID>/
 
 `Experiments/astra/run.sh` 重新运行当前源码的感知、规划、发布和反馈策略，并记录源码、二进制和工具的指纹。结果为离线代理指标，语音为模拟请求，不代表实际播报。产物不纳入版本控制。
 
-`prepare.py` 同时提供当前回放所需的数据索引，以及基于固定历史提交的第二轮实验副本。`run_round2.sh` 保留该实验的回放、指标和原始结果，不再生成过程报告。第三轮历史补丁重建工具及旧报告生成器已移除，已采用或撤回的结论统一维护在[验证结果](validation.md)中。
+`Experiments/astra/` 中的工具分为两组：
+
+| 用途 | 文件 |
+|---|---|
+| 回放当前源码 | `run.sh` 调用 `run_product.sh`，后者使用 `prepare_product.py`、`ReplayProduct.swift`、`metrics_product.py` 和 `seal_product.py` |
+| 复现第二轮历史实验 | `run_round2.sh`，使用 `prepare.py`、`Replay.swift` 和 `metrics.py`，基于固定的历史提交 |
+
+结论以[验证结果](validation.md)为准，回放工具不生成报告。
 
 ### SpatialProbe
 
