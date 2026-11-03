@@ -10,15 +10,13 @@ PRTS uses your iPhone camera to find obstacles ahead. It can also describe the s
 - **Ask**: Hold a volume button, speak after the tone, and release to send.
 - **Read text**: Hold three fingers on the screen.
 
-If the screen is hard to use, say "Start PRTS" to Siri, or go to Settings → Accessibility → Touch → Back Tap and select Start PRTS. Then tap the back of your iPhone to open the app and start the camera. To keep the volume buttons for volume, turn off Volume button shortcut in Intelligence settings and use the on-screen photo button instead.
+If the screen is hard to use, say "Start PRTS" to Siri, or go to Settings → Accessibility → Touch → Back Tap and select Start PRTS. Then tap the back of your iPhone to open the app and start the camera. To keep the volume buttons for volume, turn off Volume button shortcut under Interaction in Settings and use the on-screen photo button instead.
 
 ## What you can set
 
-- **Tap to stop**: Tap the main button to stop, for people who find holding difficult.
-- **Low vision mode**: Keeps descriptions, questions and text reading, without obstacle guidance.
-- **Intelligence settings**: Choose what describes the scene and answers questions, and set up the photo button and text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Voice**: Turn announcements on or off, and set the speech rate and language.
-- **Display**: Hide the camera view to save battery, or show the scan mesh.
+- **Intelligence**: Choose what describes the scene, answers questions and reads text, for all features at once or one at a time. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
+- **Interaction**: Low vision mode (descriptions, questions and text reading without obstacle guidance), tap to stop, the volume button shortcut, three-finger text reading, and no-preview mode.
+- **Language and Speech**: Turn announcements on or off, and set the speech rate and language.
 
 ## Important
 

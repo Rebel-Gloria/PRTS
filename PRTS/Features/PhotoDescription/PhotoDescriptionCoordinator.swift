@@ -87,26 +87,32 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         silence: () -> Void
     ) -> Bool {
         guard !busy else { return false }
-        if !services.onDevice() {
-            guard services.uploadAllowed() else {
-                message = "先在设置里允许发送照片"
-                return false
-            }
-            do {
-                guard let credential = try services.credential(), !credential.isEmpty else {
-                    throw PhotoChatError.missingKey
-                }
-                key = credential
-            } catch {
-                message = error.localizedDescription
-                return false
-            }
-        }
         silence()
         generation = UUID()
         captureOperation = capture
         busy = true
         message = "松手描述，长按提问"
+        return true
+    }
+
+    private func prepareService(for feature: IntelligenceFeature) -> Bool {
+        if !services.onDevice(feature) {
+            guard services.uploadAllowed() else {
+                cancel()
+                message = "先在设置里允许发送照片"
+                return false
+            }
+            do {
+                guard let credential = try services.credential(feature), !credential.isEmpty else {
+                    throw PhotoChatError.missingKey
+                }
+                key = credential
+            } catch {
+                cancel()
+                message = error.localizedDescription
+                return false
+            }
+        }
         return true
     }
 
@@ -124,6 +130,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private func perform(_ action: PhotoPressState.Action) {
         switch action {
         case .shortCapture:
+            if !prepareService(for: .description) { return }
             do {
                 try capture(purpose: .description)
                 try audio.cue(.submit)
@@ -180,6 +187,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func startRecording() {
+        if !prepareService(for: .question) { return }
         guard services.speechAuthorized() else {
             cancel()
             message = "需要麦克风权限，允许后再长按"

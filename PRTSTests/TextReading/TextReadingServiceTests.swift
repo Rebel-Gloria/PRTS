@@ -5,18 +5,48 @@ import Testing
 
 @MainActor
 struct TextReadingServiceTests {
-    @Test func defaultsAndLegacySelectionsFollowTheProvider() {
+    @Test func selectionsPreserveProviderAndVisionValues() {
         let name = "TextReadingServiceTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        #expect(TextReadingService.allCases == [.vlm, .vision])
+        #expect(
+            TextReadingService.allCases == [.vlm, .onDevice, .qwen, .deepseek, .custom, .vision]
+        )
         #expect(TextReadingService.current(defaults) == .vlm)
-        for value in ["onDevice", "remote", "vlm", "unknown"] {
-            defaults.set(value, forKey: TextReadingService.selectionKey)
-            #expect(TextReadingService.current(defaults) == .vlm)
+        for selection in TextReadingService.allCases {
+            defaults.set(selection.rawValue, forKey: TextReadingService.selectionKey)
+            #expect(TextReadingService.current(defaults) == selection)
         }
-        defaults.set("vision", forKey: TextReadingService.selectionKey)
-        #expect(TextReadingService.current(defaults) == .vision)
+    }
+
+    @Test(arguments: TextReadingService.allCases, PhotoChatProvider.allCases)
+    func fallbackChainUsesTheSelectedProvider(
+        selection: TextReadingService,
+        defaultProvider: PhotoChatProvider
+    ) async throws {
+        let name = "TextReadingServiceTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(defaultProvider.rawValue, forKey: PhotoChatProvider.selectionKey)
+        defaults.set(selection.rawValue, forKey: TextReadingService.selectionKey)
+        let provider = IntelligenceFeature.textReading.provider(defaults)
+        let remoteAvailable = provider != nil && provider != .onDevice
+        var calls: [TextReadingService.Reader] = []
+        try await TextReadingService.current(defaults).read(remoteAvailable: remoteAvailable) {
+            calls.append($0)
+            if $0 != .vision { throw URLError(.cannotConnectToHost) }
+        }
+        let expected: [TextReadingService.Reader]
+        switch selection {
+        case .vision: expected = [.vision]
+        case .onDevice: expected = [.onDevice, .vision]
+        case .vlm:
+            expected =
+                defaultProvider == .onDevice
+                ? [.onDevice, .vision] : [.remote, .onDevice, .vision]
+        case .qwen, .deepseek, .custom: expected = [.remote, .onDevice, .vision]
+        }
+        #expect(calls == expected)
     }
 
     @Test func successfulRemoteReadingDoesNotStartLocalReaders() async throws {

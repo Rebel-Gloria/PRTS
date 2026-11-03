@@ -4,7 +4,8 @@ import LocalVLM
 /// Selects the live model without coupling the interaction lifecycle to a provider.
 nonisolated enum PhotoDescriptionBackend {
     static func describe(jpeg: Data, question: String?, key: String) async throws -> String {
-        let provider = PhotoChatProvider.current()
+        let feature: IntelligenceFeature = question == nil ? .description : .question
+        let provider = feature.provider()!
         let answer = try await generate(
             jpeg: jpeg,
             text: question ?? PhotoPrompts.prompt,
@@ -14,7 +15,7 @@ nonisolated enum PhotoDescriptionBackend {
                 ? PhotoPrompts.localSystem(question: question)
                 : (question == nil ? PhotoPrompts.system : PhotoPrompts.questionSystem),
             thinking: question != nil
-                && UserDefaults.standard.bool(forKey: PhotoPrompts.questionThinkingKey)
+                && provider.questionThinking()
         )
         return question == nil ? answer : PhotoPrompts.threeSentences(answer)
     }

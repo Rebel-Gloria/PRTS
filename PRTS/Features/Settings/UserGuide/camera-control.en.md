@@ -16,11 +16,9 @@ On your iPhone, go to Settings → Action Button, choose Shortcut, and select St
 
 ## What you can set
 
-- **Tap to stop**: Tap the main button to stop, for people who find holding difficult.
-- **Low vision mode**: Keeps descriptions, questions and text reading, without obstacle guidance.
-- **Intelligence settings**: Choose what describes the scene and answers questions, and set up text reading. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Voice**: Turn announcements on or off, and set the speech rate and language.
-- **Display**: Hide the camera view to save battery, or show the scan mesh.
+- **Intelligence**: Choose what describes the scene, answers questions and reads text, for all features at once or one at a time. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
+- **Interaction**: Low vision mode (descriptions, questions and text reading without obstacle guidance), tap to stop, three-finger text reading, and no-preview mode.
+- **Language and Speech**: Turn announcements on or off, and set the speech rate and language.
 
 ## Important
 

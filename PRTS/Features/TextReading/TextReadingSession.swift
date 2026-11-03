@@ -48,7 +48,7 @@ final class TextReadingSession: ObservableObject {
         modelDone = false
         answer = TextReadingAnswer(lead: "")
         service = TextReadingService.current()
-        cloud = service == .vlm ? Self.cloudSetup() : nil
+        cloud = service == .vision ? nil : Self.cloudSetup()
         say(intro)
         camera.start(
             frame: { [weak self] in self?.frame(id) },
@@ -160,7 +160,7 @@ final class TextReadingSession: ObservableObject {
 
     /// Missing setup stays offline without a prompt; photo upload still requires permission.
     private static func cloudSetup() -> (key: String, service: PhotoChatService)? {
-        let provider = PhotoChatProvider.current()
+        let provider = IntelligenceFeature.textReading.provider()!
         guard let service = provider.service() else { return nil }
         guard UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed") else {
             return nil

@@ -48,6 +48,7 @@ final class PRTSUITests: XCTestCase {
         )
         #if PRTS_DEV_CAPTURE
         let technical = app.switches["devTechnicalOverlayToggle"]
+        reveal(technical, in: app)
         if technical.value as? String != "1" {
             technical.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         }
@@ -119,34 +120,48 @@ final class PRTSUITests: XCTestCase {
         snap(app, "Home (glass)")
         settings.tap()
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.switches["语音播报"].exists)
+        XCTAssertTrue(app.switches["lowVisionToggle"].exists)
         snap(app, "Settings (zh)")
-        let photo = app.buttons["智能设置"]
+        let photo = app.buttons["intelligenceSettingsLink"]
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         photo.tap()
-        XCTAssertTrue(app.navigationBars["智能设置"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["智能"].waitForExistence(timeout: 5))
         snap(app, "Photo settings (zh)")
-        // Provider picker: presets show their model; custom asks for address and model.
-        // LabeledContent exposes the model as the row's value, not as its own label.
+        // Each provider has its own page, independent of the default picker.
         func shown(_ text: String) -> XCUIElement {
             app.descendants(matching: .any).matching(
                 NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
             ).firstMatch
         }
-        app.buttons["DeepSeek"].tap()
-        XCTAssertTrue(shown("deepseek-flash").waitForExistence(timeout: 3))
-        app.buttons["自定义"].tap()
+        for (provider, model) in [("qwen", "qwen3.8-flash"), ("deepseek", "deepseek-flash")] {
+            let link = app.buttons["providerSettings.\(provider)"]
+            reveal(link, in: app)
+            link.tap()
+            XCTAssertTrue(shown(model).waitForExistence(timeout: 3))
+            reveal(app.switches["photoQuestionThinking"], in: app)
+            XCTAssertTrue(app.switches["photoQuestionThinking"].exists)
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+        let custom = app.buttons["providerSettings.custom"]
+        reveal(custom, in: app)
+        custom.tap()
         XCTAssertTrue(app.textFields["photoCustomEndpoint"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.textFields["photoCustomModel"].exists)
-        snap(app, "Photo provider custom (zh)")
-        app.buttons["通义千问 Qwen"].tap()
-        XCTAssertTrue(shown("qwen3.8-flash").waitForExistence(timeout: 3))
-        // Text reading lives on this page; Form rows off screen don't exist yet.
-        let threeFinger = app.switches["threeFingerReadingToggle"]
-        for _ in 0..<4 where !threeFinger.exists { app.swipeUp() }
-        XCTAssertTrue(threeFinger.exists)
-        snap(app, "Photo settings text reading (zh)")
+        XCTAssertFalse(app.switches["photoQuestionThinking"].exists)
+        snap(app, "Custom provider (zh)")
         app.navigationBars.buttons.element(boundBy: 0).tap()
+        let reading = app.buttons["ocrServicePicker"]
+        reveal(reading, in: app)
+        XCTAssertTrue(reading.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["liveCaptionProvider"].exists)
+        snap(app, "Services by feature (zh)")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let threeFinger = app.switches["threeFingerReadingToggle"]
+        reveal(threeFinger, in: app)
+        XCTAssertTrue(threeFinger.exists)
+        let voice = app.switches["语音播报"]
+        reveal(voice, in: app)
+        XCTAssertTrue(voice.exists)
         // Vibration is always on: the settings page ends with the guide and has no haptic switch.
         let guide = app.buttons["userGuideButton"]
         for _ in 0..<4 where !guide.exists { app.swipeUp() }
@@ -414,8 +429,8 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
         #if PRTS_DEV_CAPTURE
-        app.swipeUp()
         let toggle = app.switches["devCaptureToggle"]
+        reveal(toggle, in: app)
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "0")
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -424,7 +439,7 @@ final class PRTSUITests: XCTestCase {
         app.terminate()
         app.launch()
         app.buttons["settingsButton"].tap()
-        app.swipeUp()
+        reveal(app.switches["devCaptureToggle"], in: app)
         XCTAssertTrue(app.switches["devCaptureToggle"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.switches["devCaptureToggle"].value as? String, "0")
         #else
@@ -440,6 +455,7 @@ final class PRTSUITests: XCTestCase {
         app.buttons["settingsButton"].tap()
         func set(_ id: String, _ enabled: Bool) {
             let toggle = app.switches[id]
+            reveal(toggle, in: app)
             XCTAssertTrue(toggle.waitForExistence(timeout: 5))
             if toggle.value as? String != (enabled ? "1" : "0") {
                 toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -471,11 +487,18 @@ final class PRTSUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
         try audit(app)
 
-        app.buttons["智能设置"].tap()
-        XCTAssertTrue(app.navigationBars["智能设置"].waitForExistence(timeout: 5))
+        app.buttons["intelligenceSettingsLink"].tap()
+        XCTAssertTrue(app.navigationBars["智能"].waitForExistence(timeout: 5))
         // Audit after the push ends: mid-transition text is translucent and fails contrast.
         XCTAssertTrue(app.navigationBars["设置"].waitForNonExistence(timeout: 5))
         try audit(app)
+        let provider = app.buttons["providerSettings.qwen"]
+        reveal(provider, in: app)
+        provider.tap()
+        XCTAssertTrue(app.navigationBars["通义千问"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["智能"].waitForNonExistence(timeout: 5))
+        try audit(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         let guide = app.buttons["userGuideButton"]
@@ -485,6 +508,56 @@ final class PRTSUITests: XCTestCase {
         // Contrast is left out here: its only reports are the system Done button and the line
         // half scrolled under the bottom bar. The guide is system text on the system background.
         try audit(app, types: XCUIAccessibilityAuditType.all.subtracting(.contrast))
+    }
+
+    @MainActor
+    func testFeatureSelectionsAndOnDeviceSettings() throws {
+        let app = XCUIApplication.prts()
+        app.launchArguments += [
+            "-AppleLanguages", "(en)",
+            "-photoDescription.provider", "onDevice",
+            "-intelligence.provider.description", "qwen",
+            "-intelligence.provider.question", "deepseek",
+            "-ocr.service", "vision",
+        ]
+        app.launch()
+        app.buttons["settingsButton"].tap()
+        let intelligence = app.buttons["intelligenceSettingsLink"]
+        XCTAssertTrue(intelligence.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            intelligence.label.contains("On device") || intelligence.value as? String == "On device"
+        )
+        intelligence.tap()
+        XCTAssertTrue(app.navigationBars["Intelligence"].waitForExistence(timeout: 5))
+        let local = app.buttons["providerSettings.onDevice"]
+        reveal(local, in: app)
+        local.tap()
+        XCTAssertTrue(app.switches["photoLocalEnhanced"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.secureTextFields["photoAPIKey"].exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        for (id, value) in [
+            ("intelligence.provider.description", "Qwen"),
+            ("intelligence.provider.question", "DeepSeek"),
+            ("ocrServicePicker", "Apple Vision"),
+        ] {
+            let picker = app.buttons[id]
+            reveal(picker, in: app)
+            XCTAssertTrue(picker.exists)
+            XCTAssertTrue(picker.label.contains(value) || picker.value as? String == value)
+        }
+        let captions = app.descendants(matching: .any)["liveCaptionProvider"]
+        reveal(captions, in: app)
+        XCTAssertTrue(captions.label.contains("Qwen") || captions.value as? String == "Qwen")
+        XCTAssertFalse(app.switches["threeFingerReadingToggle"].exists)
+        let upload = app.switches["photoUploadAllowed"]
+        reveal(upload, in: app)
+        XCTAssertTrue(upload.exists)
+    }
+
+    @MainActor
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<10 where !element.isHittable { app.swipeUp() }
+        XCTAssertTrue(element.isHittable, app.debugDescription)
     }
 
     /// Fails on any audit issue except the few that are accepted by design.

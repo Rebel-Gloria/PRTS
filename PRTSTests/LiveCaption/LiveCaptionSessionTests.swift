@@ -103,37 +103,45 @@ struct LiveCaptionSessionTests {
         var services = PhotoDescriptionServices()
         services.now = { clock.now }
         services.uploadAllowed = { true }
-        services.credential = { "synthetic-test-key" }
         return services
     }
 
     @Test(arguments: [PhotoChatProvider.onDevice, .deepseek, .custom])
-    func otherProvidersAnnounceQwenRequirementBeforeCapture(provider: PhotoChatProvider) {
+    func qwenKeyStartsCaptionsWithAnyDefaultProvider(provider: PhotoChatProvider) async {
+        let name = "LiveCaptionSessionTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(provider.rawValue, forKey: PhotoChatProvider.selectionKey)
+        defaults.set(true, forKey: "photoDescription.uploadAllowed")
+        let response = CaptionTestResponse()
         let audio = CaptionTestAudio()
-        var services = PhotoDescriptionServices()
-        services.uploadAllowed = {
-            Issue.record("Upload consent must only be checked for Qwen")
-            return false
-        }
-        services.credential = {
-            Issue.record("Credentials must only be read for Qwen")
-            return nil
-        }
-        let session = LiveCaptionSession(audio: audio, services: services, provider: { provider })
-        session.localized = { key in
-            #expect(key == "liveCaption.requiresQwen")
-            return "流式字幕需要在智能设置中选择通义千问。"
-        }
+        let clock = CaptionTestClock()
+        var services = PhotoDescriptionServices(defaults: defaults)
+        services.now = { clock.now }
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services,
+            credential: { account in
+                #expect(account == PhotoChatProvider.qwen.keyAccount)
+                return "test-qwen-key"
+            },
+            describeOpening: { _, key in
+                #expect(key == "test-qwen-key")
+                return await response.request()
+            },
+            sleep: clock.sleep
+        )
+        let image = jpeg()
         session.start(capture: {
-            Issue.record("Unsupported providers must not capture")
-            return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
+            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
         })
-        #expect(session.work == nil)
-        #expect(!session.isRunning)
-        #expect(audio.spoken == ["流式字幕需要在智能设置中选择通义千问。"])
-        #expect(session.suspendsFeedback)
-        audio.onFinished?()
-        #expect(!session.suspendsFeedback)
+        let work = session.work
+        await response.waitForRequest()
+        #expect(session.isRunning)
+        session.stop()
+        clock.finish()
+        await response.reply("门口。")
+        await work?.value
     }
 
     @Test func lateOpeningAfterStopStaysSilent() async {
@@ -143,7 +151,7 @@ struct LiveCaptionSessionTests {
         let session = LiveCaptionSession(
             audio: audio,
             services: services(clock: clock),
-            provider: { .qwen },
+            credential: { _ in "synthetic-test-key" },
             describeOpening: { _, _ in await response.request() },
             sleep: clock.sleep
         )
@@ -169,7 +177,7 @@ struct LiveCaptionSessionTests {
         let session = LiveCaptionSession(
             audio: audio,
             services: services(clock: clock),
-            provider: { .qwen },
+            credential: { _ in "synthetic-test-key" },
             sleep: clock.sleep
         )
         let image = jpeg()
@@ -196,7 +204,14 @@ struct LiveCaptionSessionTests {
         let audio = CaptionTestAudio()
         var services = PhotoDescriptionServices()
         services.uploadAllowed = { false }
-        let session = LiveCaptionSession(audio: audio, services: services, provider: { .qwen })
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services,
+            credential: { _ in
+                Issue.record("Upload consent must be checked before the Qwen key")
+                return nil
+            }
+        )
         session.start(capture: {
             Issue.record("Capture requires upload consent")
             return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
@@ -209,14 +224,28 @@ struct LiveCaptionSessionTests {
         let audio = CaptionTestAudio()
         var services = PhotoDescriptionServices()
         services.uploadAllowed = { true }
-        services.credential = { nil }
-        let session = LiveCaptionSession(audio: audio, services: services, provider: { .qwen })
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services,
+            credential: { account in
+                #expect(account == PhotoChatProvider.qwen.keyAccount)
+                return nil
+            }
+        )
+        session.localized = { key in
+            #expect(key == "liveCaption.requiresQwen")
+            return "流式字幕需要通义千问的 API Key"
+        }
         session.start(capture: {
             Issue.record("Capture requires a Qwen key")
             return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
         })
         #expect(!session.isRunning)
-        #expect(session.message == PhotoChatError.missingKey.localizedDescription)
+        #expect(session.work == nil)
+        #expect(audio.spoken == ["流式字幕需要通义千问的 API Key"])
+        #expect(session.suspendsFeedback)
+        audio.onFinished?()
+        #expect(!session.suspendsFeedback)
     }
 
     @Test func fewerThanFourFramesNeverRequestChanges() async {
@@ -225,7 +254,7 @@ struct LiveCaptionSessionTests {
         let session = LiveCaptionSession(
             audio: audio,
             services: services(clock: clock),
-            provider: { .qwen },
+            credential: { _ in "synthetic-test-key" },
             describeOpening: { _, _ in "门口。" },
             describeChange: { _, _, _ in
                 Issue.record("A video request requires four frames")
@@ -261,7 +290,7 @@ struct LiveCaptionSessionTests {
         let session = LiveCaptionSession(
             audio: audio,
             services: services(clock: clock),
-            provider: { .qwen },
+            credential: { _ in "synthetic-test-key" },
             describeOpening: { _, _ in await response.request() },
             sleep: clock.sleep
         )

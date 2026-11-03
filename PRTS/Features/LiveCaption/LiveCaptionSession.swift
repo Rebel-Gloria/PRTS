@@ -15,7 +15,7 @@ final class LiveCaptionSession: ObservableObject {
     private var pressTimer: Task<Void, Never>?
     private let audio: any PhotoAnswerAudio
     private let services: PhotoDescriptionServices
-    private let provider: () -> PhotoChatProvider
+    private let credential: (String) throws -> String?
     private let describeOpening: @Sendable (Data, String) async throws -> String
     private let describeChange: @Sendable ([Data], String?, String) async throws -> String
     private let sleep: (TimeInterval) async throws -> Void
@@ -32,7 +32,9 @@ final class LiveCaptionSession: ObservableObject {
     init(
         audio: any PhotoAnswerAudio,
         services: PhotoDescriptionServices,
-        provider: @escaping () -> PhotoChatProvider = { PhotoChatProvider.current() },
+        credential: @escaping (String) throws -> String? = {
+            try PhotoCredentialStore.read(account: $0)
+        },
         describeOpening: @escaping @Sendable (Data, String) async throws -> String = {
             try await LiveCaptionBackend.captionOpening(jpeg: $0, key: $1)
         },
@@ -45,7 +47,7 @@ final class LiveCaptionSession: ObservableObject {
     ) {
         self.audio = audio
         self.services = services
-        self.provider = provider
+        self.credential = credential
         self.describeOpening = describeOpening
         self.describeChange = describeChange
         self.sleep = sleep
@@ -115,10 +117,6 @@ final class LiveCaptionSession: ObservableObject {
 
     func start(capture: @escaping () throws -> Task<LiveCaptionFrame, Error>) {
         interruptAnnouncement()
-        guard provider() == .qwen else {
-            announce(localized("liveCaption.requiresQwen"))
-            return
-        }
         guard services.uploadAllowed() else {
             stop()
             message = "先在设置里允许发送照片"
@@ -126,10 +124,12 @@ final class LiveCaptionSession: ObservableObject {
         }
         let key: String
         do {
-            guard let credential = try services.credential(), !credential.isEmpty else {
-                throw PhotoChatError.missingKey
+            if let savedKey = try credential(PhotoChatProvider.qwen.keyAccount), !savedKey.isEmpty {
+                key = savedKey
+            } else {
+                announce(localized("liveCaption.requiresQwen"))
+                return
             }
-            key = credential
         } catch {
             fail(error)
             return
