@@ -35,7 +35,9 @@ private final class PhotoTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     init(_ state: PhotoTestState) { self.state = state }
-    func cue(_ cue: AnswerAudioOutput.Cue) throws { state.events.append(cue == .submit ? "A" : "B") }
+    func cue(_ cue: AnswerAudioOutput.Cue) throws {
+        state.events.append(cue == .submit ? "A" : "B")
+    }
     func speak(_ text: String) throws {
         state.events.append("speak")
         spoken.append(text)
