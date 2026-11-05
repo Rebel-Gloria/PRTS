@@ -9,42 +9,37 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     private let makeUtterance: (String) -> AVSpeechUtterance
     private var player: AVAudioPlayer?
     private var activeUtterance: ObjectIdentifier?
-    private var ownsSession = false
+    private let audioSession: AudioSessionCoordinator
+    private var audioLease: AudioSessionCoordinator.Lease?
     var onFinished: (() -> Void)?
 
     override convenience init() {
         self.init(makeUtterance: { SpeechVoice.utterance($0) })
     }
 
-    init(makeUtterance: @escaping (String) -> AVSpeechUtterance) {
+    convenience init(makeUtterance: @escaping (String) -> AVSpeechUtterance) {
+        self.init(makeUtterance: makeUtterance, audioSession: .shared)
+    }
+
+    init(
+        makeUtterance: @escaping (String) -> AVSpeechUtterance,
+        audioSession: AudioSessionCoordinator
+    ) {
         self.makeUtterance = makeUtterance
+        self.audioSession = audioSession
         super.init()
         synthesizer.delegate = self
     }
 
     func cue(_ cue: AnswerCue) throws {
-        let session = AVAudioSession.sharedInstance()
-        if cue == .record {
-            try session.setCategory(
-                .playAndRecord,
-                mode: .measurement,
-                options: [.defaultToSpeaker]
-            )
-        } else {
-            // Short taps must not activate an input audio route or require microphone access.
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-        }
-        try session.setActive(true)
-        ownsSession = true
+        // Short taps must not activate an input audio route or require microphone access.
+        audioLease = try audioSession.activate(cue == .record ? .recording : .tone)
         player = try AVAudioPlayer(data: Self.toneData(for: cue))
         guard player?.play() == true else { throw OutputError.cueUnavailable }
     }
 
     func speak(_ text: String) throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        try session.setActive(true)
-        ownsSession = true
+        audioLease = try audioSession.activate(.speech)
         let utterance = makeUtterance(text)
         activeUtterance = ObjectIdentifier(utterance)
         synthesizer.speak(utterance)
@@ -55,17 +50,8 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.stopSpeaking(at: .immediate)
         player?.stop()
         player = nil
-        if ownsSession {
-            ownsSession = false
-            do {
-                try AVAudioSession.sharedInstance().setActive(
-                    false,
-                    options: [.notifyOthersOnDeactivation]
-                )
-            } catch {
-                ErrorLog.application.record(error, source: .audio)
-            }
-        }
+        audioSession.release(audioLease)
+        audioLease = nil
     }
 
     nonisolated func speechSynthesizer(

@@ -70,10 +70,9 @@ nonisolated enum PhotoPrompts {
         - 问：牌子写的什么？答：右前方有块牌子写着"便利店"。
         """
 
-    static func localSystem(question: String?, defaults: UserDefaults = .standard) -> String {
-        guard question != nil else { return system }
-        return defaults.bool(forKey: PhotoChatProvider.localEnhancedKey)
-            ? questionSystem : localQuestionSystem
+    static func localSystem(isQuestion: Bool, enhanced: Bool) -> String {
+        guard isQuestion else { return system }
+        return enhanced ? questionSystem : localQuestionSystem
     }
 
     /// Questions are answered in at most three sentences; the prompt asks for it, this keeps it.

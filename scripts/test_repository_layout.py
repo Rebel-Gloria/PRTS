@@ -4,7 +4,7 @@ import re
 import unittest
 from pathlib import Path
 
-from swift_source import TOKEN, swift_code
+from swift_source import swift_code, swift_identifiers, swift_types
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,22 +34,58 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertEqual(owners, ["PRTS/Spatial/Runtime/ProbeEngine.swift"])
 
     def test_shared_capabilities_do_not_reference_feature_or_runtime_types(self):
+        self.assert_layer_boundary("Shared", ("Features", "Spatial", "App"))
+
+    def test_spatial_runtime_does_not_reference_feature_or_app_types(self):
+        self.assert_layer_boundary("Spatial", ("Features", "App"))
+
+    def assert_layer_boundary(self, layer, forbidden_layers):
         declarations = {}
-        for directory in ("Features", "Spatial", "App"):
+        for directory in forbidden_layers:
             for file in (ROOT / "PRTS" / directory).rglob("*.swift"):
-                for name in re.findall(
-                    r"^(?:nonisolated |public |final )*(?:enum|class|struct|protocol)\s+(\w+)",
-                    file.read_text(encoding="utf-8"),
-                    re.M,
-                ):
+                for name in swift_types(file.read_text(encoding="utf-8")):
                     declarations[name] = file.relative_to(ROOT).as_posix()
-        for file in (ROOT / "PRTS/Shared").rglob("*.swift"):
-            identifiers = {
-                match.group()
-                for match in TOKEN.finditer(file.read_text(encoding="utf-8"))
-                if re.fullmatch(r"\w+", match.group())
-            }
-            self.assertFalse(identifiers & declarations.keys(), file)
+        for file in (ROOT / "PRTS" / layer).rglob("*.swift"):
+            identifiers = swift_identifiers(file.read_text(encoding="utf-8"))
+            conflicts = {name: declarations[name] for name in identifiers & declarations.keys()}
+            self.assertFalse(conflicts, f"{file.relative_to(ROOT)}: {conflicts}")
+
+    def test_type_discovery_includes_attributed_and_multiline_declarations(self):
+        source = """
+            @MainActor final class PathHaptics {}
+            @available(iOS 17, *) public struct Snapshot {}
+            private nonisolated enum State {}
+            @MainActor
+            protocol Output {}
+            actor Worker {}
+            typealias Handler = Output
+            struct Container { enum NestedOnly {} }
+            class func refresh() {}
+            // class CommentOnly {}
+            let message = "struct LiteralOnly {}"
+        """
+        self.assertEqual(
+            swift_types(source),
+            {"PathHaptics", "Snapshot", "State", "Output", "Worker", "Handler", "Container"},
+        )
+        self.assertNotIn("CommentOnly", swift_identifiers(source))
+        self.assertNotIn("LiteralOnly", swift_identifiers(source))
+
+    def test_audio_session_has_one_product_owner(self):
+        owners = [
+            file.relative_to(ROOT).as_posix()
+            for file in (ROOT / "PRTS").rglob("*.swift")
+            if "AVAudioSession.sharedInstance()" in swift_code(file.read_text(encoding="utf-8"))
+        ]
+        self.assertEqual(owners, ["PRTS/Shared/Audio/AudioSessionCoordinator.swift"])
+
+    def test_photo_backend_consumes_configuration_without_reading_preferences(self):
+        backend = (
+            ROOT / "PRTS/Features/PhotoDescription/Services/PhotoDescriptionBackend.swift"
+        ).read_text()
+        self.assertNotIn("UserDefaults", swift_identifiers(backend))
+        self.assertNotIn("IntelligenceFeature", swift_identifiers(backend))
+        self.assertNotIn("PhotoChatProvider", swift_identifiers(backend))
 
     def test_photo_lifecycle_uses_injected_services(self):
         source = swift_code(

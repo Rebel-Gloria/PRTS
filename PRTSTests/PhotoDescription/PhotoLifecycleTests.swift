@@ -52,14 +52,24 @@ private actor PhotoTestNetwork {
         let image: Data
         let question: String?
         let key: String
+        let configuration: PhotoDescriptionConfiguration
     }
     private(set) var requests: [Request] = []
     private var responses: [Int: CheckedContinuation<String, Error>] = [:]
     private var arrivals: [(Int, CheckedContinuation<Void, Never>)] = []
 
-    func send(_ image: Data, _ question: String?, _ key: String) async throws -> String {
+    func send(_ image: Data, _ question: String?, _ request: PhotoDescriptionRequest) async throws
+        -> String
+    {
         let index = requests.count
-        requests.append(Request(image: image, question: question, key: key))
+        requests.append(
+            Request(
+                image: image,
+                question: question,
+                key: request.key,
+                configuration: request.configuration
+            )
+        )
         return try await withCheckedThrowingContinuation { continuation in
             responses[index] = continuation
             let ready = arrivals.filter { $0.0 <= requests.count }
@@ -93,9 +103,16 @@ private final class PhotoFixture {
         recognizer = PhotoTestRecognizer(state)
         var services = PhotoDescriptionServices()
         services.now = { state.time }
-        services.onDevice = { _ in state.onDevice }
-        services.highResolution = { state.highResolution }
-        services.uploadAllowed = { state.allowUpload }
+        services.configuration = { _ in
+            PhotoDescriptionConfiguration(
+                provider: state.onDevice ? .onDevice : .qwen,
+                service: state.onDevice ? nil : .qwen,
+                system: PhotoPrompts.system,
+                thinking: false,
+                uploadAllowed: state.allowUpload,
+                highResolution: state.highResolution
+            )
+        }
         services.credential = { _ in state.hasCredential ? "synthetic-test-key" : nil }
         services.speechAuthorized = { state.speechAuthorized }
         services.requestSpeechPermission = { false }
@@ -325,8 +342,7 @@ struct PhotoLifecycleTests {
                 accounts.append(account)
                 return "test-\(account)"
             }
-            services.onDevice = configured.onDevice
-            services.uploadAllowed = configured.uploadAllowed
+            services.configuration = configured.configuration
             services.credential = configured.credential
         }
         f.down()
@@ -341,8 +357,57 @@ struct PhotoLifecycleTests {
         let account = question ? "api-key.deepseek" : "api-key"
         #expect(accounts == [account])
         #expect(request.key == "test-\(account)")
+        #expect(request.configuration.provider == (question ? .deepseek : .qwen))
+        #expect(request.configuration.service == (question ? .deepseek : .qwen))
         #expect((request.question != nil) == question)
         await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+    }
+
+    @Test func changingPreferencesDuringRecordingAffectsOnlyTheNextRequest() async {
+        let name = "PhotoLifecycleTests.snapshot.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("qwen", forKey: PhotoChatProvider.selectionKey)
+        defaults.set(true, forKey: "photoDescription.uploadAllowed")
+        defaults.set(true, forKey: PhotoImagePurpose.highResolutionKey)
+        defaults.set(true, forKey: PhotoChatProvider.qwen.questionThinkingKey)
+        let f = PhotoFixture { services in
+            let configured = PhotoDescriptionServices(defaults: defaults) { "test-\($0)" }
+            services.configuration = configured.configuration
+            services.credential = configured.credential
+        }
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        defaults.set("deepseek", forKey: PhotoChatProvider.selectionKey)
+        defaults.set(false, forKey: PhotoImagePurpose.highResolutionKey)
+        defaults.set(false, forKey: PhotoChatProvider.qwen.questionThinkingKey)
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        let first = await f.network.requests[0]
+        #expect(first.key == "test-api-key")
+        #expect(first.configuration.service == .qwen)
+        #expect(first.configuration.thinking)
+        #expect(first.configuration.system == PhotoPrompts.questionSystem)
+        #expect(f.state.capturedLongestSide == 1920)
+        await f.network.reply(0, "回答")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+
+        f.state.time = 2
+        f.down()
+        f.state.time = 2.5
+        f.coordinator.advancePress()
+        f.coordinator.up()
+        await f.network.waitForRequests(2)
+        let second = await f.network.requests[1]
+        #expect(second.key == "test-api-key.deepseek")
+        #expect(second.configuration.service == .deepseek)
+        #expect(!second.configuration.thinking)
+        #expect(f.state.capturedLongestSide == 1280)
+        await f.network.reply(1, "下一次回答")
         await f.coordinator.work?.value
         f.coordinator.cancel()
     }
@@ -360,8 +425,7 @@ struct PhotoLifecycleTests {
                 Issue.record("On-device actions must not read a credential")
                 return nil
             }
-            services.onDevice = configured.onDevice
-            services.uploadAllowed = configured.uploadAllowed
+            services.configuration = configured.configuration
             services.credential = configured.credential
         }
         f.down()

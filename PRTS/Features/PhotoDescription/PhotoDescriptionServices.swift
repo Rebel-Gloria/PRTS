@@ -1,28 +1,57 @@
 import Foundation
 
+/// One action's settings stay together across image capture and speech recognition.
+nonisolated struct PhotoDescriptionConfiguration: Sendable {
+    let provider: PhotoChatProvider
+    let service: PhotoChatService?
+    let system: String
+    let thinking: Bool
+    let uploadAllowed: Bool
+    let highResolution: Bool
+}
+
+extension PhotoDescriptionConfiguration {
+    init(feature: IntelligenceFeature, defaults: UserDefaults) throws {
+        guard let provider = feature.provider(defaults) else { throw PhotoChatError.invalidService }
+        self.provider = provider
+        service = provider.service(defaults)
+        let question = feature == .question
+        system =
+            provider == .onDevice
+            ? PhotoPrompts.localSystem(
+                isQuestion: question,
+                enhanced: defaults.bool(forKey: PhotoChatProvider.localEnhancedKey)
+            )
+            : (question ? PhotoPrompts.questionSystem : PhotoPrompts.system)
+        thinking = question && provider.questionThinking(defaults)
+        uploadAllowed = defaults.bool(forKey: "photoDescription.uploadAllowed")
+        highResolution = defaults.bool(forKey: PhotoImagePurpose.highResolutionKey)
+    }
+}
+
+nonisolated struct PhotoDescriptionRequest: Sendable {
+    let configuration: PhotoDescriptionConfiguration
+    let key: String
+}
+
 /// Replaceable time, configuration, permissions and description calls.
 @MainActor
 struct PhotoDescriptionServices {
     var errors = ErrorReporter(source: .photoDescription)
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
-    /// On device needs neither the upload permission nor a key.
-    var onDevice: (IntelligenceFeature) -> Bool
-    var uploadAllowed: () -> Bool
-    var highResolution: () -> Bool = {
-        UserDefaults.standard.bool(forKey: PhotoImagePurpose.highResolutionKey)
-    }
-    var credential: (IntelligenceFeature) throws -> String?
+    var configuration: (IntelligenceFeature) throws -> PhotoDescriptionConfiguration
+    var credential: (PhotoChatProvider) throws -> String?
     var speechAuthorized: () -> Bool = { PhotoSpeechRecognizer.authorized }
     var requestSpeechPermission: () async -> Bool = {
         await PhotoSpeechRecognizer.requestPermissions()
     }
     /// A nil question is a short tap: describe the scene. A spoken question gets its own prompt
     /// and at most three sentences back.
-    var describe: @Sendable (Data, String?, String) async throws -> String = {
+    var describe: @Sendable (Data, String?, PhotoDescriptionRequest) async throws -> String = {
         jpeg,
         question,
-        key in
-        try await PhotoDescriptionBackend.describe(jpeg: jpeg, question: question, key: key)
+        request in
+        try await PhotoDescriptionBackend.describe(jpeg: jpeg, question: question, request: request)
     }
 
     init(
@@ -31,8 +60,7 @@ struct PhotoDescriptionServices {
             try PhotoCredentialStore.read(account: $0)
         }
     ) {
-        onDevice = { $0.provider(defaults) == .onDevice }
-        credential = { try readCredential($0.provider(defaults)!.keyAccount) }
-        uploadAllowed = { defaults.bool(forKey: "photoDescription.uploadAllowed") }
+        configuration = { try PhotoDescriptionConfiguration(feature: $0, defaults: defaults) }
+        credential = { try readCredential($0.keyAccount) }
     }
 }

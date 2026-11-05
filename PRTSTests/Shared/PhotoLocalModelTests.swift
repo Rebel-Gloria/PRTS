@@ -42,7 +42,8 @@ struct PhotoLocalModelTests {
         UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: selectionKey)
         defer { UserDefaults.standard.set(selection, forKey: selectionKey) }
         let services = PhotoDescriptionServices()
-        #expect(services.onDevice(.description))
+        let configuration = try services.configuration(.description)
+        #expect(configuration.provider == .onDevice)
         let files = try FileManager.default.contentsOfDirectory(
             at: Self.photos,
             includingPropertiesForKeys: nil
@@ -51,7 +52,11 @@ struct PhotoLocalModelTests {
         #expect(!files.isEmpty)
         for file in files {
             let start = Date()
-            let answer = try await services.describe(try Data(contentsOf: file), nil, "")
+            let answer = try await services.describe(
+                try Data(contentsOf: file),
+                nil,
+                PhotoDescriptionRequest(configuration: configuration, key: "")
+            )
             print(
                 "PRTS_LOCAL_VLM \(file.lastPathComponent) \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(answer)"
             )
@@ -73,8 +78,12 @@ struct PhotoLocalModelTests {
         let selection = UserDefaults.standard.object(forKey: selectionKey)
         UserDefaults.standard.set(PhotoChatProvider.onDevice.rawValue, forKey: selectionKey)
         defer { UserDefaults.standard.set(selection, forKey: selectionKey) }
-        let describe = PhotoDescriptionServices().describe
-        let task = Task { try await describe(jpeg, nil, "") }
+        let services = PhotoDescriptionServices()
+        let request = PhotoDescriptionRequest(
+            configuration: try services.configuration(.description),
+            key: ""
+        )
+        let task = Task { try await services.describe(jpeg, nil, request) }
         try await Task.sleep(for: .milliseconds(300))
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
@@ -225,7 +234,12 @@ extension PhotoLocalModelTests {
             ink: .white
         )
         let start = Date()
-        let answer = try await PhotoDescriptionServices().describe(jpeg, "牌子上写的什么？", "")
+        let services = PhotoDescriptionServices()
+        let request = PhotoDescriptionRequest(
+            configuration: try services.configuration(.question),
+            key: ""
+        )
+        let answer = try await services.describe(jpeg, "牌子上写的什么？", request)
         print(
             "PRTS_LOCAL_QUESTION \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(answer)"
         )

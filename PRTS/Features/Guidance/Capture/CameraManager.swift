@@ -16,7 +16,7 @@ final class CameraManager: ObservableObject {
     // Default arguments are evaluated outside the main actor, so the app uses this initializer.
     convenience init() {
         self.init(
-            model: ProbeViewModel(),
+            model: ProbeViewModel(engine: ProbeEngine(), feedback: PathHaptics()),
             permission: { try await CameraAuthorization.request() },
             isActive: { UIApplication.shared.applicationState == .active },
             authorizationStatus: { AVCaptureDevice.authorizationStatus(for: .video) }
@@ -108,9 +108,9 @@ final class CameraManager: ObservableObject {
         pauseCamera(completion: completion)
     }
     /// OCR temporarily owns the camera without changing the user's guidance intent.
-    func pauseForTextReading() {
+    func pauseForTextReading(completion: @escaping @MainActor @Sendable () -> Void = {}) {
         pausedForTextReading = true
-        pauseCamera()
+        pauseCamera { Task { @MainActor in completion() } }
     }
     func finishTextReading(isActive: Bool) {
         pausedForTextReading = false

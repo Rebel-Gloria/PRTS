@@ -14,6 +14,8 @@ nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sen
     private var requests: [TextPhotoRequest] = []
     private var startCount = 0
     private var stopCount = 0
+    var holdsStopCompletion = false
+    private var pendingStops: [@MainActor @Sendable () -> Void] = []
 
     var starts: Int { lock.withLock { startCount } }
     var captures: Int { lock.withLock { requests.count } }
@@ -28,7 +30,27 @@ nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sen
     func capture(_ done: @escaping (CIImage?) -> Void) {
         lock.withLock { requests.append(TextPhotoRequest(completion: done)) }
     }
-    func stop() { lock.withLock { stopCount += 1 } }
+    func stop(completion: @escaping @MainActor @Sendable () -> Void) {
+        let complete = lock.withLock {
+            stopCount += 1
+            if holdsStopCompletion {
+                pendingStops.append(completion)
+                return false
+            }
+            return true
+        }
+        // The session invokes its fake camera on the main actor; real hardware completes later.
+        if complete { MainActor.assumeIsolated { completion() } }
+    }
+
+    @MainActor func finishStops() {
+        let callbacks = lock.withLock {
+            let callbacks = pendingStops
+            pendingStops.removeAll()
+            return callbacks
+        }
+        callbacks.forEach { $0() }
+    }
 
     @MainActor func frame() { lock.withLock { preview }!() }
     func deliver(_ index: Int, image: CIImage?) {
@@ -115,6 +137,47 @@ private final class ReadingHarness {
 
 @MainActor
 struct TextReadingSessionTests {
+    @Test func cancelledHandoffCannotStartTheTextCameraLater() {
+        let h = ReadingHarness()
+        var ready: (@MainActor @Sendable () -> Void)?
+        h.session.start(intro: "intro", prepareCamera: { ready = $0 })
+        #expect(h.session.phase == .aiming)
+        #expect(h.camera.starts == 0)
+        h.session.terminate()
+        #expect(h.ended == 1)
+        ready?()
+        #expect(h.camera.starts == 0)
+        #expect(h.session.phase == .idle)
+    }
+
+    @Test func handoffStartsCaptureAfterThePreviousCameraReleases() {
+        let h = ReadingHarness()
+        var ready: (@MainActor @Sendable () -> Void)?
+        h.session.start(intro: "intro", prepareCamera: { ready = $0 })
+        #expect(h.camera.starts == 0)
+        ready?()
+        #expect(h.camera.starts == 1)
+        h.session.terminate()
+    }
+
+    @Test func guidanceRecoveryWaitsForTextCameraRelease() {
+        let h = ReadingHarness()
+        h.session.start(intro: "intro")
+        h.camera.holdsStopCompletion = true
+        h.session.terminate()
+        #expect(h.session.phase == .ending)
+        #expect(h.ended == 0)
+        h.session.start(intro: "another pass")
+        #expect(h.camera.starts == 1)
+        h.camera.finishStops()
+        #expect(h.session.phase == .idle)
+        #expect(h.ended == 1)
+        h.camera.holdsStopCompletion = false
+        h.session.start(intro: "next pass")
+        h.session.terminate()
+        #expect(h.ended == 2)
+    }
+
     @Test func introSpeechFailureDoesNotStartCamera() {
         let h = ReadingHarness()
         h.audio.failure = "intro"

@@ -22,6 +22,12 @@ nonisolated final class TestProbeSession: ProbeSession, @unchecked Sendable {
 @Suite(.serialized)
 @MainActor
 struct CameraRecoveryTests {
+    private final class TestFeedback: SpatialFeedback {
+        var status = "test"
+        func tick(_ snapshot: SharedSnapshot, diagnostics: DiagnosticRecorder, suspended: Bool) {}
+        func reset() {}
+    }
+
     private func makeCamera(
         session: TestProbeSession = TestProbeSession(),
         queue: DispatchQueue = DispatchQueue(label: "test.camera.session"),
@@ -40,7 +46,8 @@ struct CameraRecoveryTests {
                         planeClassification: false
                     ),
                     sessionQueue: queue
-                )
+                ),
+                feedback: TestFeedback()
             ),
             permission: permission,
             isActive: isActive,
@@ -51,6 +58,28 @@ struct CameraRecoveryTests {
     private func stop(_ camera: CameraManager) async {
         await withCheckedContinuation { done in camera.stopCamera { done.resume() } }
         #expect(!camera.model.engine.store.read().running)
+    }
+
+    @Test func textCameraMayStartOnlyAfterGuidancePauseCompletes() async {
+        let session = TestProbeSession()
+        let queue = DispatchQueue(label: "test.camera.handoff")
+        let camera = makeCamera(session: session, queue: queue)
+        camera.startCamera()
+        await camera.startTask?.value
+        queue.suspend()
+        await withCheckedContinuation { done in
+            camera.pauseForTextReading {
+                #expect(session.operations == ["run", "pause"])
+                done.resume()
+            }
+            #expect(session.operations == ["run"])
+            #expect(camera.suspendsFeedback)
+            queue.resume()
+        }
+        camera.finishTextReading(isActive: true)
+        await camera.startTask?.value
+        #expect(session.operations == ["run", "pause", "run"])
+        await stop(camera)
     }
 
     @Test func textReadingResumesStartedGuidanceInForeground() async {

@@ -3,19 +3,14 @@ import LocalVLM
 
 /// Selects the live model without coupling the interaction lifecycle to a provider.
 nonisolated enum PhotoDescriptionBackend {
-    static func describe(jpeg: Data, question: String?, key: String) async throws -> String {
-        let feature: IntelligenceFeature = question == nil ? .description : .question
-        let provider = feature.provider()!
+    static func describe(jpeg: Data, question: String?, request: PhotoDescriptionRequest)
+        async throws
+        -> String
+    {
         let answer = try await generate(
             jpeg: jpeg,
             text: question ?? SceneDescriptionPrompt.request,
-            key: key,
-            provider: provider,
-            system: provider == .onDevice
-                ? PhotoPrompts.localSystem(question: question)
-                : (question == nil ? PhotoPrompts.system : PhotoPrompts.questionSystem),
-            thinking: question != nil
-                && provider.questionThinking()
+            request: request
         )
         return question == nil ? answer : PhotoPrompts.threeSentences(answer)
     }
@@ -23,17 +18,15 @@ nonisolated enum PhotoDescriptionBackend {
     private static func generate(
         jpeg: Data,
         text: String,
-        key: String,
-        provider: PhotoChatProvider,
-        system: String,
-        thinking: Bool
+        request: PhotoDescriptionRequest
     ) async throws -> String {
-        if provider == .onDevice {
+        let configuration = request.configuration
+        if configuration.provider == .onDevice {
             do {
                 let answer = try await PhotoLocalModel.shared.describe(
                     jpeg: jpeg,
                     prompt: text,
-                    system: system,
+                    system: configuration.system,
                     maxTokens: 160
                 )
                 guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
@@ -45,10 +38,10 @@ nonisolated enum PhotoDescriptionBackend {
         return try await PhotoChatClient().describe(
             jpeg: jpeg,
             text: text,
-            key: key,
-            service: provider.service(),
-            system: system,
-            thinking: thinking
+            key: request.key,
+            service: configuration.service,
+            system: configuration.system,
+            thinking: configuration.thinking
         )
     }
 }
