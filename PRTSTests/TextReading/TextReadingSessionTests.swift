@@ -105,6 +105,7 @@ private final class ReadingHarness {
         configure: (inout TextReadingServices) -> Void = { _ in }
     ) {
         var services = TextReadingServices()
+        services.errors = .ignored
         services.now = { [unowned self] in now }
         // The camera timeout never fires on its own; tests end passes explicitly.
         services.sleep = { _ in try await Task.sleep(for: .seconds(3600)) }

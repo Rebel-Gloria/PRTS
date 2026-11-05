@@ -30,6 +30,7 @@ private final class CaptionPhotoFixture {
     let recognizer = CaptionPhotoRecognizer()
     lazy var photo: PhotoDescriptionCoordinator = {
         var services = PhotoDescriptionServices()
+        services.errors = .ignored
         services.now = { [unowned self] in self.time }
         services.configuration = { _ in
             PhotoDescriptionConfiguration(

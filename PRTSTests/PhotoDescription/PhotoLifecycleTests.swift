@@ -102,6 +102,7 @@ private final class PhotoFixture {
         audio = PhotoTestAnswerAudio(state)
         recognizer = PhotoTestRecognizer(state)
         var services = PhotoDescriptionServices()
+        services.errors = .ignored
         services.now = { state.time }
         services.configuration = { _ in
             PhotoDescriptionConfiguration(
