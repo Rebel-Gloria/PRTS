@@ -5,7 +5,7 @@ enum AnswerCue { case submit, record }
 @MainActor
 protocol AnswerAudio: AnyObject {
     var onFinished: (() -> Void)? { get set }
-    func cue(_ cue: AnswerCue) throws
+    func cue(_ cue: AnswerCue) async throws
     func speak(_ text: String) throws
     func stop()
 }

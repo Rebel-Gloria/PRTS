@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct AudioSessionCoordinatorTests {
     private enum Failure: Error { case activation, deactivation }
-    private final class Driver: AudioSessionDriving {
+    private final class Driver: AudioSessionDriving, @unchecked Sendable {
         var modes: [AppAudioMode] = []
         var deactivations = 0
         var failActivation = false
@@ -21,9 +21,17 @@ struct AudioSessionCoordinatorTests {
         }
     }
 
+    private func coordinator(_ driver: Driver) -> AudioSessionCoordinator {
+        AudioSessionCoordinator(
+            driver: driver,
+            errors: .ignored,
+            scheduleDeactivation: { $0.perform() }
+        )
+    }
+
     @Test func finishingAnOldOutputCannotDeactivateANewRecording() throws {
         let driver = Driver()
-        let session = AudioSessionCoordinator(driver: driver)
+        let session = coordinator(driver)
         let guide = try session.activate(.speech)
         let recording = try session.activate(.recording)
         session.release(guide)
@@ -35,7 +43,7 @@ struct AudioSessionCoordinatorTests {
 
     @Test func releasingAnOlderActivationIsHarmlessEvenForTheSameMode() throws {
         let driver = Driver()
-        let session = AudioSessionCoordinator(driver: driver)
+        let session = coordinator(driver)
         let first = try session.activate(.speech)
         let replacement = try session.activate(.speech)
         session.release(nil)
@@ -48,7 +56,7 @@ struct AudioSessionCoordinatorTests {
 
     @Test func failedActivationDoesNotTakeOwnershipFromTheCurrentOutput() throws {
         let driver = Driver()
-        let session = AudioSessionCoordinator(driver: driver)
+        let session = coordinator(driver)
         let current = try session.activate(.tone)
         driver.failActivation = true
         #expect(throws: Failure.activation) { try session.activate(.recording) }
@@ -59,7 +67,7 @@ struct AudioSessionCoordinatorTests {
 
     @Test func failedReleaseCannotBeRetriedAgainstANewerOutput() throws {
         let driver = Driver()
-        let session = AudioSessionCoordinator(driver: driver, errors: .init(record: { _ in }))
+        let session = coordinator(driver)
         let first = try session.activate(.speech)
         driver.failDeactivation = true
         session.release(first)
@@ -69,5 +77,45 @@ struct AudioSessionCoordinatorTests {
         #expect(driver.deactivations == 1)
         session.release(next)
         #expect(driver.deactivations == 2)
+    }
+
+    @Test func theNextOutputCancelsAWaitingDeactivation() throws {
+        let driver = Driver()
+        var waiting: DispatchWorkItem?
+        let session = AudioSessionCoordinator(
+            driver: driver,
+            errors: .ignored,
+            scheduleDeactivation: { waiting = $0 }
+        )
+        let first = try session.activate(.speech)
+        session.release(first)
+        let next = try session.activate(.speech)
+        waiting?.perform()
+        #expect(driver.deactivations == 0)
+        session.release(next)
+        waiting?.perform()
+        #expect(driver.deactivations == 1)
+    }
+
+    @Test func aFailedActivationStillDeactivatesAnUnownedSession() throws {
+        let driver = Driver()
+        let session = coordinator(driver)
+        let first = try session.activate(.speech)
+        session.release(first)
+        driver.failActivation = true
+        #expect(throws: Failure.activation) { try session.activate(.recording) }
+        #expect(driver.deactivations == 2)
+    }
+
+    @Test func sameModeForTheCurrentOutputDoesNotReachTheSystemAgain() throws {
+        let driver = Driver()
+        let session = coordinator(driver)
+        let cue = try session.activate(.recording)
+        let recognizer = try session.activate(.recording)
+        session.release(cue)
+        #expect(driver.modes == [.recording])
+        #expect(driver.deactivations == 0)
+        session.release(recognizer)
+        #expect(driver.deactivations == 1)
     }
 }

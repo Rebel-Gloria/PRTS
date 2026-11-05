@@ -48,7 +48,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         return await AVAudioApplication.requestRecordPermission()
     }
 
-    func start() throws {
+    func start() async throws {
         cancel()
         let id = UUID()
         generation = id
@@ -57,7 +57,12 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             recognizer.isAvailable
         else { throw RecognitionError.unavailable }
         speechRecognizer = recognizer
-        audioLease = try audioSession.activate(.recording)
+        let lease = try await audioSession.activateAsync(.recording)
+        guard generation == id else {
+            audioSession.release(lease)
+            throw CancellationError()
+        }
+        audioLease = lease
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         self.request = request
