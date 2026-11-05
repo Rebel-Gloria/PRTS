@@ -185,6 +185,14 @@ ContentView.photoDown
 
 应用内的语音和录音通过 `AudioSessionCoordinator` 激活音频会话。每次激活返回一个租约，只有持有最新租约的一方才能关闭会话，因此旧朗读结束时不会打断新的输出。
 
+相机画面和避障反馈轮询都在主线程上运行，耗时的音频操作不得在主线程上等待：
+
+| 操作 | 执行位置 | 说明 |
+|---|---|---|
+| 关闭音频会话 | 独立串行队列，延迟 0.25 s | 下一次激活会取消等待中的关闭 |
+| 提示音和开始录音 | `activateAsync`，在独立队列上激活 | 调用方在等待后检查是否已取消；松手时先等麦克风启动完成，再停止录音 |
+| 朗读 | 同一队列，主线程同步等待 | 通常约 15 ms；如果关闭操作正在执行，需要等它结束 |
+
 `Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
 ## 第三方代码
