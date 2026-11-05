@@ -91,6 +91,8 @@ final class FeedbackCoordinator: ObservableObject {
             speech.speakPerception(cue.chinese, english: cue.english)
         }
     }
+    func guidanceStarted() { waypointSpeech.announceInitialization() }
+
     private(set) var lastConsumedResultID: String?
     private(set) var lastSpokenResultID: String?
 

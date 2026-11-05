@@ -6,6 +6,7 @@ import SpatialCore
 /// LIVE current heading; no queue can replay a preview/obsolete target instruction.
 struct ObstacleRouteAnnouncementPolicy {
     private var initializationStartedAt: Double?
+    private var initializationAnnounced = false
     private var observedScenario: ObstacleRouteScenario?
     private var scenarioSince: Double = 0
     private var spokenScenario: ObstacleRouteScenario?
@@ -15,7 +16,15 @@ struct ObstacleRouteAnnouncementPolicy {
     private var spokenTurn: Int?
     static let initializationDelay: Double = 0.5
     static let minimumInterval: Double = 2.5
-    mutating func reset() { self = .init() }
+    /// Feedback resumes after photos, reading and settings without saying "initializing" again;
+    /// only the silent wait for the occupancy model repeats.
+    mutating func reset() {
+        let announced = initializationAnnounced
+        self = .init()
+        initializationAnnounced = announced
+    }
+    /// The user started guidance, so its first sentence is the initialization cue again.
+    mutating func announceInitialization() { initializationAnnounced = false }
 
     /// Cancel only a semantically obsolete turn, not every geometry revision. Cancellation
     /// does not clear the cooldown, so rapid state changes cannot repeatedly restart audio.
@@ -45,8 +54,13 @@ struct ObstacleRouteAnnouncementPolicy {
         // The occupancy model needs time to confirm its first observations. Initialization
         // is a separate cue, so it cannot spend the cooldown for the first actual scene.
         guard let initializationStartedAt else {
+            if initializationAnnounced {
+                self.initializationStartedAt = now
+                return nil
+            }
             guard canSpeak else { return nil }
             self.initializationStartedAt = now
+            initializationAnnounced = true
             return .initializing
         }
         guard now - initializationStartedAt + 0.000001 >= Self.initializationDelay else {

@@ -442,7 +442,7 @@ struct ContentView: View {
         let command = commandText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         commandText = ""
         switch command {
-        case "开始", "start": camera.startCamera()
+        case "开始", "start": startGuidance()
         case "停止", "stop": camera.stopCamera()
         case "状态", "status": speechManager.speak(camera.status)
         case "读文字", "ocr": toggleTextReading()
@@ -516,6 +516,11 @@ struct ContentView: View {
         else { return }
 
         hapticManager.buttonTapped()
+        startGuidance()
+    }
+
+    private func startGuidance() {
+        feedback.guidanceStarted()
         camera.startCamera()
     }
 
