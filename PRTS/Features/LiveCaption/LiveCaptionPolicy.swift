@@ -2,6 +2,12 @@ import Foundation
 
 nonisolated enum LiveCaptionPolicy {
     static let minimumRequestInterval: TimeInterval = 2
+    static let sampleInterval: TimeInterval = 0.2
+    static let window: TimeInterval = 3
+    static let maximumSamples = 15
+    /// Qwen needs at least four frames in a video.
+    static let minimumVideoFrames = 4
+    static let maximumVideoFrames = 13
     static let initialCharactersPerSecond = 4.5
 
     static func answer(_ response: String, previous: String?) -> String? {

@@ -11,7 +11,8 @@ nonisolated enum PhotoImagePurpose {
     func longestSide(highResolution: Bool) -> CGFloat {
         switch self {
         case .question, .textReading: highResolution ? 1920 : 1280
-        case .description, .liveCaption: 1280
+        case .description: 1280
+        case .liveCaption: 720
         }
     }
 }

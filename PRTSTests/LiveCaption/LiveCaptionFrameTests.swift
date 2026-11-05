@@ -18,14 +18,18 @@ struct LiveCaptionFrameTests {
 
     @Test func selectsEquallySpacedCumulativeMotion() {
         let uniform = frames([0, 1, 2, 3, 4, 5, 6, 7])
-        #expect(LiveCaptionFrame.select(uniform).map(\.sampledAt) == [0, 0.5, 1.25, 1.75])
+        #expect(
+            LiveCaptionFrame.select(uniform, count: 4).map(\.sampledAt) == [0, 0.5, 1.25, 1.75]
+        )
         let uneven = frames([0, 1, 2, 30, 31, 60, 61, 90])
-        #expect(LiveCaptionFrame.select(uneven).map(\.sampledAt) == [0, 0.75, 1.25, 1.75])
+        #expect(
+            LiveCaptionFrame.select(uneven, count: 4).map(\.sampledAt) == [0, 0.75, 1.25, 1.75]
+        )
     }
 
     @Test func skipsFramesWithZeroMotion() {
         let input = frames([0, 0, 30, 30, 60, 60, 90, 90])
-        #expect(LiveCaptionFrame.select(input).map(\.sampledAt) == [0, 0.5, 1, 1.5])
+        #expect(LiveCaptionFrame.select(input, count: 4).map(\.sampledAt) == [0, 0.5, 1, 1.5])
     }
 
     @Test func fewerThanFourDistinctFramesReturnsEmpty() {
@@ -40,9 +44,23 @@ struct LiveCaptionFrameTests {
 
     @Test func collidingTargetsSelectUnusedFramesInTimeOrder() {
         let input = frames([0, 1, 2, 3, 4, 5, 6, 200])
-        let selected = LiveCaptionFrame.select(input)
+        let selected = LiveCaptionFrame.select(input, count: 4)
         #expect(selected.map(\.sampledAt) == [0, 1.25, 1.5, 1.75])
         #expect(selected.map(\.jpeg) == [Data([0]), Data([5]), Data([6]), Data([7])])
+    }
+
+    @Test func sendsThirteenOfAFullWindow() {
+        let input = frames((0..<15).map { UInt8($0 * 10) })
+        let selected = LiveCaptionFrame.select(input)
+        #expect(selected.count == LiveCaptionPolicy.maximumVideoFrames)
+        #expect(selected.first?.sampledAt == input.first?.sampledAt)
+        #expect(selected.last?.sampledAt == input.last?.sampledAt)
+        #expect(selected.map(\.sampledAt) == selected.map(\.sampledAt).sorted())
+    }
+
+    @Test func sendsEveryMovingFrameWhenFewerThanTheLimit() {
+        let selected = LiveCaptionFrame.select(frames([0, 10, 20, 30, 40, 50]))
+        #expect(selected.count == 6)
     }
 
     @Test func motionIsMeanAbsolutePixelDifference() {
@@ -57,8 +75,8 @@ struct LiveCaptionFrameTests {
         )
         let frame = try LiveCaptionFrame.capture(image: image, sampledAt: 1.25)
         let jpeg = try #require(UIImage(data: frame.jpeg)?.cgImage)
-        #expect(jpeg.width == 960)
-        #expect(jpeg.height == 1280)
+        #expect(jpeg.width == 540)
+        #expect(jpeg.height == 720)
         #expect(frame.sampledAt == 1.25)
         #expect(frame.grayscale.count == 48 * 64)
         #expect(frame.grayscale.allSatisfy { $0 == 255 })

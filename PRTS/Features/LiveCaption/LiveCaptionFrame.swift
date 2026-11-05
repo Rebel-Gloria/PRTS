@@ -37,8 +37,11 @@ nonisolated struct LiveCaptionFrame {
         return Double(difference) / Double(current.count)
     }
 
-    static func select(_ frames: [Self]) -> [Self] {
-        guard frames.count >= 4 else { return [] }
+    static func select(
+        _ frames: [Self],
+        count: Int = LiveCaptionPolicy.maximumVideoFrames
+    ) -> [Self] {
+        guard frames.count >= LiveCaptionPolicy.minimumVideoFrames else { return [] }
         // The first frame anchors the motion accumulated within this window.
         var candidates: [(index: Int, cumulative: Double)] = [(0, 0)]
         var cumulative = 0.0
@@ -47,10 +50,11 @@ nonisolated struct LiveCaptionFrame {
             cumulative += amount
             if amount > 0 { candidates.append((index, cumulative)) }
         }
-        guard candidates.count >= 4 else { return [] }
+        guard candidates.count >= LiveCaptionPolicy.minimumVideoFrames else { return [] }
+        let count = min(count, candidates.count)
         var selected: [Int] = []
-        for step in 0..<4 {
-            let target = cumulative * Double(step) / 3
+        for step in 0..<count {
+            let target = cumulative * Double(step) / Double(count - 1)
             let nearest = candidates.indices.min {
                 abs(candidates[$0].cumulative - target) < abs(candidates[$1].cumulative - target)
             }!

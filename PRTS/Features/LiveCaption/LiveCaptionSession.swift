@@ -198,10 +198,10 @@ final class LiveCaptionSession: ObservableObject {
                         task.cancel()
                     }
                     frames.append(frame)
-                    frames.removeAll { frame.sampledAt - $0.sampledAt >= 2 }
-                    if frames.count > 8 { frames.removeFirst() }
+                    frames.removeAll { frame.sampledAt - $0.sampledAt >= LiveCaptionPolicy.window }
+                    if frames.count > LiveCaptionPolicy.maximumSamples { frames.removeFirst() }
                     stream.continuation.yield(frames)
-                    try await wait(until: sampledAt + 0.25)
+                    try await wait(until: sampledAt + LiveCaptionPolicy.sampleInterval)
                 }
                 stream.continuation.finish()
             } catch {
@@ -234,7 +234,7 @@ final class LiveCaptionSession: ObservableObject {
                 )
             )
             guard let frames = try await images.next() else { return }
-            let recent = frames.filter { services.now() - $0.sampledAt < 2 }
+            let recent = frames.filter { services.now() - $0.sampledAt < LiveCaptionPolicy.window }
             let selected = LiveCaptionFrame.select(recent)
             if selected.isEmpty { continue }
             if try await !comparison.accept(recent.last!.jpeg) { continue }

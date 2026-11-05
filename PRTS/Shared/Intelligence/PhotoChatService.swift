@@ -20,6 +20,13 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
         thinking: .qwenFlag,
         ocrModel: "qwen-vl-ocr"
     )
+    /// Live captions only. It reasons by default, which takes about 13 s per caption, so requests
+    /// must keep thinking off (docs/validation.md).
+    static let qwenCaption = PhotoChatService(
+        endpoint: qwen.endpoint,
+        model: "qwen3.8-omni-flash",
+        thinking: .qwenFlag
+    )
     static let deepseek = PhotoChatService(
         endpoint: URL(string: "https://api.deepseek.com/chat/completions")!,
         model: "deepseek-flash",
