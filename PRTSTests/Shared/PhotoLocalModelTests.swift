@@ -134,6 +134,22 @@ extension PhotoLocalModelTests {
         #expect(reloaded == answer)
     }
 
+    @Test(
+        .enabled(
+            if: Bundle.main.url(
+                forResource: "mmproj-model-f16",
+                withExtension: "gguf",
+                subdirectory: "LocalVLM"
+            ) != nil
+        )
+    )
+    func surfaceOverItsBudgetStillLetsTheCopyRun() async throws {
+        let jpeg = try photo(["人民路"], background: .gray, card: .blue, ink: .white)
+        _ = try await TextReadingBackend.surface(of: jpeg, maxTokens: 1)
+        let text = try await TextReadingBackend.copy { _ in }
+        #expect(text.contains("人民路"))
+    }
+
     private func photo(_ lines: [String], background: UIColor, card: UIColor, ink: UIColor) throws
         -> Data
     {
