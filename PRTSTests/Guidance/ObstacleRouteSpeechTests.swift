@@ -57,15 +57,29 @@ struct ObstacleRouteSpeechTests {
         return u
     }
 
-    @Test func openSpaceSpeaksOnceWithoutAPath() throws {
+    /// Existing scene-transition cases start after the separately tested startup interval.
+    private func initializedPolicy() throws -> ObstacleRouteAnnouncementPolicy {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        #expect(
+            policy.cue(update: try update("clear"), heading: nil, now: 0, deviationDegrees: 12)
+                == .initializing
+        )
+        return policy
+    }
+
+    @Test func openSpaceSpeaksOnceAfterInitializationWithoutAPath() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
         let u = try update("clear")
-        #expect(policy.cue(update: u, heading: nil, now: 1, deviationDegrees: 12) == .clear)
+        #expect(policy.cue(update: u, heading: nil, now: 1, deviationDegrees: 12) == .initializing)
+        #expect(policy.cue(update: u, heading: nil, now: 1.49, deviationDegrees: 12) == nil)
+        #expect(policy.cue(update: u, heading: nil, now: 1.5, deviationDegrees: 12) == .clear)
         #expect(policy.cue(update: u, heading: nil, now: 10, deviationDegrees: 12) == nil)
+        #expect(ObstacleRouteSpeech.initializing.chinese == "初始化中")
+        #expect(ObstacleRouteSpeech.initializing.english == "Initializing")
         #expect(ObstacleRouteSpeech.clear.chinese == "前方畅通")
     }
     @Test func distantObstacleAnnouncesDistanceNotPreviewTurn() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         let cue = policy.cue(
             update: try update("distantObstacle", distance: 3),
             heading: try heading(30),
@@ -76,7 +90,7 @@ struct ObstacleRouteSpeechTests {
         #expect(cue?.chinese == "有障碍")
     }
     @Test func nearObstacleCombinesDistanceAndCurrentTurn() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         let cue = policy.cue(
             update: try update("nearObstacle"),
             heading: try heading(-25),
@@ -96,7 +110,7 @@ struct ObstacleRouteSpeechTests {
         )
     }
     @Test func previewChangesCannotTriggerAnotherTurn() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         var u = try update("nearObstacle")
         _ = policy.cue(update: u, heading: try heading(-25), now: 1, deviationDegrees: 12)
         u.waypointGuidance?.nextTarget = SIMD3(-3, 0, -2)
@@ -123,7 +137,7 @@ struct ObstacleRouteSpeechTests {
         )
     }
     @Test func unavailableHeadingCannotSpeakAPreviewDirection() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         #expect(
             policy.cue(
                 update: try update("nearObstacle"),
@@ -151,7 +165,7 @@ struct ObstacleRouteSpeechTests {
     }
     /// Distance is too noisy to speak; only crossing into "close" re-announces.
     @Test func onlyTheNearLevelChangeReannounces() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         _ = policy.cue(
             update: try update("distantObstacle", distance: 4),
             heading: nil,
@@ -192,7 +206,7 @@ struct ObstacleRouteSpeechTests {
         )
     }
     @Test func blockedAndRecoveryHaveDistinctCues() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         let cue = policy.cue(
             update: try update("blocked"),
             heading: try heading(-40),
@@ -210,18 +224,140 @@ struct ObstacleRouteSpeechTests {
                 == .clear
         )
     }
-    @Test func resetRearmsOpenSpaceAnnouncement() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+    @Test func resetStartsANewInitializationBeforeSceneFeedback() throws {
+        var policy = try initializedPolicy()
         let u = try update("clear")
         _ = policy.cue(update: u, heading: nil, now: 1, deviationDegrees: 12)
         policy.reset()
-        #expect(policy.cue(update: u, heading: nil, now: 2, deviationDegrees: 12) == .clear)
+        #expect(policy.cue(update: u, heading: nil, now: 2, deviationDegrees: 12) == .initializing)
+        #expect(policy.cue(update: u, heading: nil, now: 2.49, deviationDegrees: 12) == nil)
+        #expect(policy.cue(update: u, heading: nil, now: 2.5, deviationDegrees: 12) == .clear)
     }
 }
 
 extension ObstacleRouteSpeechTests {
-    @Test func offscreenGoalFailureRequestsCameraAdjustment() throws {
+    @Test func initializationUsesTheLatestSceneWithoutSpendingItsCooldown() throws {
         var policy = ObstacleRouteAnnouncementPolicy()
+        #expect(
+            policy.cue(update: try update("clear"), heading: nil, now: 1, deviationDegrees: 12)
+                == .initializing
+        )
+        #expect(
+            policy.cue(
+                update: try update("nearObstacle"),
+                heading: try heading(-25),
+                now: 1.3,
+                deviationDegrees: 12
+            ) == nil
+        )
+        #expect(
+            policy.cue(update: try update("blocked"), heading: nil, now: 1.49, deviationDegrees: 12)
+                == nil
+        )
+        #expect(
+            policy.cue(update: try update("blocked"), heading: nil, now: 1.5, deviationDegrees: 12)
+                == .blocked(1.4)
+        )
+        #expect(
+            policy.cue(update: try update("clear"), heading: nil, now: 1.6, deviationDegrees: 12)
+                == nil
+        )
+        #expect(
+            policy.cue(update: try update("clear"), heading: nil, now: 4, deviationDegrees: 12)
+                == .clear
+        )
+    }
+
+    @Test func busyAudioDoesNotConsumeInitializationOrQueueAStartupDirection() throws {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        let u = try update("nearObstacle")
+        #expect(
+            policy.cue(update: u, heading: nil, now: 1, deviationDegrees: 12, canSpeak: false)
+                == nil
+        )
+        #expect(policy.cue(update: u, heading: nil, now: 2, deviationDegrees: 12) == .initializing)
+        #expect(
+            policy.cue(update: u, heading: try heading(-25), now: 2.3, deviationDegrees: 12)
+                == nil
+        )
+        #expect(
+            policy.cue(
+                update: u,
+                heading: try heading(-25),
+                now: 2.5,
+                deviationDegrees: 12,
+                canSpeak: false
+            ) == nil
+        )
+        #expect(
+            policy.cue(update: u, heading: try heading(25), now: 3, deviationDegrees: 12)
+                == .obstacle(1.4, 1)
+        )
+    }
+
+    @Test func missingWaypointStateDoesNotStartInitialization() throws {
+        var policy = ObstacleRouteAnnouncementPolicy()
+        #expect(policy.cue(update: .init(), heading: nil, now: 1, deviationDegrees: 12) == nil)
+        let u = try update("clear")
+        #expect(policy.cue(update: u, heading: nil, now: 4, deviationDegrees: 12) == .initializing)
+        #expect(policy.cue(update: u, heading: nil, now: 4.49, deviationDegrees: 12) == nil)
+        #expect(policy.cue(update: u, heading: nil, now: 4.5, deviationDegrees: 12) == .clear)
+    }
+
+    @Test func firstFrameObstacleIsConfirmedBeforeTheFirstSceneCue() {
+        var predictor = PathPredictor(policy: .obstacleVeto)
+        var policy = ObstacleRouteAnnouncementPolicy()
+        let parameters = ProbeParameters()
+        let pose = RigidPose(position: V3(0, 1.4, 0))
+        let plane = GroundPlane(normal: V3(0, 1, 0), offset: 0, floorPriorConfirmed: true)
+        for index in 0...5 {
+            let time = 1 + Double(index) / 10
+            let id = UInt64(index + 1)
+            var grid = LocalGrid(
+                basis: GroundBasis(plane: plane, pose: pose)!,
+                parameters: parameters,
+                timestamp: time,
+                frameID: id,
+                epoch: 1
+            )
+            for cell in grid.cells.indices {
+                let center = grid.center(cell)
+                let obstacle = abs(center.x) < 0.1 && center.y > 0.8 && center.y < 1
+                grid.cells[cell].state = obstacle ? .obstacle : .unknown
+                grid.cells[cell].obstacleSamples = obstacle ? 6 : 0
+            }
+            var input = AnalysisResult(
+                epoch: 1,
+                frameID: id,
+                timestamp: time,
+                parameters: parameters,
+                status: "synthetic",
+                source: "synthetic"
+            )
+            input.grid = grid
+            input.plane = plane
+            input.sourcePose = pose
+            input.sourceDirectionStable = true
+            let update = predictor.update(result: input, observation: nil, options: .init())
+            let cue = policy.cue(update: update, heading: nil, now: time, deviationDegrees: 12)
+            if index == 0 {
+                #expect((update.occupancyFilter?.pendingCells ?? 0) > 0)
+                #expect(cue == .initializing)
+            } else if index == 5 {
+                #expect(update.waypointGuidance?.scenario == .nearObstacle)
+                #expect(cue == .obstacle(update.waypointGuidance?.obstacleDistance, nil))
+            } else {
+                #expect(cue == nil)
+            }
+            if index == 3 {
+                #expect((update.occupancyFilter?.confirmedCells ?? 0) > 0)
+                #expect(update.waypointGuidance?.scenario == .nearObstacle)
+            }
+        }
+    }
+
+    @Test func offscreenGoalFailureRequestsCameraAdjustment() throws {
+        var policy = try initializedPolicy()
         var u = try update("blocked")
         u.reason = "no_visible_target"
         let cue = policy.cue(update: u, heading: nil, now: 1, deviationDegrees: 12)
@@ -232,7 +368,7 @@ extension ObstacleRouteSpeechTests {
 
 extension ObstacleRouteSpeechTests {
     @Test func RepeatedGoalIDsOnSameSideDoNotRearmSpeech() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         _ = policy.cue(
             update: try update("nearObstacle"),
             heading: try heading(-25),
@@ -255,7 +391,7 @@ extension ObstacleRouteSpeechTests {
         }
     }
     @Test func transientScenarioChangesDoNotRestartAudio() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         _ = policy.cue(
             update: try update("nearObstacle"),
             heading: try heading(-25),
@@ -275,7 +411,7 @@ extension ObstacleRouteSpeechTests {
         }
     }
     @Test func obsoleteTurnCancelsButDoesNotResetCooldownOrQueueOldDirection() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         let old = try update("nearObstacle")
         _ = policy.cue(update: old, heading: try heading(-25), now: 1, deviationDegrees: 12)
         let next = try update("nearObstacle", goal: 11)
@@ -291,7 +427,7 @@ extension ObstacleRouteSpeechTests {
         )
     }
     @Test func audioBusyDoesNotConsumeAnUnspokenTurn() throws {
-        var policy = ObstacleRouteAnnouncementPolicy()
+        var policy = try initializedPolicy()
         let u = try update("nearObstacle")
         #expect(
             policy.cue(
