@@ -27,6 +27,7 @@ struct ContentView: View {
     @State private var isHoldingStop = false
     @State private var stopHoldTask: Task<Void, Never>?
     @State private var didCompleteStopHold = false
+    @GestureState private var isPressingStop = false
     @State private var isShowingSettings = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
@@ -232,6 +233,7 @@ struct ContentView: View {
             }
             .onChange(of: commands.startRequested) { _, _ in runPendingCommand() }
             .onChange(of: photo.busy) { _, busy in if !busy { askingByTap = false } }
+            .onChange(of: isPressingStop) { _, pressing in if !pressing { stopPressEnded() } }
             .onReceive(
                 NotificationCenter.default.publisher(
                     for: UIAccessibility.assistiveTouchStatusDidChangeNotification
@@ -457,6 +459,7 @@ struct ContentView: View {
         GuidanceButton(
             state: camera.state,
             pointerCannotHold: pointerCannotHold || tapToStop,
+            stopHoldCompleted: didCompleteStopHold,
             isLargeText: isLargeText,
             threeFingerReading: threeFingerReading,
             stopGesture: stopGesture,
@@ -468,6 +471,7 @@ struct ContentView: View {
 
     private var stopGesture: some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($isPressingStop) { _, pressing, _ in pressing = true }
             .onChanged { _ in
                 guard camera.state == .running, !isHoldingStop else { return }
 
@@ -492,15 +496,17 @@ struct ContentView: View {
                     camera.stopCamera()
                 }
             }
-            .onEnded { _ in
-                stopHoldTask?.cancel()
-                stopHoldTask = nil
-                isHoldingStop = false
-                hapticManager.stopHoldFeedback()
-                DispatchQueue.main.async {
-                    didCompleteStopHold = false
-                }
-            }
+    }
+
+    /// A gesture state also resets when the system cancels the touch, which skips `onEnded`.
+    private func stopPressEnded() {
+        stopHoldTask?.cancel()
+        stopHoldTask = nil
+        isHoldingStop = false
+        hapticManager.stopHoldFeedback()
+        DispatchQueue.main.async {
+            didCompleteStopHold = false
+        }
     }
 
     private func startCameraFromButton() {
