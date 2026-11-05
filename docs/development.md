@@ -45,7 +45,7 @@
 | 主页指标、图例和测试指令栏 | 默认显示；测试指令栏也用于 UI 测试 |
 | 演示选项和参数设置 | 调整底图、图层、路径、触觉反馈、深度来源和几何参数 |
 | 相机视频与分析数据采集 | 每次启动默认关闭 |
-| DIAG 和 Sessions 导出 | 导出自动诊断和单帧样本 |
+| DIAG 和 Sessions | 自动记录诊断和逐帧数据，可导出 |
 
 `ProbeSettingsView`、`DemoOptionsView`、`HomeDemoOverlay` 和 `DevCaptureRecorder` 只参与开发版编译。标准版使用 `RenderOptions.product`，不读取开发版的显示设置。检查标准版产物时，应确认其中不包含采集相关的类型和字符串。
 
@@ -59,7 +59,7 @@
 bash scripts/validate_spatial.sh
 ```
 
-该脚本依次执行 SpatialCore 的 Debug 和 Release 测试、PRTSContracts 测试、Python 测试，以及模拟器 Debug 和真机 Release 的无签名编译。LocalVLM 的模拟器库只包含 arm64，因此模拟器编译仅针对 arm64。该脚本不能代替真机交互测试。
+该脚本依次执行 SpatialCore 的 Debug 和 Release 测试、PRTSContracts 测试（应用不链接该包）、Python 测试，以及模拟器 Debug 和真机 Release 的无签名编译。LocalVLM 的模拟器库只包含 arm64，因此模拟器编译仅针对 arm64。该脚本不能代替真机交互测试。
 
 ### 单项检查
 
@@ -115,19 +115,23 @@ python scripts/style.py --fix    # 应用格式修正
 
 ## 诊断记录
 
-应用提供三种记录方式：
+标准版只记录错误日志。DIAG、开发采集和 Sessions 仅用于开发版：
 
 | 类型 | 启用方式 | 位置与内容 |
 |---|---|---|
-| 自动 DIAG | 标准版和开发版每次启动时自动创建，不会自动打开相机 | `Documents/Diagnostics/<UTC 时间>-<UUID>/`；不包含画面、音频和位置 |
+| 错误日志 | 标准版和开发版自动记录 | 标准版为 `Documents/ErrorLogs/`，开发版为 `Documents/DevDiagnostics/Errors/`；只包含时间、版本、来源、错误域和错误码 |
+| 自动 DIAG | 开发版每次启动时自动创建，不会自动打开相机 | `Documents/DevDiagnostics/Diagnostics/<UTC 时间>-<UUID>/`；不包含画面、音频和位置 |
 | 开发采集 | 开发版在“设置 → 开发者选项”中手动开启 | DIAG 目录内的 `dev-capture-<UUID>/`；包含视频、传感器和分析数据 |
-| Sessions | 每次开始避障时自动创建；开发版可额外手动保存单帧样本 | `Sessions/`；逐帧记录 `frames.jsonl` 和 `metrics.csv`，手动样本包含单帧深度、元数据、分析结果和网格 |
+| Sessions | 开发版每次开始避障时自动创建，可额外手动保存单帧样本 | `Documents/DevDiagnostics/Sessions/`；逐帧记录 `frames.jsonl` 和 `metrics.csv`，手动样本包含单帧深度、元数据、分析结果和网格 |
+
+> [!IMPORTANT]
+> 标准版第一次启动时，会删除旧版本留下的 `Documents/Sessions` 和 `Documents/Diagnostics`，且无法恢复。工程默认的 Debug 和 Release 配置都属于标准版。如需保留这些数据，请在安装前先提取。
 
 ### 采集与导出
 
 开发采集每次启动默认关闭。录制期间主页持续显示提示，隐藏调试面板或相机画面不会停止录制。关闭开关、停止避障、进入后台或导出时，录制停止并完成 MP4 写入。
 
-开发版可以导出本次或历史 DIAG。导出前建议先停止避障，以免目录复制阻塞日志写入。标准版没有导出入口，可以连接 Mac 使用以下命令提取：
+开发版可以导出本次或历史 DIAG。导出前建议先停止避障，以免目录复制阻塞日志写入。如需连接 Mac 提取 DIAG，请运行以下命令：
 
 ```sh
 python3 scripts/pull_diag.py --device <设备标识> --output <新目录>
@@ -203,12 +207,13 @@ dev-capture-<UUID>/
 | 项目 | 上限 |
 |---|---|
 | DIAG 分段文件 | 32 MiB |
-| DIAG 每次启动 / 整个目录 | 512 MiB / 2 GiB |
+| DIAG 每次启动 / 整个目录 | 不限制 |
 | DIAG 待写队列 | 64 条、16 MiB；为事件预留 8 条、64 KiB |
-| 开发采集单段 / 每次启动 | 10 分钟 / 约 256 MiB |
+| 开发采集单段 / 每次启动 | 10 分钟 / 不限制 |
+| 标准版错误日志 | 1 GB，超出后删除最早的分段 |
 | 开发采集最低剩余空间 | 256 MiB |
 
-达到上限后停止新增记录，不覆盖或自动删除旧数据，请先导出再通过“文件”App 或 Xcode 清理。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
+开发版的 DIAG、开发采集和 Sessions 不限制总量，也不自动删除旧数据，请定期导出并通过“文件”App 或 Xcode 清理。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
 
 队列满时会丢弃记录，DIAG 和开发采集的丢弃计数需要分别检查。强制退出或断电可能丢失最后约 1 s 的 DIAG，并留下未完成的 MP4；缺少终止事件不代表发生了崩溃。
 

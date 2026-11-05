@@ -15,7 +15,7 @@
 | DeepSeek | `deepseek-flash`，`api.deepseek.com/chat/completions` | `thinking: {type: disabled}` |
 | 自定义 | 用户指定的模型和 HTTPS 地址；仅填写基础地址时自动补全 `/chat/completions` | 仅发送标准字段 |
 
-联网服务使用兼容 OpenAI 的流式 Chat Completions 请求，照片以 `data:image/jpeg;base64` 形式写入请求正文。应用只读取第一个 choice 的 `delta.content`，忽略思考内容，并在收到完整回答后开始朗读。连接中断或缺少结束标志时，未完成的回答会被丢弃。
+联网服务使用兼容 OpenAI 的流式 Chat Completions 请求，照片以 `data:image/jpeg;base64` 形式写入请求正文。应用只读取第一个 choice 的 `delta.content`，忽略思考内容，并在收到完整回答后开始朗读。连接中断、缺少结束标志或服务端报告回答被截断时，未完成的回答会被丢弃；描述和提问会播报失败提示，流式字幕的处理见下文。本机模型达到 token 上限时同样按截断处理。
 
 开启“提问时深度思考”后，千问请求发送 `enable_thinking: true`，DeepSeek 请求发送 `thinking: {type: enabled}`。该开关按服务商分别保存：千问使用 `photoDescription.questionThinking`，DeepSeek 使用 `photoDescription.questionThinking.deepseek`。该设置只影响语音提问，自定义服务和本机服务不提供此选项。测试中开启后等待时间明显增加，质量没有稳定提升，因此默认关闭。
 
@@ -68,12 +68,12 @@
 
 两次请求的间隔不少于 2 s。上一句仍在朗读时，应用按“字数 ÷ 每秒字数”估算朗读结束时间，并按最近一次请求的耗时提前发出下一次请求。每秒字数初始为 4.5，并用实际朗读时长更新。
 
-开场句直接朗读。动作句由 `LiveCaptionPolicy.answer` 处理，只取第一行，以下情况不朗读：
+开场句通常直接朗读，达到 40 个 token 的上限时跳过，字幕继续运行。动作句由 `LiveCaptionPolicy.answer` 处理，只取第一行，以下情况不朗读：
 
 | 情况 | 说明 |
 |---|---|
 | 回答为“无”或“无。” | 画面中没有动作 |
-| 超过 20 字 | 提示词要求最多 15 字，超出较多的回答不朗读 |
+| 超过 20 字，或达到生成上限 | 提示词要求最多 15 字，超出较多的回答不朗读，字幕继续运行 |
 | 包含“照片”“画面”或“镜头” | 模型在描述画面而不是动作 |
 | 与上一句相同 | 重复描述 |
 
@@ -98,7 +98,7 @@
 4. 在同一对话中继续提问，转写照片里的文字；没有文字时回答“无”。此步骤复用已编码的图像，不重新进行视觉编码。
 5. 转写结果按行或句逐步朗读，无须等待全部生成。
 
-提示词使用“照片里的文字”而不是“上面的文字”，以免模型将问题本身当作待转写内容。生成上限为 400 个 token，无法保证完整覆盖一整页密集文字。
+提示词使用“照片里的文字”而不是“上面的文字”，以免模型将问题本身当作待转写内容。转写的生成上限为 400 个 token；达到上限时按识别失败处理，停止朗读并改用 Apple Vision，因此无法保证完整覆盖一整页密集文字。判断物体这一步只有 8 个 token，超出时按已生成的内容查找这四个词，不影响转写。
 
 文字识别的提示词定义在 `PRTS/Features/TextReading/Services/TextReadingPrompt.swift` 中：
 
@@ -111,7 +111,7 @@
 | `remotePrompt` | 联网识别的用户消息：“读出照片里的文字。” |
 | `ocrSystem` | 专用 OCR 模型的系统提示词，只转写文字，不输出分类 |
 
-实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄，`Services/TextReadingServices.swift` 集中了会话用到的时钟、编码和识别调用，测试可以替换。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingService.swift` 选择服务并处理回退，`TextRecognizer.swift` 调用 Apple Vision。
+实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄，`Services/TextReadingServices.swift` 集中了会话用到的时钟、编码和识别调用，测试可以替换。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingFallback.swift` 处理回退，`TextRecognizer.swift` 调用 Apple Vision。服务选择由 `PRTS/Shared/Intelligence/TextReadingService.swift` 定义。
 
 ## 本地视觉模型
 
@@ -153,11 +153,11 @@
 | 照片、录音、问题和回答 | 仅保存在内存中，不写入诊断记录或文件 |
 | 语音识别 | 使用系统语音识别，即使选择本机服务，也可能调用 Apple 的服务 |
 
-回答通过 `SpeechManager.announcementUtterance` 朗读，使用应用当前的音色、语言和语速。
+回答通过 `SpeechVoice.utterance` 朗读，使用应用当前的音色、语言和语速。
 
 ## 已知限制
 
-- 模型加载后不会主动释放，尚未处理内存警告。
+- 模型加载后不会主动释放。收到内存警告时只写入诊断事件，不卸载模型。
 - 尚未验证与 ARKit 同时运行时的资源占用、连续调用时的发热，以及 8 GB 内存的 iPhone 15 Pro。
 - 权重通过 mmap 加载，文件大小不等于 `phys_footprint` 中计入的内存。
 - 文字识别尚未覆盖反光、倾斜、远处小字、手写和整页密集文字。
