@@ -224,13 +224,22 @@ struct ObstacleRouteSpeechTests {
                 == .clear
         )
     }
-    @Test func resetStartsANewInitializationBeforeSceneFeedback() throws {
+    @Test func resetWaitsSilentlyBeforeSceneFeedback() throws {
         var policy = try initializedPolicy()
         let u = try update("clear")
         _ = policy.cue(update: u, heading: nil, now: 1, deviationDegrees: 12)
         policy.reset()
-        #expect(policy.cue(update: u, heading: nil, now: 2, deviationDegrees: 12) == .initializing)
+        #expect(policy.cue(update: u, heading: nil, now: 2, deviationDegrees: 12) == nil)
         #expect(policy.cue(update: u, heading: nil, now: 2.49, deviationDegrees: 12) == nil)
+        #expect(policy.cue(update: u, heading: nil, now: 2.5, deviationDegrees: 12) == .clear)
+    }
+
+    @Test func startingGuidanceAnnouncesInitializationAgain() throws {
+        var policy = try initializedPolicy()
+        let u = try update("clear")
+        policy.reset()
+        policy.announceInitialization()
+        #expect(policy.cue(update: u, heading: nil, now: 2, deviationDegrees: 12) == .initializing)
         #expect(policy.cue(update: u, heading: nil, now: 2.5, deviationDegrees: 12) == .clear)
     }
 }
