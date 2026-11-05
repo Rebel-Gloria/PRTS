@@ -215,11 +215,11 @@ final class LiveCaptionSession: ObservableObject {
         let comparison = makeComparison()
         _ = try await comparison.accept(first[0].jpeg)
         var lastRequest = services.now()
-        let opening = try await describeOpening(first[0].jpeg, key)
+        let opening = try await skippingOverlong { try await describeOpening(first[0].jpeg, key) }
         try Task.checkCancellation()
         var modelDuration = services.now() - lastRequest
-        try await sayAfterCurrentSpeech(opening)
-        var previous: String? = opening
+        if let opening { try await sayAfterCurrentSpeech(opening) }
+        var previous = opening
 
         while !Task.isCancelled {
             let speechEnd = speech.map {
@@ -239,13 +239,25 @@ final class LiveCaptionSession: ObservableObject {
             if selected.isEmpty { continue }
             if try await !comparison.accept(recent.last!.jpeg) { continue }
             lastRequest = services.now()
-            let response = try await describeChange(selected.map(\.jpeg), previous, key)
+            let response = try await skippingOverlong {
+                try await describeChange(selected.map(\.jpeg), previous, key)
+            }
             try Task.checkCancellation()
             modelDuration = services.now() - lastRequest
-            if let answer = LiveCaptionPolicy.answer(response, previous: previous) {
+            if let response, let answer = LiveCaptionPolicy.answer(response, previous: previous) {
                 try await sayAfterCurrentSpeech(answer)
                 previous = answer
             }
+        }
+    }
+
+    /// Captions must stay short: an answer over the token budget is skipped like any other
+    /// overlong line, and the session keeps running.
+    private func skippingOverlong(_ request: () async throws -> String) async throws -> String? {
+        do {
+            return try await request()
+        } catch PhotoChatError.answerTooLong {
+            return nil
         }
     }
 

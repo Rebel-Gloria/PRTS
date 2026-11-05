@@ -279,6 +279,39 @@ struct LiveCaptionSessionTests {
         #expect(!session.suspendsFeedback)
     }
 
+    @Test func overlongOpeningIsSkippedWithoutEndingTheSession() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            credential: { _ in "synthetic-test-key" },
+            describeOpening: { _, _ in throw PhotoChatError.answerTooLong },
+            sleep: clock.sleep
+        )
+        session.localized = { $0 }
+        let image = jpeg()
+        session.start(capture: {
+            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
+        })
+        let work = session.work
+        // The session reaches its first change request once the opening has been skipped.
+        await clock.waitForSleep(
+            at: LiveCaptionPolicy.requestTime(
+                now: 0,
+                lastRequest: 0,
+                speechEnd: Double("liveCaption.on".count)
+                    / LiveCaptionPolicy.initialCharactersPerSecond,
+                modelDuration: 0
+            )
+        )
+        #expect(session.isRunning)
+        #expect(audio.spoken == ["liveCaption.on"])
+        session.stop()
+        clock.finish()
+        await work?.value
+    }
+
     @Test func qwenKeyIsRequiredBeforeCapture() {
         let audio = CaptionTestAnswerAudio()
         var services = LiveCaptionServices()
