@@ -9,6 +9,7 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     private let makeUtterance: (String) -> AVSpeechUtterance
     private var player: AVAudioPlayer?
     private var activeUtterance: ObjectIdentifier?
+    private var activeCue: UUID?
     private let audioSession: AudioSessionCoordinator
     private var audioLease: AudioSessionCoordinator.Lease?
     var onFinished: (() -> Void)?
@@ -31,11 +32,20 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    func cue(_ cue: AnswerCue) throws {
+    func cue(_ cue: AnswerCue) async throws {
+        let id = UUID()
+        activeCue = id
         // Short taps must not activate an input audio route or require microphone access.
-        audioLease = try audioSession.activate(cue == .record ? .recording : .tone)
-        player = try AVAudioPlayer(data: Self.toneData(for: cue))
-        guard player?.play() == true else { throw OutputError.cueUnavailable }
+        let lease = try await audioSession.activateAsync(cue == .record ? .recording : .tone)
+        guard activeCue == id else {
+            audioSession.release(lease)
+            throw CancellationError()
+        }
+        audioLease = lease
+        let tone = try await Task.detached { try Tone(cue) }.value
+        guard activeCue == id else { throw CancellationError() }
+        player = tone.player
+        guard tone.player.play() else { throw OutputError.cueUnavailable }
     }
 
     func speak(_ text: String) throws {
@@ -46,6 +56,7 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func stop() {
+        activeCue = nil
         activeUtterance = nil
         synthesizer.stopSpeaking(at: .immediate)
         player?.stop()
@@ -75,16 +86,27 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         speechSynthesizer(synthesizer, didFinish: utterance)
     }
 
+    /// Preparing the player takes tens of milliseconds, so it happens before the main thread
+    /// takes it. It is not used off the main thread after this.
+    private struct Tone: @unchecked Sendable {
+        let player: AVAudioPlayer
+
+        init(_ cue: AnswerCue) throws {
+            player = try AVAudioPlayer(data: AnswerAudioOutput.toneData(for: cue))
+            player.prepareToPlay()
+        }
+    }
+
     enum OutputError: LocalizedError {
         case cueUnavailable
         var errorDescription: String? { "无法播放拍照提示音，请重试" }
     }
 
-    static func toneData(for cue: AnswerCue) -> Data {
+    nonisolated static func toneData(for cue: AnswerCue) -> Data {
         wave(frequency: cue == .submit ? 880 : 440)
     }
 
-    private static func wave(frequency: Double) -> Data {
+    nonisolated private static func wave(frequency: Double) -> Data {
         let rate = 16_000
         let count = 1_600
         var data = Data()

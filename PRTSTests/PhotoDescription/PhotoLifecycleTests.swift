@@ -167,6 +167,7 @@ struct PhotoLifecycleTests {
         #expect(f.state.events == ["silence"])
         f.state.time = 0.49
         f.coordinator.up()
+        await f.coordinator.work?.value
         #expect(f.state.events == ["silence", "capture", "A"])
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
@@ -188,11 +189,14 @@ struct PhotoLifecycleTests {
         #expect(f.state.events == ["silence"])
         f.state.time = 0.5
         f.coordinator.advancePress()
+        await f.coordinator.work?.value
         #expect(f.state.events == ["silence", "capture", "B", "record"])
         f.state.time = 1
         f.coordinator.advancePress()
         f.coordinator.up()
-        #expect(f.state.events.suffix(2) == ["stop-mic", "A"])
+        await f.coordinator.work?.value
+        let stopped = f.state.events.firstIndex(of: "stop-mic")!
+        #expect(f.state.events[stopped + 1] == "A")
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
         #expect(requests[0].question == "门在哪里？")
@@ -201,6 +205,31 @@ struct PhotoLifecycleTests {
         await f.coordinator.work?.value
         #expect(f.audio.spoken == ["门在左侧。"])
         f.coordinator.cancel()
+    }
+
+    @Test func releaseWhileTheMicrophoneStartsStopsItAfterItStarted() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        f.state.time = 0.6
+        f.coordinator.up()
+        await f.coordinator.work?.value
+        let events = f.state.events
+        #expect(events.firstIndex(of: "record")! < events.firstIndex(of: "stop-mic")!)
+        f.coordinator.cancel()
+    }
+
+    @Test func cancelWhileTheCueStartsNeverStartsTheMicrophone() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        let work = f.coordinator.work
+        f.coordinator.cancel()
+        await work?.value
+        #expect(!f.state.events.contains("record"))
+        #expect(!f.coordinator.busy)
     }
 
     @Test func repeatedLongPressSendsOnlyTheCurrentTranscript() async throws {
@@ -280,8 +309,8 @@ struct PhotoLifecycleTests {
         f.down()
         f.state.time = 0.1
         f.coordinator.up()
-        let work = f.coordinator.work
         await f.network.waitForRequests(1)
+        let work = f.coordinator.work
         await f.network.fail(0)
         await work?.value
         #expect(f.audio.spoken == [PhotoChatError.incompleteStream.localizedDescription])

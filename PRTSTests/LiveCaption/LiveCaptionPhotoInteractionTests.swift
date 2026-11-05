@@ -88,6 +88,7 @@ struct LiveCaptionPhotoInteractionTests {
         #expect(fixture.photo.work == nil)
         fixture.time = Double(taps - 1) * 0.2 + 0.351
         fixture.perform(fixture.state.advance(to: fixture.time))
+        await fixture.photo.work?.value
         #expect(fixture.captures == 1)
         #expect(fixture.audio.cues == [.submit])
         await fixture.photo.work?.value
@@ -112,11 +113,13 @@ struct LiveCaptionPhotoInteractionTests {
         fixture.perform(fixture.state.down(at: 0, running: false))
         fixture.time = 0.5
         fixture.perform(fixture.state.advance(to: fixture.time))
+        await fixture.photo.work?.value
         #expect(fixture.recognizer.starts == 1)
         #expect(fixture.captures == 1)
         #expect(fixture.audio.cues == [.record])
         fixture.time = 1
         fixture.perform(fixture.state.up(at: fixture.time))
+        await fixture.photo.work?.value
         #expect(fixture.audio.cues == [.record, .submit])
         await fixture.photo.work?.value
         fixture.photo.cancel()
@@ -131,6 +134,7 @@ struct LiveCaptionPhotoInteractionTests {
         fixture.perform(fixture.state.advance(to: fixture.time))
         fixture.time = 2
         fixture.perform(fixture.state.up(at: fixture.time))
+        await fixture.photo.work?.value
         #expect(fixture.recognizer.starts == 0)
         #expect(fixture.captures == 1)
         #expect(fixture.audio.cues == [.submit])

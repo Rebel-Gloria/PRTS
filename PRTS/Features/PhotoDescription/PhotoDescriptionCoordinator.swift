@@ -149,22 +149,35 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             if !prepareService(for: .description) { return }
             do {
                 try capture(purpose: .description)
-                try audio.cue(.submit)
-                submit(question: nil)
-            } catch { fail(error) }
-        case .startRecording: startRecording()
-        case .stopRecording:
-            guard imageTask != nil else { return }
-            recognizer.endCapture()
-            do { try audio.cue(.submit) } catch {
+            } catch {
                 fail(error)
                 return
             }
-            message = "正在识别"
             let id = generation
             work = Task { [weak self] in
                 guard let self else { return }
                 do {
+                    try await self.audio.cue(.submit)
+                    guard self.generation == id else { return }
+                    self.submit(question: nil)
+                } catch {
+                    if self.generation == id { self.fail(error) }
+                }
+            }
+        case .startRecording: startRecording()
+        case .stopRecording:
+            guard imageTask != nil else { return }
+            let id = generation
+            // A release can arrive while the microphone is still starting.
+            let starting = work
+            work = Task { [weak self] in
+                await starting?.value
+                guard let self, self.generation == id else { return }
+                do {
+                    self.recognizer.endCapture()
+                    try await self.audio.cue(.submit)
+                    guard self.generation == id else { return }
+                    self.message = "正在识别"
                     let text = try await self.recognizer.finish()
                     try Task.checkCancellation()
                     guard self.generation == id else { return }
@@ -218,10 +231,23 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         }
         do {
             try capture(purpose: .question)
-            try audio.cue(.record)
-            try recognizer.start()
-            message = "请说话，松手发送"
-        } catch { fail(error) }
+        } catch {
+            fail(error)
+            return
+        }
+        let id = generation
+        work = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.audio.cue(.record)
+                guard self.generation == id else { return }
+                try await self.recognizer.start()
+                guard self.generation == id else { return }
+                self.message = "请说话，松手发送"
+            } catch {
+                if self.generation == id { self.fail(error) }
+            }
+        }
     }
 
     private func submit(question: String?) {
