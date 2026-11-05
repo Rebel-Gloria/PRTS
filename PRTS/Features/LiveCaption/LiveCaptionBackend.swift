@@ -6,7 +6,7 @@ nonisolated enum LiveCaptionBackend {
             jpeg: jpeg,
             text: SceneDescriptionPrompt.request,
             key: key,
-            service: .qwenCaption,
+            service: PhotoChatProvider.qwen.service(),
             system: LiveCaptionPrompts.opening,
             maxTokens: 40
         )
@@ -18,7 +18,13 @@ nonisolated enum LiveCaptionBackend {
         )
     }
 
-    static func request(video: [Data], previous: String?, key: String) throws -> URLRequest {
+    static func request(
+        video: [Data],
+        previous: String?,
+        key: String,
+        service: PhotoChatService? = PhotoChatProvider.qwen.service()
+    ) throws -> URLRequest {
+        guard let service else { throw PhotoChatError.invalidService }
         let text = "上一句：\(previous ?? "无")"
         return try PhotoChatProtocol.request(
             content: [
@@ -27,7 +33,7 @@ nonisolated enum LiveCaptionBackend {
             ],
             text: text,
             key: key,
-            service: .qwenCaption,
+            service: service,
             system: LiveCaptionPrompts.system,
             thinking: false,
             maxTokens: 24

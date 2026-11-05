@@ -6,6 +6,7 @@ struct ProviderSettingsView: View {
     @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
     @AppStorage private var questionThinking: Bool
     @AppStorage(PhotoChatProvider.localEnhancedKey) private var localEnhanced = false
+    @AppStorage(PhotoChatProvider.qwenOmniKey) private var qwenOmni = false
     @State private var key = ""
     @State private var hasKey = false
     @State private var message = ""
@@ -94,6 +95,15 @@ struct ProviderSettingsView: View {
                     // In the footer, not the field's placeholder: the field is one line wide. Body size,
                     // as smaller dimmed text failed the contrast audit.
                     if hasKey { Text("photo.settings.saved").font(.body) }
+                }
+            }
+            if provider == .qwen {
+                Section {
+                    Toggle("photo.settings.qwenOmni", isOn: $qwenOmni)
+                        .accessibilityHint("photo.settings.qwenOmni.footer")
+                        .accessibilityIdentifier("photoQwenOmni")
+                } footer: {
+                    Text("photo.settings.qwenOmni.footer")
                 }
             }
             if provider == .onDevice {

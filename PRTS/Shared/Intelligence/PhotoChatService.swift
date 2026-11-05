@@ -20,9 +20,10 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
         thinking: .qwenFlag,
         ocrModel: "qwen-vl-ocr"
     )
-    /// Live captions only. It reasons by default, which takes about 13 s per caption, so requests
-    /// must keep thinking off (docs/validation.md).
-    static let qwenCaption = PhotoChatService(
+    /// More accurate on video but less responsive (docs/validation.md). It reasons by default,
+    /// which takes about 13 s per caption, so requests must keep sending the thinking switch.
+    /// It reads tilted text better than qwen-vl-ocr, so it does the reading itself.
+    static let qwenOmni = PhotoChatService(
         endpoint: qwen.endpoint,
         model: "qwen3.8-omni-flash",
         thinking: .qwenFlag

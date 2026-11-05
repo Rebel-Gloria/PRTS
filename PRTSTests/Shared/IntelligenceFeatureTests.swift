@@ -78,4 +78,15 @@ struct IntelligenceFeatureTests {
         #expect(!PhotoChatProvider.onDevice.questionThinking(defaults))
         #expect(!PhotoChatProvider.custom.questionThinking(defaults))
     }
+
+    @Test func omniSettingChangesOnlyQwen() {
+        let name = "IntelligenceFeatureTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        #expect(PhotoChatProvider.qwen.service(defaults) == .qwen)
+        defaults.set(true, forKey: PhotoChatProvider.qwenOmniKey)
+        #expect(PhotoChatProvider.qwen.service(defaults) == .qwenOmni)
+        #expect(PhotoChatProvider.qwen.service(defaults)?.ocrModel == nil)
+        #expect(PhotoChatProvider.deepseek.service(defaults) == .deepseek)
+    }
 }

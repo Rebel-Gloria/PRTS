@@ -15,7 +15,7 @@ struct LiveCaptionRequestTests {
         let data = try #require(request.httpBody)
         let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(request.url == PhotoChatService.qwen.endpoint)
-        #expect(body["model"] as? String == "qwen3.8-omni-flash")
+        #expect(body["model"] as? String == PhotoChatService.qwen.model)
         #expect(body["max_tokens"] as? Int == 24)
         #expect(body["enable_thinking"] as? Bool == false)
         #expect(body["stream"] as? Bool == true)
@@ -33,6 +33,19 @@ struct LiveCaptionRequestTests {
         )
         #expect(content[1]["type"] as? String == "text")
         #expect(content[1]["text"] as? String == "上一句：\(previous ?? "无")")
+    }
+
+    @Test func omniKeepsThinkingOff() throws {
+        let request = try LiveCaptionBackend.request(
+            video: [Data([1]), Data([2]), Data([3]), Data([4])],
+            previous: nil,
+            key: "synthetic-test-key",
+            service: .qwenOmni
+        )
+        let data = try #require(request.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["model"] as? String == "qwen3.8-omni-flash")
+        #expect(body["enable_thinking"] as? Bool == false)
     }
 
     @Test func openingUsesSingleImageAndFortyTokens() throws {
