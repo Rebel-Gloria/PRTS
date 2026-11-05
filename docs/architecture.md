@@ -18,10 +18,13 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 | `PRTS/Features/Settings/` | 设置、智能服务设置和使用说明 | `SettingsView`、`IntelligenceSettingsView` |
 | `PRTS/Features/Developer/` | 开发版专用界面 | `ProbeSettingsView` |
 | `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型路径 | `PhotoChatService`、`IntelligenceFeature` |
-| `PRTS/Shared/Imaging/`、`Audio/` | 照片缩放与 JPEG 编码；回答朗读和提示音 | `PhotoImageEncoder`、`AnswerAudioOutput` |
+| `PRTS/Shared/Imaging/` | 照片缩放与 JPEG 编码 | `PhotoImageEncoder` |
+| `PRTS/Shared/Audio/` | 音频会话、回答朗读、提示音和语音识别 | `AudioSessionCoordinator`、`AnswerAudioOutput`、`PhotoSpeechRecognizer` |
+| `PRTS/Shared/Input/` | 拍照按键的状态判定、实体按键和交互偏好 | `PhotoPressState`、`PhotoHardwareButtons`、`InteractionPreferences` |
+| `PRTS/Shared/Diagnostics/` | 产品错误日志 | `ErrorLog`、`ErrorReporter` |
 | `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与振动策略（`Feedback/`） | `SpatialAnalyzer`、`PathPredictor` |
 | `Packages/LocalVLM/` | llama.cpp 封装，在设备上运行 MiniCPM-V | `LocalVLM` |
-| `Vendor/PRTSCore/` | 上游契约代码。应用链接此包，但当前未调用 | — |
+| `Vendor/PRTSCore/` | 上游契约代码。应用不链接此包，只运行其契约测试 | — |
 | `Experiments/` | 实验工程和回放工具，不参与应用编译 | — |
 
 `PRTS/Spatial/` 中以 `Probe` 开头的类型是应用实际运行的代码。`Experiments/SpatialProbe/` 中有同名类型，它们是冻结的对照实现，只用于一致性检查和回放。
@@ -124,6 +127,12 @@ ARSession
 
 无法绕行时播报“有障碍，无法绕行”；没有可用深度时播报“暂时看不清”。
 
+### 启动播报
+
+用户开始避障后，第一句播报“初始化中”，0.5 s 后再按当前状态播报第一条路线提示。该等待用于避免障碍确认完成前播报“前方畅通”，且不占用 2.5 s 的播报间隔。
+
+拍照描述、读文字、流式字幕或设置结束后恢复反馈时，以及会话重新建立时，应用同样等待 0.5 s，但不再播报“初始化中”。
+
 ## 相机交接
 
 避障使用 `ProbeEngine` 中的 `ARSession`，读文字使用 `TextCamera` 中独立的 `AVCaptureSession`，两者不同时运行。`CameraManager` 保存用户是否要运行避障（运行意图），交接规则如下：
@@ -132,8 +141,8 @@ ARSession
 |---|---|---|
 | 点按开始 | 设置运行意图，请求相机权限后启动会话 | `CameraManager` |
 | 停止避障 | 清除运行意图，取消尚未完成的权限请求，立即暂停反馈 | `CameraManager` |
-| 开始读文字 | 停止字幕和描述；`pauseForTextReading()` 暂停会话但保留运行意图；`TextReadingSession` 打开主摄 | `ContentView`、`CameraManager` |
-| 读文字结束、失败或取消 | `finishTextReading(isActive:)` 解除占用；在前台时立即恢复已启动的避障，在后台时等到回到前台 | `TextReadingSession`、`CameraManager` |
+| 开始读文字 | 停止字幕和描述；`pauseForTextReading(completion:)` 暂停会话但保留运行意图，会话停止后 `TextReadingSession` 才打开主摄 | `ContentView`、`CameraManager` |
+| 读文字结束、失败或取消 | 主摄停止后，`finishTextReading(isActive:)` 解除占用；在前台时立即恢复已启动的避障，在后台时等到回到前台 | `TextReadingSession`、`CameraManager` |
 | 用户取消读文字 | 播报取消提示，读完后释放音频会话 | `TextReadingSession` |
 | 进入后台、音频中断、打开设置、离开首页 | 字幕、描述和读文字静默结束；进入后台时暂停会话并取消尚未完成的权限请求，保留运行意图 | `ContentView`、`CameraManager` |
 | 回到前台 | 仅恢复用户已启动、且未被读文字占用的会话 | `CameraManager` |
@@ -174,11 +183,13 @@ ContentView.photoDown
 | 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | `test_spatial_integration.py`，部分覆盖 |
 | 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | `TextReadingSessionTests`、`LiveCaptionSessionTests`、`test_stability_boundaries.py`，部分覆盖 |
 
+应用内的语音和录音通过 `AudioSessionCoordinator` 激活音频会话。每次激活返回一个租约，只有持有最新租约的一方才能关闭会话，因此旧朗读结束时不会打断新的输出。
+
 `Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
 ## 第三方代码
 
-`Vendor/PRTSCore` 来自 [Oldcucumber/PRTS_Core](https://github.com/Oldcucumber/PRTS_Core)，固定在提交 `0469479b`（2026-09-24 核对）。应用仅链接其中的 `PRTSContracts`。同步范围包括契约、测试、部分 Apple 平台实现和提示音，不包括网页端、Python 运行时和模型文件。
+`Vendor/PRTSCore` 来自 [Oldcucumber/PRTS_Core](https://github.com/Oldcucumber/PRTS_Core)，固定在提交 `0469479b`（2026-09-24 核对）。应用不链接此包。同步范围包括契约、测试、部分 Apple 平台实现和提示音，不包括网页端、Python 运行时和模型文件。
 
 如需升级 `Vendor/PRTSCore`，请执行以下步骤：
 
