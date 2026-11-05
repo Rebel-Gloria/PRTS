@@ -6,6 +6,7 @@ nonisolated enum LiveCaptionBackend {
             jpeg: jpeg,
             text: SceneDescriptionPrompt.request,
             key: key,
+            service: .qwenCaption,
             system: LiveCaptionPrompts.opening,
             maxTokens: 40
         )
@@ -26,7 +27,7 @@ nonisolated enum LiveCaptionBackend {
             ],
             text: text,
             key: key,
-            service: .qwen,
+            service: .qwenCaption,
             system: LiveCaptionPrompts.system,
             thinking: false,
             maxTokens: 24

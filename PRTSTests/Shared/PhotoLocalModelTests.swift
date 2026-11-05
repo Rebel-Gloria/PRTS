@@ -315,6 +315,31 @@ struct RemoteTextReadingTests {
         try await check(.deepseek, key: Self.env["PRTS_DEEPSEEK_KEY"]!)
     }
 
+    /// The real request shape: a full-length video of a block crossing the frame. An answer over
+    /// the token budget throws here, which would mean thinking stayed on.
+    @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
+    func qwenCaptionsAVideoWithinItsTokenBudget() async throws {
+        let key = Self.env["PRTS_QWEN_KEY"]!
+        let size = CGSize(width: 540, height: 720)
+        let video = try (0..<LiveCaptionPolicy.maximumVideoFrames).map { index in
+            let image = UIGraphicsImageRenderer(size: size).image { context in
+                UIColor.lightGray.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.black.setFill()
+                context.fill(CGRect(x: index * 36, y: 240, width: 80, height: 240))
+            }
+            return try #require(image.jpegData(compressionQuality: 0.8))
+        }
+        let opening = try await LiveCaptionBackend.captionOpening(jpeg: video[0], key: key)
+        #expect(!opening.isEmpty)
+        let start = Date()
+        let caption = try await LiveCaptionBackend.caption(video: video, previous: nil, key: key)
+        print(
+            "PRTS_CAPTION \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(opening) | \(caption)"
+        )
+        #expect(!caption.isEmpty)
+    }
+
     /// A question with the question prompt, thinking off and on.
     private func ask(_ service: PhotoChatService, key: String) async throws {
         for thinking in [false, true] {

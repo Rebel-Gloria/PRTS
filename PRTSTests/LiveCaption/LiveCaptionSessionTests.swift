@@ -367,12 +367,12 @@ struct LiveCaptionSessionTests {
         // The opening waits until the start cue has been read.
         audio.onFinished?()
         await audio.waitForSpeech(count: 2)
-        await clock.waitForSleep(at: 0.25)
-        clock.advance(to: 0.25)
-        await clock.waitForSleep(at: 0.5)
+        await clock.waitForSleep(at: 0.2)
+        clock.advance(to: 0.2)
+        await clock.waitForSleep(at: 0.4)
         await clock.waitForSleep(at: 2)
         clock.advance(to: 2)
-        await clock.waitForSleep(at: 2.25)
+        await clock.waitForSleep(at: 2.2)
         #expect(captures == 3)
         session.stop()
         clock.finish()
@@ -400,13 +400,16 @@ struct LiveCaptionSessionTests {
         })
         let work = session.work
         await response.waitForRequest()
-        for tick in 1...20 {
-            let time = Double(tick) * 0.25
+        var time = 0.0
+        var expected = [time]
+        for _ in 1...20 {
+            time += LiveCaptionPolicy.sampleInterval
             await clock.waitForSleep(at: time)
             clock.advance(to: time)
+            expected.append(time)
         }
-        await clock.waitForSleep(at: 5.25)
-        #expect(captureTimes == (0...20).map { Double($0) * 0.25 })
+        await clock.waitForSleep(at: time + LiveCaptionPolicy.sampleInterval)
+        #expect(captureTimes == expected)
         session.stop()
         clock.finish()
         await response.reply("门口。")

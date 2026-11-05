@@ -15,7 +15,7 @@ struct LiveCaptionRequestTests {
         let data = try #require(request.httpBody)
         let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(request.url == PhotoChatService.qwen.endpoint)
-        #expect(body["model"] as? String == PhotoChatService.qwen.model)
+        #expect(body["model"] as? String == "qwen3.8-omni-flash")
         #expect(body["max_tokens"] as? Int == 24)
         #expect(body["enable_thinking"] as? Bool == false)
         #expect(body["stream"] as? Bool == true)
