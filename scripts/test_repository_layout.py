@@ -4,7 +4,7 @@ import re
 import unittest
 from pathlib import Path
 
-from swift_source import swift_code
+from swift_source import TOKEN, swift_code
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,6 +32,24 @@ class RepositoryLayoutTests(unittest.TestCase):
             if "ARSession()" in swift_code(file.read_text(encoding="utf-8"))
         ]
         self.assertEqual(owners, ["PRTS/Spatial/Runtime/ProbeEngine.swift"])
+
+    def test_shared_capabilities_do_not_reference_feature_or_runtime_types(self):
+        declarations = {}
+        for directory in ("Features", "Spatial", "App"):
+            for file in (ROOT / "PRTS" / directory).rglob("*.swift"):
+                for name in re.findall(
+                    r"^(?:nonisolated |public |final )*(?:enum|class|struct|protocol)\s+(\w+)",
+                    file.read_text(encoding="utf-8"),
+                    re.M,
+                ):
+                    declarations[name] = file.relative_to(ROOT).as_posix()
+        for file in (ROOT / "PRTS/Shared").rglob("*.swift"):
+            identifiers = {
+                match.group()
+                for match in TOKEN.finditer(file.read_text(encoding="utf-8"))
+                if re.fullmatch(r"\w+", match.group())
+            }
+            self.assertFalse(identifiers & declarations.keys(), file)
 
     def test_photo_lifecycle_uses_injected_services(self):
         source = swift_code(

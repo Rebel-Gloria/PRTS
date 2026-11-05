@@ -40,21 +40,28 @@ nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sen
 private final class ReadingTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
+    var pending: [String] = []
+    var stops = 0
     var failure: String?
     var active = false
     private var waiter: (Int, CheckedContinuation<Void, Never>)?
 
-    func cue(_ cue: AnswerAudioOutput.Cue) throws {}
+    func cue(_ cue: AnswerCue) throws {}
     func speak(_ text: String) throws {
         active = true
         if text == failure { throw ReadingTestError.failed }
         spoken.append(text)
+        pending.append(text)
         if let waiter, spoken.count >= waiter.0 {
             self.waiter = nil
             waiter.1.resume()
         }
     }
-    func stop() { active = false }
+    func stop() {
+        active = false
+        stops += 1
+        pending.removeAll()
+    }
     func finish() { onFinished?() }
     func waitForSpeech(_ count: Int) async {
         if spoken.count >= count { return }
@@ -176,6 +183,28 @@ struct TextReadingSessionTests {
         #expect(!h.audio.spoken.contains("ocr.empty"))
         h.audio.finish()
         #expect(h.ended == 1)
+    }
+
+    @Test(arguments: ["新结果。", ""])
+    func fallbackDiscardsFailedReadersQueuedSpeech(text: String) async {
+        let h = ReadingHarness(service: .onDevice) { services in
+            services.surface = { _ in .paper }
+            services.copy = { send in
+                send("旧结果。尚未完成")
+                throw ReadingTestError.failed
+            }
+            services.vision = { _ in text }
+        }
+        h.session.start(intro: "intro")
+        h.capture()
+        h.camera.deliver(0, image: h.image())
+        await h.audio.waitForSpeech(4)
+        await h.session.work?.value
+        #expect(h.audio.stops == 1)
+        #expect(h.audio.pending == [text.isEmpty ? "ocr.empty" : "ocr.lead.object：新结果。"])
+        h.audio.finish()
+        #expect(h.ended == 1)
+        #expect(!h.audio.active)
     }
 
     @Test func allReadersFailAfterPartialText() async {

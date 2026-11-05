@@ -118,11 +118,18 @@ final class SessionRecorder: @unchecked Sendable {
     private var state = RecorderStatus()
     private var current: URL?
     private var handles: [String: FileHandle] = [:]
-    private var bytesWritten = 0
     private var activeEpoch: UInt64 = 0
     private let encoder = JSONEncoder()
     private let diagnostics: DiagnosticRecorder
-    init(diagnostics: DiagnosticRecorder) { self.diagnostics = diagnostics }
+    private let root: URL
+    init(
+        diagnostics: DiagnosticRecorder,
+        root: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("DevDiagnostics/Sessions", isDirectory: true)
+    ) {
+        self.diagnostics = diagnostics
+        self.root = root
+    }
     func status() -> RecorderStatus {
         lock.lock()
         defer { lock.unlock() }
@@ -151,20 +158,19 @@ final class SessionRecorder: @unchecked Sendable {
         lock.unlock()
     }
     private func report(_ error: Error) {
+        ErrorLog.application.record(error, source: .storage)
         setStatus {
             $0.error = error.localizedDescription
             $0.message = "记录失败；感知继续运行"
         }
     }
     func begin(epoch: UInt64, parameters: ProbeParameters, device: [String: String]) {
+        guard diagnostics.journal.isEnabled else { return }
         queue.async { [self] in
             closeHandles()
             current = nil
             activeEpoch = epoch
-            bytesWritten = 0
             do {
-                let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                    .appendingPathComponent("Sessions", isDirectory: true)
                 let date = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(
                     of: ":",
                     with: "-"
@@ -216,6 +222,7 @@ final class SessionRecorder: @unchecked Sendable {
         }
     }
     func event(_ name: String, details: String, epoch: UInt64) {
+        guard diagnostics.journal.isEnabled else { return }
         diagnostics.event(name, details: details, epoch: epoch)
         guard admit() else { return }
         queue.async { [self] in
@@ -234,6 +241,7 @@ final class SessionRecorder: @unchecked Sendable {
         }
     }
     func record(_ result: AnalysisResult, frame: FrameSnapshot, metrics: MetricContext) {
+        guard diagnostics.journal.isEnabled else { return }
         guard admit() else { return }
         queue.async { [self] in
             defer { complete() }
@@ -272,6 +280,7 @@ final class SessionRecorder: @unchecked Sendable {
         meshes: [MeshSnapshot],
         display: [String: String]
     ) {
+        guard diagnostics.journal.isEnabled else { return }
         guard admit(sample: true) else {
             setStatus { $0.message = "采样队列忙；本次未保存" }
             return
@@ -282,31 +291,12 @@ final class SessionRecorder: @unchecked Sendable {
                 setStatus { $0.message = "当前会话未开启记录，未保存" }
                 return
             }
-            let estimatedBytes =
-                (frame.frame.sceneDepth.map {
-                    CVPixelBufferGetWidth($0.depthMap) * CVPixelBufferGetHeight($0.depthMap) * 5
-                } ?? 0)
-                + meshes.reduce(0) { $0 + $1.byteCount * 12 } + 8 * 1024 * 1024
-            guard bytesWritten + estimatedBytes <= 512 * 1024 * 1024 else {
-                setStatus { $0.error = "剩余会话配额不足以保存手动样本（512 MiB，含样本）；请导出并开始新会话" }
-                return
-            }
             do {
                 let dir = current.appendingPathComponent(
                     "samples/\(frame.id)-\(UUID().uuidString.prefix(6))",
                     isDirectory: true
                 )
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                defer {
-                    if let files = try? FileManager.default.contentsOfDirectory(
-                        at: dir,
-                        includingPropertiesForKeys: [.fileSizeKey]
-                    ) {
-                        bytesWritten += files.reduce(0) {
-                            $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-                        }
-                    }
-                }
                 guard let data = frame.depthObservation() else {
                     throw NSError(
                         domain: "Sample",
@@ -362,6 +352,7 @@ final class SessionRecorder: @unchecked Sendable {
         }
     }
     func finish(epoch: UInt64) {
+        guard diagnostics.journal.isEnabled else { return }
         event("session_stopped", details: "Channel evidence invalidated", epoch: epoch)
         queue.async { [self] in
             guard activeEpoch == epoch else { return }
@@ -370,6 +361,17 @@ final class SessionRecorder: @unchecked Sendable {
             setStatus { $0.message = "记录已停止，可导出" }
         }
     }
+    func flush(completion: @escaping @Sendable () -> Void = {}) {
+        queue.async {
+            do {
+                for handle in self.handles.values { try handle.synchronize() }
+            } catch {
+                self.report(error)
+            }
+            completion()
+        }
+    }
+
     func export(completion: @escaping @Sendable (Result<URL, Error>) -> Void) {
         queue.async { [self] in
             do {
@@ -405,13 +407,6 @@ final class SessionRecorder: @unchecked Sendable {
     }
     private func append(_ data: Data, to name: String) throws {
         guard let current else { return }
-        guard bytesWritten + data.count <= 512 * 1024 * 1024 else {
-            throw NSError(
-                domain: "Recorder",
-                code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "本会话日志已达512 MiB上限，停止新增记录；请停止并导出"]
-            )
-        }
         let handle: FileHandle
         if let existing = handles[name] {
             handle = existing
@@ -421,7 +416,6 @@ final class SessionRecorder: @unchecked Sendable {
             handles[name] = handle
         }
         try handle.write(contentsOf: data)
-        bytesWritten += data.count
     }
     private func closeHandles() {
         for h in handles.values {

@@ -28,8 +28,8 @@ public struct DiagnosticLimits: Codable, Sendable {
     public var reservedEvents = 8
     public var reservedEventBytes = 64 * 1024
     public var maximumPendingBytes = 16 * 1024 * 1024
-    public var runBytes = 512 * 1024 * 1024
-    public var totalBytes = 2 * 1024 * 1024 * 1024
+    public var runBytes: Int? = 512 * 1024 * 1024
+    public var totalBytes: Int? = 2 * 1024 * 1024 * 1024
     public var segmentBytes = 32 * 1024 * 1024
     public init() {}
 }
@@ -75,6 +75,8 @@ public final class DiagnosticJournal: @unchecked Sendable {
     public let root: URL
     public let directory: URL
     public let limits: DiagnosticLimits
+    public let isEnabled: Bool
+    private let onError: @Sendable (Error) -> Void
     private let queue = DispatchQueue(label: "probe.diagnostic.disk", qos: .utility)
     private let lock = NSLock()
     private var state = DiagnosticStatus()
@@ -87,7 +89,15 @@ public final class DiagnosticJournal: @unchecked Sendable {
     private var lastSync: Double = 0
     private var checkpointScheduled = false
 
-    public init(root: URL, metadata: [String: String], limits: DiagnosticLimits = .init()) {
+    public init(
+        root: URL,
+        metadata: [String: String],
+        limits: DiagnosticLimits = .init(),
+        enabled: Bool = true,
+        onError: @escaping @Sendable (Error) -> Void = { _ in }
+    ) {
+        self.isEnabled = enabled
+        self.onError = onError
         self.root = root
         self.limits = limits
         let date = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(
@@ -99,6 +109,7 @@ public final class DiagnosticJournal: @unchecked Sendable {
         state.runID = id
         let launchedAt = ISO8601DateFormatter().string(from: Date())
         let uptime = ProcessInfo.processInfo.systemUptime
+        guard enabled else { return }
         queue.async { [self] in
             do {
                 try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -157,6 +168,7 @@ public final class DiagnosticJournal: @unchecked Sendable {
         estimatedBytes: Int = 4096,
         make: @escaping @Sendable () throws -> DiagnosticPacket
     ) -> Bool {
+        guard isEnabled else { return false }
         let cost = max(1, estimatedBytes)
         let priority = stream == .events
         // Count slots alone do not protect lifecycle events when mesh payloads fill the byte budget.
@@ -217,6 +229,7 @@ public final class DiagnosticJournal: @unchecked Sendable {
         return true
     }
     private func fail(_ error: Error, stream: DiagnosticStream) {
+        onError(error)
         update {
             $0.failed[stream.rawValue, default: 0] += 1
             $0.error = error.localizedDescription
@@ -279,7 +292,8 @@ public final class DiagnosticJournal: @unchecked Sendable {
         line.append(Data("}\n".utf8))
         let bytes = line.count + (compressed.map { $0.count + 8 } ?? 0)
         let used = status().bytesWritten
-        guard bytes <= limits.runBytes - used, bytes <= limits.totalBytes - previousBytes - used
+        guard limits.runBytes.map({ bytes <= $0 - used }) ?? true,
+            limits.totalBytes.map({ bytes <= $0 - previousBytes - used }) ?? true
         else {
             update {
                 $0.limitReached = true
@@ -321,6 +335,7 @@ public final class DiagnosticJournal: @unchecked Sendable {
     }
     public func noteLifecycle(_ value: String) { update { $0.lastLifecycle = value } }
     public func requestCheckpoint() {
+        guard isEnabled else { return }
         lock.lock()
         guard !checkpointScheduled else {
             lock.unlock()
@@ -338,6 +353,10 @@ public final class DiagnosticJournal: @unchecked Sendable {
         }
     }
     public func flush(lifecycle: String? = nil, completion: @escaping @Sendable () -> Void = {}) {
+        guard isEnabled else {
+            completion()
+            return
+        }
         if let lifecycle { update { $0.lastLifecycle = lifecycle } }
         queue.async { [self] in
             do { try checkpoint(force: true) } catch { fail(error, stream: .events) }
@@ -345,6 +364,10 @@ public final class DiagnosticJournal: @unchecked Sendable {
         }
     }
     public func listRuns(completion: @escaping @Sendable ([DiagnosticRun]) -> Void) {
+        guard isEnabled else {
+            completion([])
+            return
+        }
         queue.async { [self] in
             let dirs =
                 (try? FileManager.default.contentsOfDirectory(

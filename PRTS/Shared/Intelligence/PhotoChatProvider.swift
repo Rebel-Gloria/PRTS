@@ -9,6 +9,8 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
     static let selectionKey = "photoDescription.provider"
     static let customEndpointKey = "photoDescription.customEndpoint"
     static let customModelKey = "photoDescription.customModel"
+    /// Broader local questions are opt-in; they do not enable model reasoning or change OCR.
+    static let localEnhancedKey = "photoDescription.localEnhanced"
 
     /// On device by default: PRTS has to work without a network.
     static func current(_ defaults: UserDefaults = .standard) -> PhotoChatProvider {
@@ -20,7 +22,7 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
 
     var questionThinkingKey: String {
         self == .qwen
-            ? PhotoPrompts.questionThinkingKey : "photoDescription.questionThinking.deepseek"
+            ? "photoDescription.questionThinking" : "photoDescription.questionThinking.deepseek"
     }
 
     func questionThinking(_ defaults: UserDefaults = .standard) -> Bool {

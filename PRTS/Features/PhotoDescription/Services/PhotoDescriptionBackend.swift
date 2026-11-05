@@ -8,7 +8,7 @@ nonisolated enum PhotoDescriptionBackend {
         let provider = feature.provider()!
         let answer = try await generate(
             jpeg: jpeg,
-            text: question ?? PhotoPrompts.prompt,
+            text: question ?? SceneDescriptionPrompt.request,
             key: key,
             provider: provider,
             system: provider == .onDevice
@@ -29,14 +29,18 @@ nonisolated enum PhotoDescriptionBackend {
         thinking: Bool
     ) async throws -> String {
         if provider == .onDevice {
-            let answer = try await PhotoLocalModel.shared.describe(
-                jpeg: jpeg,
-                prompt: text,
-                system: system,
-                maxTokens: 160
-            )
-            guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
-            return answer
+            do {
+                let answer = try await PhotoLocalModel.shared.describe(
+                    jpeg: jpeg,
+                    prompt: text,
+                    system: system,
+                    maxTokens: 160
+                )
+                guard !answer.isEmpty else { throw PhotoChatError.emptyAnswer }
+                return answer
+            } catch LocalVLM.Failure.outputLimit {
+                throw PhotoChatError.incompleteStream
+            }
         }
         return try await PhotoChatClient().describe(
             jpeg: jpeg,

@@ -58,8 +58,8 @@ struct PhotoPresentationTests {
             defaults.set(language.rawValue, forKey: "selectedLanguage")
             for rate in SpeechRateOption.allCases {
                 defaults.set(rate.rawValue, forKey: "speechRateOption")
-                let answer = AnswerAudioOutput.answerUtterance("前方有门。", defaults: defaults)
-                let announcement = SpeechManager.announcementUtterance(
+                let answer = SpeechVoice.utterance("前方有门。", defaults: defaults)
+                let announcement = SpeechVoice.utterance(
                     "前方有门。",
                     rate: rate,
                     language: language
@@ -82,12 +82,12 @@ struct PhotoPresentationTests {
         defaults.set(false, forKey: "followSystemLanguageEnabled")
         defaults.set(SpeechLanguage.chinese.rawValue, forKey: "selectedLanguage")
         defaults.set(SpeechRateOption.slow.rawValue, forKey: "speechRateOption")
-        let first = AnswerAudioOutput.answerUtterance("门在左边。", defaults: defaults)
+        let first = SpeechVoice.utterance("门在左边。", defaults: defaults)
         #expect(first.rate == SpeechRateOption.slow.avSpeechRate)
 
         defaults.set(SpeechRateOption.fast.rawValue, forKey: "speechRateOption")
         defaults.set(SpeechLanguage.english.rawValue, forKey: "selectedLanguage")
-        let second = AnswerAudioOutput.answerUtterance(
+        let second = SpeechVoice.utterance(
             "The door is on the left.",
             defaults: defaults
         )
@@ -95,19 +95,19 @@ struct PhotoPresentationTests {
         #expect(second.voice?.identifier == AVSpeechSynthesisVoice(language: "en-US")?.identifier)
         // The automatic-announcement switch must not mute a manually requested answer.
         defaults.set(false, forKey: "voiceAnnouncementsEnabled")
-        #expect(AnswerAudioOutput.answerUtterance("回答", defaults: defaults).speechString == "回答")
+        #expect(SpeechVoice.utterance("回答", defaults: defaults).speechString == "回答")
     }
 
     @Test func answerSpeechUsesTheSameSystemLanguageAndDefaultsAsAnnouncements() throws {
         let suite = "PhotoPresentationTests.defaultVoice.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let expected = SpeechManager.announcementUtterance(
+        let expected = SpeechVoice.utterance(
             "回答",
             rate: .normal,
             language: .fromSystemLanguage()
         )
-        let answer = AnswerAudioOutput.answerUtterance("回答", defaults: defaults)
+        let answer = SpeechVoice.utterance("回答", defaults: defaults)
         #expect(answer.voice?.identifier == expected.voice?.identifier)
         #expect(answer.rate == expected.rate)
         #expect(answer.pitchMultiplier == expected.pitchMultiplier)
@@ -115,7 +115,7 @@ struct PhotoPresentationTests {
         defaults.set(true, forKey: "followSystemLanguageEnabled")
         defaults.set(SpeechLanguage.chinese.rawValue, forKey: "selectedLanguage")
         #expect(
-            AnswerAudioOutput.answerUtterance("回答", defaults: defaults).voice?.identifier
+            SpeechVoice.utterance("回答", defaults: defaults).voice?.identifier
                 == expected.voice?.identifier
         )
     }

@@ -1,5 +1,5 @@
-import ARKit
 import CoreImage
+import CoreVideo
 import ImageIO
 import SpatialCore
 
@@ -18,14 +18,6 @@ nonisolated enum PhotoImagePurpose {
 
 /// Rotation precedes proportional downsampling to preserve the full camera view.
 nonisolated enum PhotoImageEncoder {
-    static func jpeg(frame: FrameSnapshot, longestSide: CGFloat) throws -> Data {
-        try jpeg(
-            pixelBuffer: frame.frame.capturedImage,
-            orientation: frame.orientation,
-            longestSide: longestSide
-        )
-    }
-
     static func jpeg(
         pixelBuffer: CVPixelBuffer,
         orientation: ImageOrientation,

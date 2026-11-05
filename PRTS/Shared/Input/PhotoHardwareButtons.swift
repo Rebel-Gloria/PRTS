@@ -9,9 +9,6 @@ struct PhotoHardwareButtons: UIViewRepresentable {
     var up: () -> Void
     var cancel: () -> Void
     var enabled: Bool
-    /// Settings: the volume buttons as the photo button, on phones without Camera Control.
-    static let volumeKey = "photo.hardwareButtons"
-
     /// iPhone 16 and later. Camera Control always takes photos there and is not a setting.
     static let hasCameraControl: Bool = {
         guard #available(iOS 18, *) else { return false }

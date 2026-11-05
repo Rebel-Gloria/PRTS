@@ -10,11 +10,13 @@ private final class CaptionTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     var stops = 0
+    var playbackFails = false
     private var arrival: CheckedContinuation<Void, Never>?
 
-    func cue(_ cue: AnswerAudioOutput.Cue) throws {}
+    func cue(_ cue: AnswerCue) throws {}
     func speak(_ text: String) throws {
         spoken.append(text)
+        if playbackFails { throw PhotoChatError.emptyAnswer }
         arrival?.resume()
         arrival = nil
     }
@@ -101,8 +103,8 @@ struct LiveCaptionSessionTests {
         }
     }
 
-    private func services(clock: CaptionTestClock) -> PhotoDescriptionServices {
-        var services = PhotoDescriptionServices()
+    private func services(clock: CaptionTestClock) -> LiveCaptionServices {
+        var services = LiveCaptionServices()
         services.now = { clock.now }
         services.uploadAllowed = { true }
         return services
@@ -118,7 +120,7 @@ struct LiveCaptionSessionTests {
         let response = CaptionTestResponse()
         let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
-        var services = PhotoDescriptionServices(defaults: defaults)
+        var services = LiveCaptionServices(defaults: defaults)
         services.now = { clock.now }
         let session = LiveCaptionSession(
             audio: audio,
@@ -206,7 +208,7 @@ struct LiveCaptionSessionTests {
 
     @Test func cloudConsentIsRequiredBeforeCapture() {
         let audio = CaptionTestAnswerAudio()
-        var services = PhotoDescriptionServices()
+        var services = LiveCaptionServices()
         services.uploadAllowed = { false }
         let session = LiveCaptionSession(
             audio: audio,
@@ -222,11 +224,60 @@ struct LiveCaptionSessionTests {
         })
         #expect(!session.isRunning)
         #expect(session.message == "先在设置里允许发送照片")
+        #expect(audio.spoken == ["先在设置里允许发送照片"])
+        #expect(session.suspendsFeedback)
+        audio.onFinished?()
+        #expect(!session.suspendsFeedback)
+    }
+
+    @Test func failingStatusAudioDoesNotRecursivelyAnnounceErrors() {
+        let audio = CaptionTestAnswerAudio()
+        audio.playbackFails = true
+        var services = LiveCaptionServices()
+        services.uploadAllowed = { false }
+        let session = LiveCaptionSession(audio: audio, services: services)
+        session.start(capture: {
+            Issue.record("Consent failure must not start capturing")
+            return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
+        })
+        #expect(audio.spoken.count == 1)
+        #expect(!session.suspendsFeedback)
+        #expect(session.work == nil)
+    }
+
+    @Test func requestFailureIsAnnouncedOnceAndCanBeCancelled() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            credential: { _ in "synthetic-test-key" },
+            describeOpening: { _, _ in throw PhotoChatError.incompleteStream },
+            sleep: clock.sleep
+        )
+        session.localized = { $0 }
+        let image = jpeg()
+        session.start(capture: {
+            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
+        })
+        let work = session.work
+        await audio.waitForSpeech(count: 2)
+        #expect(
+            audio.spoken == [
+                "liveCaption.on", PhotoChatError.incompleteStream.localizedDescription,
+            ]
+        )
+        #expect(!session.isRunning)
+        #expect(session.isAnnouncing)
+        session.stop()
+        clock.finish()
+        await work?.value
+        #expect(!session.suspendsFeedback)
     }
 
     @Test func qwenKeyIsRequiredBeforeCapture() {
         let audio = CaptionTestAnswerAudio()
-        var services = PhotoDescriptionServices()
+        var services = LiveCaptionServices()
         services.uploadAllowed = { true }
         let session = LiveCaptionSession(
             audio: audio,

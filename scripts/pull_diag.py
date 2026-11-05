@@ -32,7 +32,7 @@ def main():
             "--domain-identifier",
             args.bundle_id,
             "--source",
-            "Documents/Diagnostics",
+            "Documents/DevDiagnostics/Diagnostics",
             "--destination",
             str(args.output.resolve()),
             "--timeout",

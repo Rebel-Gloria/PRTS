@@ -1,3 +1,4 @@
+import ARKit
 import Combine
 import Foundation
 
@@ -6,6 +7,7 @@ import Foundation
 @MainActor
 final class PhotoDescriptionCoordinator: ObservableObject {
     @Published private(set) var busy = false
+    @Published private(set) var isAnnouncing = false
     @Published private(set) var message = ""
     private var press = PhotoPressState()
     private var timer: Task<Void, Never>?
@@ -70,7 +72,11 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 throw PhotoChatError.emptyInput
             }
             return Task.detached(priority: .userInitiated) {
-                try PhotoImageEncoder.jpeg(frame: frame, longestSide: longestSide)
+                try PhotoImageEncoder.jpeg(
+                    pixelBuffer: frame.frame.capturedImage,
+                    orientation: frame.orientation,
+                    longestSide: longestSide
+                )
             }
         }
     }
@@ -112,6 +118,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 }
                 key = credential
             } catch {
+                services.errors.record(error)
                 cancel()
                 message = error.localizedDescription
                 return false
@@ -179,6 +186,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         captureOperation = nil
         key = ""
         busy = false
+        isAnnouncing = false
         if clearMessage { message = "" }
     }
 
@@ -238,6 +246,22 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     private func fail(_ error: Error) {
         cancel()
-        if !(error is CancellationError) { message = error.localizedDescription }
+        guard !(error is CancellationError) else { return }
+        services.errors.record(error)
+        if let failure = error as? PhotoChatError, case .incompleteStream = failure {
+            isAnnouncing = true
+        }
+        message = error.localizedDescription
+        if isAnnouncing {
+            busy = true
+            do {
+                try audio.speak(message)
+            } catch {
+                services.errors.record(error)
+                audio.stop()
+                busy = false
+                isAnnouncing = false
+            }
+        }
     }
 }

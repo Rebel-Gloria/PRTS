@@ -16,8 +16,10 @@ nonisolated enum IntelligenceFeature: CaseIterable, Sendable {
         if self == .textReading {
             return TextReadingService.current(defaults).provider(defaults)
         }
-        if let value = defaults.string(forKey: selectionKey) {
-            return PhotoChatProvider(rawValue: value)!
+        if let value = defaults.string(forKey: selectionKey),
+            let provider = PhotoChatProvider(rawValue: value)
+        {
+            return provider
         }
         return PhotoChatProvider.current(defaults)
     }

@@ -1,9 +1,25 @@
 import Foundation
 
-nonisolated enum PhotoChatError: Error, LocalizedError {
+nonisolated enum PhotoChatError: Error, LocalizedError, CustomNSError {
     case missingKey, invalidService, emptyInput, malformedStream, incompleteStream, emptyAnswer,
         responseTooLarge
     case http(Int)
+    static var errorDomain: String { "PRTS.PhotoChat" }
+    var errorCode: Int {
+        switch self {
+        case .missingKey: 1
+        case .invalidService: 2
+        case .emptyInput: 3
+        case .malformedStream: 4
+        case .incompleteStream: 5
+        case .emptyAnswer: 6
+        case .responseTooLarge: 7
+        case .http(let status): status
+        }
+    }
+    var errorUserInfo: [String: Any] {
+        [NSLocalizedDescriptionKey: errorDescription!]
+    }
     var errorDescription: String? {
         switch self {
         case .missingKey: "请先在设置中保存 API Key"

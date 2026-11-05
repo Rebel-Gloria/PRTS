@@ -13,8 +13,10 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     /// qwen-vl-ocr over qwen3.5-ocr: as fast and as accurate on text, and it said "无" on photos
     /// where qwen3.5-ocr made up a word (docs/validation.md).
     static let qwen = PhotoChatService(
-        endpoint: PhotoChatProtocol.endpoint,
-        model: PhotoChatProtocol.model,
+        endpoint: URL(
+            string: "https://maas.qianwenaiapi.com/compatible-mode/v1/chat/completions"
+        )!,
+        model: "qwen3.8-flash",
         thinking: .qwenFlag,
         ocrModel: "qwen-vl-ocr"
     )

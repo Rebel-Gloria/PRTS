@@ -22,6 +22,7 @@ typedef enum {
     PRTS_VLM_BAD_IMAGE = 1,
     PRTS_VLM_EVAL_FAILED = 2,
     PRTS_VLM_CANCELLED = 3,
+    PRTS_VLM_OUTPUT_LIMIT = 4,
 } prts_vlm_status;
 
 /// Loads both files with Metal offload. NULL if either file cannot be loaded.
