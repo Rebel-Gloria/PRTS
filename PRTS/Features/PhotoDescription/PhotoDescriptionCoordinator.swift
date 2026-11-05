@@ -15,7 +15,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private var imageTask: Task<Data, Error>?
     private var generation = UUID()
     private var captureOperation: ((CGFloat) throws -> Task<Data, Error>)?
-    private var key = ""
+    private var request: PhotoDescriptionRequest?
     private let recognizer: any PhotoRecognizing
     private let audio: any AnswerAudio
     private let services: PhotoDescriptionServices
@@ -106,23 +106,28 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func prepareService(for feature: IntelligenceFeature) -> Bool {
-        if !services.onDevice(feature) {
-            guard services.uploadAllowed() else {
-                cancel()
-                message = "先在设置里允许发送照片"
-                return false
-            }
-            do {
-                guard let credential = try services.credential(feature), !credential.isEmpty else {
+        do {
+            let configuration = try services.configuration(feature)
+            var key = ""
+            if configuration.provider != .onDevice {
+                guard configuration.uploadAllowed else {
+                    cancel()
+                    message = "先在设置里允许发送照片"
+                    return false
+                }
+                guard let credential = try services.credential(configuration.provider),
+                    !credential.isEmpty
+                else {
                     throw PhotoChatError.missingKey
                 }
                 key = credential
-            } catch {
-                services.errors.record(error)
-                cancel()
-                message = error.localizedDescription
-                return false
             }
+            request = PhotoDescriptionRequest(configuration: configuration, key: key)
+        } catch {
+            services.errors.record(error)
+            cancel()
+            message = error.localizedDescription
+            return false
         }
         return true
     }
@@ -184,17 +189,17 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         recognizer.cancel()
         audio.stop()
         captureOperation = nil
-        key = ""
+        request = nil
         busy = false
         isAnnouncing = false
         if clearMessage { message = "" }
     }
 
     private func capture(purpose: PhotoImagePurpose) throws {
-        guard let captureOperation else { throw PhotoChatError.emptyInput }
+        guard let captureOperation, let request else { throw PhotoChatError.emptyInput }
         self.captureOperation = nil
         imageTask = try captureOperation(
-            purpose.longestSide(highResolution: services.highResolution())
+            purpose.longestSide(highResolution: request.configuration.highResolution)
         )
     }
 
@@ -220,17 +225,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func submit(question: String?) {
-        guard let imageTask else { return }
+        guard let imageTask, let request else { return }
         let id = generation
-        let credential = key
         let describe = services.describe
-        key = ""
+        self.request = nil
         message = "正在描述"
         work = Task { [weak self] in
             do {
                 let jpeg = try await imageTask.value
                 try Task.checkCancellation()
-                let answer = try await describe(jpeg, question, credential)
+                let answer = try await describe(jpeg, question, request)
                 try Task.checkCancellation()
                 guard let self, self.generation == id else { return }
                 self.imageTask = nil

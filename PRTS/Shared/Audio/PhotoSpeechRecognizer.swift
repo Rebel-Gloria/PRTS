@@ -16,6 +16,8 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         }
     }
     private let engine = AVAudioEngine()
+    private let audioSession: AudioSessionCoordinator
+    private var audioLease: AudioSessionCoordinator.Lease?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var speechRecognizer: SFSpeechRecognizer?
@@ -26,6 +28,10 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
     private var result: Result<String, Error>?
     private var waiter: CheckedContinuation<String, Error>?
     private var timeout: Task<Void, Never>?
+
+    convenience init() { self.init(audioSession: .shared) }
+
+    init(audioSession: AudioSessionCoordinator) { self.audioSession = audioSession }
 
     static var authorized: Bool {
         SFSpeechRecognizer.authorizationStatus() == .authorized
@@ -51,9 +57,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             recognizer.isAvailable
         else { throw RecognitionError.unavailable }
         speechRecognizer = recognizer
-        let audio = AVAudioSession.sharedInstance()
-        try audio.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
-        try audio.setActive(true)
+        audioLease = try audioSession.activate(.recording)
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         self.request = request
@@ -157,5 +161,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             engine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
         }
+        audioSession.release(audioLease)
+        audioLease = nil
     }
 }

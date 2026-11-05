@@ -50,10 +50,11 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         }
     }
 
-    func stop() {
+    func stop(completion: @escaping @MainActor @Sendable () -> Void) {
         queue.async {
             self.onFrame = nil
             if self.session.isRunning { self.session.stopRunning() }
+            Task { @MainActor in completion() }
         }
     }
 
@@ -102,7 +103,11 @@ nonisolated protocol TextCapturing: AnyObject {
     var session: AVCaptureSession { get }
     func start(frame: @escaping @MainActor () -> Void, failed: @escaping @MainActor () -> Void)
     func capture(_ done: @escaping (CIImage?) -> Void)
-    func stop()
+    func stop(completion: @escaping @MainActor @Sendable () -> Void)
+}
+
+extension TextCapturing {
+    func stop() { stop(completion: {}) }
 }
 
 /// Each delegate keeps the completion of the capture that created it.

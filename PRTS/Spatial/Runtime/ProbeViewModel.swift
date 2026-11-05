@@ -41,7 +41,7 @@ final class ProbeViewModel: ObservableObject {
     #endif
     @Published var hapticStatus = "等待路径"
     var feedbackSuspended = false
-    private let pathHaptics = PathHaptics()
+    private let feedback: any SpatialFeedback
     @Published var recorderStatus = RecorderStatus()
     @Published var diagnosticStatus = DiagnosticStatus()
     @Published var diagnosticRuns: [DiagnosticRun] = []
@@ -53,13 +53,9 @@ final class ProbeViewModel: ObservableObject {
     private var lastThermal = -1
     private var lastHeartbeat: Double = 0
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    // Default arguments are evaluated outside the main actor, so the app uses this initializer.
-    convenience init() {
-        self.init(engine: ProbeEngine())
-    }
-
-    init(engine: ProbeEngine) {
+    init(engine: ProbeEngine, feedback: any SpatialFeedback) {
         self.engine = engine
+        self.feedback = feedback
         #if PRTS_DEV_CAPTURE
         if let data = UserDefaults.standard.data(forKey: "homeRenderOptions.v1"),
             let saved = try? JSONDecoder().decode(RenderOptions.self, from: data)
@@ -95,7 +91,7 @@ final class ProbeViewModel: ObservableObject {
             epoch: engine.store.read().epoch
         )
         if phase != .active {
-            pathHaptics.stop(reset: true)
+            feedback.reset()
             engine.stop(reason: "已切到后台，回来后请重新开始")
         }
         if phase == .background {
@@ -184,8 +180,8 @@ final class ProbeViewModel: ObservableObject {
         snapshot = engine.store.read()
         recorderStatus = engine.recorder.status()
         diagnosticStatus = engine.diagnostics.journal.status()
-        pathHaptics.tick(snapshot, diagnostics: engine.diagnostics, suspended: feedbackSuspended)
-        hapticStatus = pathHaptics.status
+        feedback.tick(snapshot, diagnostics: engine.diagnostics, suspended: feedbackSuspended)
+        hapticStatus = feedback.status
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastHeartbeat >= 1 {
             lastHeartbeat = now
@@ -244,7 +240,7 @@ final class ProbeViewModel: ObservableObject {
         if let data = try? JSONEncoder().encode(pathOptions) {
             UserDefaults.standard.set(data, forKey: "pathOptions")
         }
-        pathHaptics.stop(reset: true)
+        feedback.reset()
         engine.updatePathOptions(pathOptions)
         poll()
     }

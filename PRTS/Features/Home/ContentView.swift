@@ -583,14 +583,16 @@ struct ContentView: View {
         feedback.reset()
         speechManager.stopCurrentSpeech()
         let resumeGuidance = camera.state == .running
-        camera.pauseForTextReading()
         hapticManager.buttonTapped()
         textReading.localized = { key in speechManager.interfaceString(key) }
         textReading.finished = {
             // Read the app state now: scenePhase here is the value from when reading started.
             camera.finishTextReading(isActive: UIApplication.shared.applicationState == .active)
         }
-        textReading.start(intro: resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start")
+        textReading.start(intro: resumeGuidance ? "ocr.start.pausedGuidance" : "ocr.start") {
+            ready in
+            camera.pauseForTextReading(completion: ready)
+        }
     }
 
     private func stopFromAssistiveTechnology() {

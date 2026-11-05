@@ -4,43 +4,43 @@ import Testing
 @testable import PRTS
 
 struct PhotoPromptSelectionTests {
-    @Test func localEnhancementIsOffByDefaultAndCanBeDisabledAgain() {
+    @Test func localEnhancementIsOffByDefaultAndCanBeDisabledAgain() throws {
         let name = "PhotoPromptSelectionTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        let question = "这是什么，有什么用途？"
         #expect(!defaults.bool(forKey: PhotoChatProvider.localEnhancedKey))
         #expect(
-            PhotoPrompts.localSystem(question: question, defaults: defaults)
+            try PhotoDescriptionConfiguration(feature: .question, defaults: defaults).system
                 == PhotoPrompts.localQuestionSystem
         )
         defaults.set(true, forKey: PhotoChatProvider.localEnhancedKey)
         #expect(
-            PhotoPrompts.localSystem(question: question, defaults: defaults)
+            try PhotoDescriptionConfiguration(feature: .question, defaults: defaults).system
                 == PhotoPrompts.questionSystem
         )
         defaults.set(false, forKey: PhotoChatProvider.localEnhancedKey)
         #expect(
-            PhotoPrompts.localSystem(question: question, defaults: defaults)
+            try PhotoDescriptionConfiguration(feature: .question, defaults: defaults).system
                 == PhotoPrompts.localQuestionSystem
         )
     }
 
-    @Test func localEnhancementDoesNotChangeShortDescriptionsOrThinking() {
+    @Test func localEnhancementDoesNotChangeShortDescriptionsOrThinking() throws {
         let name = "PhotoPromptSelectionTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         for enabled in [false, true] {
             defaults.set(enabled, forKey: PhotoChatProvider.localEnhancedKey)
             #expect(
-                PhotoPrompts.localSystem(question: nil, defaults: defaults) == PhotoPrompts.system
+                try PhotoDescriptionConfiguration(feature: .description, defaults: defaults).system
+                    == PhotoPrompts.system
             )
             #expect(!defaults.bool(forKey: PhotoChatProvider.qwen.questionThinkingKey))
         }
         defaults.set(false, forKey: PhotoChatProvider.localEnhancedKey)
         defaults.set(true, forKey: PhotoChatProvider.qwen.questionThinkingKey)
         #expect(
-            PhotoPrompts.localSystem(question: "门在哪？", defaults: defaults)
+            try PhotoDescriptionConfiguration(feature: .question, defaults: defaults).system
                 == PhotoPrompts.localQuestionSystem
         )
     }

@@ -62,7 +62,10 @@ final class TextReadingSession: ObservableObject {
         voice.onFinished = { [weak self] in self?.voiceFinished() }
     }
 
-    func start(intro: String) {
+    func start(
+        intro: String,
+        prepareCamera: @MainActor (@escaping @MainActor @Sendable () -> Void) -> Void = { $0() }
+    ) {
         guard phase == .idle else { return }
         let id = UUID()
         generation = id
@@ -75,13 +78,16 @@ final class TextReadingSession: ObservableObject {
         cloud = service == .vision ? nil : cloudSetup()
         do {
             try say(intro)
-            camera.start(
-                frame: { [weak self] in self?.frame(id) },
-                failed: { [weak self] in self?.cameraFailed(id) }
-            )
-            timeout = Task { [weak self, services] in
-                do { try await services.sleep(Self.cameraTimeout) } catch { return }
-                if self?.framesSeen == 0 { self?.cameraFailed(id) }
+            prepareCamera { [weak self] in
+                guard let self, self.generation == id, self.phase == .aiming else { return }
+                self.camera.start(
+                    frame: { [weak self] in self?.frame(id) },
+                    failed: { [weak self] in self?.cameraFailed(id) }
+                )
+                self.timeout = Task { [weak self, services] in
+                    do { try await services.sleep(Self.cameraTimeout) } catch { return }
+                    if self?.framesSeen == 0 { self?.cameraFailed(id) }
+                }
             }
         } catch {
             services.errors.record(error)
@@ -92,6 +98,7 @@ final class TextReadingSession: ObservableObject {
     func cancel() {
         guard phase != .idle, phase != .ending else { return }
         invalidateWork()
+        camera.stop()
         voice.stop()
         voiceBusy = false
         phase = .ending
@@ -288,7 +295,6 @@ final class TextReadingSession: ObservableObject {
         work = nil
         timeout?.cancel()
         timeout = nil
-        camera.stop()
     }
 
     private func end() {
@@ -297,7 +303,12 @@ final class TextReadingSession: ObservableObject {
         voice.stop()
         voiceBusy = false
         modelDone = false
-        phase = .idle
-        finished()
+        phase = .ending
+        let id = generation
+        camera.stop { [weak self] in
+            guard let self, self.generation == id else { return }
+            self.phase = .idle
+            self.finished()
+        }
     }
 }

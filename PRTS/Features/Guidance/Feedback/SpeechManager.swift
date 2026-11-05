@@ -10,13 +10,16 @@ import Combine
 import UIKit
 
 @MainActor
-final class SpeechManager: ObservableObject {
+final class SpeechManager: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published private(set) var voiceAnnouncementsEnabled: Bool
     @Published private(set) var rateOption: SpeechRateOption
     @Published private(set) var followSystemLanguageEnabled: Bool
     @Published private(set) var selectedLanguage: SpeechLanguage
 
     private let synthesizer = AVSpeechSynthesizer()
+    private let audioSession: AudioSessionCoordinator
+    private var audioLease: AudioSessionCoordinator.Lease?
+    private var activeUtterance: ObjectIdentifier?
     private var perceptionSpeechActive = false
     var isSpeakingPerception: Bool { perceptionSpeechActive && synthesizer.isSpeaking }
     private(set) var lastSettingsAnnouncement: String?
@@ -29,7 +32,10 @@ final class SpeechManager: ObservableObject {
         stopCurrentSpeech()
     }
 
-    init() {
+    override convenience init() { self.init(audioSession: .shared) }
+
+    init(audioSession: AudioSessionCoordinator) {
+        self.audioSession = audioSession
         let defaults = UserDefaults.standard
         voiceAnnouncementsEnabled =
             defaults.object(
@@ -47,6 +53,8 @@ final class SpeechManager: ObservableObject {
             SpeechLanguage(
                 rawValue: defaults.string(forKey: SpeechPreferences.Key.selectedLanguage) ?? ""
             ) ?? .english
+        super.init()
+        synthesizer.delegate = self
     }
 
     /// The locale used by SwiftUI for the entire app. For unsupported system
@@ -94,14 +102,15 @@ final class SpeechManager: ObservableObject {
         perceptionSpeechActive = false
         guard voiceAnnouncementsEnabled else { return }
 
-        prepareAudioSession()
         stopCurrentSpeech()
+        prepareAudioSession()
 
         let utterance = SpeechVoice.utterance(
             message,
             rate: rateOption,
             language: activeLanguage
         )
+        activeUtterance = ObjectIdentifier(utterance)
         synthesizer.speak(utterance)
     }
 
@@ -201,8 +210,31 @@ final class SpeechManager: ObservableObject {
 
     func stopCurrentSpeech() {
         perceptionSpeechActive = false
-        guard synthesizer.isSpeaking else { return }
-        synthesizer.stopSpeaking(at: .immediate)
+        activeUtterance = nil
+        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        audioSession.release(audioLease)
+        audioLease = nil
+    }
+
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didFinish utterance: AVSpeechUtterance
+    ) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in
+            guard let self, self.activeUtterance == id else { return }
+            self.activeUtterance = nil
+            self.perceptionSpeechActive = false
+            self.audioSession.release(self.audioLease)
+            self.audioLease = nil
+        }
+    }
+
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didCancel utterance: AVSpeechUtterance
+    ) {
+        speechSynthesizer(synthesizer, didFinish: utterance)
     }
 
     private var activeLanguage: SpeechLanguage {
@@ -240,11 +272,8 @@ final class SpeechManager: ObservableObject {
     }
 
     private func prepareAudioSession() {
-        let audioSession = AVAudioSession.sharedInstance()
-
         do {
-            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try audioSession.setActive(true, options: [.notifyOthersOnDeactivation])
+            audioLease = try audioSession.activate(.speech)
         } catch {
             // Speech synthesis can still work when another audio session owns the audio route.
             ErrorLog.application.record(error, source: .audio)
