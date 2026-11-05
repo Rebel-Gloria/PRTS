@@ -16,7 +16,7 @@ final class LiveCaptionSession: ObservableObject {
     private var press = LiveCaptionPressState()
     private var pressTimer: Task<Void, Never>?
     private let audio: any AnswerAudio
-    private let services: PhotoDescriptionServices
+    private let services: LiveCaptionServices
     private let credential: (String) throws -> String?
     private let describeOpening: @Sendable (Data, String) async throws -> String
     private let describeChange: @Sendable ([Data], String?, String) async throws -> String
@@ -34,7 +34,7 @@ final class LiveCaptionSession: ObservableObject {
 
     init(
         audio: any AnswerAudio,
-        services: PhotoDescriptionServices,
+        services: LiveCaptionServices,
         credential: @escaping (String) throws -> String? = {
             try PhotoCredentialStore.read(account: $0)
         },
@@ -92,7 +92,14 @@ final class LiveCaptionSession: ObservableObject {
     func announce(_ text: String) {
         audio.stop()
         isAnnouncing = true
-        do { try audio.speak(text) } catch { fail(error) }
+        do {
+            try audio.speak(text)
+        } catch {
+            services.errors.record(error)
+            audio.stop()
+            isAnnouncing = false
+            message = error.localizedDescription
+        }
     }
 
     func interruptAnnouncement() {
@@ -127,6 +134,7 @@ final class LiveCaptionSession: ObservableObject {
         guard services.uploadAllowed() else {
             stop()
             message = "先在设置里允许发送照片"
+            announce(message)
             return
         }
         let key: String
@@ -276,7 +284,9 @@ final class LiveCaptionSession: ObservableObject {
     }
 
     private func fail(_ error: Error) {
+        services.errors.record(error)
         stop()
         message = error.localizedDescription
+        announce(message)
     }
 }

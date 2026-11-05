@@ -186,14 +186,23 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     }
     func flushDiagnostics(lifecycle: String, completion: @escaping @Sendable () -> Void) {
         diagnostics.journal.noteLifecycle(lifecycle)
+        let finish: @Sendable () -> Void = {
+            Task {
+                // Disk errors are observable through the log's flush API; app suspension still ends.
+                try? await ErrorLog.application.flush()
+                completion()
+            }
+        }
         sessionQueue.async { [self] in
             analysisQueue.async { [self] in
                 meshQueue.async { [self] in
-                    #if PRTS_DEV_CAPTURE
-                    devCapture.stop { [self] in diagnostics.journal.flush(completion: completion) }
-                    #else
-                    diagnostics.journal.flush(completion: completion)
-                    #endif
+                    recorder.flush { [self] in
+                        #if PRTS_DEV_CAPTURE
+                        devCapture.stop { [self] in diagnostics.journal.flush(completion: finish) }
+                        #else
+                        diagnostics.journal.flush(completion: finish)
+                        #endif
+                    }
                 }
             }
         }
@@ -422,6 +431,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                         )
                         if let prediction { diagnostics.monocular(prediction) }
                     } catch {
+                        ErrorLog.application.record(error, source: .camera)
                         monocularProvider.reset()
                         depthRead = .init(
                             status: "coreml_error: \(error.localizedDescription)",
@@ -777,6 +787,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         store.update { $0.status = "中断结束，请点击开始建立新会话" }
     }
     func session(_ session: ARSession, didFailWithError error: Error) {
+        ErrorLog.application.record(error, source: .camera)
         diagnostics.event(
             "session_failure",
             details:

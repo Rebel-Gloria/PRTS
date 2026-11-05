@@ -3,6 +3,7 @@ import Testing
 
 @testable import PRTS
 
+@MainActor
 struct UserGuideTests {
     @Test func picksTheGuideForThePhonesButtons() {
         #expect(UserGuide.kind(hasCameraControl: true, model: "iPhone18,2") == .cameraControl)

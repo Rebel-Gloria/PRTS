@@ -306,6 +306,9 @@ final class PRTSUITests: XCTestCase {
     @MainActor
     func testTextReadingStartsCamera() throws {
         let app = XCUIApplication.prts()
+        app.launchArguments += [
+            "-ocr.service", "onDevice", "-photoDescription.uploadAllowed", "NO",
+        ]
         app.launch()
         let camera = app.buttons["cameraButton"]
         XCTAssertTrue(camera.waitForExistence(timeout: 10))
@@ -358,6 +361,11 @@ final class PRTSUITests: XCTestCase {
     @MainActor
     func testScreenTour() throws {
         let app = XCUIApplication.prts()
+        // Exercise the bundled model with live camera input without using saved cloud settings.
+        app.launchArguments += [
+            "-intelligence.provider.description", "onDevice",
+            "-photoDescription.uploadAllowed", "NO",
+        ]
         app.launch()
         func shot(_ name: String) {
             let attachment = XCTAttachment(screenshot: app.screenshot())

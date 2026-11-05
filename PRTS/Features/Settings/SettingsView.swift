@@ -10,14 +10,14 @@ struct SettingsView: View {
     @State private var showSpatialSettings = false
     #endif
     @EnvironmentObject private var speech: SpeechManager
-    @AppStorage(ContentView.noPreviewKey) private var noPreview = false
-    @AppStorage(ContentView.tapToStopKey) private var tapToStop = false
+    @AppStorage(InteractionPreferences.noPreviewKey) private var noPreview = false
+    @AppStorage(InteractionPreferences.tapToStopKey) private var tapToStop = false
     @State private var showUserGuide = false
-    @AppStorage(ContentView.lowVisionKey) private var lowVisionMode = false
+    @AppStorage(InteractionPreferences.lowVisionKey) private var lowVisionMode = false
     @State private var confirmLowVision = false
     @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.onDevice
-    @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
-    @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
+    @AppStorage(InteractionPreferences.volumeKey) private var volumeButtons = true
+    @AppStorage(InteractionPreferences.threeFingerKey) private var threeFingerReading = true
 
     var body: some View {
         Form {

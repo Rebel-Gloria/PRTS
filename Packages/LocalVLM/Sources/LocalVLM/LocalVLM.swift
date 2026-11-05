@@ -4,7 +4,7 @@ import Foundation
 /// MiniCPM-V 4.7 running on the phone. The model loads on first use (about 3 s) and stays loaded,
 /// so later photos take about 2 s. Calls run one at a time on a private queue.
 public final class LocalVLM: @unchecked Sendable {
-    public enum Failure: Error { case loadFailed, badImage, evalFailed }
+    public enum Failure: Error { case loadFailed, badImage, evalFailed, outputLimit }
 
     private let model: URL
     private let mmproj: URL
@@ -14,6 +14,25 @@ public final class LocalVLM: @unchecked Sendable {
     public init(model: URL, mmproj: URL) {
         self.model = model
         self.mmproj = mmproj
+    }
+
+    /// Release the cached model after queued requests finish. A later description loads it again;
+    /// callers must finish any follow-up conversation before unloading its context.
+    public func unload() async {
+        await withCheckedContinuation { done in
+            queue.async {
+                if let handle = self.handle {
+                    prts_vlm_close(handle)
+                    self.handle = nil
+                }
+                done.resume()
+            }
+        }
+    }
+
+    deinit {
+        // Every queued operation retains self, so no operation can still be using this handle.
+        if let handle { prts_vlm_close(handle) }
     }
 
     /// Greedy decoding, so the same photo and prompt give the same answer. `onText` gets the
@@ -97,6 +116,7 @@ public final class LocalVLM: @unchecked Sendable {
             return String(cString: answer!).trimmingCharacters(in: .whitespacesAndNewlines)
         case PRTS_VLM_CANCELLED: throw CancellationError()
         case PRTS_VLM_BAD_IMAGE: throw Failure.badImage
+        case PRTS_VLM_OUTPUT_LIMIT: throw Failure.outputLimit
         default: throw Failure.evalFailed
         }
     }

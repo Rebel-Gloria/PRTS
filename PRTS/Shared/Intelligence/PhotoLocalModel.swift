@@ -23,7 +23,7 @@ extension LocalVLM.Failure: @retroactive LocalizedError {
         switch self {
         case .loadFailed: "本机模型没能加载"
         case .badImage: "本机模型读不了这张照片"
-        case .evalFailed: "本机模型出错，请重试"
+        case .evalFailed, .outputLimit: "本机模型出错，请重试"
         }
     }
 }

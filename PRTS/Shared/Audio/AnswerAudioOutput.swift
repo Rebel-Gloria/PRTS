@@ -5,19 +5,24 @@ import AVFoundation
 /// text reading; SpeechManager handles obstacle announcements.
 @MainActor
 final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
-    enum Cue { case submit, record }
     private let synthesizer = AVSpeechSynthesizer()
+    private let makeUtterance: (String) -> AVSpeechUtterance
     private var player: AVAudioPlayer?
     private var activeUtterance: ObjectIdentifier?
     private var ownsSession = false
     var onFinished: (() -> Void)?
 
-    override init() {
+    override convenience init() {
+        self.init(makeUtterance: { SpeechVoice.utterance($0) })
+    }
+
+    init(makeUtterance: @escaping (String) -> AVSpeechUtterance) {
+        self.makeUtterance = makeUtterance
         super.init()
         synthesizer.delegate = self
     }
 
-    func cue(_ cue: Cue) throws {
+    func cue(_ cue: AnswerCue) throws {
         let session = AVAudioSession.sharedInstance()
         if cue == .record {
             try session.setCategory(
@@ -40,18 +45,9 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try session.setActive(true)
         ownsSession = true
-        let utterance = Self.answerUtterance(text)
+        let utterance = makeUtterance(text)
         activeUtterance = ObjectIdentifier(utterance)
         synthesizer.speak(utterance)
-    }
-
-    /// Share the announcement voice, not its queue or cancellation ownership.
-    /// Read the latest preferences for each answer rather than caching at startup.
-    static func answerUtterance(
-        _ text: String,
-        defaults: UserDefaults = .standard
-    ) -> AVSpeechUtterance {
-        SpeechManager.announcementUtterance(text, defaults: defaults)
     }
 
     func stop() {
@@ -61,10 +57,14 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         player = nil
         if ownsSession {
             ownsSession = false
-            try? AVAudioSession.sharedInstance().setActive(
-                false,
-                options: [.notifyOthersOnDeactivation]
-            )
+            do {
+                try AVAudioSession.sharedInstance().setActive(
+                    false,
+                    options: [.notifyOthersOnDeactivation]
+                )
+            } catch {
+                ErrorLog.application.record(error, source: .audio)
+            }
         }
     }
 
@@ -80,12 +80,21 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didCancel utterance: AVSpeechUtterance
+    ) {
+        // Explicit stop has already cleared activeUtterance; a system cancellation still ends
+        // the current playback so its owner can release the session and reset its controls.
+        speechSynthesizer(synthesizer, didFinish: utterance)
+    }
+
     enum OutputError: LocalizedError {
         case cueUnavailable
         var errorDescription: String? { "无法播放拍照提示音，请重试" }
     }
 
-    static func toneData(for cue: Cue) -> Data {
+    static func toneData(for cue: AnswerCue) -> Data {
         wave(frequency: cue == .submit ? 880 : 440)
     }
 

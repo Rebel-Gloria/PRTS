@@ -30,22 +30,18 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
-    @AppStorage(Self.lowVisionKey) private var lowVisionMode = false
-    /// For people with some sight: photos, questions and reading, without obstacle guidance.
-    static let lowVisionKey = "app.lowVisionMode"
-    @AppStorage(Self.tapToStopKey) private var tapToStop = false
-    static let tapToStopKey = "accessibility.tapToStop"
+    @AppStorage(InteractionPreferences.lowVisionKey) private var lowVisionMode = false
+    @AppStorage(InteractionPreferences.tapToStopKey) private var tapToStop = false
     /// AssistiveTouch (including dwell and eye tracking) and Switch Control deliver real
     /// touches but cannot hold a press, so held gestures get a tap alternative.
     @State private var pointerCannotHold = Self.assistivePointerRunning
     @State private var askingByTap = false
     @ObservedObject private var commands = HomeCommandCenter.shared
-    @AppStorage(PhotoHardwareButtons.volumeKey) private var volumeButtons = true
-    @AppStorage(TextReadingSession.threeFingerKey) private var threeFingerReading = true
+    @AppStorage(InteractionPreferences.volumeKey) private var volumeButtons = true
+    @AppStorage(InteractionPreferences.threeFingerKey) private var threeFingerReading = true
     /// Skips the Metal preview for users who don't look at the screen. Analysis, guidance,
     /// haptics and photo capture read the shared snapshot, not the renderer.
-    @AppStorage(Self.noPreviewKey) private var noPreview = false
-    static let noPreviewKey = "display.noPreview"
+    @AppStorage(InteractionPreferences.noPreviewKey) private var noPreview = false
     #if PRTS_DEV_CAPTURE
     @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
     @State private var commandText = ""
@@ -124,10 +120,14 @@ struct ContentView: View {
                     TextReadingStatusView(framesSeen: textReading.framesSeen)
                 }
             }
-            .background(ThreeFingerHold { if threeFingerReading { toggleTextReading() } })
+            .background(
+                ThreeFingerHold {
+                    if threeFingerReading && homeActionsAvailable { toggleTextReading() }
+                }
+            )
             // VoiceOver two-finger double-tap runs the main action from anywhere on the screen.
             .accessibilityAction(.magicTap) {
-                guard !isShowingSettings else { return }
+                guard homeActionsAvailable else { return }
                 camera.state == .running ? stopFromAssistiveTechnology() : startCameraFromButton()
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -187,12 +187,7 @@ struct ContentView: View {
             }
             .onChange(of: photo.message) { _, message in
                 // Photo progress ("正在描述"…) is shown under the button; VoiceOver reads it too.
-                if !message.isEmpty, UIAccessibility.isVoiceOverRunning {
-                    SpeechManager.postQueuedAnnouncement(message)
-                }
-            }
-            .onChange(of: liveCaption.message) { _, message in
-                if !message.isEmpty, UIAccessibility.isVoiceOverRunning {
+                if !message.isEmpty, !photo.isAnnouncing, UIAccessibility.isVoiceOverRunning {
                     SpeechManager.postQueuedAnnouncement(message)
                 }
             }
@@ -290,6 +285,8 @@ struct ContentView: View {
 
     /// Low vision mode gives no guidance; the first-launch guide keeps it quiet while open.
     private var guidanceSuppressed: Bool { lowVisionMode || isShowingUserGuide }
+
+    private var homeActionsAvailable: Bool { !isShowingSettings && !isShowingUserGuide }
 
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -536,10 +533,12 @@ struct ContentView: View {
     }
 
     private func photoDown() {
+        guard homeActionsAvailable else { return }
         liveCaption.down(perform: performPhotoAction)
     }
 
     private func performPhotoAction(_ action: LiveCaptionPressState.Action) {
+        guard homeActionsAvailable else { return }
         switch action {
         case .photo(let action):
             liveCaption.interruptAnnouncement()
@@ -569,11 +568,12 @@ struct ContentView: View {
 
     /// Three-finger hold or the VoiceOver action: reading pauses guidance, which resumes after.
     private func toggleTextReading() {
+        guard homeActionsAvailable else { return }
         if textReading.phase != .idle {
             textReading.cancel()
             return
         }
-        guard !isShowingSettings, !camera.state.isBusy else { return }
+        guard !camera.state.isBusy else { return }
         stopHoldTask?.cancel()
         stopHoldTask = nil
         isHoldingStop = false

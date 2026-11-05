@@ -4,7 +4,7 @@ import Speech
 /// A single push-to-talk utterance. Audio buffers go only to native recognition;
 /// no audio file is created. The coordinator owns permission and gesture lifetime.
 @MainActor
-final class PhotoSpeechRecognizer {
+final class PhotoSpeechRecognizer: PhotoRecognizing {
     enum RecognitionError: LocalizedError {
         case unavailable, noSpeech, microphoneUnavailable
         var errorDescription: String? {
@@ -47,7 +47,7 @@ final class PhotoSpeechRecognizer {
         let id = UUID()
         generation = id
         guard Self.authorized,
-            let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")),
+            let recognizer = SFSpeechRecognizer(locale: SpeechPreferences.language().locale),
             recognizer.isAvailable
         else { throw RecognitionError.unavailable }
         speechRecognizer = recognizer

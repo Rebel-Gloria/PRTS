@@ -5,7 +5,7 @@ struct ProviderSettingsView: View {
     @AppStorage(PhotoChatProvider.customEndpointKey) private var customEndpoint = ""
     @AppStorage(PhotoChatProvider.customModelKey) private var customModel = ""
     @AppStorage private var questionThinking: Bool
-    @AppStorage(PhotoPrompts.localEnhancedKey) private var localEnhanced = false
+    @AppStorage(PhotoChatProvider.localEnhancedKey) private var localEnhanced = false
     @State private var key = ""
     @State private var hasKey = false
     @State private var message = ""

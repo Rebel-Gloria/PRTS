@@ -136,6 +136,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 }.value
                 self?.finishPrepare(device: device, library: compiled.value, format: format)
             } catch {
+                ErrorLog.application.record(error, source: .rendering)
                 self?.store.update { $0.renderStatus = "Metal 初始化失败：\(error.localizedDescription)" }
             }
         }
@@ -208,7 +209,10 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 bytesPerRow: 1
             )
             store.update { $0.renderStatus = "Metal 就绪" }
-        } catch { store.update { $0.renderStatus = "Metal 初始化失败：\(error.localizedDescription)" } }
+        } catch {
+            ErrorLog.application.record(error, source: .rendering)
+            store.update { $0.renderStatus = "Metal 初始化失败：\(error.localizedDescription)" }
+        }
     }
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
     private func texture(_ buffer: CVPixelBuffer, format: MTLPixelFormat, plane: Int = 0) -> (
@@ -628,6 +632,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                     $0.renderMetrics.gpuMS = (buffer.gpuEndTime - buffer.gpuStartTime) * 1000
                 }
             }
+            if let error = buffer.error { ErrorLog.application.record(error, source: .rendering) }
             if logRender {
                 diagnostic.gpu(
                     renderID: renderID,

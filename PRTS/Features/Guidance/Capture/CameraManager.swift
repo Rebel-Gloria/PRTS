@@ -94,6 +94,7 @@ final class CameraManager: ObservableObject {
             } catch is CancellationError {
                 // The cancelling operation owns the next camera state.
             } catch {
+                ErrorLog.application.record(error, source: .camera)
                 startTask = nil
                 model.requestingPermission = false
                 model.errorMessage = error.localizedDescription

@@ -1,8 +1,6 @@
 import Foundation
 
 nonisolated enum PhotoPrompts {
-    static let prompt = "描述眼前。"
-
     /// Shared by every provider for short-tap descriptions. Tuned on-device against MiniCPM-V
     /// (docs/validation.md): rules plus "don't" list plus concrete examples; placeholder
     /// templates made the small model fill in every template and invent signs.
@@ -72,16 +70,10 @@ nonisolated enum PhotoPrompts {
         - 问：牌子写的什么？答：右前方有块牌子写着"便利店"。
         """
 
-    /// Settings: let a cloud model think before answering a question. Off by default: Qwen took up
-    /// to 30 s to answer, and thinking did not reliably fix DeepSeek's stair direction.
-    static let questionThinkingKey = "photoDescription.questionThinking"
-
-    /// Broader local questions are opt-in; they do not enable model reasoning or change OCR.
-    static let localEnhancedKey = "photoDescription.localEnhanced"
-
     static func localSystem(question: String?, defaults: UserDefaults = .standard) -> String {
         guard question != nil else { return system }
-        return defaults.bool(forKey: localEnhancedKey) ? questionSystem : localQuestionSystem
+        return defaults.bool(forKey: PhotoChatProvider.localEnhancedKey)
+            ? questionSystem : localQuestionSystem
     }
 
     /// Questions are answered in at most three sentences; the prompt asks for it, this keeps it.

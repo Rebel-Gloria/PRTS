@@ -10,16 +10,17 @@ struct PhotoDescriptionTests {
     /// The expected text is independent of the implementation constant: comparing
     /// the request only with that constant cannot detect an omitted user requirement.
     @Test func fixedPromptAndSharedSystemRules() throws {
-        #expect(PhotoPrompts.prompt == "描述眼前。")
+        #expect(SceneDescriptionPrompt.request == "描述眼前。")
         for rule in ["先说离用户最近的东西", "不指挥用户往哪边走", "不编造看不清的东西", "一到两句，不超过四十个字", "只学句式，不要照抄内容"] {
             #expect(PhotoPrompts.system.contains(rule))
         }
         for service in [PhotoChatService.qwen, .deepseek] {
             let request = try PhotoChatProtocol.request(
                 jpeg: Data([1]),
-                text: PhotoPrompts.prompt,
+                text: SceneDescriptionPrompt.request,
                 key: "test-only",
-                service: service
+                service: service,
+                system: PhotoPrompts.system
             )
             let data = try #require(request.httpBody)
             let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -36,8 +37,9 @@ struct PhotoDescriptionTests {
         let jpeg = Data([0xff, 0xd8, 0xff, 0xd9])
         let request = try PhotoChatProtocol.request(
             jpeg: jpeg,
-            text: PhotoPrompts.prompt,
-            key: "test-only"
+            text: SceneDescriptionPrompt.request,
+            key: "test-only",
+            system: PhotoPrompts.system
         )
         #expect(
             request.url?.absoluteString
@@ -53,7 +55,7 @@ struct PhotoDescriptionTests {
         #expect(messages.first?["role"] as? String == "system")
         let content = try #require(messages.last?["content"] as? [[String: Any]])
         #expect(messages.last?["role"] as? String == "user")
-        #expect(content[0]["text"] as? String == PhotoPrompts.prompt)
+        #expect(content[0]["text"] as? String == SceneDescriptionPrompt.request)
         #expect(
             (content[1]["image_url"] as? [String: String])?["url"]
                 == "data:image/jpeg;base64,\(jpeg.base64EncodedString())"
@@ -64,12 +66,13 @@ struct PhotoDescriptionTests {
         let request = try PhotoChatProtocol.request(
             jpeg: Data([1]),
             text: "门在哪里？",
-            key: "test-only"
+            key: "test-only",
+            system: PhotoPrompts.system
         )
         let data = try #require(request.httpBody)
         let json = try #require(String(data: data, encoding: .utf8))
         #expect(json.contains("门在哪里？"))
-        #expect(!json.contains(PhotoPrompts.prompt))
+        #expect(!json.contains(SceneDescriptionPrompt.request))
         #expect(!json.contains("最多两句"))
     }
 
@@ -78,7 +81,8 @@ struct PhotoDescriptionTests {
             jpeg: Data([1]),
             text: "看",
             key: "test-only",
-            service: .deepseek
+            service: .deepseek,
+            system: PhotoPrompts.system
         )
         #expect(deepseek.url?.absoluteString == "https://api.deepseek.com/chat/completions")
         let deepseekData = try #require(deepseek.httpBody)
@@ -113,7 +117,8 @@ struct PhotoDescriptionTests {
                 jpeg: Data([1]),
                 text: "看",
                 key: "test-only",
-                service: custom
+                service: custom,
+                system: PhotoPrompts.system
             ).httpBody
         )
         let customBody = try #require(
@@ -167,12 +172,35 @@ struct PhotoDescriptionTests {
         #expect(throws: PhotoChatError.self) { try stream.finish() }
     }
 
+    @Test(arguments: ["length", "content_filter"])
+    func serviceTruncationFailsEvenWithDone(reason: String) throws {
+        var stream = PhotoChatStream()
+        try stream.receive(line: "data: {\"choices\":[{\"delta\":{\"content\":\"半句\"}}]}")
+        try stream.receive(line: "")
+        try stream.receive(
+            line: "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"\(reason)\"}]}"
+        )
+        do {
+            try stream.receive(line: "")
+            try stream.receive(line: "data: [DONE]")
+            _ = try stream.finish()
+            Issue.record("A service-truncated answer must not become a successful response")
+        } catch PhotoChatError.incompleteStream {
+            #expect(!stream.completed)
+        }
+    }
+
     @Test func emptyAnswerAndMissingKeyFail() throws {
         var stream = PhotoChatStream()
         try stream.receive(line: "data: [DONE]")
         #expect(throws: PhotoChatError.self) { try stream.finish() }
         #expect(throws: PhotoChatError.self) {
-            try PhotoChatProtocol.request(jpeg: Data([1]), text: "test", key: " ")
+            try PhotoChatProtocol.request(
+                jpeg: Data([1]),
+                text: "test",
+                key: " ",
+                system: PhotoPrompts.system
+            )
         }
     }
 }
@@ -238,6 +266,7 @@ struct PhotoTransportTests {
             jpeg: Data([1]),
             text: "测试",
             key: "test-only",
+            system: PhotoPrompts.system,
             configuration: configuration
         )
         #expect(answer == "前方是门。")
@@ -250,6 +279,7 @@ struct PhotoTransportTests {
                 jpeg: Data([1]),
                 text: "测试",
                 key: "test-401",
+                system: PhotoPrompts.system,
                 configuration: configuration
             )
             Issue.record("HTTP failure must throw")

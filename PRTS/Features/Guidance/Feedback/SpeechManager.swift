@@ -9,36 +9,6 @@ import AVFoundation
 import Combine
 import UIKit
 
-enum SpeechRateOption: String, CaseIterable, Identifiable, Hashable {
-    case slow = "Slow"
-    case normal = "Normal"
-    case fast = "Fast"
-
-    var id: String { rawValue }
-
-    var localizationKey: String {
-        switch self {
-        case .slow:
-            return "settings.rate.slow"
-        case .normal:
-            return "settings.rate.normal"
-        case .fast:
-            return "settings.rate.fast"
-        }
-    }
-
-    var avSpeechRate: Float {
-        switch self {
-        case .slow:
-            return 0.42
-        case .normal:
-            return AVSpeechUtteranceDefaultSpeechRate
-        case .fast:
-            return 0.58
-        }
-    }
-}
-
 @MainActor
 final class SpeechManager: ObservableObject {
     @Published private(set) var voiceAnnouncementsEnabled: Bool
@@ -59,30 +29,23 @@ final class SpeechManager: ObservableObject {
         stopCurrentSpeech()
     }
 
-    private enum DefaultsKey {
-        static let voiceAnnouncementsEnabled = "voiceAnnouncementsEnabled"
-        static let speechRateOption = "speechRateOption"
-        static let followSystemLanguageEnabled = "followSystemLanguageEnabled"
-        static let selectedLanguage = "selectedLanguage"
-    }
-
     init() {
         let defaults = UserDefaults.standard
         voiceAnnouncementsEnabled =
             defaults.object(
-                forKey: DefaultsKey.voiceAnnouncementsEnabled
+                forKey: SpeechPreferences.Key.voiceAnnouncementsEnabled
             ) as? Bool ?? true
         rateOption =
             SpeechRateOption(
-                rawValue: defaults.string(forKey: DefaultsKey.speechRateOption) ?? ""
+                rawValue: defaults.string(forKey: SpeechPreferences.Key.speechRateOption) ?? ""
             ) ?? .normal
         followSystemLanguageEnabled =
             defaults.object(
-                forKey: DefaultsKey.followSystemLanguageEnabled
+                forKey: SpeechPreferences.Key.followSystemLanguageEnabled
             ) as? Bool ?? true
         selectedLanguage =
             SpeechLanguage(
-                rawValue: defaults.string(forKey: DefaultsKey.selectedLanguage) ?? ""
+                rawValue: defaults.string(forKey: SpeechPreferences.Key.selectedLanguage) ?? ""
             ) ?? .english
     }
 
@@ -134,49 +97,12 @@ final class SpeechManager: ObservableObject {
         prepareAudioSession()
         stopCurrentSpeech()
 
-        let utterance = Self.announcementUtterance(
+        let utterance = SpeechVoice.utterance(
             message,
             rate: rateOption,
             language: activeLanguage
         )
         synthesizer.speak(utterance)
-    }
-
-    /// Shared voice profile for announcements and manually requested photo answers.
-    /// Keep the system pitch/volume; only the existing language and rate settings vary.
-    static func announcementUtterance(
-        _ message: String,
-        rate: SpeechRateOption,
-        language: SpeechLanguage
-    ) -> AVSpeechUtterance {
-        let utterance = AVSpeechUtterance(string: message)
-        utterance.rate = rate.avSpeechRate
-        utterance.voice = AVSpeechSynthesisVoice(language: language.localeIdentifier)
-        // With VoiceOver on, cues and photo answers use its voice and rate instead.
-        utterance.prefersAssistiveTechnologySettings = true
-        return utterance
-    }
-
-    /// Photo responses read preferences at playback time without creating another
-    /// SpeechManager or sharing announcement cancellation/queue ownership.
-    static func announcementUtterance(
-        _ message: String,
-        defaults: UserDefaults = .standard
-    ) -> AVSpeechUtterance {
-        let rate =
-            SpeechRateOption(
-                rawValue: defaults.string(forKey: DefaultsKey.speechRateOption) ?? ""
-            ) ?? .normal
-        let followSystem =
-            defaults.object(
-                forKey: DefaultsKey.followSystemLanguageEnabled
-            ) as? Bool ?? true
-        let selected =
-            SpeechLanguage(
-                rawValue: defaults.string(forKey: DefaultsKey.selectedLanguage) ?? ""
-            ) ?? .english
-        let language = followSystem ? SpeechLanguage.fromSystemLanguage() : selected
-        return announcementUtterance(message, rate: rate, language: language)
     }
 
     /// Interface status. With VoiceOver running it is handed to VoiceOver and queued behind
@@ -238,7 +164,7 @@ final class SpeechManager: ObservableObject {
 
     func setVoiceAnnouncementsEnabled(_ enabled: Bool) {
         voiceAnnouncementsEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: DefaultsKey.voiceAnnouncementsEnabled)
+        UserDefaults.standard.set(enabled, forKey: SpeechPreferences.Key.voiceAnnouncementsEnabled)
 
         if enabled {
             announceSetting(localized("speech.voice.enabled"))
@@ -249,7 +175,7 @@ final class SpeechManager: ObservableObject {
 
     func setRateOption(_ option: SpeechRateOption) {
         rateOption = option
-        UserDefaults.standard.set(option.rawValue, forKey: DefaultsKey.speechRateOption)
+        UserDefaults.standard.set(option.rawValue, forKey: SpeechPreferences.Key.speechRateOption)
 
         announceSetting(
             localized("speech.rate.changed", arguments: [localized(option.localizationKey)])
@@ -258,13 +184,16 @@ final class SpeechManager: ObservableObject {
 
     func setFollowSystemLanguageEnabled(_ enabled: Bool) {
         followSystemLanguageEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: DefaultsKey.followSystemLanguageEnabled)
+        UserDefaults.standard.set(
+            enabled,
+            forKey: SpeechPreferences.Key.followSystemLanguageEnabled
+        )
         speakLanguageSetting()
     }
 
     func setSelectedLanguage(_ language: SpeechLanguage) {
         selectedLanguage = language
-        UserDefaults.standard.set(language.rawValue, forKey: DefaultsKey.selectedLanguage)
+        UserDefaults.standard.set(language.rawValue, forKey: SpeechPreferences.Key.selectedLanguage)
 
         guard !followSystemLanguageEnabled else { return }
         speakLanguageSetting()
@@ -318,6 +247,7 @@ final class SpeechManager: ObservableObject {
             try audioSession.setActive(true, options: [.notifyOthersOnDeactivation])
         } catch {
             // Speech synthesis can still work when another audio session owns the audio route.
+            ErrorLog.application.record(error, source: .audio)
         }
     }
 }

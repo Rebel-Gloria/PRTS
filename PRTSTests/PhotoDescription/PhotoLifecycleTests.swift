@@ -35,7 +35,7 @@ private final class PhotoTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
     var spoken: [String] = []
     init(_ state: PhotoTestState) { self.state = state }
-    func cue(_ cue: AnswerAudioOutput.Cue) throws {
+    func cue(_ cue: AnswerCue) throws {
         state.events.append(cue == .submit ? "A" : "B")
     }
     func speak(_ text: String) throws {
@@ -70,6 +70,9 @@ private actor PhotoTestNetwork {
     func waitForRequests(_ count: Int) async {
         if requests.count >= count { return }
         await withCheckedContinuation { arrivals.append((count, $0)) }
+    }
+    func fail(_ index: Int) {
+        responses.removeValue(forKey: index)?.resume(throwing: PhotoChatError.incompleteStream)
     }
     func reply(_ index: Int, _ answer: String) {
         responses.removeValue(forKey: index)?.resume(returning: answer)
@@ -252,6 +255,24 @@ struct PhotoLifecycleTests {
         await f.coordinator.work?.value
         #expect(f.audio.spoken == ["新回答"])
         f.coordinator.cancel()
+    }
+
+    @Test func truncatedAnswerAnnouncesFailureAndReleasesAfterSpeech() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.1
+        f.coordinator.up()
+        let work = f.coordinator.work
+        await f.network.waitForRequests(1)
+        await f.network.fail(0)
+        await work?.value
+        #expect(f.audio.spoken == [PhotoChatError.incompleteStream.localizedDescription])
+        #expect(f.coordinator.busy)
+        #expect(f.coordinator.isAnnouncing)
+        f.audio.onFinished?()
+        #expect(!f.coordinator.busy)
+        #expect(!f.coordinator.isAnnouncing)
+        #expect(f.state.events.last == "stop-audio")
     }
 
     @Test func noConsentOrCredentialNeverCaptures() async {

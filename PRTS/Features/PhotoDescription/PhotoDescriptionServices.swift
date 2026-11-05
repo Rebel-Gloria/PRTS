@@ -1,9 +1,9 @@
 import Foundation
 
 /// Replaceable time, configuration, permissions and description calls.
-/// Live captions reuse part of them.
 @MainActor
 struct PhotoDescriptionServices {
+    var errors = ErrorReporter(source: .photoDescription)
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     /// On device needs neither the upload permission nor a key.
     var onDevice: (IntelligenceFeature) -> Bool
@@ -36,5 +36,3 @@ struct PhotoDescriptionServices {
         uploadAllowed = { defaults.bool(forKey: "photoDescription.uploadAllowed") }
     }
 }
-
-extension PhotoSpeechRecognizer: PhotoRecognizing {}

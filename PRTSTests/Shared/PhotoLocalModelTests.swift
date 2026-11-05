@@ -1,12 +1,33 @@
 import Foundation
+import LocalVLM
 import Testing
 import UIKit
 
 @testable import PRTS
 
+/// The app caches its model for later requests; the test suite has a shorter, explicit lifetime.
+/// Release native GPU buffers before XCTest exits and the backend destroys its global device.
+nonisolated private struct LocalModelLifetime: SuiteTrait, TestScoping {
+    var isRecursive: Bool { false }
+
+    func provideScope(
+        for test: Test,
+        testCase: Test.Case?,
+        performing function: @concurrent @Sendable () async throws -> Void
+    ) async throws {
+        do {
+            try await function()
+        } catch {
+            await PhotoLocalModel.shared.unload()
+            throw error
+        }
+        await PhotoLocalModel.shared.unload()
+    }
+}
+
 /// Runs the bundled offline model through the app's own describe path on real photos.
 /// Device only: the photos are the ones the local VLM benchmark copied to Documents/vlm/photos/1280.
-@MainActor @Suite(.serialized)
+@MainActor @Suite(.serialized, LocalModelLifetime())
 struct PhotoLocalModelTests {
     nonisolated static let photos = FileManager.default.urls(
         for: .documentDirectory,
@@ -63,6 +84,47 @@ struct PhotoLocalModelTests {
 /// The bundled model reading text, through the same two questions as the app. Device only. Kept in
 /// the serialized suite: a photo description between the two questions would change the photo.
 extension PhotoLocalModelTests {
+    @Test(
+        .enabled(
+            if: Bundle.main.url(
+                forResource: "mmproj-model-f16",
+                withExtension: "gguf",
+                subdirectory: "LocalVLM"
+            ) != nil
+        )
+    )
+    func outputLimitAndUnloadDoNotPreventTheNextPhoto() async throws {
+        let jpeg = try photo(["人民路"], background: .gray, card: .blue, ink: .white)
+        let model = PhotoLocalModel.shared
+        do {
+            _ = try await model.describe(
+                jpeg: jpeg,
+                prompt: SceneDescriptionPrompt.request,
+                system: PhotoPrompts.system,
+                maxTokens: 1
+            )
+            Issue.record("A token-limited answer must not succeed")
+        } catch LocalVLM.Failure.outputLimit {}
+        do {
+            _ = try await model.ask("继续描述", maxTokens: 0)
+            Issue.record("A continuation without an output budget must not succeed")
+        } catch LocalVLM.Failure.outputLimit {}
+        let answer = try await model.describe(
+            jpeg: jpeg,
+            prompt: SceneDescriptionPrompt.request,
+            system: PhotoPrompts.system
+        )
+        #expect(!answer.isEmpty)
+        await model.unload()
+        await model.unload()
+        let reloaded = try await model.describe(
+            jpeg: jpeg,
+            prompt: SceneDescriptionPrompt.request,
+            system: PhotoPrompts.system
+        )
+        #expect(reloaded == answer)
+    }
+
     private func photo(_ lines: [String], background: UIColor, card: UIColor, ink: UIColor) throws
         -> Data
     {

@@ -14,8 +14,6 @@ final class TextReadingSession: ObservableObject {
     static let settle: TimeInterval = 1
     /// No preview frame by then means the camera never started.
     static let cameraTimeout: Duration = .seconds(10)
-    /// Settings: whether a three-finger hold starts reading.
-    static let threeFingerKey = "ocr.threeFinger"
 
     /// A string by localization key, in the interface language.
     var localized: (String) -> String = { $0 }
@@ -86,6 +84,7 @@ final class TextReadingSession: ObservableObject {
                 if self?.framesSeen == 0 { self?.cameraFailed(id) }
             }
         } catch {
+            services.errors.record(error)
             end()
         }
     }
@@ -100,6 +99,7 @@ final class TextReadingSession: ObservableObject {
             try say("ocr.cancelled")
             finishSpeaking()
         } catch {
+            services.errors.record(error)
             end()
         }
     }
@@ -111,10 +111,12 @@ final class TextReadingSession: ObservableObject {
     private func cameraFailed(_ id: UUID) {
         guard generation == id, phase == .aiming else { return }
         camera.stop()
+        services.errors.record(NSError(domain: "PRTS.TextCamera", code: 1))
         do {
             try say("ocr.error.camera")
             finishSpeaking()
         } catch {
+            services.errors.record(error)
             end()
         }
     }
@@ -142,6 +144,7 @@ final class TextReadingSession: ObservableObject {
                 }
             }
         } catch {
+            services.errors.record(error)
             end()
         }
     }
@@ -152,13 +155,23 @@ final class TextReadingSession: ObservableObject {
             let jpeg = try await services.encode(image)
             try await service.read(remoteAvailable: cloud != nil) { reader in
                 guard generation == id else { throw CancellationError() }
-                try await read(jpeg, image, with: reader, id)
+                do {
+                    try await read(jpeg, image, with: reader, id)
+                } catch {
+                    if generation == id {
+                        voice.stop()
+                        voiceBusy = false
+                        answer = TextReadingAnswer(lead: "")
+                    }
+                    throw error
+                }
             }
             try Task.checkCancellation()
             finishModel(id, failed: false)
         } catch is CancellationError {
             if generation == id { end() }
         } catch {
+            services.errors.record(error)
             finishModel(id, failed: true)
         }
     }
@@ -180,7 +193,7 @@ final class TextReadingSession: ObservableObject {
             do {
                 result = .success(
                     try await services.copy { [weak self] piece in
-                        // Queued text must survive a reader failure before fallback or final failure.
+                        // Drain callbacks before the reader result is handled, including a fallback.
                         DispatchQueue.main.async {
                             MainActor.assumeIsolated { self?.received(piece, id) }
                         }
@@ -226,6 +239,7 @@ final class TextReadingSession: ObservableObject {
         do {
             for line in answer.append(piece) { try speak(line) }
         } catch {
+            services.errors.record(error)
             end()
         }
     }
@@ -244,6 +258,7 @@ final class TextReadingSession: ObservableObject {
             }
             finishSpeaking()
         } catch {
+            services.errors.record(error)
             end()
         }
     }

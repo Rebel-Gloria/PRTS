@@ -47,6 +47,16 @@ struct IntelligenceFeatureTests {
         #expect(IntelligenceFeature.textReading.provider(defaults) == .qwen)
     }
 
+    @Test(arguments: IntelligenceFeature.allCases)
+    func unavailableStoredSelectionUsesTheConfiguredDefault(feature: IntelligenceFeature) {
+        let name = "IntelligenceFeatureTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("qwen", forKey: PhotoChatProvider.selectionKey)
+        defaults.set("removed-provider", forKey: feature.selectionKey)
+        #expect(feature.provider(defaults) == .qwen)
+    }
+
     @Test func questionThinkingIsStoredPerProvider() {
         let name = "IntelligenceFeatureTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
@@ -58,11 +68,11 @@ struct IntelligenceFeatureTests {
             PhotoChatProvider.deepseek.questionThinkingKey
                 == "photoDescription.questionThinking.deepseek"
         )
-        defaults.set(true, forKey: PhotoPrompts.questionThinkingKey)
+        defaults.set(true, forKey: PhotoChatProvider.qwen.questionThinkingKey)
         #expect(PhotoChatProvider.qwen.questionThinking(defaults))
         #expect(!PhotoChatProvider.deepseek.questionThinking(defaults))
         defaults.set(true, forKey: PhotoChatProvider.deepseek.questionThinkingKey)
-        defaults.set(false, forKey: PhotoPrompts.questionThinkingKey)
+        defaults.set(false, forKey: PhotoChatProvider.qwen.questionThinkingKey)
         #expect(!PhotoChatProvider.qwen.questionThinking(defaults))
         #expect(PhotoChatProvider.deepseek.questionThinking(defaults))
         #expect(!PhotoChatProvider.onDevice.questionThinking(defaults))

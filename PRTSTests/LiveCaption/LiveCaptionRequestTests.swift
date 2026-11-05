@@ -38,7 +38,7 @@ struct LiveCaptionRequestTests {
     @Test func openingUsesSingleImageAndFortyTokens() throws {
         let request = try PhotoChatProtocol.request(
             jpeg: Data([1]),
-            text: PhotoPrompts.prompt,
+            text: SceneDescriptionPrompt.request,
             key: "synthetic-test-key",
             system: LiveCaptionPrompts.opening,
             maxTokens: 40
@@ -58,8 +58,9 @@ struct LiveCaptionRequestTests {
     @Test func ordinaryDescriptionsKeepExistingLimit() throws {
         let request = try PhotoChatProtocol.request(
             jpeg: Data([1]),
-            text: PhotoPrompts.prompt,
-            key: "synthetic-test-key"
+            text: SceneDescriptionPrompt.request,
+            key: "synthetic-test-key",
+            system: PhotoPrompts.system
         )
         let data = try #require(request.httpBody)
         let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

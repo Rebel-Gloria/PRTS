@@ -51,8 +51,11 @@ nonisolated enum PhotoCredentialStore {
         }
     }
 
-    struct StoreError: LocalizedError {
+    struct StoreError: LocalizedError, CustomNSError {
         let status: OSStatus
+        static var errorDomain: String { NSOSStatusErrorDomain }
+        var errorCode: Int { Int(status) }
+        var errorUserInfo: [String: Any] { [NSLocalizedDescriptionKey: errorDescription!] }
         var errorDescription: String? { "无法访问本机 API Key（\(status)）" }
     }
 }

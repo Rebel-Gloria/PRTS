@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F10000000000000000000001 /* PRTSContracts in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000004 /* PRTSContracts */; };
 		F10000000000000000000006 /* SpatialCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000008 /* SpatialCore */; };
 		F10000000000000000000009 /* SpatialCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000008 /* SpatialCore */; };
 		F1000000000000000000000A /* LocalVLM in Frameworks */ = {isa = PBXBuildFile; productRef = F1000000000000000000000C /* LocalVLM */; };
@@ -72,7 +71,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F10000000000000000000001 /* PRTSContracts in Frameworks */,
 				F10000000000000000000006 /* SpatialCore in Frameworks */,
 				F1000000000000000000000A /* LocalVLM in Frameworks */,
 			);
@@ -137,7 +135,6 @@
 			);
 			name = PRTS;
 			packageProductDependencies = (
-				F10000000000000000000004 /* PRTSContracts */,
 				F10000000000000000000008 /* SpatialCore */,
 				F1000000000000000000000C /* LocalVLM */,
 			);
@@ -226,7 +223,6 @@
 			mainGroup = DDE04D6930132D31000C8361;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */,
 				F10000000000000000000007 /* XCLocalSwiftPackageReference "Packages/SpatialCore" */,
 				F1000000000000000000000B /* XCLocalSwiftPackageReference "Packages/LocalVLM" */,
 			);
@@ -677,10 +673,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Vendor/PRTSCore;
-		};
 		F10000000000000000000007 /* XCLocalSwiftPackageReference "Packages/SpatialCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/SpatialCore;
@@ -692,11 +684,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F10000000000000000000004 /* PRTSContracts */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/PRTSCore" */;
-			productName = PRTSContracts;
-		};
 		F10000000000000000000008 /* SpatialCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F10000000000000000000007 /* XCLocalSwiftPackageReference "Packages/SpatialCore" */;

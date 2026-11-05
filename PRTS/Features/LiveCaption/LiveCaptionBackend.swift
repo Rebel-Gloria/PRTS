@@ -4,7 +4,7 @@ nonisolated enum LiveCaptionBackend {
     static func captionOpening(jpeg: Data, key: String) async throws -> String {
         try await PhotoChatClient().describe(
             jpeg: jpeg,
-            text: PhotoPrompts.prompt,
+            text: SceneDescriptionPrompt.request,
             key: key,
             system: LiveCaptionPrompts.opening,
             maxTokens: 40

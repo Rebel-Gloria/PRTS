@@ -81,14 +81,17 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const prts_vlm_ca
     llama_sampler *sampler = llama_sampler_init_greedy();
     std::string out;
     size_t sent = 0;
+    bool completed = false;
     for (int i = 0; i < max_tokens; i++) {
         if (prts_vlm_cancel_is_requested(cancel)) {
             status = PRTS_VLM_CANCELLED;
             break;
         }
         llama_token token = llama_sampler_sample(sampler, vlm->ctx, -1);
-        if (llama_vocab_is_eog(vocab, token))
+        if (llama_vocab_is_eog(vocab, token)) {
+            completed = true;
             break;
+        }
         char piece[256];
         const int n = llama_token_to_piece(vocab, token, piece, sizeof piece, 0, false);
         if (n > 0)
@@ -117,10 +120,13 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const prts_vlm_ca
         const size_t stray = out.find("</think>", sent > 8 ? sent - 8 : 0);
         if (stray != std::string::npos) {
             out.resize(stray);
+            completed = true;
             break;
         }
     }
     llama_sampler_free(sampler);
+    if (status == PRTS_VLM_OK && !completed)
+        return PRTS_VLM_OUTPUT_LIMIT;
     if (status == PRTS_VLM_OK)
         *answer = strdup(out.c_str());
     return status;

@@ -27,6 +27,10 @@ class SpatialIntegrationTests(unittest.TestCase):
             # legacy graph defaults and forward/maneuver behavior. Clearance math stays pinned below.
             if source.name in {"PathPrediction.swift", "FanPathSearch.swift", "PathDrawing.swift"}:
                 continue
+            # Disk retention is intentionally versioned independently of the frozen algorithms.
+            # DiagnosticPolicyTests and DiagnosticTests cover its behavior.
+            if source.name == "DiagnosticJournal.swift":
+                continue
             with self.subTest(file=source.name):
                 current = source_file(
                     ROOT / "Packages/SpatialCore/Sources/SpatialCore", source.name
@@ -57,7 +61,6 @@ class SpatialIntegrationTests(unittest.TestCase):
             "CoreMLDepthModel.swift": ROOT / "PRTS/Spatial/Depth/CoreMLDepthModel.swift",
             "MonocularDepthProvider.swift": ROOT
             / "PRTS/Spatial/Depth/MonocularDepthProvider.swift",
-            "SessionRecorder.swift": ROOT / "PRTS/Spatial/Diagnostics/SessionRecorder.swift",
         }
         for name, target in files.items():
 
@@ -212,7 +215,7 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn(
             "includeCurrentObstacles:PRTSRuntimeProfile.routePlanningPolicy == .verified", engine
         )
-        config = (ROOT / "PRTS/App/RuntimeProfile.swift").read_text(encoding="utf-8")
+        config = (ROOT / "PRTS/Spatial/Runtime/RuntimeProfile.swift").read_text(encoding="utf-8")
         self.assertIn("routePlanningPolicy: RoutePlanningPolicy = .obstacleVeto", config)
         self.assertNotIn("#if", config)
         renderer = (ROOT / "PRTS/Spatial/Rendering/ProbeRenderer.swift").read_text(encoding="utf-8")

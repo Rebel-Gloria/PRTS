@@ -8,7 +8,7 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
         text: String,
         key: String,
         service: PhotoChatService? = .qwen,
-        system: String? = PhotoPrompts.system,
+        system: String?,
         thinking: Bool = false,
         maxTokens: Int? = nil,
         configuration: URLSessionConfiguration = .ephemeral

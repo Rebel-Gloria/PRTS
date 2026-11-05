@@ -6,8 +6,8 @@ import Testing
 @MainActor
 private final class CaptionPhotoTestAnswerAudio: AnswerAudio {
     var onFinished: (() -> Void)?
-    var cues: [AnswerAudioOutput.Cue] = []
-    func cue(_ cue: AnswerAudioOutput.Cue) throws { cues.append(cue) }
+    var cues: [AnswerCue] = []
+    func cue(_ cue: AnswerCue) throws { cues.append(cue) }
     func speak(_ text: String) throws {}
     func stop() {}
 }

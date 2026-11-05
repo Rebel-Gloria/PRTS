@@ -3,16 +3,12 @@ import Foundation
 /// Wire contract for the explicitly configured third-party Chat Completions service.
 /// No credentials, images, transcript, or response body are written to diagnostics.
 nonisolated enum PhotoChatProtocol {
-    static let endpoint = URL(
-        string: "https://maas.qianwenaiapi.com/compatible-mode/v1/chat/completions"
-    )!
-    static let model = "qwen3.8-flash"
     static func request(
         jpeg: Data,
         text: String,
         key: String,
         service: PhotoChatService = .qwen,
-        system: String? = PhotoPrompts.system,
+        system: String?,
         thinking: Bool = false,
         maxTokens: Int? = nil
     ) throws -> URLRequest {

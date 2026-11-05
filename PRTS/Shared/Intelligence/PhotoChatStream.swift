@@ -54,6 +54,9 @@ nonisolated struct PhotoChatStream {
                 guard answer.utf8.count <= 65_536 else { throw PhotoChatError.responseTooLarge }
             }
             if let reason = choice["finish_reason"] as? String, !reason.isEmpty {
+                if reason == "length" || reason == "content_filter" {
+                    throw PhotoChatError.incompleteStream
+                }
                 finishedChoice = true
             }
         }

@@ -3,6 +3,7 @@ import Foundation
 
 @MainActor
 struct TextReadingServices {
+    var errors = ErrorReporter(source: .textReading)
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     var sleep: (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     var encode: (CIImage) async throws -> Data = { image in

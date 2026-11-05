@@ -32,11 +32,8 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
     private var epoch: UInt64 = 0
     private var dimensions = CGSize.zero
     private var bytes = 0
-    private var totalBytes = 0
-    private var lastVideoBytes = 0
     private var finishing = false
     private var completions: [@Sendable () -> Void] = []
-    private static let limit = 256 * 1024 * 1024
     init(root: URL) { self.root = root }
     func status() -> Status {
         lock.lock()
@@ -179,6 +176,7 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
         queue.async { [self] in
             defer { if !finishing { update { if !$0.finalizing { $0.busy = false } } } }
             do { try append(packet) } catch {
+                ErrorLog.application.record(error, source: .storage)
                 update {
                     $0.enabled = false
                     $0.text = "采集停止：\(error.localizedDescription)"
@@ -192,7 +190,6 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
         NSError(domain: "PRTSDevCapture", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
     }
     private func open(_ packet: Packet) throws {
-        guard totalBytes < Self.limit else { throw fail("本次启动的开发采集达到 256 MiB 上限") }
         let folder = root.appendingPathComponent(
             "dev-capture-" + UUID().uuidString,
             isDirectory: true
@@ -244,7 +241,6 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
         epoch = packet.epoch
         dimensions = CGSize(width: width, height: height)
         bytes = 0
-        lastVideoBytes = 0
         let url = folder.appendingPathComponent("samples.jsonl")
         guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
             throw fail("无法建立帧索引")
@@ -257,7 +253,7 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
             "bitrate": 800000,
             "sourceWidth": w, "sourceHeight": h, "videoWidth": width, "videoHeight": height,
             "originARTimestamp": origin, "epoch": epoch, "maximumSeconds": 600,
-            "launchByteLimit": Self.limit,
+            "launchByteLimit": NSNull(),
             "coordinates":
                 "Unrotated full camera image, no overlay; intrinsics in capture use source dimensions. Scale x and y separately for video pixels.",
             "depthLink":
@@ -396,14 +392,6 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
                 relative: relativeRef
             )
         )
-        let size =
-            (try? directory.appendingPathComponent("camera.mp4").resourceValues(forKeys: [
-                .fileSizeKey
-            ]).fileSize) ?? 0
-        totalBytes += max(0, size - lastVideoBytes)
-        lastVideoBytes = size
-        let added = attachments.reduce(data.count + 1) { $0 + $1.1.count }
-        guard totalBytes + added < Self.limit else { throw fail("本次启动的开发采集达到256 MiB上限") }
         for (ref, raw) in attachments {
             try raw.write(to: directory.appendingPathComponent(ref.file), options: .atomic)
         }
@@ -413,7 +401,6 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
         try index.write(contentsOf: data)
         try index.write(contentsOf: Data([10]))
         bytes += data.count + 1
-        totalBytes += added
         update {
             $0.saved += 1
             $0.text = "正在保存相机视频和分析数据（\($0.saved)帧，丢弃\($0.dropped)）"
@@ -471,12 +458,6 @@ nonisolated final class DevCaptureRecorder: @unchecked Sendable {
                 }
                 do { try writeStatus(asset.status == .completed ? "completed" : "failed") } catch {
                     update { $0.text = "结束状态写入失败：\(error.localizedDescription)" }
-                }
-                if let directory {
-                    let finalSize =
-                        (try? directory.appendingPathComponent("camera.mp4").resourceValues(
-                            forKeys: [.fileSizeKey]).fileSize) ?? lastVideoBytes
-                    totalBytes += max(0, finalSize - lastVideoBytes)
                 }
                 writer = nil
                 input = nil
