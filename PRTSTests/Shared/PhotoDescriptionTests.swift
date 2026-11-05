@@ -172,8 +172,8 @@ struct PhotoDescriptionTests {
         #expect(throws: PhotoChatError.self) { try stream.finish() }
     }
 
-    @Test(arguments: ["length", "content_filter"])
-    func serviceTruncationFailsEvenWithDone(reason: String) throws {
+    @Test(arguments: [("length", 8), ("content_filter", 5)])
+    func serviceTruncationFailsEvenWithDone(reason: String, code: Int) throws {
         var stream = PhotoChatStream()
         try stream.receive(line: "data: {\"choices\":[{\"delta\":{\"content\":\"半句\"}}]}")
         try stream.receive(line: "")
@@ -185,7 +185,8 @@ struct PhotoDescriptionTests {
             try stream.receive(line: "data: [DONE]")
             _ = try stream.finish()
             Issue.record("A service-truncated answer must not become a successful response")
-        } catch PhotoChatError.incompleteStream {
+        } catch let error as PhotoChatError {
+            #expect(error.errorCode == code)
             #expect(!stream.completed)
         }
     }

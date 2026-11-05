@@ -252,8 +252,9 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         cancel()
         guard !(error is CancellationError) else { return }
         services.errors.record(error)
-        if let failure = error as? PhotoChatError, case .incompleteStream = failure {
-            isAnnouncing = true
+        switch error as? PhotoChatError {
+        case .incompleteStream?, .answerTooLong?: isAnnouncing = true
+        default: break
         }
         message = error.localizedDescription
         if isAnnouncing {
