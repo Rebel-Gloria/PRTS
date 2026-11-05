@@ -3,6 +3,7 @@ import SwiftUI
 struct GuidanceButton<StopGesture: Gesture>: View {
     let state: CameraState
     let pointerCannotHold: Bool
+    let stopHoldCompleted: Bool
     let isLargeText: Bool
     let threeFingerReading: Bool
     let stopGesture: StopGesture
@@ -71,7 +72,10 @@ struct GuidanceButton<StopGesture: Gesture>: View {
         )
         .highPriorityGesture(
             stopGesture,
-            including: state == .running && !pointerCannotHold ? .all : .subviews
+            // Stopping changes the state while the finger is still down. The gesture stays active
+            // until release, so that release cannot reach the button as a new start.
+            including: (state == .running && !pointerCannotHold) || stopHoldCompleted
+                ? .all : .subviews
         )
     }
 }

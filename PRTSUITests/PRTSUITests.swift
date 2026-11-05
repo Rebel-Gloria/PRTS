@@ -276,6 +276,24 @@ final class PRTSUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["cameraStatus"].exists)
     }
 
+    /// The stop gesture ends while its button changes state; the next start must still work.
+    @MainActor
+    func testGuidanceRestartsAfterHoldToStop() throws {
+        let app = XCUIApplication.prts()
+        app.launch()
+        let camera = app.buttons["cameraButton"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        for _ in 0..<2 {
+            camera.tap()
+            XCTAssertTrue(waitForGuidance(app, timeout: 15), app.debugDescription)
+            camera.press(forDuration: 1.5)
+            XCTAssertTrue(
+                app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 5),
+                app.debugDescription
+            )
+        }
+    }
+
     /// No-preview mode: guidance runs, nothing is drawn.
     @MainActor
     func testNoPreviewModeSkipsRendering() throws {
