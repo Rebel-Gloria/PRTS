@@ -310,6 +310,11 @@ struct RemoteTextReadingTests {
         try await check(.qwen, key: Self.env["PRTS_QWEN_KEY"]!)
     }
 
+    @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
+    func qwenOmniReadsInOneRequest() async throws {
+        try await check(.qwenOmni, key: Self.env["PRTS_QWEN_KEY"]!)
+    }
+
     @Test(.enabled(if: env["PRTS_DEEPSEEK_KEY"] != nil))
     func deepseekReadsInOneRequest() async throws {
         try await check(.deepseek, key: Self.env["PRTS_DEEPSEEK_KEY"]!)
@@ -320,24 +325,32 @@ struct RemoteTextReadingTests {
     @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
     func qwenCaptionsAVideoWithinItsTokenBudget() async throws {
         let key = Self.env["PRTS_QWEN_KEY"]!
-        let size = CGSize(width: 540, height: 720)
+        let size = CGSize(width: 720, height: 960)
         let video = try (0..<LiveCaptionPolicy.maximumVideoFrames).map { index in
             let image = UIGraphicsImageRenderer(size: size).image { context in
                 UIColor.lightGray.setFill()
                 context.fill(CGRect(origin: .zero, size: size))
                 UIColor.black.setFill()
-                context.fill(CGRect(x: index * 36, y: 240, width: 80, height: 240))
+                context.fill(CGRect(x: index * 60, y: 320, width: 100, height: 320))
             }
             return try #require(image.jpegData(compressionQuality: 0.8))
         }
-        let opening = try await LiveCaptionBackend.captionOpening(jpeg: video[0], key: key)
-        #expect(!opening.isEmpty)
-        let start = Date()
-        let caption = try await LiveCaptionBackend.caption(video: video, previous: nil, key: key)
-        print(
-            "PRTS_CAPTION \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(opening) | \(caption)"
-        )
-        #expect(!caption.isEmpty)
+        for omni in [false, true] {
+            UserDefaults.standard.set(omni, forKey: PhotoChatProvider.qwenOmniKey)
+            defer { UserDefaults.standard.removeObject(forKey: PhotoChatProvider.qwenOmniKey) }
+            let opening = try await LiveCaptionBackend.captionOpening(jpeg: video[0], key: key)
+            #expect(!opening.isEmpty)
+            let start = Date()
+            let caption = try await LiveCaptionBackend.caption(
+                video: video,
+                previous: nil,
+                key: key
+            )
+            print(
+                "PRTS_CAPTION omni=\(omni) \(String(format: "%.2f", Date().timeIntervalSince(start))) s: \(opening) | \(caption)"
+            )
+            #expect(!caption.isEmpty)
+        }
     }
 
     /// A question with the question prompt, thinking off and on.
@@ -362,6 +375,7 @@ struct RemoteTextReadingTests {
     @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
     func qwenAnswersAQuestion() async throws {
         try await ask(.qwen, key: Self.env["PRTS_QWEN_KEY"]!)
+        try await ask(.qwenOmni, key: Self.env["PRTS_QWEN_KEY"]!)
     }
 
     @Test(.enabled(if: env["PRTS_DEEPSEEK_KEY"] != nil))

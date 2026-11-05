@@ -1050,6 +1050,40 @@
         }
       }
     },
+    "photo.settings.qwenOmni" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Omni model"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Omni 模型"
+          }
+        }
+      }
+    },
+    "photo.settings.qwenOmni.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Improves accuracy but reduces responsiveness."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提高准确性，但实时性会下降"
+          }
+        }
+      }
+    },
     "photo.settings.questionThinking" : {
       "extractionState" : "manual",
       "localizations" : {

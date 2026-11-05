@@ -11,6 +11,8 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
     static let customModelKey = "photoDescription.customModel"
     /// Broader local questions are opt-in; they do not enable model reasoning or change OCR.
     static let localEnhancedKey = "photoDescription.localEnhanced"
+    /// Every Qwen request follows this, live captions included.
+    static let qwenOmniKey = "photoDescription.qwenOmni"
 
     /// On device by default: PRTS has to work without a network.
     static func current(_ defaults: UserDefaults = .standard) -> PhotoChatProvider {
@@ -39,7 +41,7 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
     func service(_ defaults: UserDefaults = .standard) -> PhotoChatService? {
         switch self {
         case .onDevice: return nil
-        case .qwen: return .qwen
+        case .qwen: return defaults.bool(forKey: Self.qwenOmniKey) ? .qwenOmni : .qwen
         case .deepseek: return .deepseek
         case .custom:
             let model = (defaults.string(forKey: Self.customModelKey) ?? "").trimmingCharacters(
