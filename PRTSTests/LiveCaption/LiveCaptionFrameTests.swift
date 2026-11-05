@@ -49,7 +49,7 @@ struct LiveCaptionFrameTests {
         #expect(selected.map(\.jpeg) == [Data([0]), Data([5]), Data([6]), Data([7])])
     }
 
-    @Test func sendsThirteenOfAFullWindow() {
+    @Test func limitsAWindowToTheMaximumVideoFrames() {
         let input = frames((0..<15).map { UInt8($0 * 10) })
         let selected = LiveCaptionFrame.select(input)
         #expect(selected.count == LiveCaptionPolicy.maximumVideoFrames)
@@ -75,8 +75,8 @@ struct LiveCaptionFrameTests {
         )
         let frame = try LiveCaptionFrame.capture(image: image, sampledAt: 1.25)
         let jpeg = try #require(UIImage(data: frame.jpeg)?.cgImage)
-        #expect(jpeg.width == 540)
-        #expect(jpeg.height == 720)
+        #expect(jpeg.width == 720)
+        #expect(jpeg.height == 960)
         #expect(frame.sampledAt == 1.25)
         #expect(frame.grayscale.count == 48 * 64)
         #expect(frame.grayscale.allSatisfy { $0 == 255 })

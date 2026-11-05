@@ -12,7 +12,7 @@ nonisolated enum PhotoImagePurpose {
         switch self {
         case .question, .textReading: highResolution ? 1920 : 1280
         case .description: 1280
-        case .liveCaption: 720
+        case .liveCaption: 960
         }
     }
 }

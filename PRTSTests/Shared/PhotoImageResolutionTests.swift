@@ -30,7 +30,7 @@ struct PhotoImageResolutionTests {
                 PhotoImagePurpose.description.longestSide(highResolution: highResolution) == 1280
             )
             #expect(
-                PhotoImagePurpose.liveCaption.longestSide(highResolution: highResolution) == 720
+                PhotoImagePurpose.liveCaption.longestSide(highResolution: highResolution) == 960
             )
             #expect(
                 PhotoImagePurpose.question.longestSide(highResolution: highResolution)
