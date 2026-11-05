@@ -5,6 +5,7 @@ import SpatialCore
 /// neither interrupts nor re-arms speech. Suppressed turns are evaluated again from the
 /// LIVE current heading; no queue can replay a preview/obsolete target instruction.
 struct ObstacleRouteAnnouncementPolicy {
+    private var initializationStartedAt: Double?
     private var observedScenario: ObstacleRouteScenario?
     private var scenarioSince: Double = 0
     private var spokenScenario: ObstacleRouteScenario?
@@ -12,6 +13,7 @@ struct ObstacleRouteAnnouncementPolicy {
     private var spokenNear: Bool?
     private var spokenAt: Double = -.infinity
     private var spokenTurn: Int?
+    static let initializationDelay: Double = 0.5
     static let minimumInterval: Double = 2.5
     mutating func reset() { self = .init() }
 
@@ -40,10 +42,20 @@ struct ObstacleRouteAnnouncementPolicy {
             observedScenario = state.scenario
             scenarioSince = now
         }
+        // The occupancy model needs time to confirm its first observations. Initialization
+        // is a separate cue, so it cannot spend the cooldown for the first actual scene.
+        guard let initializationStartedAt else {
+            guard canSpeak else { return nil }
+            self.initializationStartedAt = now
+            return .initializing
+        }
+        guard now - initializationStartedAt + 0.000001 >= Self.initializationDelay else {
+            return nil
+        }
         let first = spokenScenario == nil
         let entered = spokenScenario != state.scenario
-        // Initial cue is immediate. Subsequent transient clear/blocked/stage changes settle
-        // for 0.6s; all subsequent speech has a minimum spacing, including goal handoffs.
+        // The first scene uses the live state after initialization. Subsequent transient
+        // changes settle for 0.6s; subsequent scene cues retain their minimum spacing.
         guard first || !entered || now - scenarioSince + 0.000001 >= 0.6 else { return nil }
         var proposedTurns = turns
         let turn =
@@ -82,6 +94,7 @@ struct ObstacleRouteAnnouncementPolicy {
 }
 
 nonisolated enum ObstacleRouteSpeech: Equatable {
+    case initializing
     case clear
     case obstacle(Float?, Int?)
     case blocked(Float?)
@@ -92,6 +105,7 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
 
     var chinese: String {
         switch self {
+        case .initializing: return "初始化中"
         case .clear: return "前方畅通"
         case .adjustCamera(let distance): return Self.level(distance, chinese: true) + "，转动手机"
         case .blocked(let distance): return Self.level(distance, chinese: true) + "，无法绕行"
@@ -102,6 +116,7 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
     }
     var english: String {
         switch self {
+        case .initializing: return "Initializing"
         case .clear: return "Clear ahead"
         case .adjustCamera(let distance):
             return Self.level(distance, chinese: false) + ", turn the phone"
