@@ -27,7 +27,7 @@ struct UserGuideReaderTests {
     @Test(arguments: [false, true])
     func completionAndExplicitStopBothReleaseOutput(explicit: Bool) {
         let audio = GuideTestAudio()
-        let reader = UserGuideReader { rate, language in
+        let reader = UserGuideReader(errors: .ignored) { rate, language in
             #expect(rate == .slow)
             #expect(language == .english)
             return audio
@@ -45,7 +45,7 @@ struct UserGuideReaderTests {
 
     @Test func previousCompletionCannotStopNewPlayback() {
         var outputs: [GuideTestAudio] = []
-        let reader = UserGuideReader { _, _ in
+        let reader = UserGuideReader(errors: .ignored) { _, _ in
             let audio = GuideTestAudio()
             outputs.append(audio)
             return audio
@@ -64,7 +64,7 @@ struct UserGuideReaderTests {
     @Test func failedPlaybackReleasesActivatedOutput() {
         let audio = GuideTestAudio()
         audio.fail = true
-        let reader = UserGuideReader { _, _ in audio }
+        let reader = UserGuideReader(errors: .ignored) { _, _ in audio }
         reader.read("Guide", rate: .normal, language: .english)
         #expect(!reader.isReading)
         #expect(!audio.active)

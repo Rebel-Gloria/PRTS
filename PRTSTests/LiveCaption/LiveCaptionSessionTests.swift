@@ -105,6 +105,7 @@ struct LiveCaptionSessionTests {
 
     private func services(clock: CaptionTestClock) -> LiveCaptionServices {
         var services = LiveCaptionServices()
+        services.errors = .ignored
         services.now = { clock.now }
         services.uploadAllowed = { true }
         return services
@@ -121,6 +122,7 @@ struct LiveCaptionSessionTests {
         let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         var services = LiveCaptionServices(defaults: defaults)
+        services.errors = .ignored
         services.now = { clock.now }
         let session = LiveCaptionSession(
             audio: audio,
@@ -209,6 +211,7 @@ struct LiveCaptionSessionTests {
     @Test func cloudConsentIsRequiredBeforeCapture() {
         let audio = CaptionTestAnswerAudio()
         var services = LiveCaptionServices()
+        services.errors = .ignored
         services.uploadAllowed = { false }
         let session = LiveCaptionSession(
             audio: audio,
@@ -234,6 +237,7 @@ struct LiveCaptionSessionTests {
         let audio = CaptionTestAnswerAudio()
         audio.playbackFails = true
         var services = LiveCaptionServices()
+        services.errors = .ignored
         services.uploadAllowed = { false }
         let session = LiveCaptionSession(audio: audio, services: services)
         session.start(capture: {
@@ -278,6 +282,7 @@ struct LiveCaptionSessionTests {
     @Test func qwenKeyIsRequiredBeforeCapture() {
         let audio = CaptionTestAnswerAudio()
         var services = LiveCaptionServices()
+        services.errors = .ignored
         services.uploadAllowed = { true }
         let session = LiveCaptionSession(
             audio: audio,
