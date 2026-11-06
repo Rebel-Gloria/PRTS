@@ -5,24 +5,18 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     var model: String
     /// How this provider turns reasoning off; custom endpoints get only standard fields.
     var thinking: ThinkingSwitch
-    /// A dedicated text-recognition model on the same endpoint, used for reading text.
-    var ocrModel: String? = nil
 
     enum ThinkingSwitch: Sendable { case qwenFlag, deepseekObject, standard }
 
-    /// qwen-vl-ocr over qwen3.5-ocr: as fast and as accurate on text, and it said "无" on photos
-    /// where qwen3.5-ocr made up a word (docs/validation.md).
     static let qwen = PhotoChatService(
         endpoint: URL(
             string: "https://maas.qianwenaiapi.com/compatible-mode/v1/chat/completions"
         )!,
         model: "qwen3.8-flash",
-        thinking: .qwenFlag,
-        ocrModel: "qwen-vl-ocr"
+        thinking: .qwenFlag
     )
     /// More accurate on video but less responsive (docs/validation.md). It reasons by default,
     /// which takes about 13 s per caption, so requests must keep sending the thinking switch.
-    /// It reads tilted text better than qwen-vl-ocr, so it does the reading itself.
     static let qwenOmni = PhotoChatService(
         endpoint: qwen.endpoint,
         model: "qwen3.8-omni-flash",

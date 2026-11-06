@@ -33,40 +33,18 @@ nonisolated enum TextReadingBackend {
         )
     }
 
-    /// The cloud provider chosen for text reading. With an OCR model (Qwen) its chat model
-    /// says what the text is on while the OCR model copies it, both at once; otherwise one request
-    /// asks for both.
+    /// The cloud provider chosen for text reading: one request says what the text is on and copies it.
     static func remote(jpeg: Data, key: String, service: PhotoChatService) async throws -> (
         TextReadingAnswer.Surface, String
     ) {
-        guard let ocrModel = service.ocrModel else {
-            return TextReadingAnswer.split(
-                try await PhotoChatClient().describe(
-                    jpeg: jpeg,
-                    text: TextReadingPrompt.remotePrompt,
-                    key: key,
-                    service: service,
-                    system: TextReadingPrompt.remoteSystem
-                )
+        TextReadingAnswer.split(
+            try await PhotoChatClient().describe(
+                jpeg: jpeg,
+                text: TextReadingPrompt.remotePrompt,
+                key: key,
+                service: service,
+                system: TextReadingPrompt.remoteSystem
             )
-        }
-        let ocr = PhotoChatService(endpoint: service.endpoint, model: ocrModel, thinking: .standard)
-        // The chat model (qwen3.8-flash) judges the surface. qwen-plus is cheaper but cannot see
-        // images; qwen3-vl-plus is a little faster but costs more.
-        async let surface = PhotoChatClient().describe(
-            jpeg: jpeg,
-            text: TextReadingPrompt.surfaceQuestion,
-            key: key,
-            service: service,
-            system: nil
         )
-        async let text = PhotoChatClient().describe(
-            jpeg: jpeg,
-            text: TextReadingPrompt.remotePrompt,
-            key: key,
-            service: ocr,
-            system: TextReadingPrompt.ocrSystem
-        )
-        return (TextReadingAnswer.Surface(answer: try await surface), try await text)
     }
 }
