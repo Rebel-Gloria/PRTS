@@ -19,6 +19,8 @@ nonisolated enum LiveCaptionPolicy {
     /// A request takes 3-5 s on a phone, longer than the beat, so requests overlap. Past this
     /// limit more uploads only slow each other down.
     static let maximumRequestsInFlight = 3
+    /// One failed request is skipped, as the next is 2 s away; this many in a row ends captions.
+    static let maximumConsecutiveFailures = 3
     /// Upload size sets most of the request time on a phone (docs/validation.md).
     static let imageQuality: CGFloat = 0.5
 
