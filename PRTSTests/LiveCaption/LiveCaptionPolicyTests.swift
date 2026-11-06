@@ -9,9 +9,9 @@ struct LiveCaptionPolicyTests {
     }
 
     @Test func lengthBoundary() {
-        let twenty = String(repeating: "字", count: 20)
-        #expect(LiveCaptionPolicy.answer(twenty, previous: nil) == twenty)
-        #expect(LiveCaptionPolicy.answer(twenty + "字", previous: nil) == nil)
+        let longest = String(repeating: "字", count: 24)
+        #expect(LiveCaptionPolicy.answer(longest, previous: nil) == longest)
+        #expect(LiveCaptionPolicy.answer(longest + "字", previous: nil) == nil)
     }
 
     @Test(arguments: ["照片里有人走过。", "画面里有人走过。", "镜头前有人走过。"])
