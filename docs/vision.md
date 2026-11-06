@@ -39,7 +39,7 @@
 |---|---|---|
 | 短按描述 | `PhotoPrompts.system` | 用户消息固定为“描述眼前。”。先说明最近的物体及其位置，再说明路面；一到两句，四十字以内 |
 | 流式字幕开场 | `LiveCaptionPrompts.opening` | 用户消息固定为“描述眼前。”。一句话说明地点和面前主要的一两样东西，最多 20 字 |
-| 流式字幕动作 | `LiveCaptionPrompts.system` | 输入最多 10 帧视频和上一句。只说谁或什么做了什么动作，最多 15 字；没有明显动作时只输出“无” |
+| 流式字幕动作 | `LiveCaptionPrompts.system` | 输入最多 10 帧视频和上一句。只说谁或什么做了什么动作，最多 24 字；没有明显动作时只输出“无” |
 | 语音提问（联网服务） | `PhotoPrompts.questionSystem` | 直接回答问题，可以描述颜色、穿着、数量、文字和用途，也可以翻译；最多三句 |
 | 语音提问（本机，增强模式关闭） | `PhotoPrompts.localQuestionSystem` | 在描述提示词的基础上调整，以问答示例约束回答细节；最多三句 |
 | 语音提问（本机，增强模式开启） | `PhotoPrompts.questionSystem` | 复用联网提问提示词，允许更广泛的细节、翻译与解释；最多三句 |
@@ -75,7 +75,7 @@
 | 情况 | 说明 |
 |---|---|
 | 回答为“无”或“无。” | 画面中没有动作 |
-| 超过 20 字，或达到生成上限 | 提示词要求最多 15 字，超出较多的回答不朗读，字幕继续运行 |
+| 超过 24 字，或达到生成上限 | 不朗读，字幕继续运行 |
 | 包含“照片”“画面”或“镜头” | 模型在描述画面而不是动作 |
 | 与上一句相同 | 重复描述 |
 
@@ -85,7 +85,7 @@
 
 | 服务 | 处理方式 | 失败时 |
 |---|---|---|
-| 跟随默认服务商（默认），或指定服务商 | 使用所选服务商。本机模型分两次完成分类和转写；千问并行调用分类模型（`qwen3.8-flash`）和转写模型（`qwen-vl-ocr`）；开启 Omni 的千问和其他联网服务在一次请求中完成分类和转写 | 远端不可用时静默改用本机模型，本机模型失败后改用 Apple Vision |
+| 跟随默认服务商（默认），或指定服务商 | 使用所选服务商。本机模型分两次完成分类和转写；联网服务在一次请求中完成分类和转写 | 远端不可用时静默改用本机模型，本机模型失败后改用 Apple Vision |
 | Apple Vision | 系统离线文字识别，不判断物体类型，统一使用“你面前的物体上写着” | 不调用其他服务 |
 
 所选服务商为联网服务、允许上传照片并保存了该服务商的 API Key 时，先使用远端识别；否则直接在本机识别。远端连接失败、超时或返回错误时改用本机模型，本机模型失败时改用 Apple Vision。所有服务都失败或照片无法编码时，应用播报“读文字失败，请重试”，并丢弃尚未读出的文字。取消识别会结束整个过程，包括网络层以 `URLError.cancelled` 报告的取消。
@@ -107,11 +107,10 @@
 | 提示词 | 用途 |
 |---|---|
 | `system` | 本机模型的系统提示词，约束逐字转写、阅读顺序和输出格式 |
-| `surfaceQuestion` | 判断文字所在的物体；本机模型和千问分类请求共用 |
+| `surfaceQuestion` | 本机模型判断文字所在的物体 |
 | `copyQuestion` | 本机模型在同一图像上下文中转写文字 |
-| `remoteSystem` | 无专用 OCR 模型的联网服务，第一行分类，其余行转写 |
+| `remoteSystem` | 联网服务，第一行分类，其余行转写 |
 | `remotePrompt` | 联网识别的用户消息：“读出照片里的文字。” |
-| `ocrSystem` | 专用 OCR 模型的系统提示词，只转写文字，不输出分类 |
 
 实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄，`Services/TextReadingServices.swift` 集中了会话用到的时钟、编码和识别调用，测试可以替换。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingFallback.swift` 处理回退，`TextRecognizer.swift` 调用 Apple Vision。服务选择由 `PRTS/Shared/Intelligence/TextReadingService.swift` 定义。
 
