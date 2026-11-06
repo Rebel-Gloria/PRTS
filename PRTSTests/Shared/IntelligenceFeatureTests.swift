@@ -86,7 +86,6 @@ struct IntelligenceFeatureTests {
         #expect(PhotoChatProvider.qwen.service(defaults) == .qwen)
         defaults.set(true, forKey: PhotoChatProvider.qwenOmniKey)
         #expect(PhotoChatProvider.qwen.service(defaults) == .qwenOmni)
-        #expect(PhotoChatProvider.qwen.service(defaults)?.ocrModel == nil)
         #expect(PhotoChatProvider.deepseek.service(defaults) == .deepseek)
     }
 }

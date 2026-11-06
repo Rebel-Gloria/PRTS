@@ -37,8 +37,4 @@ nonisolated enum TextReadingPrompt {
         照片里没有能看清的文字时，只回答一个字：无。不写分类，不加括号说明。
         """
     static let remotePrompt = "读出照片里的文字。"
-
-    /// For a dedicated OCR model, which copies text but does not keep the two-part format.
-    static let ocrSystem =
-        "你帮盲人读出手机镜头前的文字。照抄照片里的文字：一字不差，保持原来的语言，不翻译、不总结、不描述画面；按阅读顺序，从上到下、从左到右；看不清的字直接跳过，不要猜。照片里没有能看清的文字时，只回答一个字：无。"
 }

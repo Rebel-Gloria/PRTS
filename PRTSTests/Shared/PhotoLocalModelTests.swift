@@ -306,7 +306,7 @@ struct RemoteTextReadingTests {
     }
 
     @Test(.enabled(if: env["PRTS_QWEN_KEY"] != nil))
-    func qwenReadsWithItsOCRModel() async throws {
+    func qwenReadsInOneRequest() async throws {
         try await check(.qwen, key: Self.env["PRTS_QWEN_KEY"]!)
     }
 
