@@ -21,12 +21,15 @@ final class LiveCaptionSession: ObservableObject {
     private let describeOpening: @Sendable (Data, String) async throws -> String
     private let describeChange: @Sendable ([Data], String?, String) async throws -> String
     private let sleep: (TimeInterval) async throws -> Void
-    private let makeComparison: () -> LiveCaptionImageComparison
     private(set) var work: Task<Void, Never>?
     private var sampling: Task<Void, Never>?
-    private var speech: (startedAt: TimeInterval, characters: Int)?
-    private var speechWaiter: CheckedContinuation<Void, Never>?
-    private var charactersPerSecond = LiveCaptionPolicy.initialCharactersPerSecond
+    private var requests: [Int: Task<Void, Never>] = [:]
+    private var lastRequestID = 0
+    private var newestAnswerID = 0
+    private var isSpeaking = false
+    /// The newest answer waiting for the current sentence to end; older ones are never read.
+    private var waitingAnswer: String?
+    private var previous: String?
 
     convenience init() {
         self.init(audio: AnswerAudioOutput(), services: .init())
@@ -44,9 +47,6 @@ final class LiveCaptionSession: ObservableObject {
         describeChange: @escaping @Sendable ([Data], String?, String) async throws -> String = {
             try await LiveCaptionBackend.caption(video: $0, previous: $1, key: $2)
         },
-        makeComparison: @escaping () -> LiveCaptionImageComparison = {
-            LiveCaptionImageComparison()
-        },
         sleep: @escaping (TimeInterval) async throws -> Void = {
             try await Task.sleep(for: .seconds($0))
         }
@@ -57,7 +57,6 @@ final class LiveCaptionSession: ObservableObject {
         self.describeOpening = describeOpening
         self.describeChange = describeChange
         self.sleep = sleep
-        self.makeComparison = makeComparison
         audio.onFinished = { [weak self] in self?.speechFinished() }
     }
 
@@ -150,7 +149,6 @@ final class LiveCaptionSession: ObservableObject {
             return
         }
         isRunning = true
-        charactersPerSecond = LiveCaptionPolicy.initialCharactersPerSecond
         do { try say(localized("liveCaption.on")) } catch {
             fail(error)
             return
@@ -169,10 +167,14 @@ final class LiveCaptionSession: ObservableObject {
         work = nil
         sampling?.cancel()
         sampling = nil
+        requests.values.forEach { $0.cancel() }
+        requests = [:]
+        lastRequestID = 0
+        newestAnswerID = 0
         audio.stop()
-        speech = nil
-        speechWaiter?.resume()
-        speechWaiter = nil
+        isSpeaking = false
+        waitingAnswer = nil
+        previous = nil
         isRunning = false
         isAnnouncing = false
         cancelPress()
@@ -212,42 +214,57 @@ final class LiveCaptionSession: ObservableObject {
         defer { sampler.cancel() }
         var images = stream.stream.makeAsyncIterator()
         guard let first = try await images.next() else { return }
-        let comparison = makeComparison()
-        _ = try await comparison.accept(first[0].jpeg)
-        var lastRequest = services.now()
         let opening = try await skippingOverlong { try await describeOpening(first[0].jpeg, key) }
         try Task.checkCancellation()
-        var modelDuration = services.now() - lastRequest
-        if let opening { try await sayAfterCurrentSpeech(opening) }
-        var previous = opening
+        if let opening { try present(opening) }
 
+        var carried: LiveCaptionFrame?
+        var nextRequest = services.now()
         while !Task.isCancelled {
-            let speechEnd = speech.map {
-                $0.startedAt + Double($0.characters) / charactersPerSecond
-            }
-            try await wait(
-                until: LiveCaptionPolicy.requestTime(
-                    now: services.now(),
-                    lastRequest: lastRequest,
-                    speechEnd: speechEnd,
-                    modelDuration: modelDuration
-                )
-            )
+            nextRequest = max(nextRequest + LiveCaptionPolicy.requestInterval, services.now())
+            try await wait(until: nextRequest)
             guard let frames = try await images.next() else { return }
-            let recent = frames.filter { services.now() - $0.sampledAt < LiveCaptionPolicy.window }
-            let selected = LiveCaptionFrame.select(recent)
-            if selected.isEmpty { continue }
-            if try await !comparison.accept(recent.last!.jpeg) { continue }
-            lastRequest = services.now()
-            let response = try await skippingOverlong {
-                try await describeChange(selected.map(\.jpeg), previous, key)
+            let now = services.now()
+            let fresh = frames.filter {
+                now - $0.sampledAt < LiveCaptionPolicy.window
+                    && $0.sampledAt > (carried?.sampledAt ?? -.infinity)
             }
-            try Task.checkCancellation()
-            modelDuration = services.now() - lastRequest
-            if let response, let answer = LiveCaptionPolicy.answer(response, previous: previous) {
-                try await sayAfterCurrentSpeech(answer)
-                previous = answer
+            let video = [carried].compactMap { $0 } + LiveCaptionFrame.select(fresh)
+            guard video.count >= LiveCaptionPolicy.minimumVideoFrames,
+                requests.count < LiveCaptionPolicy.maximumRequestsInFlight
+            else { continue }
+            carried = video.last
+            send(video.map(\.jpeg), key: key)
+        }
+    }
+
+    private func send(_ video: [Data], key: String) {
+        lastRequestID += 1
+        let id = lastRequestID
+        let previous = previous
+        let describeChange = describeChange
+        requests[id] = Task {
+            do {
+                let response = try await skippingOverlong {
+                    try await describeChange(video, previous, key)
+                }
+                try Task.checkCancellation()
+                requests[id] = nil
+                guard let response else { return }
+                try receive(response, id: id)
+            } catch {
+                if !Task.isCancelled { fail(error) }
             }
+        }
+    }
+
+    /// Requests overlap and can return out of order; an answer older than one already handled
+    /// describes something that has passed.
+    private func receive(_ response: String, id: Int) throws {
+        guard id > newestAnswerID else { return }
+        newestAnswerID = id
+        if let answer = LiveCaptionPolicy.answer(response, previous: previous) {
+            try present(answer)
         }
     }
 
@@ -266,33 +283,30 @@ final class LiveCaptionSession: ObservableObject {
         if delay > 0 { try await sleep(delay) }
     }
 
-    private func sayAfterCurrentSpeech(_ text: String) async throws {
-        if speech != nil {
-            await withCheckedContinuation { speechWaiter = $0 }
+    private func present(_ text: String) throws {
+        if isSpeaking {
+            waitingAnswer = text
+        } else {
+            previous = text
+            try say(text)
         }
-        try Task.checkCancellation()
-        try say(text)
     }
 
     private func say(_ text: String) throws {
         try audio.speak(text)
-        speech = (services.now(), text.count)
+        isSpeaking = true
     }
 
     private func speechFinished() {
-        if let speech {
-            charactersPerSecond = LiveCaptionPolicy.updatedSpeechRate(
-                charactersPerSecond,
-                characters: speech.characters,
-                duration: services.now() - speech.startedAt
-            )
-            self.speech = nil
-            speechWaiter?.resume()
-            speechWaiter = nil
-        } else {
+        guard isSpeaking else {
             isAnnouncing = false
             audio.stop()
+            return
         }
+        isSpeaking = false
+        guard let answer = waitingAnswer else { return }
+        waitingAnswer = nil
+        do { try present(answer) } catch { fail(error) }
     }
 
     private func fail(_ error: Error) {

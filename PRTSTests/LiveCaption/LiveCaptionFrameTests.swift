@@ -27,19 +27,15 @@ struct LiveCaptionFrameTests {
         )
     }
 
-    @Test func skipsFramesWithZeroMotion() {
+    @Test func repeatedFramesAreNotSelectedTwice() {
         let input = frames([0, 0, 30, 30, 60, 60, 90, 90])
         #expect(LiveCaptionFrame.select(input, count: 4).map(\.sampledAt) == [0, 0.5, 1, 1.5])
     }
 
-    @Test func fewerThanFourDistinctFramesReturnsEmpty() {
-        let inputs: [[UInt8]] = [
-            [], [0], [0, 10, 20], [0, 0, 10, 10, 20, 20, 20, 20],
-            [0, 0, 0, 0, 0, 0, 0, 0],
-        ]
-        for values in inputs {
-            #expect(LiveCaptionFrame.select(frames(values)).isEmpty)
-        }
+    @Test func stillSceneIsSpacedAlongTime() {
+        let selected = LiveCaptionFrame.select(frames([7, 7, 7, 7, 7, 7, 7, 7]), count: 4)
+        #expect(selected.map(\.sampledAt) == [0, 0.5, 1.25, 1.75])
+        #expect(LiveCaptionFrame.select(frames([])).isEmpty)
     }
 
     @Test func collidingTargetsSelectUnusedFramesInTimeOrder() {
@@ -50,17 +46,26 @@ struct LiveCaptionFrameTests {
     }
 
     @Test func limitsAWindowToTheMaximumVideoFrames() {
-        let input = frames((0..<15).map { UInt8($0 * 10) })
+        let input = frames((0..<15).map { UInt8($0) })
         let selected = LiveCaptionFrame.select(input)
-        #expect(selected.count == LiveCaptionPolicy.maximumVideoFrames)
+        #expect(selected.count == LiveCaptionPolicy.newFrames)
         #expect(selected.first?.sampledAt == input.first?.sampledAt)
         #expect(selected.last?.sampledAt == input.last?.sampledAt)
         #expect(selected.map(\.sampledAt) == selected.map(\.sampledAt).sorted())
     }
 
-    @Test func sendsEveryMovingFrameWhenFewerThanTheLimit() {
-        let selected = LiveCaptionFrame.select(frames([0, 10, 20, 30, 40, 50]))
-        #expect(selected.count == 6)
+    @Test func sendsEveryFrameWhenFewerThanTheLimit() {
+        #expect(LiveCaptionFrame.select(frames([0, 10, 20])).count == 3)
+    }
+
+    @Test func moreMotionSendsMoreFramesUpToTenPerSecond() {
+        #expect(LiveCaptionPolicy.frameCount(motion: 0) == 5)
+        #expect(LiveCaptionPolicy.frameCount(motion: 30) == 5)
+        #expect(LiveCaptionPolicy.frameCount(motion: 90) == 13)
+        #expect(LiveCaptionPolicy.frameCount(motion: 150) == 20)
+        #expect(LiveCaptionPolicy.frameCount(motion: 500) == 20)
+        let quick = frames((0..<20).map { UInt8($0 * 13) })
+        #expect(LiveCaptionFrame.select(quick).count == 20)
     }
 
     @Test func motionIsMeanAbsolutePixelDifference() {

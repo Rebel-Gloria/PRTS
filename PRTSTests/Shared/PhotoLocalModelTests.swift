@@ -326,7 +326,7 @@ struct RemoteTextReadingTests {
     func qwenCaptionsAVideoWithinItsTokenBudget() async throws {
         let key = Self.env["PRTS_QWEN_KEY"]!
         let size = CGSize(width: 720, height: 960)
-        let video = try (0..<LiveCaptionPolicy.maximumVideoFrames).map { index in
+        let video = try (0..<LiveCaptionPolicy.newFrames + 1).map { index in
             let image = UIGraphicsImageRenderer(size: size).image { context in
                 UIColor.lightGray.setFill()
                 context.fill(CGRect(origin: .zero, size: size))
