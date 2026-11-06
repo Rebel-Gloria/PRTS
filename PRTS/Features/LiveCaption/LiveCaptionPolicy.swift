@@ -13,7 +13,7 @@ nonisolated enum LiveCaptionPolicy {
     static func answer(_ response: String, previous: String?) -> String? {
         let line = String(response.prefix { !$0.isNewline })
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !line.isEmpty, line != "无", line != "无。", line.count <= 20,
+        guard !line.isEmpty, line != "无", line != "无。", line.count <= 24,
             !["照片", "画面", "镜头"].contains(where: line.contains), line != previous
         else { return nil }
         return line
