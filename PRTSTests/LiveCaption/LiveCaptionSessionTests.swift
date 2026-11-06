@@ -53,13 +53,13 @@ private actor CaptionTestResponse {
 
 private actor CaptionTestReplies {
     private(set) var videos: [[Data]] = []
-    private var responses: [Int: CheckedContinuation<String, Never>] = [:]
+    private var responses: [Int: CheckedContinuation<String, Error>] = [:]
     private var arrivals: [(Int, CheckedContinuation<Void, Never>)] = []
 
-    func request(_ video: [Data]) async -> String {
+    func request(_ video: [Data]) async throws -> String {
         let index = videos.count
         videos.append(video)
-        return await withCheckedContinuation { continuation in
+        return try await withCheckedThrowingContinuation { continuation in
             responses[index] = continuation
             let ready = arrivals.filter { $0.0 <= videos.count }
             arrivals.removeAll { $0.0 <= videos.count }
@@ -74,6 +74,10 @@ private actor CaptionTestReplies {
 
     func reply(_ index: Int, _ text: String) {
         responses.removeValue(forKey: index)?.resume(returning: text)
+    }
+
+    func fail(_ index: Int) {
+        responses.removeValue(forKey: index)?.resume(throwing: PhotoChatError.incompleteStream)
     }
 
     func finish() {
@@ -284,36 +288,6 @@ struct LiveCaptionSessionTests {
         #expect(session.work == nil)
     }
 
-    @Test func requestFailureIsAnnouncedOnceAndCanBeCancelled() async {
-        let audio = CaptionTestAnswerAudio()
-        let clock = CaptionTestClock()
-        let session = LiveCaptionSession(
-            audio: audio,
-            services: services(clock: clock),
-            credential: { _ in "synthetic-test-key" },
-            describeOpening: { _, _ in throw PhotoChatError.incompleteStream },
-            sleep: clock.sleep
-        )
-        session.localized = { $0 }
-        let image = jpeg()
-        session.start(capture: {
-            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
-        })
-        let work = session.work
-        await audio.waitForSpeech(count: 2)
-        #expect(
-            audio.spoken == [
-                "liveCaption.on", PhotoChatError.incompleteStream.localizedDescription,
-            ]
-        )
-        #expect(!session.isRunning)
-        #expect(session.isAnnouncing)
-        session.stop()
-        clock.finish()
-        await work?.value
-        #expect(!session.suspendsFeedback)
-    }
-
     @Test func overlongOpeningIsSkippedWithoutEndingTheSession() async {
         let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
@@ -476,6 +450,19 @@ struct LiveCaptionSessionTests {
         }
     }
 
+    /// The sending loop can fall a beat behind the sampler, so the clock runs until it catches up.
+    private func advance(
+        _ clock: CaptionTestClock,
+        until count: Int,
+        _ replies: CaptionTestReplies,
+        from start: inout Double
+    ) async {
+        while await replies.videos.count < count {
+            await advance(clock, samples: 5, from: &start)
+            await settle()
+        }
+    }
+
     private func captionSession(
         _ audio: CaptionTestAnswerAudio,
         _ clock: CaptionTestClock,
@@ -486,7 +473,7 @@ struct LiveCaptionSessionTests {
             services: services(clock: clock),
             credential: { _ in "synthetic-test-key" },
             describeOpening: { _, _ in throw PhotoChatError.answerTooLong },
-            describeChange: { video, _, _ in await replies.request(video) },
+            describeChange: { video, _, _ in try await replies.request(video) },
             sleep: clock.sleep
         )
         session.localized = { $0 }
@@ -500,10 +487,8 @@ struct LiveCaptionSessionTests {
         let replies = CaptionTestReplies()
         let session = captionSession(audio, clock, replies)
         var time = 0.0
-        await advance(clock, samples: 20, from: &time)
-        await replies.waitForRequests(1)
-        await advance(clock, samples: 20, from: &time)
-        await replies.waitForRequests(2)
+        await advance(clock, until: 1, replies, from: &time)
+        await advance(clock, until: 2, replies, from: &time)
         let videos = await replies.videos
         #expect((LiveCaptionPolicy.minimumVideoFrames...6).contains(videos[0].count))
         #expect((LiveCaptionPolicy.minimumVideoFrames...6).contains(videos[1].count))
@@ -519,8 +504,7 @@ struct LiveCaptionSessionTests {
         let replies = CaptionTestReplies()
         let session = captionSession(audio, clock, replies)
         var time = 0.0
-        await advance(clock, samples: 100, from: &time)
-        await replies.waitForRequests(LiveCaptionPolicy.maximumRequestsInFlight)
+        await advance(clock, until: LiveCaptionPolicy.maximumRequestsInFlight, replies, from: &time)
         await advance(clock, samples: 20, from: &time)
         #expect(await replies.videos.count == LiveCaptionPolicy.maximumRequestsInFlight)
         session.stop()
@@ -535,13 +519,12 @@ struct LiveCaptionSessionTests {
         let session = captionSession(audio, clock, replies)
         audio.onFinished?()
         var time = 0.0
-        await advance(clock, samples: 40, from: &time)
-        await replies.waitForRequests(2)
+        await advance(clock, until: 2, replies, from: &time)
         await replies.reply(1, "新的动作。")
         await audio.waitForSpeech(count: 2)
         audio.onFinished?()
         await replies.reply(0, "旧的动作。")
-        for _ in 0..<50 { await Task.yield() }
+        await settle()
         #expect(audio.spoken == ["liveCaption.on", "新的动作。"])
         session.stop()
         clock.finish()
@@ -554,15 +537,86 @@ struct LiveCaptionSessionTests {
         let replies = CaptionTestReplies()
         let session = captionSession(audio, clock, replies)
         var time = 0.0
-        await advance(clock, samples: 40, from: &time)
-        await replies.waitForRequests(2)
+        await advance(clock, until: 2, replies, from: &time)
         await replies.reply(0, "第一句。")
         for _ in 0..<50 { await Task.yield() }
         await replies.reply(1, "第二句。")
-        for _ in 0..<50 { await Task.yield() }
+        await settle()
         #expect(audio.spoken == ["liveCaption.on"])
         audio.onFinished?()
         #expect(audio.spoken == ["liveCaption.on", "第二句。"])
+        session.stop()
+        clock.finish()
+        await replies.finish()
+    }
+
+    @Test func aFailedOpeningIsSkipped() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            credential: { _ in "synthetic-test-key" },
+            describeOpening: { _, _ in throw PhotoChatError.incompleteStream },
+            sleep: clock.sleep
+        )
+        session.localized = { $0 }
+        session.start(capture: moving(clock))
+        let work = session.work
+        await clock.waitForSleep(at: LiveCaptionPolicy.requestInterval)
+        #expect(session.isRunning)
+        #expect(audio.spoken == ["liveCaption.on"])
+        session.stop()
+        clock.finish()
+        await work?.value
+    }
+
+    private func settle() async {
+        try? await Task.sleep(for: .milliseconds(20))
+    }
+
+    @Test func threeFailuresInARowEndCaptions() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        var time = 0.0
+        await advance(clock, until: 3, replies, from: &time)
+        await replies.fail(0)
+        await settle()
+        await replies.fail(1)
+        await settle()
+        #expect(session.isRunning)
+        #expect(audio.spoken == ["liveCaption.on"])
+        await replies.fail(2)
+        await settle()
+        #expect(!session.isRunning)
+        #expect(audio.spoken.last == PhotoChatError.incompleteStream.localizedDescription)
+        #expect(session.isAnnouncing)
+        session.stop()
+        clock.finish()
+        await replies.finish()
+    }
+
+    @Test func aSuccessResetsTheFailureCount() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        var time = 0.0
+        await advance(clock, until: 3, replies, from: &time)
+        await replies.fail(0)
+        await settle()
+        await replies.fail(1)
+        await settle()
+        await replies.reply(2, "无")
+        await settle()
+        await advance(clock, until: 5, replies, from: &time)
+        await replies.fail(3)
+        await settle()
+        await replies.fail(4)
+        await settle()
+        #expect(session.isRunning)
         session.stop()
         clock.finish()
         await replies.finish()
@@ -575,11 +629,10 @@ struct LiveCaptionSessionTests {
         let session = captionSession(audio, clock, replies)
         audio.onFinished?()
         var time = 0.0
-        await advance(clock, samples: 20, from: &time)
-        await replies.waitForRequests(1)
+        await advance(clock, until: 1, replies, from: &time)
         session.stop()
         await replies.reply(0, "迟到的动作。")
-        for _ in 0..<50 { await Task.yield() }
+        await settle()
         #expect(audio.spoken == ["liveCaption.on"])
         clock.finish()
         await replies.finish()

@@ -26,6 +26,7 @@ final class LiveCaptionSession: ObservableObject {
     private var requests: [Int: Task<Void, Never>] = [:]
     private var lastRequestID = 0
     private var newestAnswerID = 0
+    private var consecutiveFailures = 0
     private var isSpeaking = false
     /// The newest answer waiting for the current sentence to end; older ones are never read.
     private var waitingAnswer: String?
@@ -171,6 +172,7 @@ final class LiveCaptionSession: ObservableObject {
         requests = [:]
         lastRequestID = 0
         newestAnswerID = 0
+        consecutiveFailures = 0
         audio.stop()
         isSpeaking = false
         waitingAnswer = nil
@@ -214,9 +216,16 @@ final class LiveCaptionSession: ObservableObject {
         defer { sampler.cancel() }
         var images = stream.stream.makeAsyncIterator()
         guard let first = try await images.next() else { return }
-        let opening = try await skippingOverlong { try await describeOpening(first[0].jpeg, key) }
-        try Task.checkCancellation()
-        if let opening { try present(opening) }
+        do {
+            let opening = try await skippingOverlong {
+                try await describeOpening(first[0].jpeg, key)
+            }
+            try Task.checkCancellation()
+            consecutiveFailures = 0
+            if let opening { try present(opening) }
+        } catch let error where !Task.isCancelled {
+            requestFailed(error)
+        }
 
         var carried: LiveCaptionFrame?
         var nextRequest = services.now()
@@ -250,11 +259,23 @@ final class LiveCaptionSession: ObservableObject {
                 }
                 try Task.checkCancellation()
                 requests[id] = nil
+                consecutiveFailures = 0
                 guard let response else { return }
                 try receive(response, id: id)
             } catch {
-                if !Task.isCancelled { fail(error) }
+                guard !Task.isCancelled else { return }
+                requests[id] = nil
+                requestFailed(error)
             }
+        }
+    }
+
+    private func requestFailed(_ error: Error) {
+        consecutiveFailures += 1
+        if consecutiveFailures < LiveCaptionPolicy.maximumConsecutiveFailures {
+            services.errors.record(error)
+        } else {
+            fail(error)
         }
     }
 
