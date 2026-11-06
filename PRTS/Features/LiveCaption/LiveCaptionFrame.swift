@@ -11,7 +11,8 @@ nonisolated struct LiveCaptionFrame {
     static func capture(image: CIImage, sampledAt: TimeInterval) throws -> Self {
         let jpeg = try PhotoImageEncoder.jpeg(
             image: image,
-            longestSide: PhotoImagePurpose.liveCaption.longestSide(highResolution: false)
+            longestSide: PhotoImagePurpose.liveCaption.longestSide(highResolution: false),
+            quality: LiveCaptionPolicy.imageQuality
         )
         let thumbnail = image.transformed(
             by: CGAffineTransform(scaleX: 48 / image.extent.width, y: 64 / image.extent.height)
@@ -37,28 +38,29 @@ nonisolated struct LiveCaptionFrame {
         return Double(difference) / Double(current.count)
     }
 
-    static func select(
-        _ frames: [Self],
-        count: Int = LiveCaptionPolicy.maximumVideoFrames
-    ) -> [Self] {
-        guard frames.count >= LiveCaptionPolicy.minimumVideoFrames else { return [] }
-        // The first frame anchors the motion accumulated within this window.
-        var candidates: [(index: Int, cumulative: Double)] = [(0, 0)]
-        var cumulative = 0.0
+    /// Spaces frames evenly along the accumulated motion, or along time in a still scene.
+    static func select(_ frames: [Self], count: Int? = nil) -> [Self] {
+        guard frames.count > 1 else { return frames }
+        var positions = [0.0]
         for index in 1..<frames.count {
-            let amount = motion(frames[index - 1].grayscale, frames[index].grayscale)
-            cumulative += amount
-            if amount > 0 { candidates.append((index, cumulative)) }
+            positions.append(
+                positions[index - 1] + motion(frames[index - 1].grayscale, frames[index].grayscale)
+            )
         }
-        guard candidates.count >= LiveCaptionPolicy.minimumVideoFrames else { return [] }
-        let count = min(count, candidates.count)
+        let count = min(
+            count ?? LiveCaptionPolicy.frameCount(motion: positions[positions.count - 1]),
+            frames.count
+        )
+        guard count > 1 else { return Array(frames.prefix(count)) }
+        if positions.last == 0 { positions = frames.indices.map(Double.init) }
+        var candidates = Array(zip(frames.indices, positions))
         var selected: [Int] = []
         for step in 0..<count {
-            let target = cumulative * Double(step) / Double(count - 1)
+            let target = positions[positions.count - 1] * Double(step) / Double(count - 1)
             let nearest = candidates.indices.min {
-                abs(candidates[$0].cumulative - target) < abs(candidates[$1].cumulative - target)
+                abs(candidates[$0].1 - target) < abs(candidates[$1].1 - target)
             }!
-            selected.append(candidates.remove(at: nearest).index)
+            selected.append(candidates.remove(at: nearest).0)
         }
         return selected.sorted().map { frames[$0] }
     }

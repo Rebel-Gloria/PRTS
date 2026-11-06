@@ -1,7 +1,6 @@
 import Foundation
 import Testing
 import UIKit
-import Vision
 
 @testable import PRTS
 
@@ -52,18 +51,54 @@ private actor CaptionTestResponse {
     }
 }
 
+private actor CaptionTestReplies {
+    private(set) var videos: [[Data]] = []
+    private var responses: [Int: CheckedContinuation<String, Never>] = [:]
+    private var arrivals: [(Int, CheckedContinuation<Void, Never>)] = []
+
+    func request(_ video: [Data]) async -> String {
+        let index = videos.count
+        videos.append(video)
+        return await withCheckedContinuation { continuation in
+            responses[index] = continuation
+            let ready = arrivals.filter { $0.0 <= videos.count }
+            arrivals.removeAll { $0.0 <= videos.count }
+            ready.forEach { $0.1.resume() }
+        }
+    }
+
+    func waitForRequests(_ count: Int) async {
+        if videos.count >= count { return }
+        await withCheckedContinuation { arrivals.append((count, $0)) }
+    }
+
+    func reply(_ index: Int, _ text: String) {
+        responses.removeValue(forKey: index)?.resume(returning: text)
+    }
+
+    func finish() {
+        responses.values.forEach { $0.resume(returning: "无") }
+        responses = [:]
+    }
+}
+
 @MainActor
 private final class CaptionTestClock {
     var now: TimeInterval = 0
     private var sleepers: [(TimeInterval, CheckedContinuation<Void, Error>)] = []
     private var arrival: (TimeInterval, Int, CheckedContinuation<Void, Never>)?
 
+    /// Deadlines are sums of sample intervals, so they differ by rounding.
+    private func same(_ first: TimeInterval, _ second: TimeInterval) -> Bool {
+        abs(first - second) < 1e-9
+    }
+
     func sleep(_ duration: TimeInterval) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let deadline = now + duration
             sleepers.append((deadline, continuation))
-            if let arrival, arrival.0 == deadline,
-                sleepers.filter({ $0.0 == deadline }).count == arrival.1
+            if let arrival, same(arrival.0, deadline),
+                sleepers.filter({ same($0.0, deadline) }).count == arrival.1
             {
                 self.arrival = nil
                 arrival.2.resume()
@@ -72,14 +107,14 @@ private final class CaptionTestClock {
     }
 
     func waitForSleep(at deadline: TimeInterval, count: Int = 1) async {
-        if sleepers.filter({ $0.0 == deadline }).count >= count { return }
+        if sleepers.filter({ same($0.0, deadline) }).count >= count { return }
         await withCheckedContinuation { arrival = (deadline, count, $0) }
     }
 
     func advance(to time: TimeInterval) {
         now = time
-        let ready = sleepers.filter { $0.0 <= time }
-        sleepers.removeAll { $0.0 <= time }
+        let ready = sleepers.filter { $0.0 <= time + 1e-9 }
+        sleepers.removeAll { $0.0 <= time + 1e-9 }
         for (_, continuation) in ready { continuation.resume() }
     }
 
@@ -295,16 +330,8 @@ struct LiveCaptionSessionTests {
             Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
         })
         let work = session.work
-        // The session reaches its first change request once the opening has been skipped.
-        await clock.waitForSleep(
-            at: LiveCaptionPolicy.requestTime(
-                now: 0,
-                lastRequest: 0,
-                speechEnd: Double("liveCaption.on".count)
-                    / LiveCaptionPolicy.initialCharactersPerSecond,
-                modelDuration: 0
-            )
-        )
+        // The session reaches its first send once the opening has been skipped.
+        await clock.waitForSleep(at: LiveCaptionPolicy.requestInterval)
         #expect(session.isRunning)
         #expect(audio.spoken == ["liveCaption.on"])
         session.stop()
@@ -367,12 +394,12 @@ struct LiveCaptionSessionTests {
         // The opening waits until the start cue has been read.
         audio.onFinished?()
         await audio.waitForSpeech(count: 2)
+        await clock.waitForSleep(at: 0.1)
+        clock.advance(to: 0.1)
         await clock.waitForSleep(at: 0.2)
-        clock.advance(to: 0.2)
-        await clock.waitForSleep(at: 0.4)
         await clock.waitForSleep(at: 2)
         clock.advance(to: 2)
-        await clock.waitForSleep(at: 2.2)
+        await clock.waitForSleep(at: 2.1)
         #expect(captures == 3)
         session.stop()
         clock.finish()
@@ -428,114 +455,133 @@ struct LiveCaptionSessionTests {
         #expect(!session.suspendsFeedback)
     }
 
-    @Test func restartWaitsForOldFeatureExtraction() async throws {
-        let image = jpeg()
-        let observation = try await LiveCaptionFeatureGenerator.shared.generate(
-            image,
-            extract: LiveCaptionFeatureGenerator.extract
-        )
-        let entered = TestSignal()
-        let restarted = TestSignal()
-        let release = DispatchSemaphore(value: 0)
-        let overlap = CaptionExtractionState()
-        let audio = CaptionTestAnswerAudio()
-        let clock = CaptionTestClock()
-        let response = CaptionTestResponse()
-        var passes = 0
+    private func moving(_ clock: CaptionTestClock) -> () throws -> Task<LiveCaptionFrame, Error> {
+        var count: UInt8 = 0
+        return {
+            count &+= 1
+            let frame = LiveCaptionFrame(
+                sampledAt: clock.now,
+                jpeg: Data([count]),
+                grayscale: [count]
+            )
+            return Task { frame }
+        }
+    }
+
+    private func advance(_ clock: CaptionTestClock, samples: Int, from start: inout Double) async {
+        for _ in 0..<samples {
+            start += LiveCaptionPolicy.sampleInterval
+            await clock.waitForSleep(at: start)
+            clock.advance(to: start)
+        }
+    }
+
+    private func captionSession(
+        _ audio: CaptionTestAnswerAudio,
+        _ clock: CaptionTestClock,
+        _ replies: CaptionTestReplies
+    ) -> LiveCaptionSession {
         let session = LiveCaptionSession(
             audio: audio,
             services: services(clock: clock),
-            credential: { _ in "test-key" },
-            describeOpening: { _, _ in await response.request() },
-            makeComparison: {
-                passes += 1
-                let first = passes == 1
-                if !first { Task { await restarted.signal() } }
-                return LiveCaptionImageComparison { _ in
-                    overlap.begin()
-                    defer { overlap.end() }
-                    if first {
-                        Task { await entered.signal() }
-                        release.wait()
-                    }
-                    return observation
-                }
-            },
+            credential: { _ in "synthetic-test-key" },
+            describeOpening: { _, _ in throw PhotoChatError.answerTooLong },
+            describeChange: { video, _, _ in await replies.request(video) },
             sleep: clock.sleep
         )
         session.localized = { $0 }
-        let capture: () throws -> Task<LiveCaptionFrame, Error> = {
-            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
-        }
-        session.start(capture: capture)
-        let oldWork = session.work
-        await entered.wait()
+        session.start(capture: moving(clock))
+        return session
+    }
+
+    @Test func sendsEveryTwoSecondsWithThePreviousLastFrame() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        var time = 0.0
+        await advance(clock, samples: 20, from: &time)
+        await replies.waitForRequests(1)
+        await advance(clock, samples: 20, from: &time)
+        await replies.waitForRequests(2)
+        let videos = await replies.videos
+        #expect((LiveCaptionPolicy.minimumVideoFrames...6).contains(videos[0].count))
+        #expect((LiveCaptionPolicy.minimumVideoFrames...6).contains(videos[1].count))
+        #expect(videos[1].first == videos[0].last)
         session.stop()
         clock.finish()
-        session.start(capture: capture)
-        let newWork = session.work
-        await restarted.wait()
-        release.signal()
-        await oldWork?.value
-        await response.waitForRequest()
-        #expect(overlap.maximum == 1)
-        #expect(overlap.count == 2)
-        #expect(session.isRunning)
+        await replies.finish()
+    }
+
+    @Test func requestsInFlightAreLimited() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        var time = 0.0
+        await advance(clock, samples: 100, from: &time)
+        await replies.waitForRequests(LiveCaptionPolicy.maximumRequestsInFlight)
+        await advance(clock, samples: 20, from: &time)
+        #expect(await replies.videos.count == LiveCaptionPolicy.maximumRequestsInFlight)
         session.stop()
         clock.finish()
-        await response.reply("new pass")
-        await newWork?.value
-        #expect(audio.spoken == ["liveCaption.on", "liveCaption.on"])
+        await replies.finish()
     }
 
-    @Test func cancelledQueuedFeatureDoesNotStartExtraction() async throws {
-        let image = jpeg()
-        let observation = try await LiveCaptionFeatureGenerator.shared.generate(
-            image,
-            extract: LiveCaptionFeatureGenerator.extract
-        )
-        let entered = TestSignal()
-        let release = DispatchSemaphore(value: 0)
-        let old = LiveCaptionImageComparison { _ in
-            Task { await entered.signal() }
-            release.wait()
-            return observation
-        }
-        let oldTask = Task { try await old.accept(image) }
-        await entered.wait()
-        let next = LiveCaptionImageComparison { _ in
-            Issue.record("Cancelled queued work must not enter Vision")
-            return observation
-        }
-        let nextTask = Task { try await next.accept(image) }
-        nextTask.cancel()
-        release.signal()
-        _ = try await oldTask.value
-        await #expect(throws: CancellationError.self) { try await nextTask.value }
+    @Test func anAnswerOlderThanOneAlreadyReadIsDropped() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        audio.onFinished?()
+        var time = 0.0
+        await advance(clock, samples: 40, from: &time)
+        await replies.waitForRequests(2)
+        await replies.reply(1, "新的动作。")
+        await audio.waitForSpeech(count: 2)
+        audio.onFinished?()
+        await replies.reply(0, "旧的动作。")
+        for _ in 0..<50 { await Task.yield() }
+        #expect(audio.spoken == ["liveCaption.on", "新的动作。"])
+        session.stop()
+        clock.finish()
+        await replies.finish()
     }
 
-    @Test func identicalFramesStayBelowThreshold() async throws {
-        let comparison = LiveCaptionImageComparison()
-        let image = jpeg()
-        #expect(try await comparison.accept(image))
-        #expect(try await !comparison.accept(image))
-        #expect(try await !comparison.accept(image))
+    @Test func onlyTheNewestAnswerWaitsForTheCurrentSentence() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        var time = 0.0
+        await advance(clock, samples: 40, from: &time)
+        await replies.waitForRequests(2)
+        await replies.reply(0, "第一句。")
+        for _ in 0..<50 { await Task.yield() }
+        await replies.reply(1, "第二句。")
+        for _ in 0..<50 { await Task.yield() }
+        #expect(audio.spoken == ["liveCaption.on"])
+        audio.onFinished?()
+        #expect(audio.spoken == ["liveCaption.on", "第二句。"])
+        session.stop()
+        clock.finish()
+        await replies.finish()
     }
-}
 
-nonisolated private final class CaptionExtractionState: @unchecked Sendable {
-    private let lock = NSLock()
-    private var active = 0
-    private var peak = 0
-    private var total = 0
-    var maximum: Int { lock.withLock { peak } }
-    var count: Int { lock.withLock { total } }
-    func begin() {
-        lock.withLock {
-            active += 1
-            total += 1
-            peak = max(peak, active)
-        }
+    @Test func stopDropsAnswersStillInFlight() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        let session = captionSession(audio, clock, replies)
+        audio.onFinished?()
+        var time = 0.0
+        await advance(clock, samples: 20, from: &time)
+        await replies.waitForRequests(1)
+        session.stop()
+        await replies.reply(0, "迟到的动作。")
+        for _ in 0..<50 { await Task.yield() }
+        #expect(audio.spoken == ["liveCaption.on"])
+        clock.finish()
+        await replies.finish()
     }
-    func end() { lock.withLock { active -= 1 } }
 }

@@ -25,41 +25,4 @@ struct LiveCaptionPolicyTests {
         #expect(LiveCaptionPolicy.answer(" \(sentence) \n无", previous: sentence) == nil)
         #expect(LiveCaptionPolicy.answer(sentence, previous: "一只手拿起杯子。") == sentence)
     }
-
-    @Test func startsBeforeEstimatedSpeechEnd() {
-        #expect(
-            LiveCaptionPolicy.requestTime(
-                now: 12,
-                lastRequest: 10,
-                speechEnd: 18,
-                modelDuration: 3
-            ) == 15
-        )
-    }
-
-    @Test func minimumTwoSecondsBetweenRequests() {
-        #expect(
-            LiveCaptionPolicy.requestTime(
-                now: 10.5,
-                lastRequest: 10,
-                speechEnd: 12,
-                modelDuration: 3
-            ) == 12
-        )
-        #expect(
-            LiveCaptionPolicy.requestTime(
-                now: 15,
-                lastRequest: 10,
-                speechEnd: nil,
-                modelDuration: 3
-            ) == 15
-        )
-    }
-
-    @Test func actualCompletionUpdatesSpeechEstimate() {
-        #expect(LiveCaptionPolicy.initialCharactersPerSecond == 4.5)
-        #expect(
-            LiveCaptionPolicy.updatedSpeechRate(4.5, characters: 18, duration: 3) == 4.875
-        )
-    }
 }

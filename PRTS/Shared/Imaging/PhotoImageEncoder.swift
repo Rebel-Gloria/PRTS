@@ -43,7 +43,11 @@ nonisolated enum PhotoImageEncoder {
         return CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation)
     }
 
-    static func jpeg(image: CIImage, longestSide: CGFloat) throws -> Data {
+    static func jpeg(
+        image: CIImage,
+        longestSide: CGFloat,
+        quality: CGFloat = 0.8
+    ) throws -> Data {
         var image = image
         let scale = min(1, longestSide / max(image.extent.width, image.extent.height))
         image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
@@ -53,7 +57,8 @@ nonisolated enum PhotoImageEncoder {
                 of: image,
                 colorSpace: colorSpace,
                 options: [
-                    kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.8
+                    kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption:
+                        quality
                 ]
             )
         else {
