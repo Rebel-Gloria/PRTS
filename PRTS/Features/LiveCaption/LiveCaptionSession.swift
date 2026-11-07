@@ -31,6 +31,7 @@ final class LiveCaptionSession: ObservableObject {
     /// The newest answer waiting for the current sentence to end; older ones are never read.
     private var waitingAnswer: String?
     private var previous: String?
+    private var provider = PhotoChatProvider.qwen
 
     convenience init() {
         self.init(audio: AnswerAudioOutput(), services: .init())
@@ -131,24 +132,32 @@ final class LiveCaptionSession: ObservableObject {
 
     func start(capture: @escaping () throws -> Task<LiveCaptionFrame, Error>) {
         interruptAnnouncement()
-        guard services.uploadAllowed() else {
-            stop()
-            message = "先在设置里允许发送照片"
-            announce(message)
-            return
-        }
-        let key: String
-        do {
-            if let savedKey = try credential(PhotoChatProvider.qwen.keyAccount), !savedKey.isEmpty {
-                key = savedKey
-            } else {
-                announce(localized("liveCaption.requiresQwen"))
+        let provider = services.provider()
+        var key = ""
+        if provider != .onDevice {
+            guard services.uploadAllowed() else {
+                stop()
+                message = "先在设置里允许发送照片"
+                announce(message)
                 return
             }
-        } catch {
-            fail(error)
-            return
+            do {
+                if let savedKey = try credential(provider.keyAccount), !savedKey.isEmpty {
+                    key = savedKey
+                } else {
+                    announce(
+                        provider == .qwen
+                            ? localized("liveCaption.requiresQwen")
+                            : PhotoChatError.missingKey.localizedDescription
+                    )
+                    return
+                }
+            } catch {
+                fail(error)
+                return
+            }
         }
+        self.provider = provider
         isRunning = true
         do { try say(localized("liveCaption.on")) } catch {
             fail(error)
@@ -238,9 +247,12 @@ final class LiveCaptionSession: ObservableObject {
                 now - $0.sampledAt < LiveCaptionPolicy.window
                     && $0.sampledAt > (carried?.sampledAt ?? -.infinity)
             }
-            let video = [carried].compactMap { $0 } + LiveCaptionFrame.select(fresh)
+            let previousFrame = LiveCaptionModel.carriesPreviousFrame(provider) ? carried : nil
+            let video =
+                [previousFrame].compactMap { $0 }
+                + LiveCaptionFrame.select(fresh, limit: LiveCaptionModel.frameLimit(provider))
             guard video.count >= LiveCaptionPolicy.minimumVideoFrames,
-                requests.count < LiveCaptionPolicy.maximumRequestsInFlight
+                requests.count < LiveCaptionModel.requestLimit(provider)
             else { continue }
             carried = video.last
             send(video.map(\.jpeg), key: key)

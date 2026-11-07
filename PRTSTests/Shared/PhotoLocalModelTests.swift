@@ -150,6 +150,40 @@ extension PhotoLocalModelTests {
         #expect(text.contains("人民路"))
     }
 
+    @Test(
+        .enabled(
+            if: Bundle.main.url(
+                forResource: "mmproj-model-f16",
+                withExtension: "gguf",
+                subdirectory: "LocalVLM"
+            ) != nil
+        )
+    )
+    func bundledModelCaptionsACollage() async throws {
+        let size = CGSize(width: 720, height: 960)
+        let frames = try (0..<4).map { index in
+            let image = UIGraphicsImageRenderer(size: size).image { context in
+                UIColor.lightGray.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.black.setFill()
+                context.fill(CGRect(x: index * 180, y: 320, width: 100, height: 320))
+            }
+            return try #require(image.jpegData(compressionQuality: 0.5))
+        }
+        let start = Date()
+        do {
+            let caption = try await LiveCaptionBackend.caption(
+                video: frames,
+                previous: nil,
+                key: "",
+                provider: .onDevice
+            )
+            print("PRTS_LOCAL_CAPTION \(Date().timeIntervalSince(start)) s: \(caption)")
+        } catch PhotoChatError.answerTooLong {
+            print("PRTS_LOCAL_CAPTION \(Date().timeIntervalSince(start)) s: too long")
+        }
+    }
+
     private func photo(_ lines: [String], background: UIColor, card: UIColor, ink: UIColor) throws
         -> Data
     {
@@ -351,6 +385,35 @@ struct RemoteTextReadingTests {
             )
             #expect(!caption.isEmpty)
         }
+    }
+
+    /// DeepSeek has no video input: the same frames go out as ordered images, up to the frame limit.
+    @Test(.enabled(if: env["PRTS_DEEPSEEK_KEY"] != nil))
+    func deepSeekCaptionsFramesWithinItsTokenBudget() async throws {
+        let key = Self.env["PRTS_DEEPSEEK_KEY"]!
+        let size = CGSize(width: 720, height: 960)
+        let video = try (0..<LiveCaptionPolicy.maximumSamples + 1).map { index in
+            let image = UIGraphicsImageRenderer(size: size).image { context in
+                UIColor.lightGray.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.black.setFill()
+                context.fill(CGRect(x: index * 30, y: 320, width: 100, height: 320))
+            }
+            return try #require(image.jpegData(compressionQuality: 0.8))
+        }
+        let opening = try await LiveCaptionBackend.captionOpening(
+            jpeg: video[0],
+            key: key,
+            provider: .deepseek
+        )
+        #expect(!opening.isEmpty)
+        let caption = try await LiveCaptionBackend.caption(
+            video: video,
+            previous: nil,
+            key: key,
+            provider: .deepseek
+        )
+        #expect(!caption.isEmpty)
     }
 
     /// A question with the question prompt, thinking off and on.

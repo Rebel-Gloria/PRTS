@@ -39,7 +39,11 @@ nonisolated struct LiveCaptionFrame {
     }
 
     /// Spaces frames evenly along the accumulated motion, or along time in a still scene.
-    static func select(_ frames: [Self], count: Int? = nil) -> [Self] {
+    static func select(
+        _ frames: [Self],
+        count: Int? = nil,
+        limit: Int = LiveCaptionPolicy.maximumSamples
+    ) -> [Self] {
         guard frames.count > 1 else { return frames }
         var positions = [0.0]
         for index in 1..<frames.count {
@@ -49,6 +53,7 @@ nonisolated struct LiveCaptionFrame {
         }
         let count = min(
             count ?? LiveCaptionPolicy.frameCount(motion: positions[positions.count - 1]),
+            limit,
             frames.count
         )
         guard count > 1 else { return Array(frames.prefix(count)) }

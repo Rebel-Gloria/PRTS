@@ -7,6 +7,7 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     var thinking: ThinkingSwitch
     /// How long a description or question waits before the bundled model takes over.
     var answerDeadline: Duration = .seconds(6)
+    var acceptsVideo = false
 
     enum ThinkingSwitch: Sendable { case qwenFlag, deepseekObject, standard }
 
@@ -15,7 +16,8 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
             string: "https://maas.qianwenaiapi.com/compatible-mode/v1/chat/completions"
         )!,
         model: "qwen3.8-flash",
-        thinking: .qwenFlag
+        thinking: .qwenFlag,
+        acceptsVideo: true
     )
     /// More accurate on video but less responsive (docs/validation.md). It reasons by default,
     /// which takes about 13 s per caption, so requests must keep sending the thinking switch.
@@ -23,7 +25,8 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
         endpoint: qwen.endpoint,
         model: "qwen3.8-omni-flash",
         thinking: .qwenFlag,
-        answerDeadline: .seconds(10)
+        answerDeadline: .seconds(10),
+        acceptsVideo: true
     )
     static let deepseek = PhotoChatService(
         endpoint: URL(string: "https://api.deepseek.com/chat/completions")!,

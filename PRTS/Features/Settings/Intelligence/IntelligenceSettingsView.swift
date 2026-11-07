@@ -6,6 +6,7 @@ struct IntelligenceSettingsView: View {
     @AppStorage(IntelligenceFeature.description.selectionKey) private var descriptionProvider = ""
     @AppStorage(IntelligenceFeature.question.selectionKey) private var questionProvider = ""
     @AppStorage(TextReadingService.selectionKey) private var readingService = TextReadingService.vlm
+    @AppStorage(LiveCaptionModel.selectionKey) private var captionProvider = PhotoChatProvider.qwen
     @AppStorage(PhotoImagePurpose.highResolutionKey) private var highResolution = false
     @State private var configuredProviders: Set<PhotoChatProvider> = []
     @State private var message = ""
@@ -63,8 +64,10 @@ struct IntelligenceSettingsView: View {
                 }
                 .accessibilityHint("settings.ocr.service.hint")
                 .accessibilityIdentifier("ocrServicePicker")
-                LabeledContent("intelligence.liveCaptions") {
-                    Text("photo.settings.provider.qwen")
+                Picker("intelligence.liveCaptions", selection: $captionProvider) {
+                    ForEach(LiveCaptionModel.choices) { provider in
+                        Text(LocalizedStringKey(provider.localizationKey)).tag(provider)
+                    }
                 }
                 .accessibilityIdentifier("liveCaptionProvider")
             } header: {

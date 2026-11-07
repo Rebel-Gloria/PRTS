@@ -550,6 +550,60 @@ struct LiveCaptionSessionTests {
         await replies.finish()
     }
 
+    @Test func theBundledModelNeedsNoKeyOrUploadAndRunsOneRequestAtATime() async {
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let replies = CaptionTestReplies()
+        var services = services(clock: clock)
+        services.uploadAllowed = { false }
+        services.provider = { .onDevice }
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services,
+            credential: { _ in
+                Issue.record("The bundled model needs no key")
+                return nil
+            },
+            describeOpening: { _, _ in throw PhotoChatError.answerTooLong },
+            describeChange: { video, _, _ in try await replies.request(video) },
+            sleep: clock.sleep
+        )
+        session.localized = { $0 }
+        session.start(capture: moving(clock))
+        var time = 0.0
+        await advance(clock, until: 1, replies, from: &time)
+        await advance(clock, samples: 60, from: &time)
+        let videos = await replies.videos
+        #expect(session.isRunning)
+        #expect(videos.count == 1)
+        #expect(videos[0].count == 4)
+        session.stop()
+        clock.finish()
+        await replies.finish()
+    }
+
+    @Test func deepSeekWithoutAKeyAnnouncesTheMissingKey() {
+        let audio = CaptionTestAnswerAudio()
+        var services = LiveCaptionServices()
+        services.errors = .ignored
+        services.uploadAllowed = { true }
+        services.provider = { .deepseek }
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services,
+            credential: { account in
+                #expect(account == PhotoChatProvider.deepseek.keyAccount)
+                return nil
+            }
+        )
+        session.start(capture: {
+            Issue.record("Capture requires a key")
+            return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
+        })
+        #expect(!session.isRunning)
+        #expect(audio.spoken == [PhotoChatError.missingKey.localizedDescription])
+    }
+
     @Test func aFailedOpeningIsSkipped() async {
         let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
