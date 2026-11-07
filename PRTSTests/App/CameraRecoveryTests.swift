@@ -310,7 +310,7 @@ struct CameraRecoveryTests {
         model.scanMesh = enabled
         #expect(updates.count == 1)
         #expect(updates[0].0 == enabled)
-        #expect(updates[0].1 == enabled)
+        #expect(!updates[0].1)
         withExtendedLifetime(observation) {}
     }
 }

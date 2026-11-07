@@ -62,7 +62,6 @@ nonisolated struct RenderOptions: Codable, Sendable, Equatable {
         o.showChannels = false
         o.showHUD = false
         o.showMesh = scanMesh
-        o.showPath = scanMesh
         return o
     }
 }
