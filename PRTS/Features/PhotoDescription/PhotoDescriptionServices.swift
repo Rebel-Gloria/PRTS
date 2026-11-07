@@ -5,6 +5,8 @@ nonisolated struct PhotoDescriptionConfiguration: Sendable {
     let provider: PhotoChatProvider
     let service: PhotoChatService?
     let system: String
+    /// Used when a cloud request fails, as the bundled model has its own prompts.
+    let localSystem: String
     let thinking: Bool
     let uploadAllowed: Bool
     let highResolution: Bool
@@ -16,13 +18,13 @@ extension PhotoDescriptionConfiguration {
         self.provider = provider
         service = provider.service(defaults)
         let question = feature == .question
+        localSystem = PhotoPrompts.localSystem(
+            isQuestion: question,
+            enhanced: defaults.bool(forKey: PhotoChatProvider.localEnhancedKey)
+        )
         system =
             provider == .onDevice
-            ? PhotoPrompts.localSystem(
-                isQuestion: question,
-                enhanced: defaults.bool(forKey: PhotoChatProvider.localEnhancedKey)
-            )
-            : (question ? PhotoPrompts.questionSystem : PhotoPrompts.system)
+            ? localSystem : (question ? PhotoPrompts.questionSystem : PhotoPrompts.system)
         thinking = question && provider.questionThinking(defaults)
         uploadAllowed = defaults.bool(forKey: "photoDescription.uploadAllowed")
         highResolution = defaults.bool(forKey: PhotoImagePurpose.highResolutionKey)

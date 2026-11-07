@@ -160,7 +160,10 @@ final class TextReadingSession: ObservableObject {
         do {
             guard let image else { throw PhotoChatError.emptyInput }
             let jpeg = try await services.encode(image)
-            try await service.read(remoteAvailable: cloud != nil) { reader in
+            try await service.read(
+                remoteAvailable: cloud != nil,
+                onFailure: services.errors.record
+            ) { reader in
                 guard generation == id else { throw CancellationError() }
                 do {
                     try await read(jpeg, image, with: reader, id)

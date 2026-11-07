@@ -8,6 +8,7 @@ extension TextReadingService {
     @MainActor
     func read(
         remoteAvailable: Bool,
+        onFailure: (Error) -> Void = { _ in },
         perform: (Reader) async throws -> Void
     ) async throws {
         let readers: [Reader] =
@@ -23,11 +24,9 @@ extension TextReadingService {
                 try await perform(reader)
                 return
             } catch {
-                // URLSession reports cancellation as URLError rather than CancellationError.
-                if error is CancellationError || (error as? URLError)?.code == .cancelled {
-                    throw CancellationError()
-                }
+                if error.isCancellation { throw CancellationError() }
                 if index == readers.count - 1 { throw error }
+                onFailure(error)
             }
         }
     }

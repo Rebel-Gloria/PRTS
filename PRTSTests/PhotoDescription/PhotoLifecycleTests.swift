@@ -109,6 +109,7 @@ private final class PhotoFixture {
                 provider: state.onDevice ? .onDevice : .qwen,
                 service: state.onDevice ? nil : .qwen,
                 system: PhotoPrompts.system,
+                localSystem: PhotoPrompts.system,
                 thinking: false,
                 uploadAllowed: state.allowUpload,
                 highResolution: state.highResolution

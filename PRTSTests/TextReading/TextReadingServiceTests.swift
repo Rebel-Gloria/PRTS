@@ -79,6 +79,17 @@ struct TextReadingServiceTests {
         #expect(calls == [.remote, .onDevice, .vision])
     }
 
+    @Test func everyFailedStepExceptTheLastIsReported() async {
+        var reported = 0
+        await #expect(throws: URLError.self) {
+            try await TextReadingService.vlm.read(
+                remoteAvailable: true,
+                onFailure: { _ in reported += 1 }
+            ) { _ in throw URLError(.timedOut) }
+        }
+        #expect(reported == 2)
+    }
+
     @Test func visionNeverStartsAModel() async throws {
         var calls: [TextReadingService.Reader] = []
         try await TextReadingService.vision.read(remoteAvailable: true) { calls.append($0) }

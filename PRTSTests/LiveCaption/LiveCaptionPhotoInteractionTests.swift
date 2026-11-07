@@ -37,6 +37,7 @@ private final class CaptionPhotoFixture {
                 provider: .onDevice,
                 service: nil,
                 system: PhotoPrompts.system,
+                localSystem: PhotoPrompts.system,
                 thinking: false,
                 uploadAllowed: false,
                 highResolution: false

@@ -38,13 +38,15 @@ nonisolated enum TextReadingBackend {
         TextReadingAnswer.Surface, String
     ) {
         TextReadingAnswer.split(
-            try await PhotoChatClient().describe(
-                jpeg: jpeg,
-                text: TextReadingPrompt.remotePrompt,
-                key: key,
-                service: service,
-                system: TextReadingPrompt.remoteSystem
-            )
+            try await RequestDeadline.run(RequestDeadline.textReading) {
+                try await PhotoChatClient().describe(
+                    jpeg: jpeg,
+                    text: TextReadingPrompt.remotePrompt,
+                    key: key,
+                    service: service,
+                    system: TextReadingPrompt.remoteSystem
+                )
+            }
         )
     }
 }
