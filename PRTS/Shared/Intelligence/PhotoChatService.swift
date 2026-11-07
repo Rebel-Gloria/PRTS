@@ -5,6 +5,8 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     var model: String
     /// How this provider turns reasoning off; custom endpoints get only standard fields.
     var thinking: ThinkingSwitch
+    /// How long a description or question waits before the bundled model takes over.
+    var answerDeadline: Duration = .seconds(6)
 
     enum ThinkingSwitch: Sendable { case qwenFlag, deepseekObject, standard }
 
@@ -20,7 +22,8 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     static let qwenOmni = PhotoChatService(
         endpoint: qwen.endpoint,
         model: "qwen3.8-omni-flash",
-        thinking: .qwenFlag
+        thinking: .qwenFlag,
+        answerDeadline: .seconds(10)
     )
     static let deepseek = PhotoChatService(
         endpoint: URL(string: "https://api.deepseek.com/chat/completions")!,

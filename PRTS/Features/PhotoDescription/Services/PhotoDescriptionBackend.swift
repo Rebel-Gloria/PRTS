@@ -28,7 +28,9 @@ nonisolated enum PhotoDescriptionBackend {
         }
         do {
             let limit =
-                configuration.thinking ? RequestDeadline.answerWithThinking : RequestDeadline.answer
+                configuration.thinking
+                ? RequestDeadline.answerWithThinking
+                : configuration.service?.answerDeadline ?? PhotoChatService.qwen.answerDeadline
             return try await RequestDeadline.run(limit, remote)
         } catch let error where !error.isCancellation {
             errors.record(error)

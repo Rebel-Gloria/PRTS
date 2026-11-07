@@ -87,5 +87,8 @@ struct IntelligenceFeatureTests {
         defaults.set(true, forKey: PhotoChatProvider.qwenOmniKey)
         #expect(PhotoChatProvider.qwen.service(defaults) == .qwenOmni)
         #expect(PhotoChatProvider.deepseek.service(defaults) == .deepseek)
+        #expect(PhotoChatService.qwenOmni.answerDeadline == .seconds(10))
+        #expect(PhotoChatService.qwen.answerDeadline == .seconds(6))
+        #expect(PhotoChatService.deepseek.answerDeadline == .seconds(6))
     }
 }
