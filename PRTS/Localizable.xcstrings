@@ -852,13 +852,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Live captions on. Press once to stop."
+            "value" : "Live captions on. Press again to stop."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "流式字幕已开启，按一下退出"
+            "value" : "流式字幕已开启，再次点按退出"
           }
         }
       }
