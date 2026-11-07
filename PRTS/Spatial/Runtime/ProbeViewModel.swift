@@ -28,7 +28,7 @@ final class ProbeViewModel: ObservableObject {
         set {
             var updated = options
             updated.showMesh = newValue
-            updated.showPath = newValue
+            if newValue { updated.showPath = false }
             options = updated
             UserDefaults.standard.set(newValue, forKey: Self.scanMeshKey)
         }
