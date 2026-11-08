@@ -74,3 +74,6 @@ PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供避障引�
 | MiniCPM-V 4.7 1B 权重 | Apache 2.0（openbmb 发布） |
 
 各组件以其附带的许可证和来源记录为准。
+
+> [!NOTE]
+> 应用内暂未展示第三方许可证声明。很抱歉，我们暂时没有找到不干扰用户交互的展示方式，正在尽可能规划此功能。如果上述组件的版权方对当前做法有异议，请通过 [Issues](https://github.com/Rebel-Gloria/PRTS/issues) 告知。
