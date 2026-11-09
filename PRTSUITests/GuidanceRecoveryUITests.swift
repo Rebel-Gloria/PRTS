@@ -94,63 +94,6 @@ final class GuidanceRecoveryUITests: XCTestCase {
         }
     }
 
-    #if PRTS_DEV_CAPTURE
-    @MainActor
-    func testReadingInterruptedByBackgroundResumesGuidance() throws {
-        let app = launchForReading()
-        app.buttons["cameraButton"].tap()
-        assertRunning(app)
-        startReading(app)
-        XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
-        app.activate()
-        assertRunning(app)
-        XCTAssertFalse(app.descendants(matching: .any)["ocrStatus"].exists)
-    }
-
-    @MainActor
-    func testReadingInterruptedBySettingsResumesGuidance() throws {
-        let app = launchForReading()
-        app.buttons["cameraButton"].tap()
-        assertRunning(app)
-        startReading(app)
-        app.buttons["settingsButton"].tap()
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        assertRunning(app)
-        XCTAssertFalse(app.descendants(matching: .any)["ocrStatus"].exists)
-    }
-
-    @MainActor
-    func testReadingFromIdleDoesNotStartGuidanceAfterBackground() throws {
-        let app = launchForReading()
-        startReading(app)
-        XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
-        app.activate()
-        XCTAssertTrue(app.descendants(matching: .any)["homeTips"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.descendants(matching: .any)["cameraStatus"].exists)
-        XCTAssertFalse(app.descendants(matching: .any)["ocrStatus"].exists)
-    }
-
-    @MainActor
-    private func launchForReading() -> XCUIApplication {
-        let app = XCUIApplication.prts()
-        app.launchArguments += ["-developer.showCommandEntry", "YES"]
-        app.launch()
-        XCTAssertTrue(app.buttons["cameraButton"].waitForExistence(timeout: 10))
-        return app
-    }
-
-    @MainActor
-    private func startReading(_ app: XCUIApplication) {
-        let field = app.textFields["backendCommandField"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("ocr\n")
-        XCTAssertTrue(app.descendants(matching: .any)["ocrStatus"].waitForExistence(timeout: 5))
-    }
-    #endif
-
     @MainActor
     private func assertRunning(_ app: XCUIApplication) {
         let running = XCTNSPredicateExpectation(

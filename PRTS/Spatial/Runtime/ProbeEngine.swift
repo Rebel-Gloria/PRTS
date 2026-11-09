@@ -19,7 +19,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     #if PRTS_DEV_CAPTURE
     let devCapture: DevCaptureRecorder
     #endif
-    let recorder: SessionRecorder
     let capabilities: DeviceCapabilities
     private let session: any ProbeSession
     private let sessionQueue: DispatchQueue
@@ -54,13 +53,11 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         #if PRTS_DEV_CAPTURE
         devCapture = DevCaptureRecorder(root: diagnostics.journal.directory)
         #endif
-        recorder = SessionRecorder(diagnostics: diagnostics)
         super.init()
         session.configure(delegate: self, queue: sessionQueue)
         let mono = DepthBackendPolicy(
             supportsSceneDepth: capabilities.depth,
-            requestedSimulation: UserDefaults.standard.bool(forKey: "simulateNoLiDAR")
-                || ProcessInfo.processInfo.arguments.contains("--simulate-no-lidar")
+            requestedSimulation: ProcessInfo.processInfo.arguments.contains("--simulate-no-lidar")
         ).usesMonocular
         store.update {
             $0.status = capabilities.description
@@ -131,7 +128,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.droppedFrames = 0
                 $0.meshDrops = 0
             }
-            recorder.begin(epoch: epoch, parameters: s.parameters, device: device)
             diagnostics.event(
                 "session_configuration",
                 details:
@@ -139,7 +135,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 epoch: epoch
             )
             session.run(config)
-            recorder.event(
+            diagnostics.event(
                 "session_started",
                 details: capabilities.description + "; backend="
                     + (s.usesMonocular ? "apple_coreml_no_lidar" : "arkit_sceneDepth")
@@ -179,8 +175,12 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             meshInbox.clear()
             session.pause()
             directionGate.reset()
-            recorder.event("invalidated", details: reason, epoch: epoch)
-            recorder.finish(epoch: epoch)
+            diagnostics.event("invalidated", details: reason, epoch: epoch)
+            diagnostics.event(
+                "session_stopped",
+                details: "Channel evidence invalidated",
+                epoch: epoch
+            )
             completion()
         }
     }
@@ -196,36 +196,14 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         sessionQueue.async { [self] in
             analysisQueue.async { [self] in
                 meshQueue.async { [self] in
-                    recorder.flush { [self] in
-                        #if PRTS_DEV_CAPTURE
-                        devCapture.stop { [self] in diagnostics.journal.flush(completion: finish) }
-                        #else
-                        diagnostics.journal.flush(completion: finish)
-                        #endif
-                    }
+                    #if PRTS_DEV_CAPTURE
+                    devCapture.stop { [self] in diagnostics.journal.flush(completion: finish) }
+                    #else
+                    diagnostics.journal.flush(completion: finish)
+                    #endif
                 }
             }
         }
-    }
-    func setSimulatedNoLiDAR(_ requested: Bool, device: [String: String]) {
-        let effective = DepthBackendPolicy(
-            supportsSceneDepth: capabilities.depth,
-            requestedSimulation: requested
-        ).usesMonocular
-        let wasRunning = store.read().running
-        guard effective != store.read().usesMonocular else { return }
-        stop(reason: "深度来源切换，旧证据已清空")
-        UserDefaults.standard.set(requested, forKey: "simulateNoLiDAR")
-        store.update {
-            $0.usesMonocular = effective
-            $0.monocularStatus = "等待模型推理"
-        }
-        diagnostics.event(
-            "depth_backend_changed",
-            details: effective ? "apple_coreml_no_lidar" : "arkit_sceneDepth",
-            epoch: store.read().epoch
-        )
-        if wasRunning { start(device: device) }
     }
     func updateParameters(_ parameters: ProbeParameters) {
         store.update {
@@ -239,38 +217,13 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             $0.geometryEnabled = false
         }
         let s = store.read()
-        recorder.event(
+        diagnostics.event(
             "parameters_changed",
             details: String(
                 data: (try? JSONEncoder().encode(s.parameters)) ?? Data(),
                 encoding: .utf8
             ) ?? "",
             epoch: s.epoch
-        )
-    }
-    func updatePathOptions(_ options: PathOptions) {
-        store.update {
-            let next = options.validated()
-            if next.minimumWidth != $0.pathOptions.minimumWidth
-                || next.waypoints != $0.pathOptions.waypoints
-            {
-                $0.parameterVersion &+= 1
-                $0.result = nil
-                $0.pathUpdate = .init(reason: "body_options_changed")
-                $0.geometryEnabled = false
-            }
-            $0.pathOptions = next
-            if !options.enabled { $0.pathUpdate = .init(reason: "disabled") }
-            // Feedback/display controls do not restart ground or metric-scale confirmation.
-            // Geometry/body parameters retain their separate version/barrier path.
-        }
-        diagnostics.event(
-            "path_options",
-            details: String(
-                data: (try? DiagnosticJSON.encode(options.validated())) ?? Data(),
-                encoding: .utf8
-            ) ?? "",
-            epoch: store.read().epoch
         )
     }
     func updateOptions(_ options: RenderOptions) {
@@ -280,29 +233,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             details: String(data: (try? DiagnosticJSON.encode(options)) ?? Data(), encoding: .utf8)
                 ?? "encode_failed",
             epoch: store.read().epoch
-        )
-    }
-    func manualSample(display: [String: String]) {
-        let s = store.read()
-        if s.usesMonocular {
-            if let prediction = s.activeMonocular {
-                diagnostics.monocular(prediction, manual: true)
-                recorder.predictionSampleSubmitted()
-            } else {
-                diagnostics.event(
-                    "manual_prediction_unavailable",
-                    details: "no fresh matching prediction",
-                    epoch: s.epoch
-                )
-            }
-            return
-        }
-        guard let frame = s.frozen ?? s.analyzedFrame ?? s.displayedFrame else { return }
-        recorder.manualSample(
-            frame: frame,
-            result: s.diagnosticResult?.frameID == frame.id ? s.diagnosticResult : nil,
-            meshes: Array(s.meshes.values),
-            display: display
         )
     }
     func setThermal(raw: Int, name: String) {
@@ -320,7 +250,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             }
         }
         let s = store.read()
-        recorder.event("thermal_changed", details: name, epoch: s.epoch)
+        diagnostics.event("thermal_changed", details: name, epoch: s.epoch)
     }
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         let received = ProcessInfo.processInfo.systemUptime
@@ -379,7 +309,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         if s.geometryEnabled != (normal && s.thermalRaw < 3)
             || s.frame?.tracking != snapshot.tracking || s.frame?.directionStable != stable
         {
-            recorder.event(
+            diagnostics.event(
                 "output_gate",
                 details:
                     "tracking=\(snapshot.tracking),directionStable=\(stable),geometryEnabled=\(normal && s.thermalRaw < 3),guidanceEnabled=\(normal && stable && s.thermalRaw < 3),thermal=\(s.thermalRaw)",
@@ -677,11 +607,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     observation: observation,
                     metrics: metrics
                 )
-                if s.running, s.epoch == frame.epoch,
-                    s.parameterVersion == frame.parameterVersion
-                {
-                    recorder.record(result, frame: frame, metrics: metrics)
-                }
             }
         }
     }
@@ -731,7 +656,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     }
                     $0.meshDrops += 1
                 }
-                recorder.event("mesh_update_dropped", details: evicted, epoch: epoch)
+                diagnostics.event("mesh_update_dropped", details: evicted, epoch: epoch)
             }
             if submission.schedule { meshQueue.async { [self] in drainMeshes() } }
         }

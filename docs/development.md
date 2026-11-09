@@ -38,16 +38,9 @@
 
 ### 开发版与标准版
 
-开发功能由编译条件 `PRTS_DEV_CAPTURE` 控制，与 Debug 配置无关。工程默认的 Debug 和 Release 配置都不启用该条件，只有传入 `configs/DevCapture.xcconfig` 时才启用。两种构建使用相同的避障算法。
+开发功能由编译条件 `PRTS_DEV_CAPTURE` 控制，与 Debug 配置无关。工程默认的 Debug 和 Release 配置都不启用该条件，只有传入 `configs/DevCapture.xcconfig` 时才启用。
 
-| 开发版功能 | 说明 |
-|---|---|
-| 主页指标、图例和测试指令栏 | 默认显示；测试指令栏也用于 UI 测试 |
-| 演示选项和参数设置 | 调整底图、图层、路径、触觉反馈、深度来源和几何参数 |
-| 相机视频与分析数据采集 | 每次启动默认关闭 |
-| DIAG 和 Sessions | 自动记录诊断和逐帧数据，可导出 |
-
-`ProbeSettingsView`、`DemoOptionsView`、`HomeDemoOverlay` 和 `DevCaptureRecorder` 只参与开发版编译。标准版使用 `RenderOptions.product`，不读取开发版的显示设置。检查标准版产物时，应确认其中不包含采集相关的类型和字符串。
+开发版的界面、渲染选项（`RenderOptions.product`）和避障算法与标准版相同，区别仅在于数据记录：开发版每次启动自动记录 DIAG，错误日志位置不同，详见[诊断记录](#诊断记录)。`DevCaptureRecorder` 只参与开发版编译。检查标准版产物时，应确认其中不包含采集相关的类型和字符串。
 
 ## 测试
 
@@ -115,23 +108,22 @@ python scripts/style.py --fix    # 应用格式修正
 
 ## 诊断记录
 
-标准版只记录错误日志。DIAG、开发采集和 Sessions 仅用于开发版：
+标准版只记录错误日志。DIAG 和开发采集仅用于开发版：
 
 | 类型 | 启用方式 | 位置与内容 |
 |---|---|---|
 | 错误日志 | 标准版和开发版自动记录 | 标准版为 `Documents/ErrorLogs/`，开发版为 `Documents/DevDiagnostics/Errors/`；只包含时间、版本、来源、错误域和错误码 |
 | 自动 DIAG | 开发版每次启动时自动创建，不会自动打开相机 | `Documents/DevDiagnostics/Diagnostics/<UTC 时间>-<UUID>/`；不包含画面、音频和位置 |
-| 开发采集 | 开发版在“设置 → 开发者选项”中手动开启 | DIAG 目录内的 `dev-capture-<UUID>/`；包含视频、传感器和分析数据 |
-| Sessions | 开发版每次开始避障时自动创建，可额外手动保存单帧样本 | `Documents/DevDiagnostics/Sessions/`；逐帧记录 `frames.jsonl` 和 `metrics.csv`，手动样本包含单帧深度、元数据、分析结果和网格 |
+| 开发采集 | 开发版暂无开启入口 | DIAG 目录内的 `dev-capture-<UUID>/`；包含视频、传感器和分析数据 |
 
 > [!IMPORTANT]
 > 标准版第一次启动时，会删除旧版本留下的 `Documents/Sessions` 和 `Documents/Diagnostics`，且无法恢复。工程默认的 Debug 和 Release 配置都属于标准版。如需保留这些数据，请在安装前先提取。
 
 ### 采集与导出
 
-开发采集每次启动默认关闭。录制期间主页持续显示提示，隐藏调试面板或相机画面不会停止录制。关闭开关、停止避障、进入后台或导出时，录制停止并完成 MP4 写入。
+开发采集在停止避障或进入后台时停止，并完成 MP4 写入。
 
-开发版可以导出本次或历史 DIAG。导出前建议先停止避障，以免目录复制阻塞日志写入。如需连接 Mac 提取 DIAG，请运行以下命令：
+开发版不提供应用内的 DIAG 导出。如需连接 Mac 提取 DIAG，请运行以下命令：
 
 ```sh
 python3 scripts/pull_diag.py --device <设备标识> --output <新目录>
@@ -213,7 +205,7 @@ dev-capture-<UUID>/
 | 标准版错误日志 | 1 GB，超出后删除最早的分段 |
 | 开发采集最低剩余空间 | 256 MiB |
 
-开发版的 DIAG、开发采集和 Sessions 不限制总量，也不自动删除旧数据，请定期导出并通过“文件”App 或 Xcode 清理。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
+开发版的 DIAG 和开发采集不限制总量，也不自动删除旧数据，请定期导出并通过“文件”App 或 Xcode 清理。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
 
 队列满时会丢弃记录，DIAG 和开发采集的丢弃计数需要分别检查。强制退出或断电可能丢失最后约 1 s 的 DIAG，并留下未完成的 MP4；缺少终止事件不代表发生了崩溃。
 
@@ -237,7 +229,7 @@ dev-capture-<UUID>/
 | 提取深度帧 | `python3 scripts/read_diag.py <run> --extract-depth <epoch>:<frame> --output <目录>` |
 | 提取预测深度帧 | `python3 scripts/read_diag.py <run> --extract-prediction <epoch>:<frame> --output <目录>` |
 | 校验开发采集 | `python3 scripts/read_dev_capture.py <dev-capture>`（不解码视频） |
-| 汇总 Sessions | `python3 scripts/summarize_session.py <session>`（不支持 DIAG 目录） |
+| 汇总旧版 Sessions | `python3 scripts/summarize_session.py <session>`（不支持 DIAG 目录） |
 | 比较路线结果 | `scripts/replay_routes.swift`、`scripts/compare_route_replays.py` |
 | 回放 `{result, options}` 快照 | `scripts/replay_route_snapshots.swift` |
 | 回放完整避障流程 | `bash Experiments/astra/run.sh <DIAG 目录>` |

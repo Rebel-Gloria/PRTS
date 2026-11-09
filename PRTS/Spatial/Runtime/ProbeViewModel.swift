@@ -12,14 +12,7 @@ final class ProbeViewModel: ObservableObject {
     let engine: ProbeEngine
     @Published var snapshot = SharedSnapshot()
     @Published var options = RenderOptions() {
-        didSet {
-            #if PRTS_DEV_CAPTURE
-            if let data = try? JSONEncoder().encode(options) {
-                UserDefaults.standard.set(data, forKey: "homeRenderOptions.v1")
-            }
-            #endif
-            engine.updateOptions(options)
-        }
+        didSet { engine.updateOptions(options) }
     }
     /// Settings → Display → Scan mesh, the one picture option release builds offer.
     static let scanMeshKey = "display.scanMesh"
@@ -34,21 +27,11 @@ final class ProbeViewModel: ObservableObject {
         }
     }
     var supportsScanMesh: Bool { engine.capabilities.meshClassification }
-    @Published var parameters = ProbeParameters()
-    @Published var pathOptions = PathOptions()
-    #if PRTS_DEV_CAPTURE
-    @Published var devCaptureStatus = DevCaptureRecorder.Status()
-    #endif
-    @Published var hapticStatus = "等待路径"
+    private let parameters = ProbeParameters()
     var feedbackSuspended = false
     private let feedback: any SpatialFeedback
-    @Published var recorderStatus = RecorderStatus()
-    @Published var diagnosticStatus = DiagnosticStatus()
-    @Published var diagnosticRuns: [DiagnosticRun] = []
     @Published var permissionMessage: String?
     @Published var requestingPermission = false
-    @Published var exporting = false
-    @Published var exportURL: URL?
     @Published var errorMessage: String?
     private var lastThermal = -1
     private var lastHeartbeat: Double = 0
@@ -56,22 +39,8 @@ final class ProbeViewModel: ObservableObject {
     init(engine: ProbeEngine, feedback: any SpatialFeedback) {
         self.engine = engine
         self.feedback = feedback
-        #if PRTS_DEV_CAPTURE
-        if let data = UserDefaults.standard.data(forKey: "homeRenderOptions.v1"),
-            let saved = try? JSONDecoder().decode(RenderOptions.self, from: data)
-        {
-            options = saved
-        }
-        #else
         options = .product(scanMesh: UserDefaults.standard.bool(forKey: Self.scanMeshKey))
-        #endif
         engine.updateOptions(options)
-        if let data = UserDefaults.standard.data(forKey: "pathOptions"),
-            let options = try? JSONDecoder().decode(PathOptions.self, from: data)
-        {
-            pathOptions = options.validated()
-        }
-        engine.store.update { $0.pathOptions = pathOptions }
         UIDevice.current.isBatteryMonitoringEnabled = true
         engine.diagnostics.event(
             "launch_environment",
@@ -115,44 +84,8 @@ final class ProbeViewModel: ObservableObject {
             backgroundTask = .invalid
         }
     }
-    func refreshDiagnostics() {
-        engine.diagnostics.journal.listRuns { [weak self] runs in
-            Task { @MainActor [weak self] in self?.diagnosticRuns = runs }
-        }
-    }
-    func exportDiagnostics(runID: String? = nil) {
-        guard !exporting else { return }
-        exporting = true
-        #if PRTS_DEV_CAPTURE
-        engine.devCapture.stop { [weak self] in
-            Task { @MainActor [weak self] in self?.performDiagnosticExport(runID: runID) }
-        }
-        #else
-        performDiagnosticExport(runID: runID)
-        #endif
-    }
-    private func performDiagnosticExport(runID: String?) {
-        engine.diagnostics.journal.export(
-            runID: runID,
-            to: FileManager.default.temporaryDirectory.appendingPathComponent(
-                "DiagExports",
-                isDirectory: true
-            )
-        ) { [weak self] result in
-            Task { @MainActor [weak self] in
-                self?.exporting = false
-                switch result {
-                case .success(let url): self?.exportURL = url
-                case .failure(let error): self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
     var capabilities: DeviceCapabilities { engine.capabilities }
     func poll() {
-        #if PRTS_DEV_CAPTURE
-        devCaptureStatus = engine.devCapture.status()
-        #endif
         let thermal = ProcessInfo.processInfo.thermalState
         if thermal.rawValue != lastThermal {
             lastThermal = thermal.rawValue
@@ -178,10 +111,7 @@ final class ProbeViewModel: ObservableObject {
         }
         engine.store.update { $0.orientation = orientation }
         snapshot = engine.store.read()
-        recorderStatus = engine.recorder.status()
-        diagnosticStatus = engine.diagnostics.journal.status()
         feedback.tick(snapshot, diagnostics: engine.diagnostics, suspended: feedbackSuspended)
-        hapticStatus = feedback.status
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastHeartbeat >= 1 {
             lastHeartbeat = now
@@ -194,10 +124,6 @@ final class ProbeViewModel: ObservableObject {
                 appState: String(UIApplication.shared.applicationState.rawValue)
             )
         }
-    }
-    func setSimulatedNoLiDAR(_ value: Bool) {
-        engine.setSimulatedNoLiDAR(value, device: deviceMetadata)
-        poll()
     }
     func start(allowed: Bool, isActive: Bool) async {
         engine.diagnostics.event(
@@ -234,45 +160,5 @@ final class ProbeViewModel: ObservableObject {
             "bundleID": Bundle.main.bundleIdentifier ?? "",
             "capabilities": capabilities.description,
         ]
-    }
-    func updatePathSettings() {
-        pathOptions = pathOptions.validated()
-        if let data = try? JSONEncoder().encode(pathOptions) {
-            UserDefaults.standard.set(data, forKey: "pathOptions")
-        }
-        feedback.reset()
-        engine.updatePathOptions(pathOptions)
-        poll()
-    }
-    func updateSettings() {
-        engine.updateParameters(parameters)
-        engine.updateOptions(options)
-        poll()
-    }
-    func updateLayers() {
-        engine.updateOptions(options)
-        poll()
-    }
-    func sample() {
-        engine.manualSample(display: [
-            "layer": options.layer.title, "smoothedDisplay": String(options.smoothedDisplay),
-            "surfaceModel": String(options.showSurfaceModel),
-            "blockingColumns": String(options.showBlockingColumns),
-            "viewport": "aspect-fit; raw sample is sensor orientation",
-        ])
-        poll()
-    }
-    func export() {
-        guard !exporting else { return }
-        exporting = true
-        engine.recorder.export { [weak self] result in
-            Task { @MainActor [weak self] in
-                self?.exporting = false
-                switch result {
-                case .success(let url): self?.exportURL = url
-                case .failure(let error): self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
     }
 }

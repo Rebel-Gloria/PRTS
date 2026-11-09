@@ -245,23 +245,11 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertNotIn("showCameraImage", engine)
         self.assertNotIn("showOverlays", engine)
 
-    def test_demo_is_a_home_overlay_not_a_second_camera_screen(self):
-        home = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
+    def test_dev_build_adds_no_debug_screens(self):
         settings = (ROOT / "PRTS/Features/Settings/SettingsView.swift").read_text(encoding="utf-8")
-        overlay = (ROOT / "PRTS/Features/Developer/HomeDemoOverlay.swift").read_text(
-            encoding="utf-8"
-        )
-        options = (ROOT / "PRTS/Features/Developer/DemoOptionsView.swift").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("HomeDemoOverlay(model:camera.model)", home)
-        self.assertIn('NavigationLink("演示模式选项")', settings)
         self.assertNotIn("ProbeContentView", settings)
-        for text in [overlay, options]:
-            self.assertNotIn("ARSession()", text)
-            self.assertNotIn("ProbeViewModel()", text)
-            self.assertNotIn("Timer.publish", text)
         self.assertFalse((ROOT / "PRTS/Spatial/Runtime/ProbeContentView.swift").exists())
+        self.assertFalse((ROOT / "PRTS/Features/Developer").exists())
 
     def test_settings_has_native_back_and_separate_speech_ownership(self):
         settings = (ROOT / "PRTS/Features/Settings/SettingsView.swift").read_text(encoding="utf-8")

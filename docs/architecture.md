@@ -16,7 +16,6 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 | `PRTS/Features/LiveCaption/` | 流式字幕：采样、请求和朗读；同时负责拍照按键的连按判定 | `LiveCaptionSession` |
 | `PRTS/Features/TextReading/` | 读文字：主摄拍照、识别和朗读 | `TextReadingSession` |
 | `PRTS/Features/Settings/` | 设置、智能服务设置和使用说明 | `SettingsView`、`IntelligenceSettingsView` |
-| `PRTS/Features/Developer/` | 开发版专用界面 | `ProbeSettingsView` |
 | `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型路径 | `PhotoChatService`、`IntelligenceFeature` |
 | `PRTS/Shared/Imaging/` | 照片缩放与 JPEG 编码 | `PhotoImageEncoder` |
 | `PRTS/Shared/Audio/` | 音频会话、回答朗读、提示音和语音识别 | `AudioSessionCoordinator`、`AnswerAudioOutput`、`PhotoSpeechRecognizer` |
@@ -193,7 +192,7 @@ ContentView.photoDown
 | 提示音和开始录音 | `activateAsync`，在独立队列上激活 | 调用方在等待后检查是否已取消；松手时先等麦克风启动完成，再停止录音 |
 | 朗读 | 同一队列，主线程同步等待 | 通常约 15 ms；如果关闭操作正在执行，需要等它结束 |
 
-`Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
+`Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
 ## 第三方代码
 

@@ -4,11 +4,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: ProbeViewModel
-    #if PRTS_DEV_CAPTURE
-    @AppStorage("developer.showTechnicalOverlay") private var showTechnicalOverlay = true
-    @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
-    @State private var showSpatialSettings = false
-    #endif
     @EnvironmentObject private var speech: SpeechManager
     @AppStorage(InteractionPreferences.noPreviewKey) private var noPreview = false
     @AppStorage(InteractionPreferences.tapToStopKey) private var tapToStop = false
@@ -142,52 +137,6 @@ struct SettingsView: View {
             } footer: {
                 Text("settings.language.footer")
             }
-            #if PRTS_DEV_CAPTURE
-            Section("开发者选项") {
-                Toggle("主页面参数指标与图例", isOn: $showTechnicalOverlay).accessibilityIdentifier(
-                    "devTechnicalOverlayToggle"
-                )
-                Toggle("主页面测试指令栏", isOn: $showCommandEntry).accessibilityIdentifier(
-                    "devCommandEntryToggle"
-                )
-                Text("只控制调试信息是否显示。")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button("图层、路径、触觉与 DIAG 日志") { showSpatialSettings = true }.accessibilityIdentifier(
-                    "spatialSettingsButton"
-                )
-                NavigationLink("演示模式选项") { DemoOptionsView(model: model) }.accessibilityIdentifier(
-                    "demoOptionsLink"
-                )
-                Toggle(
-                    "保存相机视频与分析数据",
-                    isOn: Binding(
-                        get: { model.devCaptureStatus.enabled },
-                        set: { enabled in
-                            if enabled {
-                                model.engine.devCapture.enable()
-                            } else {
-                                model.engine.devCapture.stop()
-                            }
-                            model.devCaptureStatus = model.engine.devCapture.status()
-                        }
-                    )
-                ).accessibilityIdentifier("devCaptureToggle").disabled(
-                    model.exporting
-                        || (model.devCaptureStatus.busy && !model.devCaptureStatus.enabled)
-                )
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("只在已取得同意的测试场地开启。")
-                    Text("保存：压缩视频（≤5 FPS，最长边 960）、深度、置信度和分析结果。")
-                    Text("不保存声音，不上传。停止、切到后台或导出时自动关闭。")
-                }
-                .font(.caption).foregroundStyle(.orange)
-                Text(model.devCaptureStatus.text).font(.caption)
-                Button("停止采集并打开 DIAG 导出页") {
-                    model.engine.devCapture.stop()
-                    showSpatialSettings = true
-                }
-            }
-            #endif
             Section {
                 Button("settings.userGuide") { showUserGuide = true }
                     .accessibilityIdentifier("userGuideButton")
@@ -197,9 +146,6 @@ struct SettingsView: View {
                     }
             }
         }
-        #if PRTS_DEV_CAPTURE
-        .sheet(isPresented: $showSpatialSettings) { ProbeSettingsView(model: model) }
-        #endif
         .navigationTitle("settings.title")
         .onAppear { speech.speakSettingsScreen() }
     }

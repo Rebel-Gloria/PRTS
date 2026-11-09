@@ -29,12 +29,6 @@ final class PRTSUITests: XCTestCase {
         let camera = app.buttons["cameraButton"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         XCTAssertTrue(camera.exists)
-        #if PRTS_DEV_CAPTURE
-        // Developer visibility is persisted and tested separately.
-        #else
-        XCTAssertFalse(app.textFields["backendCommandField"].exists)
-        XCTAssertFalse(app.otherElements["homeDemoMetrics"].exists)
-        #endif
         XCTAssertLessThan(settings.frame.midY, camera.frame.midY)
         let home = XCTAttachment(screenshot: app.screenshot())
         home.name = "Restored dark-teal home"
@@ -46,59 +40,8 @@ final class PRTSUITests: XCTestCase {
             1,
             "Settings must have only the system Back button"
         )
-        #if PRTS_DEV_CAPTURE
-        let technical = app.switches["devTechnicalOverlayToggle"]
-        reveal(technical, in: app)
-        if technical.value as? String != "1" {
-            technical.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        }
-        let demo = app.buttons["demoOptionsLink"]
-        if !demo.isHittable { app.swipeUp() }
-        XCTAssertTrue(demo.waitForExistence(timeout: 5))
-        demo.tap()
-        let cameraToggle = app.switches["demoCameraToggle"]
-        XCTAssertTrue(cameraToggle.waitForExistence(timeout: 5))
-        let original = cameraToggle.value as? String
-        cameraToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        let changed = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value != %@", original ?? "1"),
-            object: cameraToggle
-        )
-        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 3), .completed)
-        cameraToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        app.swipeUp()
-        let metrics = app.switches["demoMetricsToggle"]
-        XCTAssertTrue(metrics.waitForExistence(timeout: 5))
-        if metrics.value as? String != "1" {
-            metrics.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        }
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        let spatial = app.buttons["spatialSettingsButton"]
-        if !spatial.isHittable { app.swipeUp() }
-        XCTAssertTrue(spatial.waitForExistence(timeout: 5))
-        spatial.tap()
-        XCTAssertTrue(app.buttons["完成"].waitForExistence(timeout: 5))
-        let settingsImage = XCTAttachment(screenshot: app.screenshot())
-        settingsImage.name = "Shared spatial settings"
-        settingsImage.lifetime = .keepAlways
-        add(settingsImage)
-        app.buttons["完成"].tap()
-        XCTAssertTrue(spatial.waitForExistence(timeout: 5))
-        app.buttons["返回"].firstMatch.tap()
-        let metricTitle = app.staticTexts["空间感知 · 参数指标"]
-        XCTAssertTrue(metricTitle.waitForExistence(timeout: 5))
-        XCTAssertGreaterThan(metricTitle.frame.width, 10)
-        let overlayImage = XCTAttachment(screenshot: app.screenshot())
-        overlayImage.name = "Home metrics overlay"
-        overlayImage.lifetime = .keepAlways
-        add(overlayImage)
-        #else
-        XCTAssertFalse(app.buttons["demoOptionsLink"].exists)
-        XCTAssertFalse(app.buttons["spatialSettingsButton"].exists)
-        XCTAssertFalse(app.switches["devTechnicalOverlayToggle"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.buttons["cameraButton"].exists)
-        #endif
     }
 
     /// Liquid Glass screens and the accessibility plan: localized settings, photo settings,
@@ -307,48 +250,11 @@ final class PRTSUITests: XCTestCase {
             app.descendants(matching: .any)["noPreviewNotice"].waitForExistence(timeout: 8)
         )
         sleep(3)
-        #if PRTS_DEV_CAPTURE
-        XCTAssertTrue(
-            app.staticTexts.containing(NSPredicate(format: "label CONTAINS '绘制 0.0'")).firstMatch
-                .exists
-        )
-        #endif
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "No preview running"
         shot.lifetime = .keepAlways
         add(shot)
     }
-
-    #if PRTS_DEV_CAPTURE
-    /// Text reading from running guidance: the ultra-wide camera must deliver frames and show them.
-    @MainActor
-    func testTextReadingStartsCamera() throws {
-        let app = XCUIApplication.prts()
-        app.launchArguments += [
-            "-ocr.service", "onDevice", "-photoDescription.uploadAllowed", "NO",
-        ]
-        app.launch()
-        let camera = app.buttons["cameraButton"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 10))
-        camera.tap()
-        XCTAssertTrue(waitForGuidance(app, timeout: 10))
-        let field = app.textFields["backendCommandField"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("读文字")
-        app.buttons["backendCommandSend"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["ocrStatus"].waitForExistence(timeout: 5))
-        sleep(4)
-        let frames = app.staticTexts["ocrFrames"].label
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "Text reading after 4 s (\(frames))"
-        shot.lifetime = .keepAlways
-        add(shot)
-        XCTAssertNotEqual(frames, "frames 0")
-        // It reads what is in view, then guidance comes back.
-        XCTAssertTrue(waitForGuidance(app, timeout: 40))
-    }
-    #endif
 
     /// Guidance runs once the main button offers to stop. The photo button is no sign of it: phones
     /// with Camera Control, or with the volume buttons turned on, have none.
@@ -446,62 +352,6 @@ final class PRTSUITests: XCTestCase {
         options.iterationCount = 1
         measure(metrics: [XCTCPUMetric(application: app)], options: options) { sleep(20) }
     }
-
-    @MainActor
-    func testDevCaptureBuildGate() throws {
-        let app = XCUIApplication.prts()
-        app.launch()
-        let settings = app.buttons["settingsButton"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 10))
-        settings.tap()
-        #if PRTS_DEV_CAPTURE
-        let toggle = app.switches["devCaptureToggle"]
-        reveal(toggle, in: app)
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        XCTAssertEqual(toggle.value as? String, "0")
-        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertEqual(toggle.value as? String, "1")
-        // Relaunch must never silently restart RGB recording.
-        app.terminate()
-        app.launch()
-        app.buttons["settingsButton"].tap()
-        reveal(app.switches["devCaptureToggle"], in: app)
-        XCTAssertTrue(app.switches["devCaptureToggle"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.switches["devCaptureToggle"].value as? String, "0")
-        #else
-        XCTAssertFalse(app.switches["devCaptureToggle"].exists)
-        #endif
-    }
-
-    #if PRTS_DEV_CAPTURE
-    @MainActor
-    func testDeveloperHomeVisibilitySwitches() throws {
-        let app = XCUIApplication.prts()
-        app.launch()
-        app.buttons["settingsButton"].tap()
-        func set(_ id: String, _ enabled: Bool) {
-            let toggle = app.switches[id]
-            reveal(toggle, in: app)
-            XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-            if toggle.value as? String != (enabled ? "1" : "0") {
-                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-            }
-        }
-        set("devTechnicalOverlayToggle", false)
-        set("devCommandEntryToggle", false)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertFalse(app.staticTexts["空间感知 · 参数指标"].exists)
-        XCTAssertFalse(app.textFields["backendCommandField"].exists)
-        app.terminate()
-        app.launch()
-        XCTAssertFalse(app.textFields["backendCommandField"].exists)
-        app.buttons["settingsButton"].tap()
-        set("devTechnicalOverlayToggle", true)
-        set("devCommandEntryToggle", true)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.textFields["backendCommandField"].waitForExistence(timeout: 5))
-    }
-    #endif
 
     /// The system accessibility audit on the screens VoiceOver users operate by hand.
     @MainActor

@@ -43,10 +43,6 @@ struct ContentView: View {
     /// Skips the Metal preview for users who don't look at the screen. Analysis, guidance,
     /// haptics and photo capture read the shared snapshot, not the renderer.
     @AppStorage(InteractionPreferences.noPreviewKey) private var noPreview = false
-    #if PRTS_DEV_CAPTURE
-    @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
-    @State private var commandText = ""
-    #endif
     private let pollTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -73,21 +69,6 @@ struct ContentView: View {
 
                         Spacer()
                             .frame(maxWidth: .infinity)
-                            #if PRTS_DEV_CAPTURE
-                        .overlay(alignment: .topLeading) {
-                            // At accessibility text sizes the metrics would cover the controls.
-                            if !dynamicTypeSize.isAccessibilitySize {
-                                GeometryReader { bounds in
-                                    ScrollView {
-                                        HomeDemoOverlay(model: camera.model)
-                                    }
-                                    .frame(width: bounds.size.width, height: bounds.size.height)
-                                    .clipped()
-                                }
-                            }
-                        }
-
-                            #endif
 
                         GlassGroup(spacing: 0) {
                             VStack(spacing: 20) {
@@ -332,10 +313,6 @@ struct ContentView: View {
                 .accessibilityIdentifier("homeOperationError")
         }
         if pointerCannotHold && camera.state == .running && !isShowingSettings { askButton }
-        #if PRTS_DEV_CAPTURE
-        // At accessibility sizes the column would reach the photo button in the middle of the preview.
-        if showCommandEntry && !(isLargeText && camera.state == .running) { commandEntry }
-        #endif
     }
 
     /// Tap alternative to holding the photo button: first tap starts the question, second sends it.
@@ -417,43 +394,6 @@ struct ContentView: View {
     private var cameraStatus: some View {
         CameraStatusView(state: camera.state, isLargeText: isLargeText)
     }
-
-    #if PRTS_DEV_CAPTURE
-    private var commandEntry: some View {
-        (isLargeText ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
-            TextField("home.command.placeholder", text: $commandText)
-                .font(.body)
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .glassSurface(in: Capsule())
-                .submitLabel(.send)
-                .onSubmit(submitCommand)
-                .accessibilityIdentifier("backendCommandField")
-            Button(action: submitCommand) {
-                Text("home.command.send").frame(maxWidth: isLargeText ? .infinity : nil)
-            }
-            .glassButtonStyle(prominent: true)
-            .disabled(commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .accessibilityIdentifier("backendCommandSend")
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private func submitCommand() {
-        let command = commandText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        commandText = ""
-        switch command {
-        case "开始", "start": startGuidance()
-        case "停止", "stop": camera.stopCamera()
-        case "状态", "status": speechManager.speak(camera.status)
-        case "读文字", "ocr": toggleTextReading()
-        default: speechManager.speak("只支持：开始、停止、状态、读文字。")
-        }
-        hapticManager.buttonTapped()
-    }
-
-    #endif
 
     private var primaryButton: some View {
         GuidanceButton(

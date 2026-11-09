@@ -297,11 +297,7 @@ struct CameraRecoveryTests {
     @Test func scanMeshPublishesOneCompleteConfiguration() {
         let model = makeCamera().model
         let saved = UserDefaults.standard.object(forKey: ProbeViewModel.scanMeshKey)
-        let savedDeveloperOptions = UserDefaults.standard.object(forKey: "homeRenderOptions.v1")
-        defer {
-            UserDefaults.standard.set(saved, forKey: ProbeViewModel.scanMeshKey)
-            UserDefaults.standard.set(savedDeveloperOptions, forKey: "homeRenderOptions.v1")
-        }
+        defer { UserDefaults.standard.set(saved, forKey: ProbeViewModel.scanMeshKey) }
         var updates: [(Bool, Bool)] = []
         let observation = model.$options.dropFirst().sink {
             updates.append(($0.showMesh, $0.showPath))

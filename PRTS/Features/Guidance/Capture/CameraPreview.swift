@@ -7,11 +7,8 @@ import SwiftUI
 struct CameraPreview: View {
     @ObservedObject var camera: CameraManager
     var body: some View {
-        #if PRTS_DEV_CAPTURE
-        metalView
-        #else
-        // The renderer letterboxes so dev builds see the whole image. Here the view is given the
-        // image's own shape and overflows the screen instead, so the picture fills it edge to edge.
+        // The renderer letterboxes to keep the whole image. Here the view is given the image's own
+        // shape and overflows the screen instead, so the picture fills it edge to edge.
         GeometryReader { bounds in
             metalView
                 .aspectRatio(
@@ -21,7 +18,6 @@ struct CameraPreview: View {
                 .frame(width: bounds.size.width, height: bounds.size.height)
                 .clipped()
         }
-        #endif
     }
 
     private var metalView: some View {
