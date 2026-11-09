@@ -35,13 +35,17 @@ struct PhotoPromptSelectionTests {
                 try PhotoDescriptionConfiguration(feature: .description, defaults: defaults).system
                     == PhotoPrompts.system
             )
-            #expect(!defaults.bool(forKey: PhotoChatProvider.qwen.questionThinkingKey))
+            #expect(
+                try !PhotoDescriptionConfiguration(feature: .question, defaults: defaults).thinking
+            )
         }
         defaults.set(false, forKey: PhotoChatProvider.localEnhancedKey)
         defaults.set(true, forKey: PhotoChatProvider.qwen.questionThinkingKey)
-        #expect(
-            try PhotoDescriptionConfiguration(feature: .question, defaults: defaults).system
-                == PhotoPrompts.localQuestionSystem
+        let configuration = try PhotoDescriptionConfiguration(
+            feature: .question,
+            defaults: defaults
         )
+        #expect(configuration.system == PhotoPrompts.localQuestionSystem)
+        #expect(!configuration.thinking)
     }
 }
