@@ -180,6 +180,11 @@ final class SessionRecorder: @unchecked Sendable {
                     isDirectory: true
                 )
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                // Depth, pose and mesh data stay off backups, like the journal and dev capture.
+                var values = URLResourceValues()
+                values.isExcludedFromBackup = true
+                var excluded = dir
+                try excluded.setResourceValues(values)
                 current = dir
                 let manifest: [String: Any] = [
                     "schemaVersion": 1, "source": "device",
