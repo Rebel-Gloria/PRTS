@@ -62,12 +62,10 @@ import UIKit
             status = "振动暂停：无有效路径或方向不可用"
         } else {
             status =
-                CHHapticEngine.capabilitiesForHardware().supportsHaptics
-                ? (policy.mode == "aligned_latched"
-                    ? "已对准"
-                    : (policy.mode == "left_double"
-                        ? "连线偏左：双短振" : (policy.mode == "right_long" ? "连线偏右：长振" : "对准确认中")))
-                : "设备不支持触觉反馈"
+                policy.mode == "aligned_latched"
+                ? "已对准"
+                : (policy.mode == "left_double"
+                    ? "连线偏左：双短振" : (policy.mode == "right_long" ? "连线偏右：长振" : "对准确认中"))
         }
         if let pulse {
             status = play(pulse, now: now)

@@ -46,7 +46,6 @@ struct SharedSnapshot: Sendable {
     var thermal = "nominal"
     var thermalRaw = 0
     var meshDrops = 0
-    var recording = true
     var activeMonocular: MonocularFrame? {
         let prediction = frozen != nil ? frozenMonocular : monocular
         guard usesMonocular, running, let prediction, prediction.frame.epoch == epoch,

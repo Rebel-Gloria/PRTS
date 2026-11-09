@@ -288,7 +288,4 @@ final class MonocularDepthProvider {
             groundReference: groundReference
         )
     }
-    private func failure(_ description: String) -> NSError {
-        NSError(domain: "Monocular", code: 2, userInfo: [NSLocalizedDescriptionKey: description])
-    }
 }

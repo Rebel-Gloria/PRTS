@@ -677,7 +677,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     observation: observation,
                     metrics: metrics
                 )
-                if s.recording, s.running, s.epoch == frame.epoch,
+                if s.running, s.epoch == frame.epoch,
                     s.parameterVersion == frame.parameterVersion
                 {
                     recorder.record(result, frame: frame, metrics: metrics)

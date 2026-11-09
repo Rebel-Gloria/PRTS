@@ -5,7 +5,7 @@ nonisolated struct LiveCaptionFrame {
     let sampledAt: TimeInterval
     let jpeg: Data
     let grayscale: [UInt8]
-    // Sampling runs four times a second; a context is costly to create.
+    // Sampling runs ten times a second; a context is costly to create.
     private static let context = CIContext(options: [.cacheIntermediates: false])
 
     static func capture(image: CIImage, sampledAt: TimeInterval) throws -> Self {

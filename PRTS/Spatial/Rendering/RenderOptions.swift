@@ -48,9 +48,9 @@ nonisolated struct RenderOptions: Codable, Sendable, Equatable {
     var showChannels = true
     var showHUD = true
     var heatMax: Float = 5
-    /// Release builds: the camera picture and, if the user turns it on, the scan mesh with the
-    /// planned route on it, so the direction is easy to see. Floor, obstacle and grid layers are
-    /// for checking the algorithm in dev builds.
+    /// Release builds: the camera picture and, if the user turns it on, the scan mesh. The planned
+    /// route is not drawn. Floor, obstacle and grid layers are for checking the algorithm in dev
+    /// builds.
     static func product(scanMesh: Bool) -> RenderOptions {
         var o = RenderOptions()
         o.showPath = false

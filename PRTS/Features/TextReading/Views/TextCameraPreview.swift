@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 import UIKit
 
-/// What the ultra-wide camera sees while reading text, for low-vision users and helpers.
+/// What the main (wide) camera sees while reading text, for low-vision users and helpers.
 struct TextCameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
 

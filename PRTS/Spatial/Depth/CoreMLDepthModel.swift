@@ -4,7 +4,8 @@ import Foundation
 import ImageIO
 import SpatialCore
 
-/// Same portable inference implementation is exercised by scripts/smoke_coreml.swift.
+/// Same portable inference implementation is exercised by
+/// Experiments/SpatialProbe/scripts/smoke_coreml.swift.
 /// No camera/session ownership and no image persistence.
 final class CoreMLDepthModel {
     private var model: MLModel?
