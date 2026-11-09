@@ -40,7 +40,7 @@
 
 开发功能由编译条件 `PRTS_DEV_CAPTURE` 控制，与 Debug 配置无关。工程默认的 Debug 和 Release 配置都不启用该条件，只有传入 `configs/DevCapture.xcconfig` 时才启用。
 
-开发版的界面、渲染选项（`RenderOptions.product`）和避障算法与标准版相同，区别仅在于数据记录：开发版每次启动自动记录 DIAG，错误日志位置不同，详见[诊断记录](#诊断记录)。`DevCaptureRecorder` 只参与开发版编译。检查标准版产物时，应确认其中不包含采集相关的类型和字符串。
+开发版沿用标准版的界面、渲染选项（`RenderOptions.product`）和避障算法，仅增加首页主按钮上方的“录制模式”开关和设置中的“录制”列表。开关每次启动均关闭，不保存到用户偏好。开发版仍在每次启动时自动记录不含图像的 DIAG，错误日志位置也与标准版不同，详见[诊断记录](#诊断记录)。录制代码和附加界面受 `PRTS_DEV_CAPTURE` 控制，不参与标准版编译。
 
 ## 测试
 
@@ -108,28 +108,38 @@ python scripts/style.py --fix    # 应用格式修正
 
 ## 诊断记录
 
-标准版只记录错误日志。DIAG 和开发采集仅用于开发版：
+标准版只记录错误日志。自动 DIAG 和显式录制仅用于开发版：
 
 | 类型 | 启用方式 | 位置与内容 |
 |---|---|---|
 | 错误日志 | 标准版和开发版自动记录 | 标准版为 `Documents/ErrorLogs/`，开发版为 `Documents/DevDiagnostics/Errors/`；只包含时间、版本、来源、错误域和错误码 |
 | 自动 DIAG | 开发版每次启动时自动创建，不会自动打开相机 | `Documents/DevDiagnostics/Diagnostics/<UTC 时间>-<UUID>/`；不包含画面、音频和位置 |
-| 开发采集 | 开发版暂无开启入口 | DIAG 目录内的 `dev-capture-<UUID>/`；包含视频、传感器和分析数据 |
+| 显式录制 | 首页开启“录制模式”后开始避障；避障运行中开启则立即开始 | `Documents/DevDiagnostics/Recordings/*.zip`；独立 DIAG、逐分析帧 HEIC 图像和分析证据 |
 
 > [!IMPORTANT]
 > 标准版第一次启动时，会删除旧版本留下的 `Documents/Sessions` 和 `Documents/Diagnostics`，且无法恢复。工程默认的 Debug 和 Release 配置都属于标准版。如需保留这些数据，请在安装前先提取。
 
 ### 采集与导出
 
-开发采集在停止避障或进入后台时停止，并完成 MP4 写入。
+如需录制和分享，请按以下步骤操作：
 
-开发版不提供应用内的 DIAG 导出。如需连接 Mac 提取 DIAG，请运行以下命令：
+1. 在开发版首页开启“录制模式”，然后开始避障。普通和大字体布局均在主按钮上方显示开关。
+2. 查看开关附近的“录制中”和已用时间。关闭开关、停止避障、应用进入非活跃状态或后台、读文字接管相机、音频或 ARKit 会话中断时，当前录制结束。
+3. 等待状态由“正在压缩”变为“已保存”。编码队列和独立 DIAG 会先完成写入，再由后台队列生成 ZIP；压缩期间申请系统后台任务时间。
+4. 在“设置 → 录制”中查看按开始时间倒序排列的录制、时长和大小。使用“分享”打开系统分享面板，通过隔空投送或“存储到文件”导出。使用侧滑或独立的“删除”按钮清理录制。
+
+录制模式不跨启动保留。当前录制结束后，开关保持用户选择；下一次避障启动可创建新的录制。低磁盘空间会关闭录制模式并显示失败原因。前一段录制压缩期间可以开始新的避障录制；压缩任务串行执行，旧任务完成只更新录制列表，不覆盖新录制的状态。
+
+> [!NOTE]
+> 2026-11-09，`dev/recording-mode` 的录制实现尚未经过真机验证，真机样本量为 0。相机与 HEIC 编码吞吐、发热、后台压缩耗时和系统分享面板仍需设备验收。后台任务时间由系统决定，不能保证在强制退出或系统终止前完成。
+
+自动启动的 DIAG 不提供应用内导出。如需连接 Mac 提取 DIAG，请运行以下命令：
 
 ```sh
 python3 scripts/pull_diag.py --device <设备标识> --output <新目录>
 ```
 
-开发采集不录音、不上传，也不申请位置、麦克风或相册权限。但视频和空间数据可能包含现场隐私信息，分享前请检查。
+录制不录音、不上传，也不为录制申请位置、麦克风或相册权限。HEIC 图像和空间数据包含现场信息；仅显式开启录制模式时写入图像。自动 DIAG 始终不包含图像。
 
 ### DIAG 文件
 
@@ -165,16 +175,20 @@ python3 scripts/pull_diag.py --device <设备标识> --output <新目录>
 
 深度的 JSON 头包含尺寸、epoch、frameID、时间戳、位姿、内参、参数、地面先验、方向稳定性和数据来源；网格的 JSON 头包含 ID、epoch、版本、回调时间、变换、来源和数量。网格不抽样；深度中的 NaN、Inf 和无效像素原样保留。缺少置信度时该段长度为 0，不补充高置信度。
 
-### 开发采集格式
+### 录制格式
 
-开发采集只保存已完成分析的帧，最高 5 Hz。编码繁忙时跳过帧，保留真实时间间隔，不补帧。
+每次录制使用第二个 `DiagnosticJournal`，保留现有 DIAG 格式，与自动启动日志相互独立。录制开始时先写入当前缓存的全部网格锚点，之后记录网格变更。录制包解压后的运行目录与自动 DIAG 格式相同，供 `read_diag.py --verify-data` 和 `Experiments/astra/run.sh` 使用；尚未用真机录制验证。
 
 ```text
-dev-capture-<UUID>/
-  manifest.json
-  status.json                            # recording / completed / failed
-  camera.mp4
-  samples.jsonl                          # 帧标识、PTS、附件引用
+<运行目录>/
+  manifest.json                         # DIAG 清单，声明包含相机图像
+  status.json                           # DIAG 队列、丢弃和错误状态
+  events.jsonl / capture.jsonl / analysis.jsonl
+  mesh.jsonl / path.jsonl / prediction.jsonl
+  render.jsonl / heartbeat.jsonl / data-*.bin
+  recording-status.json                 # 图像样本计数、丢弃计数、结束原因
+  samples.jsonl                         # epoch、frameID、ARFrame.timestamp、附件引用
+  <epoch>-<frame>.heic
   <epoch>-<frame>.evidence.json.deflate
   <epoch>-<frame>.depth.bin.deflate
   <epoch>-<frame>.relative.f32.deflate
@@ -182,17 +196,22 @@ dev-capture-<UUID>/
 
 | 数据 | 内容 |
 |---|---|
-| 视频 | 无标注 H.264，800 kbps，最长边 960 像素，不裁切，无音轨 |
-| LiDAR | 分析实际使用的 Float32 `sceneDepth` 和 UInt8 置信度 |
+| 图像 | 每个被接纳的分析帧一张 HEIC，质量参数 0.9；直接使用未旋转的 `ARFrame.capturedImage`，保留完整传感器分辨率，不裁切、缩放或叠加标注 |
+| 样本索引 | 源 epoch、frameID、ARFrame 时间戳；图像文件名、像素尺寸、字节数和 SHA-256；evidence、深度和相对深度的附件引用 |
+| LiDAR | 分析实际使用的 Float32 深度和 UInt8 置信度，保持无损；DIAG 的分析附件不受图像编码丢帧影响 |
 | 单目模型 | 校准前的相对逆深度、模型与尺寸、尺度样本和参数、地面参考、耗时；校准通过后另存米制深度 |
 | ARKit | 内参、位姿、跟踪状态、曝光、方向、水平平面和最多 512 个特征点 |
-| 网格 | 每帧的 anchor ID 与版本；完整内容从父 DIAG 读取并核对版本 |
+| 网格 | evidence 引用锚点 ID 与版本，完整网格位于同一录制目录的 `mesh.jsonl` 与 `data-*.bin` |
 | 分析 | 完整的 `AnalysisResult`、`PathUpdate` 和路线参数 |
 
-开发采集不包含 ARKit 内部 SLAM 地图、原始 IMU 数据或 LiDAR 硬件时间戳。evidence 中的非有限数写为 `nan`、`+inf` 或 `-inf`。深度由 `DepthFrameCodec` 编码；relative 为行优先的 Float32 LE，尺寸见 `evidence.model`。视频 PTS 为 `ARFrame.timestamp - manifest.originARTimestamp`，timescale 为 60000。
+图像提交跟随分析频率，正常目标约 10 Hz。编码队列最多接纳一个正在处理的样本；繁忙时跳过新图像并累计 `droppedSamples`，不补帧。DIAG 自身的丢弃计数见 `status.json`，两者需分别检查。严重发热时分析频率仍按现有策略降低。
+
+录制不包含 ARKit 内部 SLAM 地图、原始 IMU 数据或 LiDAR 硬件时间戳。evidence 中的非有限数写为 `nan`、`+inf` 或 `-inf`。深度由 `DepthFrameCodec` 编码；relative 为行优先的 Float32 LE，尺寸见 `evidence.model`。对齐数据时使用 `samples.jsonl` 中的源时间戳、epoch 和 frameID，无视频 PTS。
 
 > [!NOTE]
-> 视频经过有损压缩，只能用于核对现场情况，不能用于重新运行模型并比较原始输出。几何回放请使用无损压缩的深度和模型附件。
+> HEIC 图像经过有损压缩，不能视为原始相机像素。几何回放使用无损深度与网格附件；重新运行视觉模型时需注明图像编码的影响。
+
+录制过程中数据位于 `Documents/DevDiagnostics/RecordingWork/`。结束时先完成写入，再用系统文件协调器生成 ZIP，移至 `Recordings/` 并排除备份，随后删除未压缩目录。ZIP 名称包含开始时间、时长和 UUID，供列表读取；压缩或最终落盘失败时保留工作目录以供检查，不将其列为已完成录制。
 
 ### 容量限制
 
@@ -201,13 +220,14 @@ dev-capture-<UUID>/
 | DIAG 分段文件 | 32 MiB |
 | DIAG 每次启动 / 整个目录 | 不限制 |
 | DIAG 待写队列 | 64 条、16 MiB；为事件预留 8 条、64 KiB |
-| 开发采集单段 / 每次启动 | 10 分钟 / 不限制 |
+| 显式录制单段 / 整个目录 | 不限制时长和总量 |
+| HEIC 编码待处理样本 | 1 帧；繁忙时丢弃并计数 |
 | 标准版错误日志 | 1 GB，超出后删除最早的分段 |
-| 开发采集最低剩余空间 | 256 MiB |
+| 录制最低剩余空间 | 256 MiB；每个接纳的图像编码前检查 |
 
-开发版的 DIAG 和开发采集不限制总量，也不自动删除旧数据，请定期导出并通过“文件”App 或 Xcode 清理。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
+开发版的 DIAG 和录制不限制总量，也不自动删除旧数据。如需清理，请在设置的录制列表删除 ZIP，或通过 Xcode 管理自动 DIAG 和异常终止遗留的工作目录。初始网格快照的录制队列按缓存大小扩展，确保接纳完整锚点；网格缓存上限仍为 32 MiB。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
 
-队列满时会丢弃记录，DIAG 和开发采集的丢弃计数需要分别检查。强制退出或断电可能丢失最后约 1 s 的 DIAG，并留下未完成的 MP4；缺少终止事件不代表发生了崩溃。
+压缩过程需要临时空间，256 MiB 门槛不保证大型录制一定可以完成压缩；空间不足时显示失败原因并保留工作目录。强制退出或断电可能丢失最后约 1 s 的 DIAG，并留下未完成的工作目录；缺少终止事件不代表发生了崩溃。
 
 ### 地面显示诊断
 
@@ -228,7 +248,8 @@ dev-capture-<UUID>/
 | 校验 DIAG | `python3 scripts/read_diag.py <run> --verify-data` |
 | 提取深度帧 | `python3 scripts/read_diag.py <run> --extract-depth <epoch>:<frame> --output <目录>` |
 | 提取预测深度帧 | `python3 scripts/read_diag.py <run> --extract-prediction <epoch>:<frame> --output <目录>` |
-| 校验开发采集 | `python3 scripts/read_dev_capture.py <dev-capture>`（不解码视频） |
+| 校验录制 ZIP | `python3 -m zipfile -t <录制.zip>` |
+| 校验录制图像与证据 | `python3 scripts/read_dev_capture.py <解压后的运行目录>`（校验 HEIC 容器、长度、SHA-256 与源帧对应关系，不解码图像） |
 | 汇总旧版 Sessions | `python3 scripts/summarize_session.py <session>`（不支持 DIAG 目录） |
 | 比较路线结果 | `scripts/replay_routes.swift`、`scripts/compare_route_replays.py` |
 | 回放 `{result, options}` 快照 | `scripts/replay_route_snapshots.swift` |

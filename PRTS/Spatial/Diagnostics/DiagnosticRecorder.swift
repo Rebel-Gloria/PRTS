@@ -85,6 +85,10 @@ nonisolated struct RenderDiagnostic: Codable, Sendable {
 }
 final class DiagnosticRecorder: @unchecked Sendable {
     let journal: DiagnosticJournal
+    #if PRTS_DEV_CAPTURE
+    let recordingJournal = RecordingJournal()
+    private(set) var recordingMetadata: [String: String] = [:]
+    #endif
     init(journal suppliedJournal: DiagnosticJournal? = nil) {
         if let suppliedJournal {
             journal = suppliedJournal
@@ -107,7 +111,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         #endif
         #if PRTS_DEV_CAPTURE
         let privacy =
-            "PRTS_DEV_CAPTURE compiled; opt-in RGB video and full analysis may exist in dev-capture-* folders. No audio/GPS/upload."
+            "Automatic DIAG contains no images/audio/GPS. Explicit recordings are stored separately."
         #else
         let privacy = "No RGB or video saved."
         #endif
@@ -150,6 +154,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
                 "No separate raw IMU or GPS acquisition. ARKit feature count, not its private SLAM map. "
                 + privacy,
         ]
+        #if PRTS_DEV_CAPTURE
+        recordingMetadata = metadata
+        #endif
         let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("DevDiagnostics/Diagnostics", isDirectory: true)
         var limits = DiagnosticLimits()
@@ -170,6 +177,22 @@ final class DiagnosticRecorder: @unchecked Sendable {
         )
         event("app_launched", details: environment, epoch: 0)
     }
+    private func submit(
+        _ stream: DiagnosticStream,
+        estimatedBytes: Int = 4096,
+        sourceTime: Double? = nil,
+        make: @escaping @Sendable () throws -> DiagnosticPacket
+    ) {
+        journal.submit(stream, estimatedBytes: estimatedBytes, make: make)
+        #if PRTS_DEV_CAPTURE
+        recordingJournal.submit(
+            stream,
+            estimatedBytes: estimatedBytes,
+            sourceTime: sourceTime,
+            make: make
+        )
+        #endif
+    }
     func event(_ name: String, details: String, epoch: UInt64) {
         guard journal.isEnabled else { return }
         if name == "scene_phase" { journal.noteLifecycle(details) }
@@ -184,13 +207,15 @@ final class DiagnosticRecorder: @unchecked Sendable {
             uptime: ProcessInfo.processInfo.systemUptime,
             wallTime: ISO8601DateFormatter().string(from: Date())
         )
-        journal.submit(.events) { .init(json: try DiagnosticJSON.encode(event)) }
+        submit(.events) { .init(json: try DiagnosticJSON.encode(event)) }
     }
     func capture(_ frame: FrameSnapshot) {
         guard journal.isEnabled else { return }
         // Scalars only: does not retain ARFrame/capturedImage buffers.
         let record = CaptureDiagnostic(frame)
-        journal.submit(.capture) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.capture, sourceTime: frame.frame.timestamp) {
+            .init(json: try DiagnosticJSON.encode(record))
+        }
     }
     func routePublication(
         candidate: PathUpdate,
@@ -233,7 +258,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
             },
             thermalState: state.thermal
         )
-        journal.submit(.path) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.path, sourceTime: candidate.continuity?.timestamp ?? now) {
+            .init(json: try DiagnosticJSON.encode(record))
+        }
     }
     func path(_ update: PathUpdate, frame: FrameSnapshot, options: PathOptions) {
         guard journal.isEnabled else { return }
@@ -254,7 +281,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             options: options,
             cameraView: RouteCameraView(intrinsics: frame.intrinsics)
         )
-        journal.submit(.path, estimatedBytes: 16 * 1024) {
+        submit(.path, estimatedBytes: 16 * 1024, sourceTime: frame.frame.timestamp) {
             .init(json: try DiagnosticJSON.encode(record))
         }
     }
@@ -281,7 +308,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             pulse: pulse,
             status: status
         )
-        journal.submit(.path) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.path) { .init(json: try DiagnosticJSON.encode(record)) }
     }
     func analysis(
         _ result: AnalysisResult,
@@ -309,7 +336,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         let version = result.parameterVersion
         let stable = frame.directionStable
         let source = result.source
-        journal.submit(.analysis, estimatedBytes: cost) {
+        submit(.analysis, estimatedBytes: cost, sourceTime: frame.frame.timestamp) {
             let binary = try observation.map {
                 try DepthFrameCodec.encode(
                     $0,
@@ -372,7 +399,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         let cost =
             relative.count * 8 + h.nativePlanes.reduce(0) { $0 + $1.boundary.count * 64 + 1024 } + h
             .scaleSamples.count * 256 + 65536
-        journal.submit(.prediction, estimatedBytes: cost) {
+        submit(.prediction, estimatedBytes: cost, sourceTime: f.frame.timestamp) {
             let json = try DiagnosticJSON.encode(h)
             var length = UInt32(json.count).littleEndian
             var binary = withUnsafeBytes(of: &length) { Data($0) }
@@ -411,7 +438,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             faces: (mesh?.indices.count ?? 0) / 3,
             classificationCounts: counts
         )
-        journal.submit(
+        submit(
             .mesh,
             estimatedBytes: max(
                 4096,
@@ -451,11 +478,15 @@ final class DiagnosticRecorder: @unchecked Sendable {
             uptime: ProcessInfo.processInfo.systemUptime,
             reason: reason
         )
-        journal.submit(.render) { .init(json: try DiagnosticJSON.encode(value)) }
+        submit(.render, sourceTime: state.frame?.frame.timestamp) {
+            .init(json: try DiagnosticJSON.encode(value))
+        }
     }
     func render(_ record: RenderDiagnostic) {
         guard journal.isEnabled else { return }
-        journal.submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.render, sourceTime: record.sourceTimestamp) {
+            .init(json: try DiagnosticJSON.encode(record))
+        }
     }
     func gpu(
         renderID: UInt64,
@@ -480,7 +511,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             error: error,
             gpuMS: gpuMS
         )
-        journal.submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
     }
     func presented(
         renderID: UInt64,
@@ -502,7 +533,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             presentedTime: time,
             sourceTimestamp: sourceTime
         )
-        journal.submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.render, sourceTime: sourceTime) { .init(json: try DiagnosticJSON.encode(record)) }
     }
     func heartbeat(
         _ state: SharedSnapshot,
@@ -558,7 +589,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             modelStatus: state.monocularStatus,
             nativePlaneCount: state.nativePlanes.count
         )
-        journal.submit(.heartbeat) { .init(json: try DiagnosticJSON.encode(record)) }
+        submit(.heartbeat) { .init(json: try DiagnosticJSON.encode(record)) }
         journal.requestCheckpoint()
     }
     private static func residentBytes() -> UInt64? {

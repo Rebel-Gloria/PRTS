@@ -10,6 +10,20 @@ import SwiftUI
 @MainActor
 final class ProbeViewModel: ObservableObject {
     let engine: ProbeEngine
+    #if PRTS_DEV_CAPTURE
+    @Published var recordingStatus = RecordingRecorder.Status()
+    func recordingAudioInterrupted() {
+        engine.stopRecording(reason: "音频中断")
+        recordingStatus = engine.recording.status()
+    }
+    var recordingMode: Bool {
+        get { recordingStatus.mode }
+        set {
+            engine.setRecordingMode(newValue)
+            recordingStatus = engine.recording.status()
+        }
+    }
+    #endif
     @Published var snapshot = SharedSnapshot()
     @Published var options = RenderOptions() {
         didSet { engine.updateOptions(options) }
@@ -86,6 +100,9 @@ final class ProbeViewModel: ObservableObject {
     }
     var capabilities: DeviceCapabilities { engine.capabilities }
     func poll() {
+        #if PRTS_DEV_CAPTURE
+        recordingStatus = engine.recording.status()
+        #endif
         let thermal = ProcessInfo.processInfo.thermalState
         if thermal.rawValue != lastThermal {
             lastThermal = thermal.rawValue

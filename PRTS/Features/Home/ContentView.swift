@@ -236,6 +236,9 @@ struct ContentView: View {
                     liveCaption.stop()
                     photo.cancel()
                     textReading.terminate()
+                    #if PRTS_DEV_CAPTURE
+                    camera.model.recordingAudioInterrupted()
+                    #endif
                 }
             }
             .onDisappear {
@@ -396,6 +399,17 @@ struct ContentView: View {
     }
 
     private var primaryButton: some View {
+        #if PRTS_DEV_CAPTURE
+        VStack(spacing: 8) {
+            RecordingControl(model: camera.model)
+            guidanceButton
+        }
+        #else
+        guidanceButton
+        #endif
+    }
+
+    private var guidanceButton: some View {
         GuidanceButton(
             state: camera.state,
             pointerCannotHold: pointerCannotHold || tapToStop,

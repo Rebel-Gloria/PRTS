@@ -137,6 +137,9 @@ struct SettingsView: View {
             } footer: {
                 Text("settings.language.footer")
             }
+            #if PRTS_DEV_CAPTURE
+            RecordingsSection(model: model)
+            #endif
             Section {
                 Button("settings.userGuide") { showUserGuide = true }
                     .accessibilityIdentifier("userGuideButton")

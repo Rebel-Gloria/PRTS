@@ -194,6 +194,14 @@ ContentView.photoDown
 
 `Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
 
+## 开发版录制
+
+`PRTS_DEV_CAPTURE` 编译条件内的 `RecordingRecorder` 管理显式录制。首页开关只保存在内存中；`ProbeEngine` 在会话启动或运行中开启录制模式时开始录制，在会话停止时结束。非活跃状态、读文字相机交接与 ARKit 中断沿用现有停止路径，音频中断另行结束当前录制，不改变标准版的相机行为。
+
+`DiagnosticRecorder` 通过 `RecordingJournal` 将录制期间的数据同时提交给第二个 `DiagnosticJournal`。录制起点在会话和网格队列中建立，先提交完整缓存网格，再接收后续变更；带源帧时间的数据排除录制起点之前的帧。停止时在同一接纳锁下分离录制日志，随后刷新队列。自动 DIAG 保持原有生命周期，不接收图像。
+
+`RecordingRecorder` 的独立串行队列最多持有一个已接纳的图像样本，编码未旋转的全分辨率 HEIC，同时写入源帧标识和分析证据。停止后不再接纳图像，已接纳样本完成后才压缩，每段录制持有独立文件状态。新录制可与前一段的压缩并行，编码仍只有一个接纳槽位，压缩任务串行执行；录制标识防止旧完成回调覆盖新录制的状态。`RecordingStore` 负责 ZIP、列表和删除，界面只展示已完成的归档。后台任务用于争取完成压缩的时间，格式和真机待验证范围见[开发指南](development.md#录制格式)。
+
 ## 第三方代码
 
 `Vendor/PRTSCore` 来自 [Oldcucumber/PRTS_Core](https://github.com/Oldcucumber/PRTS_Core)，固定在提交 `0469479b`（2026-09-24 核对）。应用不链接此包。同步范围包括契约、测试、部分 Apple 平台实现和提示音，不包括网页端、Python 运行时和模型文件。

@@ -17,7 +17,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     let store = SharedStore()
     let diagnostics = DiagnosticRecorder()
     #if PRTS_DEV_CAPTURE
-    let devCapture: DevCaptureRecorder
+    let recording: RecordingRecorder
     #endif
     let capabilities: DeviceCapabilities
     private let session: any ProbeSession
@@ -51,7 +51,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         self.capabilities = capabilities
         self.sessionQueue = sessionQueue
         #if PRTS_DEV_CAPTURE
-        devCapture = DevCaptureRecorder(root: diagnostics.journal.directory)
+        recording = RecordingRecorder(diagnostics: diagnostics)
         #endif
         super.init()
         session.configure(delegate: self, queue: sessionQueue)
@@ -128,6 +128,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.droppedFrames = 0
                 $0.meshDrops = 0
             }
+            #if PRTS_DEV_CAPTURE
+            startRecordingIfNeeded()
+            #endif
             diagnostics.event(
                 "session_configuration",
                 details:
@@ -144,6 +147,27 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             )
         }
     }
+    #if PRTS_DEV_CAPTURE
+    func setRecordingMode(_ enabled: Bool) {
+        recording.setMode(enabled)
+        if enabled {
+            sessionQueue.async { [self] in startRecordingIfNeeded() }
+        }
+    }
+
+    func stopRecording(reason: String) {
+        // Preserve session order so an earlier queued start cannot outlive an interruption.
+        sessionQueue.async { [self] in recording.stop(reason: reason) }
+    }
+
+    private func startRecordingIfNeeded() {
+        guard store.read().running else { return }
+        meshQueue.sync { [self] in
+            let state = store.read()
+            recording.start(epoch: state.epoch, meshes: Array(state.meshes.values))
+        }
+    }
+    #endif
     func stop(
         reason: String = "用户停止",
         completion: @escaping @Sendable () -> Void = {}
@@ -151,7 +175,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         diagnostics.event("stop_requested", details: reason, epoch: store.read().epoch)
         sessionQueue.async { [self] in
             #if PRTS_DEV_CAPTURE
-            devCapture.stop()
+            recording.stop(reason: reason)
             #endif
             store.update {
                 $0.running = false
@@ -197,7 +221,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             analysisQueue.async { [self] in
                 meshQueue.async { [self] in
                     #if PRTS_DEV_CAPTURE
-                    devCapture.stop { [self] in diagnostics.journal.flush(completion: finish) }
+                    recording.finishPendingArchives { [self] in
+                        diagnostics.journal.flush(completion: finish)
+                    }
                     #else
                     diagnostics.journal.flush(completion: finish)
                     #endif
@@ -554,7 +580,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 }
                 let s = store.read()
                 #if PRTS_DEV_CAPTURE
-                let captureEnabled = devCapture.status().enabled
+                let captureEnabled = recording.status().phase == .recording
                 #else
                 let captureEnabled = false
                 #endif
@@ -588,9 +614,15 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     geometryOutputEligible: s.activeGeometryResult(now: now)?.frameID
                         == result.frameID
                 )
+                diagnostics.analysis(
+                    result,
+                    frame: frame,
+                    observation: observation,
+                    metrics: metrics
+                )
                 #if PRTS_DEV_CAPTURE
                 if s.running, s.epoch == frame.epoch, s.parameterVersion == frame.parameterVersion {
-                    devCapture.submit(
+                    recording.submit(
                         frame: frame,
                         result: result,
                         path: pathUpdate,
@@ -601,12 +633,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     )
                 }
                 #endif
-                diagnostics.analysis(
-                    result,
-                    frame: frame,
-                    observation: observation,
-                    metrics: metrics
-                )
             }
         }
     }

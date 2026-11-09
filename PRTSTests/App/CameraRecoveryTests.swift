@@ -294,6 +294,56 @@ struct CameraRecoveryTests {
         await withCheckedContinuation { done in engine.stop { done.resume() } }
     }
 
+    #if PRTS_DEV_CAPTURE
+    @Test func queuedRecordingStartCannotOutliveAudioInterruption() async throws {
+        let queue = DispatchQueue(label: "test.recording.interruption")
+        let camera = makeCamera(queue: queue)
+        let store = RecordingStore.application
+        let previous = Set(try store.list().map(\.id))
+        camera.startCamera()
+        await camera.startTask?.value
+        queue.suspend()
+        camera.model.recordingMode = true
+        camera.model.recordingAudioInterrupted()
+        queue.resume()
+        await withCheckedContinuation { done in
+            camera.model.engine.flushDiagnostics(lifecycle: "test") { done.resume() }
+        }
+        #expect(camera.model.engine.recording.status().phase == .saved)
+        await stop(camera)
+        for recording in try store.list() where !previous.contains(recording.id) {
+            try store.delete(recording)
+        }
+    }
+
+    @Test(arguments: ["user", "text", "inactive", "background", "audio", "session"])
+    func recordingEndsAtEveryCameraHandoff(reason: String) async throws {
+        let camera = makeCamera()
+        let store = RecordingStore.application
+        let previous = Set(try store.list().map(\.id))
+        camera.model.recordingMode = true
+        camera.startCamera()
+        await camera.startTask?.value
+        #expect(camera.model.engine.recording.status().phase == .recording)
+        switch reason {
+        case "user": camera.stopCamera()
+        case "text": camera.pauseForTextReading()
+        case "inactive": camera.lifecycle(.inactive)
+        case "background": camera.lifecycle(.background)
+        case "audio": camera.model.recordingAudioInterrupted()
+        default: camera.model.engine.stop(reason: "会话中断")
+        }
+        await withCheckedContinuation { done in
+            camera.model.engine.flushDiagnostics(lifecycle: "test") { done.resume() }
+        }
+        #expect(camera.model.engine.recording.status().phase == .saved)
+        await stop(camera)
+        for recording in try store.list() where !previous.contains(recording.id) {
+            try store.delete(recording)
+        }
+    }
+    #endif
+
     @Test func scanMeshPublishesOneCompleteConfiguration() {
         let model = makeCamera().model
         let saved = UserDefaults.standard.object(forKey: ProbeViewModel.scanMeshKey)
