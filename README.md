@@ -57,7 +57,6 @@ PRTS 是一款面向视障和低视力用户的 iPhone 应用，提供避障引�
 | [验证结果](docs/validation.md) | 测试数据、采用或撤回的决定和已知问题 |
 | [AGENTS.md](AGENTS.md) | 编码、文档和提交规范 |
 
-宣传材料维护在 `marketing` 分支。
 
 ## 参与贡献
 

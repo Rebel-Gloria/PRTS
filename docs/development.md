@@ -274,5 +274,3 @@ dev-capture-<UUID>/
 |---|---|
 | `app-logo-prts.svg` | 1024×1024、不含透明通道的 PNG，用于浅色、深色和着色图标 |
 | `app-logo.svg` | 主页标志，按 32 pt 导出 1×、2×、3× PNG，保持黑底白字 |
-
-宣传材料维护在 `marketing` 分支。
