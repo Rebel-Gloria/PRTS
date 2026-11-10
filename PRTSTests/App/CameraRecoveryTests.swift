@@ -32,7 +32,8 @@ struct CameraRecoveryTests {
         session: TestProbeSession = TestProbeSession(),
         queue: DispatchQueue = DispatchQueue(label: "test.camera.session"),
         permission: @escaping () async throws -> Bool = { true },
-        isActive: @escaping () -> Bool = { true }
+        isActive: @escaping () -> Bool = { true },
+        authorization: AVAuthorizationStatus = .authorized
     ) -> CameraManager {
         CameraManager(
             model: ProbeViewModel(
@@ -51,8 +52,20 @@ struct CameraRecoveryTests {
             ),
             permission: permission,
             isActive: isActive,
-            authorizationStatus: { .authorized }
+            authorizationStatus: { authorization }
         )
+    }
+
+    @Test func onlyAnUndeterminedPermissionIsShownAsAPrompt() async {
+        let first = makeCamera(authorization: .notDetermined)
+        first.startCamera()
+        #expect(first.state == .requestingPermission)
+        await stop(first)
+
+        let later = makeCamera()
+        later.startCamera()
+        #expect(later.state == .starting)
+        await stop(later)
     }
 
     private func stop(_ camera: CameraManager) async {

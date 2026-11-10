@@ -213,9 +213,9 @@ final class ProbeViewModel: ObservableObject {
                 engine.start(device: deviceMetadata) { done.resume() }
             }
         } else if allowed {
-            permissionMessage = "已授权，回到 PRTS 后点“开始”。"
+            permissionMessage = "camera.permission.grantedInactive"
         } else {
-            permissionMessage = "没有相机权限。请到“设置”里打开。"
+            permissionMessage = "camera.permission.denied"
         }
     }
     var deviceMetadata: [String: String] {

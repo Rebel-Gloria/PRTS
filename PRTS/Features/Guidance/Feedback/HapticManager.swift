@@ -22,6 +22,14 @@ final class HapticManager: ObservableObject {
         }
     }
 
+    /// Direction cues are continuous buzzes; the system error pattern is a run of sharp taps,
+    /// so "do not walk on" cannot be mistaken for "turn left".
+    func guidanceAlert() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.error)
+    }
+
     func startHoldFeedback() {
         guard holdFeedbackTimer == nil else { return }
 

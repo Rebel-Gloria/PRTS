@@ -58,7 +58,9 @@ final class CameraManager: ObservableObject {
         if model.snapshot.running && runningIntent {
             state = .running
         } else if model.requestingPermission {
-            state = .requestingPermission
+            // The system prompt appears only while authorisation is undetermined; on every
+            // later start "allow camera access" would be a false instruction.
+            state = authorization == .notDetermined ? .requestingPermission : .starting
         } else if authorization == .denied || authorization == .restricted {
             state = .permissionDenied
         } else if !model.capabilities.world {

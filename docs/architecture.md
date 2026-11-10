@@ -80,7 +80,7 @@ ARSession
 | 主线程，每 0.1 s | `ContentView` 中的定时器 | `CameraManager.poll` → `ProbeViewModel.poll` 读取快照，由 `PathHaptics` 输出方向振动，每 1 s 写一次 DIAG 心跳；随后 `ContentView` 把结果交给 `FeedbackCoordinator`，由 `SpeechManager` 播报 |
 | 主线程，每秒 30 次 | `MTKView` 绘制回调 | `ProbeRenderer` 读取 `SharedStore` 绘制画面 |
 
-`LatestMailbox` 只保留最新一帧，分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。语音和振动在同一次轮询中使用同一个暂停条件：拍照操作、读文字、流式字幕、设置页、停止手势、低视力模式或使用说明、应用不在前台，任一成立时两者都暂停。
+`LatestMailbox` 只保留最新一帧，分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。语音和振动在同一次轮询中计算暂停条件：拍照操作、读文字、设置页、停止手势、低视力模式或使用说明、应用不在前台，任一成立时两者都暂停。流式字幕只暂停语音，振动继续。
 
 ## 路线状态
 

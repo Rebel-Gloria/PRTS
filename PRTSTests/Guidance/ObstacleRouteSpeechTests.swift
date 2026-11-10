@@ -109,6 +109,45 @@ struct ObstacleRouteSpeechTests {
             ) == nil
         )
     }
+    /// Returns whether the same turn is spoken again after the heading passed through 8°.
+    private func turnRepeatsAfterEightDegrees(alignment: Float?) throws -> Bool {
+        var policy = try initializedPolicy()
+        let near = try update("nearObstacle")
+        var cues: [ObstacleRouteSpeech] = []
+        for tick in 10...45 {
+            let angle: Float = (11...15).contains(tick) ? -8 : -25
+            let now = Double(tick) / 10
+            let cue =
+                if let alignment {
+                    policy.cue(
+                        update: near,
+                        heading: try heading(angle),
+                        now: now,
+                        deviationDegrees: 12,
+                        alignmentDegrees: alignment
+                    )
+                } else {
+                    policy.cue(
+                        update: near,
+                        heading: try heading(angle),
+                        now: now,
+                        deviationDegrees: 12
+                    )
+                }
+            if let cue { cues.append(cue) }
+        }
+        #expect(cues.first == .obstacle(1.4, -1))
+        return cues.count == 2 && cues[1] == .obstacle(1.4, -1)
+    }
+
+    @Test func turnSpeechUsesTheConfiguredAlignmentAngle() throws {
+        // Vibration reports "aligned" at the configured angle; speech must re-arm at the same
+        // one, or the two disagree about whether the user has turned far enough.
+        #expect(try turnRepeatsAfterEightDegrees(alignment: 9))
+        #expect(try !turnRepeatsAfterEightDegrees(alignment: 5))
+        #expect(try !turnRepeatsAfterEightDegrees(alignment: nil))
+    }
+
     @Test func previewChangesCannotTriggerAnotherTurn() throws {
         var policy = try initializedPolicy()
         var u = try update("nearObstacle")

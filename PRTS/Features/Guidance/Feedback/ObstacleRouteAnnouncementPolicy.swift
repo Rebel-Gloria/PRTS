@@ -44,6 +44,7 @@ struct ObstacleRouteAnnouncementPolicy {
         heading: PathHeading?,
         now: Double,
         deviationDegrees: Float,
+        alignmentDegrees: Float = 5,
         canSpeak: Bool = true
     ) -> ObstacleRouteSpeech? {
         guard let state = update.waypointGuidance else { return nil }
@@ -78,7 +79,7 @@ struct ObstacleRouteAnnouncementPolicy {
                 heading: heading,
                 now: now,
                 threshold: deviationDegrees,
-                alignment: 5
+                alignment: alignmentDegrees
             ) : nil
         // Measured distance is noisy, so speech only says "obstacle" or "obstacle close";
         // re-announce when that level changes, at most every 4 s as build 25 did.

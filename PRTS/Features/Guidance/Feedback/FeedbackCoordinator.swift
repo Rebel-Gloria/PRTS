@@ -8,10 +8,30 @@ final class FeedbackCoordinator: ObservableObject {
     private var turnPolicy = TurnAnnouncementPolicy()
     private var routeSpeech = RouteAnnouncementPolicy()
     private var waypointSpeech = ObstacleRouteAnnouncementPolicy()
+    private var alerts = GuidanceAlertPolicy()
     private var hasWaypointFeedback = false
     private var turnEpoch: UInt64?
     private var turnGoal: UInt64?
     private var turnVersion: UInt64?
+
+    /// Runs whenever vibration may play, also while live captions own the voice.
+    func alert(
+        _ snapshot: SharedSnapshot,
+        now: Double = ProcessInfo.processInfo.systemUptime
+    ) -> GuidanceAlert? {
+        guard snapshot.running, snapshot.pathOptions.enabled else {
+            alerts.reset()
+            return nil
+        }
+        let update = snapshot.activeWaypointUpdate(now: now)
+        return alerts.update(
+            available: update != nil,
+            blocked: update?.waypointGuidance?.scenario == .blocked,
+            now: now
+        )
+    }
+
+    func resetAlerts() { alerts.reset() }
 
     /// Uses the same angle hysteresis as haptics, independently of vibration hardware.
     func consumeDirection(
@@ -51,6 +71,7 @@ final class FeedbackCoordinator: ObservableObject {
                 heading: heading,
                 now: now,
                 deviationDegrees: snapshot.pathOptions.deviationDegrees,
+                alignmentDegrees: snapshot.pathOptions.alignmentDegrees,
                 canSpeak: !speech.isSpeakingPerception
             ) {
                 speech.speakPerception(cue.chinese, english: cue.english)
@@ -120,7 +141,7 @@ final class FeedbackCoordinator: ObservableObject {
             lastSpokenResultID = event.resultID
             switch event {
             case .perceptionUnavailable:
-                speech.speakPerception("暂时看不清")
+                speech.speakPerception("暂时看不清", english: "Can't see clearly")
                 return  // Direction haptics are owned solely by PathHaptics.
             case .centerObstacle(_, let distance, _):
                 speech.speakPerception(

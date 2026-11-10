@@ -260,13 +260,14 @@ struct LiveCaptionSessionTests {
                 return nil
             }
         )
+        session.localized = { $0 }
         session.start(capture: {
             Issue.record("Capture requires upload consent")
             return Task { LiveCaptionFrame(sampledAt: 0, jpeg: Data(), grayscale: []) }
         })
         #expect(!session.isRunning)
-        #expect(session.message == "先在设置里允许发送照片")
-        #expect(audio.spoken == ["先在设置里允许发送照片"])
+        #expect(session.message == "photo.message.allowUpload")
+        #expect(audio.spoken == ["photo.message.allowUpload"])
         #expect(session.suspendsFeedback)
         audio.onFinished?()
         #expect(!session.suspendsFeedback)

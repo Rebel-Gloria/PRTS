@@ -9,6 +9,8 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var isAnnouncing = false
     @Published private(set) var message = ""
+    /// Follows the speech language chosen in the app, which can differ from the system's.
+    var localized: (String) -> String = { String(localized: String.LocalizationValue($0)) }
     private var press = PhotoPressState()
     private var timer: Task<Void, Never>?
     private(set) var work: Task<Void, Never>?
@@ -101,7 +103,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         generation = UUID()
         captureOperation = capture
         busy = true
-        message = "松手描述，长按提问"
+        message = localized("photo.message.pressHint")
         return true
     }
 
@@ -112,7 +114,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             if configuration.provider != .onDevice {
                 guard configuration.uploadAllowed else {
                     cancel()
-                    message = "先在设置里允许发送照片"
+                    message = localized("photo.message.allowUpload")
                     return false
                 }
                 guard let credential = try services.credential(configuration.provider),
@@ -177,7 +179,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                     self.recognizer.endCapture()
                     try await self.audio.cue(.submit)
                     guard self.generation == id else { return }
-                    self.message = "正在识别"
+                    self.message = self.localized("photo.message.recognizing")
                     let text = try await self.recognizer.finish()
                     try Task.checkCancellation()
                     guard self.generation == id else { return }
@@ -220,12 +222,14 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         if !prepareService(for: .question) { return }
         guard services.speechAuthorized() else {
             cancel()
-            message = "需要麦克风权限，允许后再长按"
+            message = localized("photo.message.microphoneNeeded")
             let id = generation
             work = Task { [weak self] in
                 let granted = await self?.services.requestSpeechPermission() ?? false
                 guard let self, self.generation == id else { return }
-                self.message = granted ? "已授权，再长按提问" : "请在设置里允许麦克风"
+                self.message = self.localized(
+                    granted ? "photo.message.microphoneGranted" : "photo.message.microphoneDenied"
+                )
             }
             return
         }
@@ -243,7 +247,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 guard self.generation == id else { return }
                 try await self.recognizer.start()
                 guard self.generation == id else { return }
-                self.message = "请说话，松手发送"
+                self.message = self.localized("photo.message.speakNow")
             } catch {
                 if self.generation == id { self.fail(error) }
             }
@@ -255,7 +259,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         let id = generation
         let describe = services.describe
         self.request = nil
-        message = "正在描述"
+        message = localized("photo.message.describing")
         work = Task { [weak self] in
             do {
                 let jpeg = try await imageTask.value
@@ -265,7 +269,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 guard let self, self.generation == id else { return }
                 self.imageTask = nil
                 self.recognizer.cancel()
-                self.message = "正在朗读"
+                self.message = self.localized("photo.message.speaking")
                 try self.audio.speak(answer)
             } catch {
                 guard let self, self.generation == id else { return }

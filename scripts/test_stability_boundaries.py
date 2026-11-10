@@ -15,12 +15,11 @@ class StabilityBoundaryTests(unittest.TestCase):
     def test_home_feedback_shares_all_existing_pause_conditions(self):
         source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
         poll = source.split(".onReceive(pollTimer)", 1)[1].split(".onChange", 1)[0]
-        expression = re.search(r"let suspendFeedback =\s+(.*?)\n\s*camera.poll", poll, re.S)[1]
+        expression = re.search(r"let suspendHaptics =\s+(.*?)\n\s*//", poll, re.S)[1]
         names = (
             "camera.suspendsFeedback",
             "photo.busy",
             "reading",
-            "liveCaption.suspendsFeedback",
             "isShowingSettings",
             "isHoldingStop",
             "guidanceSuppressed",
@@ -32,7 +31,10 @@ class StabilityBoundaryTests(unittest.TestCase):
                 evaluated = evaluated.replace(name, str(flag))
             self.assertEqual(eval(" ".join(evaluated.replace("||", "or").split())), any(flags))
         code = swift_code(poll)
-        self.assertIn("camera.poll(suspendFeedback:suspendFeedback)", code)
+        # Live captions pause speech only; vibration keeps running under them.
+        self.assertIn("letsuspendFeedback=suspendHaptics||liveCaption.suspendsFeedback", code)
+        self.assertIn("camera.poll(suspendFeedback:suspendHaptics)", code)
+        self.assertIn("ifsuspendHaptics{feedback.resetAlerts()", code)
         self.assertIn("if!suspendFeedback{", code)
         self.assertIn("elseif!isShowingSettings{", code)
 

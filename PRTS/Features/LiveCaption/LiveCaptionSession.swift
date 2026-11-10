@@ -133,7 +133,7 @@ final class LiveCaptionSession: ObservableObject {
         interruptAnnouncement()
         guard services.uploadAllowed() else {
             stop()
-            message = "先在设置里允许发送照片"
+            message = localized("photo.message.allowUpload")
             announce(message)
             return
         }

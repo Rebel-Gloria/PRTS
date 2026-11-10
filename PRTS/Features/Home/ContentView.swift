@@ -152,14 +152,27 @@ struct ContentView: View {
             .onReceive(pollTimer) { _ in
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
-                let suspendFeedback =
+                let suspendHaptics =
                     camera.suspendsFeedback
-                    || photo.busy || reading || liveCaption.suspendsFeedback
+                    || photo.busy || reading
                     || isShowingSettings || isHoldingStop
                     || guidanceSuppressed || scenePhase != .active
-                camera.poll(suspendFeedback: suspendFeedback)
+                // Live captions own the voice only. They run while the user walks, so
+                // vibration keeps guiding; pausing it left no obstacle feedback at all.
+                let suspendFeedback = suspendHaptics || liveCaption.suspendsFeedback
+                camera.poll(suspendFeedback: suspendHaptics)
+                let snapshot = camera.model.snapshot
+                if suspendHaptics {
+                    feedback.resetAlerts()
+                } else if let alert = feedback.alert(snapshot) {
+                    if snapshot.pathOptions.haptics { hapticManager.guidanceAlert() }
+                    // Not perception speech: the branches below cancel that when no result
+                    // is current, which is exactly when this has to be heard.
+                    if alert == .lost && !suspendFeedback {
+                        speechManager.speak(speechManager.interfaceString("speech.guidance.lost"))
+                    }
+                }
                 if !suspendFeedback {
-                    let snapshot = camera.model.snapshot
                     if snapshot.pathOptions.enabled && snapshot.pathUpdate.waypointGuidance != nil {
                         // One committed route state owns open/far/near speech. Do not also
                         // announce the raw centre sector or wait for a rendered floor.
@@ -181,9 +194,13 @@ struct ContentView: View {
                 }
             }
             .onChange(of: operationMessage) { _, message in
-                // Errors are otherwise only visible text; VoiceOver users must hear them.
-                if let message, UIAccessibility.isVoiceOverRunning {
+                // Errors are otherwise only visible text, which a blind user without VoiceOver
+                // never learns of.
+                guard let message else { return }
+                if UIAccessibility.isVoiceOverRunning {
                     SpeechManager.postQueuedAnnouncement(message)
+                } else {
+                    speechManager.speak(message)
                 }
             }
             .onChange(of: photo.message) { _, message in
@@ -531,7 +548,8 @@ struct ContentView: View {
     }
 
     private var operationMessage: String? {
-        camera.model.errorMessage ?? camera.model.permissionMessage
+        camera.model.errorMessage
+            ?? camera.model.permissionMessage.map { speechManager.interfaceString($0) }
     }
 
     /// Starts the camera from a shortcut, or leaves text reading, once the app is active.
@@ -553,6 +571,7 @@ struct ContentView: View {
         switch action {
         case .photo(let action):
             liveCaption.interruptAnnouncement()
+            photo.localized = { speechManager.interfaceString($0) }
             if !photo.perform(
                 action,
                 snapshot: { camera.model.snapshot.frame },
@@ -565,7 +584,6 @@ struct ContentView: View {
             speechManager.stopCurrentSpeech()
             liveCaption.localized = { speechManager.interfaceString($0) }
             liveCaption.start(snapshot: { camera.model.snapshot.frame })
-            camera.poll(suspendFeedback: liveCaption.suspendsFeedback)
         case .stop:
             liveCaption.stop()
             liveCaption.announce(speechManager.interfaceString("liveCaption.off"))
