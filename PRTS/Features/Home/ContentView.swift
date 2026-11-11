@@ -364,6 +364,7 @@ struct ContentView: View {
             } else {
                 liveCaption.cancelPress()
                 liveCaption.interruptAnnouncement()
+                photo.localized = { speechManager.interfaceString($0) }
                 photo.down(
                     snapshot: { camera.model.snapshot.frame },
                     silence: { speechManager.stopCurrentSpeech() }
