@@ -9,6 +9,9 @@ struct PhotoCaptureButton: UIViewRepresentable {
     var cancel: () -> Void
     /// VoiceOver label, hint and custom action names in the interface language.
     var strings = Strings.chinese
+    /// Reading these makes SwiftUI update the button as soon as either setting changes.
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     struct Strings: Equatable {
         var label, hint, ask, send: String
@@ -53,10 +56,7 @@ struct PhotoCaptureButton: UIViewRepresentable {
         uiView.up = up
         uiView.cancel = cancel
         uiView.apply(strings)
-        uiView.applyVisibility(
-            highContrast: UIAccessibility.isDarkerSystemColorsEnabled
-                || UIAccessibility.isReduceTransparencyEnabled
-        )
+        uiView.applyVisibility(highContrast: contrast == .increased || reduceTransparency)
     }
 
     final class Control: UIButton {
@@ -67,7 +67,8 @@ struct PhotoCaptureButton: UIViewRepresentable {
         private var applied: Strings?
 
         func apply(_ text: Strings) {
-            // SwiftUI updates this view on every poll; keep VoiceOver's actions stable.
+            // SwiftUI updates this view whenever the home screen changes; keep VoiceOver's
+            // actions stable.
             guard applied != text else { return }
             applied = text
             accessibilityLabel = text.label

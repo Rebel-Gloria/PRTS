@@ -307,6 +307,21 @@ struct CameraRecoveryTests {
         await withCheckedContinuation { done in engine.stop { done.resume() } }
     }
 
+    @Test func unchangedPollsDoNotRedrawTheHomeScreen() {
+        let camera = makeCamera()
+        camera.poll(suspendFeedback: true)
+        var changes = 0
+        let observation = camera.objectWillChange.sink { _ in changes += 1 }
+        camera.poll(suspendFeedback: true)
+        camera.poll(suspendFeedback: true)
+        #expect(changes == 0)
+        // The home screen reads the operation message from the model without observing it.
+        camera.model.permissionMessage = "camera.permission.denied"
+        camera.poll(suspendFeedback: true)
+        #expect(changes == 1)
+        withExtendedLifetime(observation) {}
+    }
+
     @Test func scanMeshPublishesOneCompleteConfiguration() {
         let model = makeCamera().model
         let saved = UserDefaults.standard.object(forKey: ProbeViewModel.scanMeshKey)

@@ -41,12 +41,25 @@ final class CameraManager: ObservableObject {
     var suspendsFeedback: Bool { !wantsCameraRunning || pausedForTextReading || !sceneActive }
     @Published private(set) var state: CameraState = .idle
     @Published private(set) var status = "离线空间感知待启动"
-    @Published private(set) var latestSceneResult: SceneResult?
+    /// The home screen reads this right after `poll` and no view shows it, so it is not
+    /// published: a new result arrives ten times a second.
+    private(set) var latestSceneResult: SceneResult?
+    /// What views read from `model` without observing it: the operation message and the shape
+    /// of the camera image.
+    private struct ModelPresentation: Equatable {
+        var errorMessage: String?
+        var permissionMessage: String?
+        var imageWidth = 0
+        var imageHeight = 0
+    }
+    private var modelPresentation = ModelPresentation()
+    /// Runs every 0.1 s. Assigning a published property redraws the home screen even when the
+    /// value is the same, so only changes are published.
     func poll(suspendFeedback: Bool) {
         let runningIntent = sessionRequested && !suspendsFeedback && isActive()
         model.feedbackSuspended = suspendFeedback || !runningIntent
         model.poll()
-        status = model.snapshot.status
+        if status != model.snapshot.status { status = model.snapshot.status }
         latestSceneResult =
             runningIntent
             ? SceneSnapshotAdapter.measuredResult(
@@ -55,18 +68,30 @@ final class CameraManager: ObservableObject {
             ) : nil
         if !model.snapshot.running && startTask == nil { sessionRequested = false }
         let authorization = authorizationStatus()
+        let current: CameraState
         if model.snapshot.running && runningIntent {
-            state = .running
+            current = .running
         } else if model.requestingPermission {
             // The system prompt appears only while authorisation is undetermined; on every
             // later start "allow camera access" would be a false instruction.
-            state = authorization == .notDetermined ? .requestingPermission : .starting
+            current = authorization == .notDetermined ? .requestingPermission : .starting
         } else if authorization == .denied || authorization == .restricted {
-            state = .permissionDenied
+            current = .permissionDenied
         } else if !model.capabilities.world {
-            state = .unavailable(.noRearCamera)
+            current = .unavailable(.noRearCamera)
         } else {
-            state = .idle
+            current = .idle
+        }
+        if state != current { state = current }
+        let presentation = ModelPresentation(
+            errorMessage: model.errorMessage,
+            permissionMessage: model.permissionMessage,
+            imageWidth: model.snapshot.frame?.intrinsics.width ?? 0,
+            imageHeight: model.snapshot.frame?.intrinsics.height ?? 0
+        )
+        if modelPresentation != presentation {
+            objectWillChange.send()
+            modelPresentation = presentation
         }
     }
     func startCamera() {
