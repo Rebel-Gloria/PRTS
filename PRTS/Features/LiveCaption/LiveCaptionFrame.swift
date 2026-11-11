@@ -5,8 +5,6 @@ nonisolated struct LiveCaptionFrame {
     let sampledAt: TimeInterval
     let jpeg: Data
     let grayscale: [UInt8]
-    // Sampling runs ten times a second; a context is costly to create.
-    private static let context = CIContext(options: [.cacheIntermediates: false])
 
     static func capture(image: CIImage, sampledAt: TimeInterval) throws -> Self {
         let jpeg = try PhotoImageEncoder.jpeg(
@@ -19,7 +17,7 @@ nonisolated struct LiveCaptionFrame {
         )
         var grayscale = [UInt8](repeating: 0, count: 48 * 64)
         grayscale.withUnsafeMutableBytes { bytes in
-            context.render(
+            PhotoImageEncoder.context.render(
                 thumbnail,
                 toBitmap: bytes.baseAddress!,
                 rowBytes: 48,

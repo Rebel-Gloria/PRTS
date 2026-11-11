@@ -19,6 +19,10 @@ nonisolated enum PhotoImagePurpose {
 
 /// Rotation precedes proportional downsampling to preserve the full camera view.
 nonisolated enum PhotoImageEncoder {
+    /// One context for every encode. Live captions encode ten frames a second, and a context is
+    /// costly to create; it can be used from several threads at once.
+    static let context = CIContext(options: [.cacheIntermediates: false])
+
     static func jpeg(
         pixelBuffer: CVPixelBuffer,
         orientation: ImageOrientation,
@@ -51,7 +55,6 @@ nonisolated enum PhotoImageEncoder {
         var image = image
         let scale = min(1, longestSide / max(image.extent.width, image.extent.height))
         image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        let context = CIContext(options: [.cacheIntermediates: false])
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
             let data = context.jpegRepresentation(
                 of: image,
