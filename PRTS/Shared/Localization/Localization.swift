@@ -5,7 +5,7 @@
 
 import Foundation
 
-enum SpeechLanguage: String, CaseIterable, Identifiable, Hashable {
+nonisolated enum SpeechLanguage: String, CaseIterable, Identifiable, Hashable {
     case english = "English"
     case chinese = "Chinese"
 
@@ -53,7 +53,14 @@ enum SpeechLanguage: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-enum AppLocalization {
+/// Looks strings up outside the main actor too: error descriptions are created wherever the
+/// error is thrown.
+nonisolated enum AppLocalization {
+    /// A string in the interface language chosen in the app, which can differ from the system's.
+    static func interfaceString(_ key: String, arguments: [CVarArg] = []) -> String {
+        string(key, language: SpeechPreferences.language(), arguments: arguments)
+    }
+
     static func bundle(for language: SpeechLanguage) -> Bundle {
         guard
             let path = Bundle.main.path(

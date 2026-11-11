@@ -99,7 +99,9 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
 
     enum OutputError: LocalizedError {
         case cueUnavailable
-        var errorDescription: String? { "无法播放拍照提示音，请重试" }
+        var errorDescription: String? {
+            AppLocalization.interfaceString("photo.error.cueUnavailable")
+        }
     }
 
     nonisolated static func toneData(for cue: AnswerCue) -> Data {

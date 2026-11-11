@@ -1,7 +1,7 @@
 import Foundation
 
 /// One interpretation of the persisted voice settings for speech input and output.
-struct SpeechPreferences {
+nonisolated struct SpeechPreferences {
     enum Key {
         static let voiceAnnouncementsEnabled = "voiceAnnouncementsEnabled"
         static let speechRateOption = "speechRateOption"

@@ -21,9 +21,10 @@ enum PhotoLocalModel {
 extension LocalVLM.Failure: @retroactive LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .loadFailed: "本机模型没能加载"
-        case .badImage: "本机模型读不了这张照片"
-        case .evalFailed, .outputLimit: "本机模型出错，请重试"
+        case .loadFailed: AppLocalization.interfaceString("photo.error.localModel.loadFailed")
+        case .badImage: AppLocalization.interfaceString("photo.error.localModel.badImage")
+        case .evalFailed, .outputLimit:
+            AppLocalization.interfaceString("photo.error.localModel.failed")
         }
     }
 }

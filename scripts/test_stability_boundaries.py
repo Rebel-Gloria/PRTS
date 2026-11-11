@@ -56,6 +56,22 @@ class StabilityBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(translations["zh-Hans"]["stringUnit"]["value"], "读文字失败，请重试")
 
+    def test_error_descriptions_are_translated(self):
+        # Error text is looked up by key at run time, so a missing entry would only show on device.
+        catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text(encoding="utf-8"))
+        keys = set()
+        for file in (ROOT / "PRTS").rglob("*.swift"):
+            keys.update(re.findall(r'"(photo\.error\.[\w.]+)"', file.read_text(encoding="utf-8")))
+        self.assertTrue(keys)
+        for key in sorted(keys):
+            with self.subTest(key=key):
+                translations = catalog["strings"][key]["localizations"]
+                self.assertEqual(set(translations), {"en", "zh-Hans"})
+                values = [unit["stringUnit"]["value"] for unit in translations.values()]
+                self.assertTrue(all(values))
+                # Both languages take the same arguments.
+                self.assertEqual(len({value.count("%lld") for value in values}), 1)
+
     def test_ci_stub_uses_the_source_cancellation_header(self):
         workflow = (ROOT / ".github/workflows/code-quality.yml").read_text()
         self.assertIn("cp Packages/LocalVLM/csrc/prts_local_vlm.h", workflow)

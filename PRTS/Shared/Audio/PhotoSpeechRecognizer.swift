@@ -9,9 +9,11 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         case unavailable, noSpeech, microphoneUnavailable
         var errorDescription: String? {
             switch self {
-            case .unavailable: "语音识别暂不可用"
-            case .noSpeech: "没有听清，请重新长按提问"
-            case .microphoneUnavailable: "麦克风不可用"
+            case .unavailable:
+                AppLocalization.interfaceString("photo.error.recognitionUnavailable")
+            case .noSpeech: AppLocalization.interfaceString("photo.error.noSpeech")
+            case .microphoneUnavailable:
+                AppLocalization.interfaceString("photo.error.microphoneUnavailable")
             }
         }
     }

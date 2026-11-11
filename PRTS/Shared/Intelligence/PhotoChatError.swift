@@ -21,16 +21,23 @@ nonisolated enum PhotoChatError: Error, LocalizedError, CustomNSError {
     var errorUserInfo: [String: Any] {
         [NSLocalizedDescriptionKey: errorDescription!]
     }
+    /// Shown under the photo button and read aloud, so it follows the interface language.
     var errorDescription: String? {
+        if case .http(let status) = self {
+            return AppLocalization.interfaceString(localizationKey, arguments: [status])
+        }
+        return AppLocalization.interfaceString(localizationKey)
+    }
+    private var localizationKey: String {
         switch self {
-        case .missingKey: "请先在设置中保存 API Key"
-        case .invalidService: "请在设置里填写服务地址和模型"
-        case .emptyInput: "未获取到图片或提问内容"
-        case .malformedStream: "图片描述服务返回了无效数据"
-        case .incompleteStream, .answerTooLong: "图片描述连接提前结束，请重试"
-        case .emptyAnswer: "图片描述服务没有返回正文"
-        case .responseTooLarge: "图片描述响应过长"
-        case .http(let status): "图片描述请求失败（HTTP \(status)）"
+        case .missingKey: "photo.error.missingKey"
+        case .invalidService: "photo.error.invalidService"
+        case .emptyInput: "photo.error.emptyInput"
+        case .malformedStream: "photo.error.malformedStream"
+        case .incompleteStream, .answerTooLong: "photo.error.incompleteStream"
+        case .emptyAnswer: "photo.error.emptyAnswer"
+        case .responseTooLarge: "photo.error.responseTooLarge"
+        case .http: "photo.error.http"
         }
     }
 }
