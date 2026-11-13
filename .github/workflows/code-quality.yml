@@ -31,7 +31,7 @@ jobs:
           url=https://download.swift.org/swift-6.2-release/ubuntu2404/swift-6.2-RELEASE
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/swift.tar.gz" "$url/$name.tar.gz"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/swift.tar.gz.sig" "$url/$name.tar.gz.sig"
-          curl -fsSL --retry 3 https://www.swift.org/keys/all-keys.asc | gpg --import
+          curl -fsSL --compressed --retry 3 https://www.swift.org/keys/all-keys.asc | gpg --import
           gpg --verify "$RUNNER_TEMP/swift.tar.gz.sig" "$RUNNER_TEMP/swift.tar.gz"
           tar -xzf "$RUNNER_TEMP/swift.tar.gz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/$name/usr/bin" >> "$GITHUB_PATH"
