@@ -534,13 +534,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera access is off. Turn it on in iPhone Settings."
+            "value" : "Camera access is off. Allow access in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限，请前往系统设置开启。"
+            "value" : "没有相机权限。请在“设置”中允许访问。"
           }
         }
       }
@@ -928,13 +928,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap Start once you're sure your surroundings are safe"
+            "value" : "Tap Start once you’re sure your surroundings are safe"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "确认周围安全后，点按开始"
+            "value" : "确认周围安全后，轻点“开始”"
           }
         }
       }
@@ -1019,7 +1019,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打开智能服务、交互和语音设置"
+            "value" : "打开智能、交互与语音设置"
           }
         }
       }
@@ -1073,7 +1073,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "流式字幕已开启，再次点按退出"
+            "value" : "流式字幕已开启，再按一下退出"
           }
         }
       }
@@ -1260,7 +1260,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机模型会尝试回答更多细节，但结果可能没那么准确。"
+            "value" : "开启后，本机模型会尝试回答更多细节，但结果可能没那么准确。"
           }
         }
       }
@@ -1288,13 +1288,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "More accurate, with slightly longer wait times."
+            "value" : "Improves accuracy, with longer wait times."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回答更准确，但等待时间会变长。"
+            "value" : "开启后回答更准确，但等待时间会变长。"
           }
         }
       }
@@ -1322,13 +1322,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Thinks longer before answering, which noticeably slows down replies."
+            "value" : "Takes longer to think before answering, which noticeably increases wait times."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回答前会多想一会儿，等待时间明显变长。"
+            "value" : "开启后会在回答前思考更久，等待时间会明显变长。"
           }
         }
       }
@@ -1356,13 +1356,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scan mesh: draws a 3D mesh of your surroundings over the camera view."
+            "value" : "Draws a 3D mesh of your surroundings over the camera view."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扫描网格：在画面上画出周围环境的立体网格。"
+            "value" : "在相机画面上叠加显示周围环境的立体网格。"
           }
         }
       }
@@ -1390,13 +1390,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When on, speech follows the iPhone language."
+            "value" : "When on, app and speech language follow your system settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后，播报语言跟随 iPhone 系统语言。"
+            "value" : "开启后，应用界面和播报语言将跟随系统设置。"
           }
         }
       }
@@ -1543,13 +1543,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the main button to stop without holding it. Enable this for AssistiveTouch, eye tracking, or difficulty holding a press."
+            "value" : "Tap the main button to stop without holding it. Turn this on for AssistiveTouch, eye tracking, or difficulty holding a press."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点按主按钮即可停止，无需长按。使用辅助触控、眼动追踪或不便长按时可开启。"
+            "value" : "轻点主按钮即可停止，无需按住。使用辅助触控、眼动追踪或不便长按时可开启。"
           }
         }
       }
@@ -1645,13 +1645,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uses the regular camera and pauses depth sensing and obstacle processing."
+            "value" : "Uses the standard camera and pauses depth sensing and obstacle guidance."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用普通相机，暂停深度感知与避障计算。"
+            "value" : "使用普通相机，并暂停深度感知和避障计算。"
           }
         }
       }
@@ -1679,13 +1679,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera preview, descriptions, questions, and text reading stay on. Depth sensing and obstacle guidance pause."
+            "value" : "Camera preview, descriptions, questions, and text reading stay on. Depth sensing and obstacle guidance will pause."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后会保留相机画面、描述、提问和读文字，但会暂停深度检测和避障提示。"
+            "value" : "相机画面、画面描述、语音提问和读文字会继续工作，深度感知与避障提示将暂停。"
           }
         }
       }
@@ -1968,13 +1968,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No camera access. Turn it on in Settings."
+            "value" : "No camera access. Allow access in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限，去设置开启。"
+            "value" : "没有相机权限，请在设置中允许访问。"
           }
         }
       }
@@ -2379,13 +2379,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voice questions may use Apple speech recognition. Photos, recordings, questions, and answers are not saved."
+            "value" : "Voice questions may use Apple speech recognition. Your photos, recordings, questions, and answers are not saved."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音提问可能用到 Apple 语音识别；你的照片、录音、提问和回答都不会保存。"
+            "value" : "语音识别可能会使用 Apple 服务。你的照片、录音、提问和回答均不会被保存。"
           }
         }
       }
@@ -2413,13 +2413,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questions and text reading use sharper photos, which takes a little longer and uses more data."
+            "value" : "Uses sharper photos for questions and text reading, which takes a little longer and uses more data."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提问和读文字使用更清晰的照片，回答会稍慢一些，也会消耗更多流量或额度。"
+            "value" : "使用更清晰的照片进行提问和读文字，等待时间会略长，联网用量也会相应增加。"
           }
         }
       }
@@ -2572,7 +2572,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请到设置里允许麦克风和语音识别"
+            "value" : "请在“设置”中允许访问麦克风和语音识别"
           }
         }
       }
@@ -2736,13 +2736,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The camera view isn't drawn. Everything else works as usual, with less battery use and heat."
+            "value" : "Hides the camera preview while everything else keeps working, reducing battery use and heat."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "不渲染画面。其余功能照常工作，更省电，发热更少。"
+            "value" : "开启后不渲染相机画面，其余功能照常工作，有助于省电和减少发热。"
           }
         }
       }
@@ -2804,13 +2804,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photos are processed only on this phone. No network connection is needed, but battery use may increase."
+            "value" : "Photos are processed only on this device. No internet connection is needed, though battery use may increase."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "照片只在手机上处理，无需网络连接，可能会增加耗电量。"
+            "value" : "照片仅在本机处理，无需联网，但可能会增加耗电量。"
           }
         }
       }
@@ -3048,7 +3048,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "读文字时会暂停避障播报，请在站定或确认安全时使用。"
+            "value" : "读文字期间避障语音会暂停。请在确认周围安全时使用。"
           }
         }
       }
@@ -3082,7 +3082,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选择“跟随默认服务商”时，将使用你在上方选定的服务。如果联网服务不可用，会依次改用本机模型和 Apple Vision；Apple Vision 只识别文字，不结合周围画面。"
+            "value" : "选择“跟随默认服务商”时，将使用你在上方选定的服务。如果联网服务不可用，会依次改用本机模型和 Apple Vision。Apple Vision 仅识别文字，不结合周围画面。"
           }
         }
       }
@@ -3110,13 +3110,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera access granted. Return to PRTS and tap Start."
+            "value" : "Camera access allowed. Return to PRTS and tap Start."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已获得相机权限，回到 PRTS 后点“开始”即可。"
+            "value" : "已允许访问相机。返回 PRTS 后轻点“开始”。"
           }
         }
       }
@@ -3127,13 +3127,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera access is off. Turn it on in iPhone Settings."
+            "value" : "Camera access is off. Allow access in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限，请前往系统设置开启。"
+            "value" : "没有相机权限。请在“设置”中允许访问。"
           }
         }
       }
@@ -3229,13 +3229,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow the microphone in Settings"
+            "value" : "Allow microphone access in Settings"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请在设置里允许麦克风"
+            "value" : "请在“设置”中允许访问麦克风"
           }
         }
       }

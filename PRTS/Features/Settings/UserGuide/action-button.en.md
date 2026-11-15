@@ -1,31 +1,31 @@
 # User Guide
 
-PRTS uses your iPhone camera to spot obstacles ahead. It can also describe what is in front of you, answer questions, read text aloud, and announce live changes around you.
+PRTS uses your iPhone camera to detect obstacles ahead, describe your surroundings, answer questions, read text aloud, and announce live movement.
 
 ## How to use
 
-- **Start guidance**: Tap Start on the screen or press the Action button. You can also ask Siri or use Back Tap with the "Start PRTS" shortcut.
-- **Stop guidance**: Hold the main button for 1 second. If Tap to stop is enabled or you use VoiceOver, tap or double-tap with two fingers instead.
-- **Describe the scene**: While guidance is running, press either volume button—or the on-screen photo button—for a quick description.
-- **Ask a question**: Hold a volume button or the photo button, speak after the tone, and release to send.
-- **Live captions**: Press a volume button or the photo button three times in a row to hear ongoing actions as they happen, and press once to stop. This requires a Qwen API key and an internet connection.
-- **Read text**: Hold three fingers on the screen and keep your phone steady to capture and hear text on signs, papers, or objects.
+- **Start guidance**: Tap Start on the screen or press the Action button. You can also ask Siri or assign Start PRTS to Back Tap.
+- **Stop guidance**: Touch and hold the main button for 1 second. If Tap to stop is on, or if you use VoiceOver, tap or double-tap with two fingers instead.
+- **Describe the scene**: While guidance runs, press either volume button—or tap the on-screen photo button—for a brief description of what's ahead.
+- **Ask a question**: Press and hold a volume button or the photo button, speak after the tone, then release to send.
+- **Live captions**: Press a volume button or the photo button three times in a row to hear ongoing actions, and press once to stop. Live captions requires a Qwen API key and an internet connection.
+- **Read text**: Hold three fingers on the screen and keep your iPhone steady to capture and hear text on signs, papers, or objects.
 
 ## Button tips
 
-- For one-press launch, go to iPhone Settings → Action Button, choose Shortcut, and select "Start PRTS".
-- If you want the volume buttons to control volume as usual, turn off Volume button shortcut under Interaction in Settings and use the on-screen photo button instead.
+- To launch with the Action button, go to iPhone Settings > Action Button, choose Shortcut, then select Start PRTS.
+- To keep the volume buttons for adjusting volume, turn off Volume button shortcut in Settings > Interaction and use the on-screen photo button instead.
 
-## Settings you can adjust
+## Settings
 
-- **Intelligence**: Choose whether descriptions, questions, and text reading run offline on your iPhone or through an online service. Everything stays on your device by default; Live captions always uses Qwen.
-- **Interaction**: Turn on Low vision mode (keeps the camera and smart features active while pausing obstacle cues), Tap to stop, Volume button shortcut, Three-finger text reading, or No camera preview mode.
-- **Language and Speech**: Toggle obstacle announcements and adjust speech rate or language.
+- **Intelligence**: Choose whether descriptions, questions, and text reading run on your device or through an online service. By default, everything stays on your device and photos aren't uploaded. Live captions always uses Qwen.
+- **Interaction**: Turn on Low vision mode (keeps the camera and smart features on while pausing depth sensing and guidance cues), Tap to stop, Volume button shortcut, Three-finger text reading, or No camera preview.
+- **Language and Speech**: Turn voice announcements on or off, and adjust speech rate or language.
 
-## Safety reminders
+## Important
 
-- PRTS is a mobility aid, not a replacement for a white cane or a guide dog.
-- Reliable guidance requires a Pro model with LiDAR, and the app cannot detect steps or drop-offs yet.
-- Obstacle cues pause while describing, answering, or reading text, and AI answers can make mistakes. Always rely on guidance cues and your cane before stepping forward.
+- PRTS is an aid and doesn't replace a white cane or a guide dog.
+- Guidance requires a Pro model with LiDAR and can't detect steps or drop-offs yet.
+- Guidance cues pause while describing, answering, or reading text, and descriptions or answers can be wrong. Rely on guidance cues and your cane before moving ahead.
 
 You can open this guide again anytime from the bottom of Settings.
