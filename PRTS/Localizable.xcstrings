@@ -1,6 +1,295 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "recording.error.disabled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build does not record data."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此构建不录制数据。"
+          }
+        }
+      }
+    },
+    "recording.error.busy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An export or deletion is in progress."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在导出或清除录制数据。"
+          }
+        }
+      }
+    },
+    "recording.error.noData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No recording data is available."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无录制数据。"
+          }
+        }
+      }
+    },
+    "recording.error.space": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording stopped because storage is low."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存储空间不足，录制已停止。"
+          }
+        }
+      }
+    },
+    "recording.error.exportSpace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough space to package recordings. Use the device export script."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打包所需空间不足，请使用设备提取脚本导出。"
+          }
+        }
+      }
+    },
+    "recording.error.write": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording could not be saved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法保存录制数据。"
+          }
+        }
+      }
+    },
+    "recording.error.video": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video recording failed. See the recording log."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视频录制失败，请查看录制日志。"
+          }
+        }
+      }
+    },
+    "recording.status.active": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically recording locally"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在自动录制到本地"
+          }
+        }
+      }
+    },
+    "recording.status.gaps": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording is incomplete. Check the exported records."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制存在缺失，请检查导出记录"
+          }
+        }
+      }
+    },
+    "recording.home.privacy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build automatically records data locally. Protect your privacy."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此构建将自动录制数据到本地，请注意隐私安全"
+          }
+        }
+      }
+    },
+    "recording.settings.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dev recordings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dev 录制数据"
+          }
+        }
+      }
+    },
+    "recording.settings.export": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share all recordings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享所有录制数据"
+          }
+        }
+      }
+    },
+    "recording.settings.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all recordings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除所有录制数据"
+          }
+        }
+      }
+    },
+    "recording.clear.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all recordings?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除所有录制数据？"
+          }
+        }
+      }
+    },
+    "recording.clear.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All local recordings will be permanently deleted. Automatic recording will continue afterward."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将永久删除本地所有录制数据。清除后会继续自动录制。"
+          }
+        }
+      }
+    },
+    "recording.clear.confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear recordings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除数据"
+          }
+        }
+      }
+    },
+    "recording.clear.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
+          }
+        }
+      }
+    },
     "photo.settings.provider.deepseek" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1430,13 +1719,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Intelligence features for people with some sight, with obstacle guidance turned off."
+            "value" : "Uses the regular camera and pauses depth sensing and obstacle processing."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "为视力较弱的用户提供智能功能，禁用避障。"
+            "value" : "使用普通相机，暂停深度感知与避障计算。"
           }
         }
       }
@@ -1464,13 +1753,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Designed for people with low vision who don't need obstacle guidance. Turning it on turns off only guidance; intelligence features stay available."
+            "value" : "Camera preview, descriptions, questions and text reading remain available. Depth sensing, obstacle processing and guidance pause."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "为无需避障功能的低视力用户设计，启用后仅关闭避障相关内容，仍可使用智能功能。"
+            "value" : "保留相机画面、描述、提问和读文字。暂停深度感知、避障计算及提示。"
           }
         }
       }

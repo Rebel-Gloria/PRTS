@@ -139,6 +139,70 @@ private final class PhotoFixture {
 
 @MainActor
 struct PhotoLifecycleTests {
+    #if PRTS_DEV
+    @Test func captureReceivesTheInteractionRecordingContextBeforeDetachedEncoding() async {
+        let f = PhotoFixture()
+        var capturedID: String?
+        var capturedGeneration: UInt64?
+        _ = f.coordinator.perform(
+            .shortCapture,
+            capture: { _ in
+                capturedID = DevInteractionRecording.interactionID
+                capturedGeneration = DevInteractionRecording.recordingGeneration
+                return Task { Data() }
+            },
+            silence: {}
+        )
+        #expect(capturedID != nil)
+        #expect(capturedGeneration == RecordingStore.shared.admissionGeneration)
+        await f.network.waitForRequests(1)
+        await f.network.reply(0, "测试回答")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+    }
+    #endif
+
+    @Test func mutingKeepsInferenceButNeverReplaysItsAnswerAfterFocusReturns() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.1
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        let pending = f.coordinator.work
+        f.coordinator.setFeedbackEnabled(false)
+        #expect(f.coordinator.busy)
+        #expect(pending?.isCancelled == false)
+        f.coordinator.setFeedbackEnabled(true)
+        await f.network.reply(0, "迟到的回答")
+        await pending?.value
+        #expect(f.audio.spoken.isEmpty)
+        #expect(!f.coordinator.busy)
+
+        f.state.time = 2
+        f.down()
+        f.state.time = 2.1
+        f.coordinator.up()
+        await f.network.waitForRequests(2)
+        await f.network.reply(1, "新的回答")
+        await f.coordinator.work?.value
+        #expect(f.audio.spoken == ["新的回答"])
+        f.coordinator.cancel()
+    }
+
+    @Test func mutingAnAnswerAlreadyPlayingReleasesTheInteraction() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.1
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        await f.network.reply(0, "正在播放")
+        await f.coordinator.work?.value
+        #expect(f.coordinator.busy)
+        f.coordinator.setFeedbackEnabled(false)
+        #expect(!f.coordinator.busy)
+        #expect(f.state.events.last == "stop-audio")
+    }
+
     @Test(arguments: [false, true], [false, true])
     func highResolutionAppliesAtQuestionCapture(highResolution: Bool, onDevice: Bool) async {
         let f = PhotoFixture()

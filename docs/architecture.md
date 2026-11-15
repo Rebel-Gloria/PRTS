@@ -10,13 +10,13 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 |---|---|---|
 | `PRTS/App/` | 应用入口和快捷指令 | `PRTSApp`、`ToggleGuidanceIntent`、`HomeCommandCenter` |
 | `PRTS/Features/Home/` | 首页界面；同时协调各功能的生命周期，并轮询避障反馈 | `ContentView` |
-| `PRTS/Features/Guidance/` | `Capture/` 管理相机运行意图和状态，`Views/` 展示预览与操作，`Feedback/` 管理语音和振动，`Integration/` 适配空间结果 | `CameraManager`、`FeedbackCoordinator`、`SpeechManager`、`PathHaptics` |
+| `PRTS/Features/Guidance/` | `Capture/` 管理相机运行意图和普通 RGB 采集，`Views/` 展示预览与操作，`Feedback/` 管理语音和振动，`Integration/` 适配空间结果 | `CameraManager`、`RGBCamera`、`FeedbackCoordinator`、`SpeechManager`、`PathHaptics` |
 | `PRTS/Spatial/` | ARKit 会话、帧快照、渲染和诊断记录；`ProbeRenderer` 管理绘制和资源，`ProbeOverlayGeometry` 构造叠加层顶点 | `ProbeEngine`、`ProbeViewModel`、`ProbeRenderer` |
 | `PRTS/Features/PhotoDescription/` | 拍照描述和语音提问。模型后端在 `Services/PhotoDescriptionBackend.swift` 中选择，提示词在 `Services/PhotoPrompts.swift` 中 | `PhotoDescriptionCoordinator` |
 | `PRTS/Features/LiveCaption/` | 会话管理采样、请求和朗读；`Services/` 保存服务装配、请求和提示词；按键策略负责连按判定 | `LiveCaptionSession` |
 | `PRTS/Features/TextReading/` | 读文字：主摄拍照、识别和朗读 | `TextReadingSession` |
 | `PRTS/Features/Settings/` | 设置、智能服务设置和使用说明；说明资源选择与 Markdown 文档解析分别由 `UserGuide` 和 `UserGuideDocument` 负责 | `SettingsView`、`IntelligenceSettingsView` |
-| `PRTS/Features/Developer/` | 开发版专用界面；文件导出界面由 `ExportDocumentPicker` 适配 UIKit | `ProbeSettingsView` |
+| `PRTS/Features/Developer/` | Dev 录制文件的系统分享界面 | `RecordingShareSheet` |
 | `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型路径 | `PhotoChatService`、`IntelligenceFeature` |
 | `PRTS/Shared/Imaging/` | 照片缩放与 JPEG 编码 | `PhotoImageEncoder` |
 | `PRTS/Shared/Audio/` | 音频会话、回答朗读、提示音和语音识别 | `AudioSessionCoordinator`、`AnswerAudioOutput`、`PhotoSpeechRecognizer` |
@@ -38,17 +38,23 @@ flowchart TD
     Intent[ToggleGuidanceIntent] --> Command[HomeCommandCenter.startRequested]
     Command -->|runPendingCommand| Home
     Home --> Camera[CameraManager]
-    Camera --> ViewModel[ProbeViewModel]
+    Camera -->|空间感知| ViewModel[ProbeViewModel]
+    Camera -->|低视力| RGB[RGBCamera / AVCaptureSession]
     ViewModel --> Engine[ProbeEngine]
     Engine --> AR[ARSession]
-    Home --> Photo[PhotoDescriptionCoordinator]
+    Camera --> Image[CameraImageSnapshot]
+    Image --> Photo[PhotoDescriptionCoordinator]
+    Image --> Caption[LiveCaptionSession]
+    Home --> Photo
     Home --> Caption[LiveCaptionSession]
     Home --> Reading[TextReadingSession]
     Reading --> TextCamera[TextCamera / AVCaptureSession]
     Home --> Feedback[FeedbackCoordinator]
 ```
 
-`ContentView` 持有各功能的协调对象，并负责它们之间的交接：打开设置、进入后台、音频中断和离开首页时停止字幕、描述和读文字；读文字开始和结束时交出、收回相机。快捷指令只设置 `HomeCommandCenter` 中的请求标志，应用回到前台后由 `ContentView` 启动避障。
+`ContentView` 持有各功能的协调对象，并负责交互和反馈权限。进入设置、暂时失去焦点和切换前后台时，应用保留相机与计算的运行意图，不主动停止并重建空间会话，同时屏蔽语音和振动。真正进入后台时，iOS 仍可能中断相机或暂停应用；恢复后只使用当前有效结果。读文字仍需要独占相机，开始和结束时交出、收回采集权。快捷指令通过 `HomeCommandCenter` 请求启动功能。
+
+低视力模式使用 `RGBCamera` 和 `RGBPreview` 保留普通后摄预览、拍照及字幕功能，暂停 ARKit 世界追踪、LiDAR、网格和空间算法。`CameraImageSnapshot` 为照片描述和流式字幕提供统一图像输入，不要求调用方读取 `ARFrame`。切换回空间感知时建立新的有效几何证据，旧结果不得恢复播报。
 
 ## 避障数据流
 
@@ -79,12 +85,12 @@ ARSession
 | 位置 | 触发 | 工作 |
 |---|---|---|
 | `probe.session` 队列 | ARKit 帧回调 | 生成 `FrameSnapshot`，放入 `LatestMailbox`。会话的启动和停止也在此队列上按请求顺序执行 |
-| `probe.analysis` 队列 | 信箱中有新帧 | `drainAnalysis` 运行上图的分析和规划，将每个候选结果写入 DIAG 日志，只把通过时效检查的结果写入 `SharedStore` |
+| `probe.analysis` 队列 | 信箱中有新帧 | `drainAnalysis` 运行上图的分析和规划，将每个候选结果写入 录制数据，只把通过时效检查的结果写入 `SharedStore` |
 | `probe.mesh` 队列 | ARKit 网格锚点更新 | 经 `MeshInbox` 合并后写入 `SharedStore.meshes`，分析时作为先验读取 |
-| 主线程，每 0.1 s | `ContentView` 中的定时器 | `CameraManager.poll` → `ProbeViewModel.poll` 读取快照，由 `PathHaptics` 输出方向振动，每 1 s 写一次 DIAG 心跳；随后 `ContentView` 把结果交给 `FeedbackCoordinator`，由 `SpeechManager` 播报 |
+| 主线程，每 0.1 s | `ContentView` 中的定时器 | `CameraManager.poll` → `ProbeViewModel.poll` 读取快照，由 `PathHaptics` 输出方向振动，每 1 s 写一次 录制心跳；随后 `ContentView` 把结果交给 `FeedbackCoordinator`，由 `SpeechManager` 播报 |
 | 主线程，每秒 30 次 | `MTKView` 绘制回调 | `ProbeRenderer` 读取 `SharedStore` 绘制画面 |
 
-`LatestMailbox` 只保留最新一帧，分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 DIAG 中。语音和振动在同一次轮询中计算暂停条件：拍照操作、读文字、设置页、停止手势、低视力模式或使用说明、应用不在前台，任一成立时两者都暂停。流式字幕只暂停语音，振动继续。
+`LatestMailbox` 只保留最新一帧，分析未完成时到达的旧帧会被丢弃，丢弃数量记录在 Dev 录制中。语音和振动在同一次轮询中计算暂停条件：拍照操作、读文字、设置页、停止手势、低视力模式或使用说明、应用不在前台，任一成立时两者都暂停。流式字幕只暂停语音，振动继续。
 
 ## 路线状态
 
@@ -181,7 +187,7 @@ ContentView.photoDown
 | 约束 | 自动检查 |
 |---|---|
 | 仅 `ProbeEngine` 创建 `ARSession` | `test_repository_layout.py` |
-| 拍照描述和流式字幕读取当前帧；读文字先停止 ARKit 会话、切换到主摄，退出后恢复之前的状态 | `CameraRecoveryTests` 覆盖启停顺序、迟到的相机授权、读文字结束、中断、显式停止和从空闲状态开始的恢复 |
+| 拍照描述和流式字幕通过统一图像快照读取当前采集后端；读文字先交出相机，切换到主摄，退出后恢复之前的运行意图 | `CameraRecoveryTests` 覆盖启停顺序、迟到的相机授权、读文字结束、中断、显式停止和从空闲状态开始的恢复 |
 | `SpatialCore` 不得导入 ARKit、UIKit、SwiftUI、AVFoundation、Metal 或 Core ML | `test_repository_layout.py` |
 | `SpatialAnalyzer` 与 `Experiments/SpatialProbe` 中冻结的对照实现保持一致，比较时忽略格式和注释 | `test_spatial_integration.py` |
 | 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | `test_spatial_integration.py`，部分覆盖 |
@@ -197,7 +203,7 @@ ContentView.photoDown
 | 提示音和开始录音 | `activateAsync`，在独立队列上激活 | 调用方在等待后检查是否已取消；松手时先等麦克风启动完成，再停止录音 |
 | 朗读 | 同一队列，主线程同步等待 | 通常约 15 ms；如果关闭操作正在执行，需要等它结束 |
 
-`Packages/SpatialCore/Sources/SpatialCore/Diagnostics/AppendFile.swift` 为 `SessionRecorder` 和 `DiagnosticJournal` 提供追加写入接口，重新打开文件时保留已有记录。
+Dev 的自动录制统一保存空间证据、图像、提问录音和交互事件；记录与空间计算分离，导出和清理不改变功能的运行意图。构建模式、文件格式和完整性边界请参阅[开发指南](development.md#自动录制)。
 
 ## 第三方代码
 

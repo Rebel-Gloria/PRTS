@@ -16,10 +16,6 @@ struct TextReadingStatusView: View {
             }
             Text("home.ocr.status").font(.headline)
             Text("home.ocr.status.hint").font(.caption).foregroundStyle(.secondary)
-            #if PRTS_DEV_CAPTURE
-            Text(verbatim: "frames \(framesSeen)").font(.caption2.monospacedDigit())
-                .accessibilityIdentifier("ocrFrames")
-            #endif
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
         .readableGlassPanel()

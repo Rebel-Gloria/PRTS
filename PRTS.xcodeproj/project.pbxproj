@@ -325,7 +325,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		DDE04D9130132D33000C8361 /* Debug */ = {
+		DDE04D9130132D33000C8361 /* Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -359,18 +359,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -378,13 +372,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				ENABLE_TESTABILITY = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "PRTS_DEV $(inherited)";
 			};
-			name = Debug;
+			name = Dev;
 		};
 		DDE04D9230132D33000C8361 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -439,7 +433,7 @@
 			};
 			name = Release;
 		};
-		DDE04D9430132D33000C8361 /* Debug */ = {
+		DDE04D9430132D33000C8361 /* Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -484,7 +478,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.5;
 			};
-			name = Debug;
+			name = Dev;
 		};
 		DDE04D9530132D33000C8361 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -533,7 +527,7 @@
 			};
 			name = Release;
 		};
-		DDE04D9730132D33000C8361 /* Debug */ = {
+		DDE04D9730132D33000C8361 /* Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -556,7 +550,7 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PRTS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PRTS";
 				XROS_DEPLOYMENT_TARGET = 26.5;
 			};
-			name = Debug;
+			name = Dev;
 		};
 		DDE04D9830132D33000C8361 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -583,7 +577,7 @@
 			};
 			name = Release;
 		};
-		DDE04D9A30132D33000C8361 /* Debug */ = {
+		DDE04D9A30132D33000C8361 /* Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -605,7 +599,7 @@
 				TEST_TARGET_NAME = PRTS;
 				XROS_DEPLOYMENT_TARGET = 26.5;
 			};
-			name = Debug;
+			name = Dev;
 		};
 		DDE04D9B30132D33000C8361 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -637,7 +631,7 @@
 		DDE04D6D30132D31000C8361 /* Build configuration list for PBXProject "PRTS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DDE04D9130132D33000C8361 /* Debug */,
+				DDE04D9130132D33000C8361 /* Dev */,
 				DDE04D9230132D33000C8361 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -646,7 +640,7 @@
 		DDE04D9330132D33000C8361 /* Build configuration list for PBXNativeTarget "PRTS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DDE04D9430132D33000C8361 /* Debug */,
+				DDE04D9430132D33000C8361 /* Dev */,
 				DDE04D9530132D33000C8361 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -655,7 +649,7 @@
 		DDE04D9630132D33000C8361 /* Build configuration list for PBXNativeTarget "PRTSTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DDE04D9730132D33000C8361 /* Debug */,
+				DDE04D9730132D33000C8361 /* Dev */,
 				DDE04D9830132D33000C8361 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -664,7 +658,7 @@
 		DDE04D9930132D33000C8361 /* Build configuration list for PBXNativeTarget "PRTSUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DDE04D9A30132D33000C8361 /* Debug */,
+				DDE04D9A30132D33000C8361 /* Dev */,
 				DDE04D9B30132D33000C8361 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

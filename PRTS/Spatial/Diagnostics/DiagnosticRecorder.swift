@@ -1,4 +1,4 @@
-/// Scalar and binary spatial diagnostics recorder; captured RGB is intentionally excluded.
+/// Adapts spatial inputs and outputs to the application recording store.
 
 import ARKit
 import Darwin
@@ -84,91 +84,10 @@ nonisolated struct RenderDiagnostic: Codable, Sendable {
     var pathTargetVertices: Int? = nil
 }
 final class DiagnosticRecorder: @unchecked Sendable {
-    let journal: DiagnosticJournal
-    init(journal suppliedJournal: DiagnosticJournal? = nil) {
-        if let suppliedJournal {
-            journal = suppliedJournal
-            return
-        }
-        var hardware = utsname()
-        uname(&hardware)
-        let machine = withUnsafePointer(to: &hardware.machine) {
-            $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
-        }
-        #if targetEnvironment(simulator)
-        let environment = "simulator_no_LiDAR_evidence"
-        #else
-        let environment = "device"
-        #endif
-        #if DEBUG
-        let buildConfiguration = "Debug"
-        #else
-        let buildConfiguration = "Release"
-        #endif
-        #if PRTS_DEV_CAPTURE
-        let privacy =
-            "PRTS_DEV_CAPTURE compiled; opt-in RGB video and full analysis may exist in dev-capture-* folders. No audio/GPS/upload."
-        #else
-        let privacy = "No RGB or video saved."
-        #endif
-        let metadata = [
-            "buildConfiguration": buildConfiguration,
-            "clearanceFramePixelBudget": String(VisibilityDepth.defaultFramePixelBudget),
-            "applicationVersion": Bundle.main.object(
-                forInfoDictionaryKey: "CFBundleShortVersionString"
-            ) as? String ?? "unknown",
-            "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-                ?? "unknown", "bundleID": Bundle.main.bundleIdentifier ?? "unknown",
-            "hardware": machine, "os": ProcessInfo.processInfo.operatingSystemVersionString,
-            "environment": environment,
-            "meshDiagnosticEncoding":
-                "mesh_frame_binary_v1; full Float32 vertices, UInt32 indices and UInt8 classifications; no mesh subsampling by recorder",
-            "surfaceTriangleBudget": String(SurfaceModelBuilder.triangleBudget),
-            "groundConfirmationMetric":
-                "local plane height at camera <4cm and normal angle <3deg; 3 current confirmations",
-            "groundReferencePolicy":
-                "Obstacle-veto: fixed world drawing reference from plane/grid/prior or initial camera height 1.4m. Ground/evidence TTL is diagnostic only. Epoch/reset changes still invalidate.",
-            "planningPolicy": PRTSRuntimeProfile.routePlanningPolicy.rawValue,
-            "routeSchemaVersion": "4",
-            "routeAlgorithmRevision":
-                "obstacle_waypoints_v2; current_cell_footprints; semantic_speech_2.5s; clear_dwell=0.6s; open=no_line; near=2m; standOff=0.55m; mutable_preview=1.2m; stationary_yaw=3s",
-            "occupancyRule":
-                "Only confirmed occupancy blocks search; other cells are hypothesis-searchable. Confirmation 0.3s, maximum matching gap 0.75s, missing hits reset. Confirmation anchor and current occupied square are separate; world footprints survive search-window clipping. Raw sensor grid unchanged.",
-            "routeEvidenceOptions": String(
-                data: (try? DiagnosticJSON.encode(RouteEvidenceOptions())) ?? Data(),
-                encoding: .utf8
-            ) ?? "unavailable",
-            "routeContinuityOptions": String(
-                data: (try? DiagnosticJSON.encode(RouteContinuityOptions())) ?? Data(),
-                encoding: .utf8
-            ) ?? "unavailable",
-            "commit": Bundle.main.object(forInfoDictionaryKey: "PRTSCommit") as? String
-                ?? "unavailable",
-            "coordinateConvention":
-                "ARKit gravity world; camera forward -Z; pixel centers integer. depth_frame meters axial; relative_depth_frame inverse-relative, NOT meters.",
-            "absentSensors":
-                "No separate raw IMU or GPS acquisition. ARKit feature count, not its private SLAM map. "
-                + privacy,
-        ]
-        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("DevDiagnostics/Diagnostics", isDirectory: true)
-        var limits = DiagnosticLimits()
-        limits.runBytes = nil
-        limits.totalBytes = nil
-        #if PRTS_DEV_CAPTURE
-        let enabled = true
-        #else
-        let enabled = false
-        #endif
-        let errors = ErrorReporter(source: .storage)
-        journal = DiagnosticJournal(
-            root: root,
-            metadata: metadata,
-            limits: limits,
-            enabled: enabled,
-            onError: errors.record
-        )
-        event("app_launched", details: environment, epoch: 0)
+    let journal: RecordingStore
+    init(journal: RecordingStore = .shared) {
+        self.journal = journal
+        event("spatial_configuration", details: PRTSRuntimeProfile.routePlanningPolicy.rawValue, epoch: 0)
     }
     func event(_ name: String, details: String, epoch: UInt64) {
         guard journal.isEnabled else { return }
@@ -188,9 +107,18 @@ final class DiagnosticRecorder: @unchecked Sendable {
     }
     func capture(_ frame: FrameSnapshot) {
         guard journal.isEnabled else { return }
-        // Scalars only: does not retain ARFrame/capturedImage buffers.
         let record = CaptureDiagnostic(frame)
-        journal.submit(.capture) { .init(json: try DiagnosticJSON.encode(record)) }
+        journal.submit(.capture, estimatedBytes: 12 * 1024 * 1024) {
+            .init(json: try DiagnosticJSON.encode(record), binary: try RecordingFrameCodec.encode(frame))
+        }
+        #if PRTS_DEV
+        journal.videoFrame(
+            pixelBuffer: frame.frame.capturedImage,
+            timestamp: frame.frame.timestamp,
+            metadata: ["source": "arkit", "epoch": String(frame.epoch),
+                       "frameID": String(frame.id), "orientation": String(frame.orientation.rawValue)]
+        )
+        #endif
     }
     func routePublication(
         candidate: PathUpdate,
@@ -292,6 +220,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         guard journal.isEnabled else { return }
         nonisolated struct Record: Encodable, Sendable {
             let frame: FrameLog, capture: CaptureDiagnostic, diagnostics: AnalysisDiagnostics?
+            let result: AnalysisResult
             let depthAttachmentExpected: Bool
             let depthAttachmentKind = "depth_frame"
         }
@@ -299,6 +228,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
             frame: FrameLog(result, frame: frame, metrics: metrics),
             capture: CaptureDiagnostic(frame),
             diagnostics: result.diagnostics,
+            result: result,
             depthAttachmentExpected: observation != nil
         )
         let cost =

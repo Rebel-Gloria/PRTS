@@ -4,13 +4,14 @@ import SpatialCore
 import SwiftUI
 
 /// Maintains guidance camera intent and UI state, coordinating pause/resume for text reading.
-/// ProbeEngine owns the AR session; TextCamera uses its own capture session for text reading.
+/// ProbeEngine owns spatial capture; low vision uses RGB only, and text reading owns a still camera.
 @MainActor
 final class CameraManager: ObservableObject {
     let model: ProbeViewModel
     private let permission: () async throws -> Bool
     private let isActive: () -> Bool
     private let authorizationStatus: () -> AVAuthorizationStatus
+    private let rgbCamera: any RGBCapturing
     private(set) var startTask: Task<Void, Never>?
 
     // Default arguments are evaluated outside the main actor, so the app uses this initializer.
@@ -27,18 +28,27 @@ final class CameraManager: ObservableObject {
         model: ProbeViewModel,
         permission: @escaping () async throws -> Bool,
         isActive: @escaping () -> Bool,
-        authorizationStatus: @escaping () -> AVAuthorizationStatus
+        authorizationStatus: @escaping () -> AVAuthorizationStatus,
+        rgbCamera: any RGBCapturing = RGBCamera()
     ) {
         self.model = model
         self.permission = permission
         self.isActive = isActive
         self.authorizationStatus = authorizationStatus
+        self.rgbCamera = rgbCamera
     }
     private var wantsCameraRunning = false
     private var pausedForTextReading = false
     private var sceneActive = true
     private var sessionRequested = false
-    var suspendsFeedback: Bool { !wantsCameraRunning || pausedForTextReading || !sceneActive }
+    private var startGeneration = UUID()
+    private var modeTransition: UUID?
+    private var pendingCameraReleases = 0
+    private(set) var lowVisionMode = false
+    var rgbSession: AVCaptureSession { rgbCamera.session }
+    var suspendsFeedback: Bool {
+        !wantsCameraRunning || pausedForTextReading || !sceneActive || !isActive()
+    }
     @Published private(set) var state: CameraState = .idle
     @Published private(set) var status = "离线空间感知待启动"
     /// The home screen reads this right after `poll` and no view shows it, so it is not
@@ -56,20 +66,24 @@ final class CameraManager: ObservableObject {
     /// Runs every 0.1 s. Assigning a published property redraws the home screen even when the
     /// value is the same, so only changes are published.
     func poll(suspendFeedback: Bool) {
-        let runningIntent = sessionRequested && !suspendsFeedback && isActive()
-        model.feedbackSuspended = suspendFeedback || !runningIntent
+        let runningIntent = sessionRequested && wantsCameraRunning && !pausedForTextReading
+        model.feedbackSuspended =
+            suspendFeedback || !runningIntent || suspendsFeedback || !isActive()
         model.poll()
-        if status != model.snapshot.status { status = model.snapshot.status }
+        if lowVisionMode { rgbCamera.setOrientation(model.snapshot.orientation) }
+        let currentStatus = lowVisionMode ? "低视力模式 · 相机画面" : model.snapshot.status
+        if status != currentStatus { status = currentStatus }
         latestSceneResult =
-            runningIntent
+            runningIntent && !lowVisionMode && !suspendsFeedback
             ? SceneSnapshotAdapter.measuredResult(
                 model.snapshot,
                 now: ProcessInfo.processInfo.systemUptime
             ) : nil
-        if !model.snapshot.running && startTask == nil { sessionRequested = false }
+        let running = lowVisionMode ? rgbCamera.running : model.snapshot.running
+        if !running && startTask == nil { sessionRequested = false }
         let authorization = authorizationStatus()
         let current: CameraState
-        if model.snapshot.running && runningIntent {
+        if running && runningIntent {
             current = .running
         } else if model.requestingPermission {
             // The system prompt appears only while authorisation is undetermined; on every
@@ -77,7 +91,7 @@ final class CameraManager: ObservableObject {
             current = authorization == .notDetermined ? .requestingPermission : .starting
         } else if authorization == .denied || authorization == .restricted {
             current = .permissionDenied
-        } else if !model.capabilities.world {
+        } else if !lowVisionMode && !model.capabilities.world {
             current = .unavailable(.noRearCamera)
         } else {
             current = .idle
@@ -98,10 +112,99 @@ final class CameraManager: ObservableObject {
         wantsCameraRunning = true
         resumeCameraIfNeeded()
     }
+    /// Switching modes releases the current camera before its replacement opens the device.
+    func setLowVisionMode(
+        _ enabled: Bool,
+        completion: @escaping @MainActor @Sendable () -> Void = {}
+    ) {
+        guard lowVisionMode != enabled else {
+            completion()
+            return
+        }
+        lowVisionMode = enabled
+        model.engine.diagnostics.event(
+            "low_vision_changed",
+            details: String(enabled),
+            epoch: model.snapshot.epoch
+        )
+        let id = UUID()
+        modeTransition = id
+        pauseCamera { [weak self] in
+            Task { @MainActor [weak self] in
+                if self?.modeTransition == id {
+                    self?.modeTransition = nil
+                    self?.resumeCameraIfNeeded()
+                }
+                completion()
+            }
+        }
+    }
+
+    func imageSnapshot() -> CameraImageSnapshot? {
+        if lowVisionMode { return rgbCamera.snapshot(orientation: model.snapshot.orientation) }
+        guard let frame = model.snapshot.frame else { return nil }
+        return CameraImageSnapshot(
+            pixelBuffer: frame.frame.capturedImage,
+            orientation: frame.orientation,
+            timestamp: frame.frame.timestamp,
+            receivedAt: frame.receivedAt,
+            frameID: frame.id
+        )
+    }
+
+    func capturePhoto(longestSide: CGFloat) throws -> Task<Data, Error> {
+        guard let image = imageSnapshot(),
+            ProcessInfo.processInfo.systemUptime - image.receivedAt < 1
+        else { throw PhotoChatError.emptyInput }
+        #if PRTS_DEV
+        DevInteractionRecording.original(
+            pixelBuffer: image.pixelBuffer,
+            orientation: image.orientation,
+            feature: "photoDescription",
+            metadata: [
+                "timestamp": String(image.timestamp),
+                "sourceFrameID": image.frameID.map(String.init) ?? "unavailable",
+                "source": lowVisionMode ? "rgb" : "arkit",
+            ]
+        )
+        #endif
+        return Task.detached(priority: .userInitiated) {
+            try PhotoImageEncoder.jpeg(
+                pixelBuffer: image.pixelBuffer,
+                orientation: image.orientation,
+                longestSide: longestSide
+            )
+        }
+    }
+
+    func captureCaptionFrame() throws -> Task<LiveCaptionFrame, Error> {
+        guard let image = imageSnapshot(),
+            ProcessInfo.processInfo.systemUptime - image.receivedAt < 1
+        else { throw PhotoChatError.emptyInput }
+        let sampledAt = ProcessInfo.processInfo.systemUptime
+        return Task.detached(priority: .userInitiated) {
+            var captured = try LiveCaptionFrame.capture(
+                image: PhotoImageEncoder.image(
+                    pixelBuffer: image.pixelBuffer,
+                    orientation: image.orientation
+                ),
+                sampledAt: sampledAt
+            )
+            captured.sourceFrameID = image.frameID
+            captured.sourceTimestamp = image.timestamp
+            return captured
+        }
+    }
     private func resumeCameraIfNeeded() {
-        guard wantsCameraRunning, !pausedForTextReading, sceneActive else { return }
+        guard wantsCameraRunning, !pausedForTextReading, sceneActive, modeTransition == nil,
+            pendingCameraReleases == 0
+        else {
+            return
+        }
         guard !sessionRequested else { return }
         sessionRequested = true
+        let id = UUID()
+        startGeneration = id
         model.requestingPermission = true
         model.engine.diagnostics.event(
             "camera_start_requested",
@@ -111,16 +214,27 @@ final class CameraManager: ObservableObject {
         startTask = Task {
             do {
                 try Task.checkCancellation()
-                let allowed = model.capabilities.world ? try await permission() : true
+                let allowed = lowVisionMode || model.capabilities.world
+                    ? try await permission() : true
                 try Task.checkCancellation()
                 model.requestingPermission = false
-                await model.start(allowed: allowed, isActive: sceneActive && isActive())
+                if lowVisionMode && allowed && sceneActive && isActive() {
+                    let started = await withCheckedContinuation { done in
+                        rgbCamera.start { done.resume(returning: $0) }
+                    }
+                    guard startGeneration == id else { return }
+                    if !started { model.errorMessage = String(localized: "camera.error.noRearCamera") }
+                } else if !lowVisionMode || !allowed {
+                    await model.start(allowed: allowed, isActive: sceneActive && isActive())
+                }
                 try Task.checkCancellation()
+                guard startGeneration == id else { return }
                 startTask = nil
                 poll(suspendFeedback: true)
             } catch is CancellationError {
                 // The cancelling operation owns the next camera state.
             } catch {
+                guard startGeneration == id else { return }
                 ErrorLog.application.record(error, source: .camera)
                 startTask = nil
                 model.requestingPermission = false
@@ -144,6 +258,7 @@ final class CameraManager: ObservableObject {
         if isActive { resumeCameraIfNeeded() }
     }
     private func cancelStart() {
+        startGeneration = UUID()
         sessionRequested = false
         startTask?.cancel()
         startTask = nil
@@ -152,14 +267,28 @@ final class CameraManager: ObservableObject {
     private func pauseCamera(completion: @escaping @Sendable () -> Void = {}) {
         cancelStart()
         model.feedbackSuspended = true
-        model.engine.stop(completion: completion)
+        pendingCameraReleases += 1
+        let camera = rgbCamera
+        model.engine.stop {
+            camera.stop { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.pendingCameraReleases -= 1
+                    completion()
+                    self?.resumeCameraIfNeeded()
+                }
+            }
+        }
         model.poll()
         latestSceneResult = nil
         state = .idle
     }
     func lifecycle(_ phase: ScenePhase) {
         sceneActive = phase == .active
-        if phase != .active { cancelStart() }
+        // A permission/start operation cannot take the camera while the app is inactive.
+        // Once running, retain the session; ARKit/AVFoundation handle OS interruptions.
+        if phase != .active, startTask != nil, !model.snapshot.running, !rgbCamera.running {
+            cancelStart()
+        }
         model.lifecycle(phase)
         poll(suspendFeedback: phase != .active)
         if phase == .active { resumeCameraIfNeeded() }

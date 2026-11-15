@@ -5,6 +5,8 @@ nonisolated struct LiveCaptionFrame {
     let sampledAt: TimeInterval
     let jpeg: Data
     let grayscale: [UInt8]
+    var sourceFrameID: UInt64? = nil
+    var sourceTimestamp: TimeInterval? = nil
 
     static func capture(image: CIImage, sampledAt: TimeInterval) throws -> Self {
         let jpeg = try PhotoImageEncoder.jpeg(

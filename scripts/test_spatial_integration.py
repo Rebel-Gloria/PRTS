@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -72,7 +73,7 @@ class SpatialIntegrationTests(unittest.TestCase):
                 keep = True
                 for line in path.read_text(encoding="utf-8").splitlines():
                     token = line.strip()
-                    if token == "#if PRTS_DEV_CAPTURE" and depth == 0:
+                    if token == "#if PRTS_DEV" and depth == 0:
                         depth = 1
                         keep = False
                         continue
@@ -253,23 +254,58 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertNotIn("showCameraImage", engine)
         self.assertNotIn("showOverlays", engine)
 
-    def test_demo_is_a_home_overlay_not_a_second_camera_screen(self):
+    def test_dev_recording_ui_replaces_manual_capture_and_demo_controls(self):
         home = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         settings = (ROOT / "PRTS/Features/Settings/SettingsView.swift").read_text(encoding="utf-8")
-        overlay = (ROOT / "PRTS/Features/Developer/HomeDemoOverlay.swift").read_text(
+        share = (ROOT / "PRTS/Features/Developer/RecordingShareSheet.swift").read_text(
             encoding="utf-8"
         )
-        options = (ROOT / "PRTS/Features/Developer/DemoOptionsView.swift").read_text(
-            encoding="utf-8"
+        for legacy in (
+            "HomeDemoOverlay",
+            "DemoOptionsView",
+            "ProbeSettingsView",
+            "devCaptureToggle",
+        ):
+            self.assertNotIn(legacy, home + settings)
+        self.assertIn('Text("recording.home.privacy")', home)
+        self.assertIn('accessibilityIdentifier("recordingPrivacyNotice")', home)
+        self.assertIn('Button("recording.settings.export")', settings)
+        self.assertIn('Button("recording.settings.clear", role: .destructive)', settings)
+        self.assertIn(
+            '.alert("recording.clear.title", isPresented: $confirmClearRecordings)', settings
         )
-        self.assertIn("HomeDemoOverlay(model:camera.model)", home)
-        self.assertIn('NavigationLink("演示模式选项")', settings)
-        self.assertNotIn("ProbeContentView", settings)
-        for text in [overlay, options]:
+        self.assertIn('Button("recording.clear.confirm", role: .destructive)', settings)
+        self.assertEqual(settings.count("model.clearRecordings()"), 1)
+        self.assertIn('Button("recording.clear.cancel", role: .cancel) {}', settings)
+        self.assertIn("UIActivityViewController(activityItems: [url]", share)
+        for text in (share, settings):
             self.assertNotIn("ARSession()", text)
             self.assertNotIn("ProbeViewModel()", text)
             self.assertNotIn("Timer.publish", text)
-        self.assertFalse((ROOT / "PRTS/Spatial/Runtime/ProbeContentView.swift").exists())
+        catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text(encoding="utf-8"))
+        self.assertEqual(
+            catalog["strings"]["recording.home.privacy"]["localizations"]["zh-Hans"]["stringUnit"][
+                "value"
+            ],
+            "此构建将自动录制数据到本地，请注意隐私安全",
+        )
+
+    def test_build_modes_share_product_rendering_and_planning(self):
+        project = (ROOT / "PRTS.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
+        configurations = project.split("/* Begin XCBuildConfiguration section */", 1)[1].split(
+            "/* End XCBuildConfiguration section */", 1
+        )[0]
+        names = re.findall(r"name = (\w+);", configurations)
+        self.assertEqual(sorted(names), ["Dev"] * 4 + ["Release"] * 4)
+        self.assertIn(
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS = "PRTS_DEV $(inherited)"', configurations
+        )
+        renderer = (ROOT / "PRTS/Spatial/Rendering/ProbeRenderer.swift").read_text(encoding="utf-8")
+        self.assertNotIn("PRTS_DEV", renderer)
+        model = (ROOT / "PRTS/Spatial/Runtime/ProbeViewModel.swift").read_text(encoding="utf-8")
+        self.assertIn("options = .product(scanMesh:", model)
+        self.assertNotIn("homeRenderOptions.v1", model)
+        self.assertFalse((ROOT / "configs/DevCapture.xcconfig").exists())
 
     def test_settings_has_native_back_and_separate_speech_ownership(self):
         settings = (ROOT / "PRTS/Features/Settings/SettingsView.swift").read_text(encoding="utf-8")

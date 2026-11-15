@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Validate a PRTS recording ZIP/directory and expose its recorded spatial inputs for replay."""
+
+import argparse
+import json
+import re
+import struct
+import tempfile
+import zipfile
+from pathlib import Path, PurePosixPath
+
+from read_diag import attachment, depth_frame, records
+
+
+def extract(archive_path, output):
+    """Never follow archive paths or overwrite existing evidence."""
+    output.mkdir(parents=True, exist_ok=False)
+    with zipfile.ZipFile(archive_path) as archive:
+        seen = set()
+        for item in archive.infolist():
+            path = PurePosixPath(item.filename)
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or "\\" in item.filename
+                or ":" in item.filename
+                or (item.external_attr >> 16) & 0o170000 == 0o120000
+                or item.filename in seen
+            ):
+                raise ValueError("Unsafe or duplicate ZIP member: " + item.filename)
+            seen.add(item.filename)
+        archive.extractall(output)
+
+
+def sensor_frame(raw):
+    if len(raw) < 4:
+        raise ValueError("Missing sensor header")
+    length = struct.unpack_from("<I", raw)[0]
+    if not 0 < length <= len(raw) - 4:
+        raise ValueError("Invalid sensor header length")
+    header = json.loads(raw[4 : 4 + length])
+    if header.get("kind") != "sensor_frame" or header.get("schemaVersion") != 1:
+        raise ValueError("Unsupported sensor packet")
+    payload = memoryview(raw)[4 + length :]
+    end = 0
+    names = set()
+    for section in header["sections"]:
+        name, offset, size = (section[k] for k in ("name", "offset", "bytes"))
+        width, height = section["width"], section["height"]
+        if not all(
+            isinstance(x, int) and not isinstance(x, bool) for x in (offset, size, width, height)
+        ):
+            raise ValueError("Invalid sensor dimensions")
+        if name in names or offset != end or size < 0 or offset + size > len(payload):
+            raise ValueError("Invalid sensor section")
+        if width < 0 or height < 0:
+            raise ValueError("Negative sensor dimensions")
+        if name == "feature_points":
+            expected = header["featureCount"] * 20
+        elif name in ("depth", "smoothed_depth"):
+            expected = width * height * 4
+        elif name in ("confidence", "smoothed_confidence"):
+            expected = width * height
+        else:
+            raise ValueError("Unknown sensor section")
+        if size != expected:
+            raise ValueError("Sensor dimensions do not match payload")
+        names.add(name)
+        end += size
+    if end != len(payload):
+        raise ValueError("Trailing sensor bytes")
+    return header, payload
+
+
+def validate(directory):
+    issues = []
+    runs = []
+    for manifest in sorted(directory.rglob("manifest.json")):
+        run = manifest.parent
+        metadata = json.loads(manifest.read_text(encoding="utf-8"))
+        if metadata.get("format") != "prts-recording":
+            continue
+        count = 0
+        video_files = set()
+        for path in sorted(run.glob("*.jsonl")):
+            for record in records(path, issues):
+                count += 1
+                try:
+                    raw = attachment(run, record["attachment"]) if "attachment" in record else None
+                    if path.name == "capture.jsonl" and raw is not None:
+                        sensor_frame(raw)
+                    if path.name == "analysis.jsonl" and raw is not None:
+                        depth_frame(raw)
+                    if path.name == "video.jsonl":
+                        payload = record["payload"]
+                        name = payload["file"]
+                        if not re.fullmatch(r"rgb-[A-Za-z0-9-]+\.mp4", name):
+                            raise ValueError("Invalid video path")
+                        if not (run / name).is_file() or (run / name).is_symlink():
+                            raise ValueError("Missing video")
+                        if payload["width"] <= 0 or payload["height"] <= 0 or payload["pts"] < 0:
+                            raise ValueError("Invalid video dimensions/timestamp")
+                        video_files.add(name)
+                except (ValueError, KeyError, OSError, TypeError) as error:
+                    issues.append({"file": str(path.relative_to(directory)), "error": str(error)})
+        status = metadata.get("status", {})
+        if not metadata.get("finalized"):
+            issues.append(
+                {"run": run.name, "error": "Unfinished recording; final tail may be missing"}
+            )
+        if (
+            status.get("error")
+            or any(status.get("dropped", {}).values())
+            or any(status.get("failed", {}).values())
+        ):
+            issues.append(
+                {
+                    "run": run.name,
+                    "error": "Recorder reports missing or failed data",
+                    "status": status,
+                }
+            )
+        runs.append({"run": run.name, "records": count, "videos": len(video_files)})
+    if not runs:
+        issues.append({"error": "No PRTS recording manifests found"})
+    return {"runs": runs, "issues": issues, "videoDecodeVerified": False}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path)
+    parser.add_argument(
+        "--extract-to", type=Path, help="New directory; keeps data for read_diag/replay tools"
+    )
+    args = parser.parse_args()
+    with tempfile.TemporaryDirectory(prefix="prts-read-") as temporary:
+        if args.source.is_file():
+            directory = args.extract_to or Path(temporary) / "unpacked"
+            extract(args.source, directory)
+        else:
+            if args.extract_to:
+                parser.error("--extract-to is only for ZIP input")
+            directory = args.source
+        report = validate(directory)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        if report["issues"]:
+            raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -131,6 +131,37 @@ private final class CaptionTestClock {
 
 @MainActor @Suite(.serialized)
 struct LiveCaptionSessionTests {
+    @Test func focusChangesDoNotCancelInferenceOrReplayAnOldOpening() async {
+        let response = CaptionTestResponse()
+        let audio = CaptionTestAnswerAudio()
+        let clock = CaptionTestClock()
+        let session = LiveCaptionSession(
+            audio: audio,
+            services: services(clock: clock),
+            credential: { _ in "synthetic-test-key" },
+            describeOpening: { _, _ in await response.request() },
+            sleep: clock.sleep
+        )
+        session.localized = { $0 }
+        let image = jpeg()
+        session.start(capture: {
+            Task { LiveCaptionFrame(sampledAt: clock.now, jpeg: image, grayscale: [0]) }
+        })
+        let work = session.work
+        await response.waitForRequest()
+        session.setFeedbackEnabled(false)
+        #expect(session.isRunning)
+        #expect(work?.isCancelled == false)
+        session.setFeedbackEnabled(true)
+        await response.reply("旧画面")
+        await clock.waitForSleep(at: LiveCaptionPolicy.requestInterval)
+        #expect(audio.spoken == ["liveCaption.on"])
+        #expect(session.isRunning)
+        session.stop()
+        clock.finish()
+        await work?.value
+    }
+
     private func jpeg() -> Data {
         UIGraphicsImageRenderer(size: CGSize(width: 64, height: 64)).jpegData(
             withCompressionQuality: 0.8

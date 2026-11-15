@@ -31,6 +31,27 @@ final class LiveCaptionSession: ObservableObject {
     /// The newest answer waiting for the current sentence to end; older ones are never read.
     private var waitingAnswer: String?
     private var previous: String?
+    private var feedbackEnabled = true
+    private var feedbackGeneration: UInt64 = 0
+    private var interactionID = UUID()
+    #if PRTS_DEV
+    private var recordingGeneration: UInt64 = 0
+    private var waitingAnswerRecordingGeneration: UInt64?
+    #endif
+
+    func setFeedbackEnabled(_ enabled: Bool) {
+        guard feedbackEnabled != enabled else { return }
+        feedbackEnabled = enabled
+        feedbackGeneration &+= 1
+        guard !enabled else { return }
+        audio.stop()
+        isSpeaking = false
+        isAnnouncing = false
+        waitingAnswer = nil
+        #if PRTS_DEV
+        waitingAnswerRecordingGeneration = nil
+        #endif
+    }
 
     convenience init() {
         self.init(audio: AnswerAudioOutput(), services: .init())
@@ -91,9 +112,16 @@ final class LiveCaptionSession: ObservableObject {
 
     func announce(_ text: String) {
         audio.stop()
+        guard feedbackEnabled else { return }
         isAnnouncing = true
         do {
+            #if PRTS_DEV
+            try DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                try audio.speak(text)
+            }
+            #else
             try audio.speak(text)
+            #endif
         } catch {
             services.errors.record(error)
             audio.stop()
@@ -118,13 +146,16 @@ final class LiveCaptionSession: ObservableObject {
             }
             let sampledAt = now()
             return Task.detached(priority: .userInitiated) {
-                try LiveCaptionFrame.capture(
+                var captured = try LiveCaptionFrame.capture(
                     image: PhotoImageEncoder.image(
                         pixelBuffer: frame.frame.capturedImage,
                         orientation: frame.orientation
                     ),
                     sampledAt: sampledAt
                 )
+                captured.sourceFrameID = frame.id
+                captured.sourceTimestamp = frame.frame.timestamp
+                return captured
             }
         })
     }
@@ -150,13 +181,32 @@ final class LiveCaptionSession: ObservableObject {
             return
         }
         isRunning = true
+        interactionID = UUID()
+        #if PRTS_DEV
+        recordingGeneration = RecordingStore.shared.admissionGeneration
+        let recordingGeneration = self.recordingGeneration
+        let recordingInteractionID = interactionID.uuidString
+        RecordingStore.shared.event(
+            "interaction_started",
+            details: ["feature": "liveCaption", "interactionID": interactionID.uuidString],
+            generation: recordingGeneration
+        )
+        #endif
         do { try say(localized("liveCaption.on")) } catch {
             fail(error)
             return
         }
         work = Task {
             do {
+                #if PRTS_DEV
+                try await DevInteractionRecording.$interactionID.withValue(recordingInteractionID) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                        try await run(capture: capture, key: key)
+                    }
+                }
+                #else
                 try await run(capture: capture, key: key)
+                #endif
             } catch {
                 if !Task.isCancelled { fail(error) }
             }
@@ -164,6 +214,15 @@ final class LiveCaptionSession: ObservableObject {
     }
 
     func stop() {
+        #if PRTS_DEV
+        if isRunning {
+            RecordingStore.shared.event(
+                "interaction_ended",
+                details: ["feature": "liveCaption", "interactionID": interactionID.uuidString],
+                generation: recordingGeneration
+            )
+        }
+        #endif
         work?.cancel()
         work = nil
         sampling?.cancel()
@@ -176,6 +235,9 @@ final class LiveCaptionSession: ObservableObject {
         audio.stop()
         isSpeaking = false
         waitingAnswer = nil
+        #if PRTS_DEV
+        waitingAnswerRecordingGeneration = nil
+        #endif
         previous = nil
         isRunning = false
         isAnnouncing = false
@@ -195,11 +257,19 @@ final class LiveCaptionSession: ObservableObject {
             do {
                 while !Task.isCancelled {
                     let sampledAt = services.now()
-                    let task = try capture()
-                    let frame = try await withTaskCancellationHandler {
-                        try await task.value
-                    } onCancel: {
-                        task.cancel()
+                    let frame: LiveCaptionFrame
+                    do {
+                        let task = try capture()
+                        frame = try await withTaskCancellationHandler {
+                            try await task.value
+                        } onCancel: {
+                            task.cancel()
+                        }
+                    } catch PhotoChatError.emptyInput {
+                        // iOS may interrupt the camera in the background. Keep the request
+                        // coordinator alive and wait for a fresh frame after capture resumes.
+                        try await wait(until: sampledAt + LiveCaptionPolicy.sampleInterval)
+                        continue
                     }
                     frames.append(frame)
                     frames.removeAll { frame.sampledAt - $0.sampledAt >= LiveCaptionPolicy.window }
@@ -216,15 +286,37 @@ final class LiveCaptionSession: ObservableObject {
         defer { sampler.cancel() }
         var images = stream.stream.makeAsyncIterator()
         guard let first = try await images.next() else { return }
+        #if PRTS_DEV
+        let openingRecordingGeneration = recordingToken(for: first.prefix(1))
+        recordSelection(first.prefix(1), phase: "opening")
+        #endif
+        let openingFeedbackGeneration = feedbackGeneration
         do {
             let opening = try await skippingOverlong {
+                #if PRTS_DEV
+                try await DevInteractionRecording.$recordingGeneration.withValue(openingRecordingGeneration) {
+                    try await describeOpening(first[0].jpeg, key)
+                }
+                #else
                 try await describeOpening(first[0].jpeg, key)
+                #endif
             }
             try Task.checkCancellation()
             consecutiveFailures = 0
-            if let opening { try present(opening) }
+            if let opening, feedbackEnabled, feedbackGeneration == openingFeedbackGeneration {
+                #if PRTS_DEV
+                try DevInteractionRecording.$recordingGeneration.withValue(openingRecordingGeneration) {
+                    try present(opening)
+                }
+                #else
+                try present(opening)
+                #endif
+            }
         } catch let error where !Task.isCancelled {
-            requestFailed(error)
+            requestFailed(
+                error,
+                mayAnnounce: feedbackEnabled && feedbackGeneration == openingFeedbackGeneration
+            )
         }
 
         var carried: LiveCaptionFrame?
@@ -243,39 +335,68 @@ final class LiveCaptionSession: ObservableObject {
                 requests.count < LiveCaptionPolicy.maximumRequestsInFlight
             else { continue }
             carried = video.last
-            send(video.map(\.jpeg), key: key)
+            send(video, key: key)
         }
     }
 
-    private func send(_ video: [Data], key: String) {
+    private func send(_ frames: [LiveCaptionFrame], key: String) {
+        let video = frames.map(\.jpeg)
         lastRequestID += 1
         let id = lastRequestID
         let previous = previous
         let describeChange = describeChange
+        let requestFeedbackGeneration = feedbackGeneration
+        #if PRTS_DEV
+        let recordingGeneration = recordingToken(for: frames)
+        recordSelection(frames, phase: "change")
+        #endif
         requests[id] = Task {
             do {
                 let response = try await skippingOverlong {
+                    #if PRTS_DEV
+                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                        try await describeChange(video, previous, key)
+                    }
+                    #else
                     try await describeChange(video, previous, key)
+                    #endif
                 }
                 try Task.checkCancellation()
                 requests[id] = nil
                 consecutiveFailures = 0
                 guard let response else { return }
+                #if PRTS_DEV
+                RecordingStore.shared.event(
+                    "interaction_result",
+                    details: ["feature": "liveCaption", "requestID": String(id), "answer": response],
+                    generation: recordingGeneration
+                )
+                #endif
+                guard feedbackEnabled, feedbackGeneration == requestFeedbackGeneration else { return }
+                #if PRTS_DEV
+                try DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                    try receive(response, id: id)
+                }
+                #else
                 try receive(response, id: id)
+                #endif
             } catch {
                 guard !Task.isCancelled else { return }
                 requests[id] = nil
-                requestFailed(error)
+                requestFailed(
+                    error,
+                    mayAnnounce: feedbackEnabled && feedbackGeneration == requestFeedbackGeneration
+                )
             }
         }
     }
 
-    private func requestFailed(_ error: Error) {
+    private func requestFailed(_ error: Error, mayAnnounce: Bool = true) {
         consecutiveFailures += 1
         if consecutiveFailures < LiveCaptionPolicy.maximumConsecutiveFailures {
             services.errors.record(error)
         } else {
-            fail(error)
+            fail(error, mayAnnounce: mayAnnounce)
         }
     }
 
@@ -305,8 +426,13 @@ final class LiveCaptionSession: ObservableObject {
     }
 
     private func present(_ text: String) throws {
+        guard feedbackEnabled else { return }
         if isSpeaking {
             waitingAnswer = text
+            #if PRTS_DEV
+            waitingAnswerRecordingGeneration =
+                DevInteractionRecording.recordingGeneration ?? recordingGeneration
+            #endif
         } else {
             previous = text
             try say(text)
@@ -314,7 +440,15 @@ final class LiveCaptionSession: ObservableObject {
     }
 
     private func say(_ text: String) throws {
+        guard feedbackEnabled else { return }
+        #if PRTS_DEV
+        let token = DevInteractionRecording.recordingGeneration ?? recordingGeneration
+        try DevInteractionRecording.$recordingGeneration.withValue(token) {
+            try audio.speak(text)
+        }
+        #else
         try audio.speak(text)
+        #endif
         isSpeaking = true
     }
 
@@ -327,13 +461,61 @@ final class LiveCaptionSession: ObservableObject {
         isSpeaking = false
         guard let answer = waitingAnswer else { return }
         waitingAnswer = nil
-        do { try present(answer) } catch { fail(error) }
+        do {
+            #if PRTS_DEV
+            let token = waitingAnswerRecordingGeneration ?? recordingGeneration
+            waitingAnswerRecordingGeneration = nil
+            try DevInteractionRecording.$recordingGeneration.withValue(token) {
+                try present(answer)
+            }
+            #else
+            try present(answer)
+            #endif
+        } catch { fail(error) }
     }
 
-    private func fail(_ error: Error) {
+    private func fail(_ error: Error, mayAnnounce: Bool = true) {
         services.errors.record(error)
         stop()
         message = error.localizedDescription
-        announce(message)
+        if mayAnnounce { announce(message) }
     }
+
+    #if PRTS_DEV
+    private func recordingToken(for frames: some Collection<LiveCaptionFrame>) -> UInt64 {
+        // Keep inference selection unchanged. A request containing any pre-clear image is
+        // excluded from the new recording; fresh windows resume recording automatically.
+        let current = RecordingStore.shared.admissionGeneration
+        let boundary = RecordingStore.shared.recordingBoundaryUptime
+        guard frames.allSatisfy({ $0.sampledAt >= boundary }) else { return recordingGeneration }
+        if recordingGeneration != current {
+            recordingGeneration = current
+            RecordingStore.shared.event(
+                "live_caption_recording_resumed_after_clear",
+                details: ["interactionID": interactionID.uuidString],
+                generation: current
+            )
+        }
+        return current
+    }
+
+    private func recordSelection(_ frames: some Collection<LiveCaptionFrame>, phase: String) {
+        DevInteractionRecording.noteSuppressedAfterClear(
+            feature: "liveCaption", id: interactionID.uuidString, generation: recordingGeneration
+        )
+        for (index, frame) in frames.enumerated() {
+            RecordingStore.shared.event(
+                "live_caption_frame_selected",
+                details: [
+                    "phase": phase, "frameIndex": String(index),
+                    "interactionID": interactionID.uuidString,
+                    "sampledAt": String(frame.sampledAt),
+                    "sourceFrameID": frame.sourceFrameID.map(String.init) ?? "unavailable",
+                    "sourceTimestamp": frame.sourceTimestamp.map(String.init) ?? "unavailable",
+                ],
+                generation: recordingGeneration
+            )
+        }
+    }
+    #endif
 }

@@ -88,7 +88,6 @@ final class FrameSnapshot: @unchecked Sendable {
         var status: String
         var confidenceStatus: String = "not_read"
     }
-    func depthObservation() -> DepthObservation? { readDepth().observation }
     func readDepth() -> DepthRead {
         guard !usesMonocular else { return .init(status: "monocular_backend_no_scene_depth_read") }
         guard let data = frame.sceneDepth else { return .init(status: "scene_depth_missing") }

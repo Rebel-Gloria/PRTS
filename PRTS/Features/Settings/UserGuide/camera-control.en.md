@@ -17,7 +17,7 @@ On your iPhone, go to Settings → Action Button, choose Shortcut, and select St
 ## What you can set
 
 - **Intelligence**: Choose what describes the scene, answers questions and reads text, for all features at once or one at a time. By default it runs offline on your iPhone, and photos never leave it. You can switch to an online service.
-- **Interaction**: Low vision mode (descriptions, questions and text reading without obstacle guidance), tap to stop, three-finger text reading, and no-preview mode.
+- **Interaction**: Low vision mode (camera and intelligence features, with depth sensing and obstacle processing paused), tap to stop, three-finger text reading, and no-preview mode.
 - **Language and Speech**: Turn announcements on or off, and set the speech rate and language.
 
 ## Important

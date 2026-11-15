@@ -36,6 +36,11 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
     }
 
     func capture(_ done: @escaping (CIImage?) -> Void) {
+        #if PRTS_DEV
+        let interactionID = DevInteractionRecording.interactionID
+        let generation =
+            DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
+        #endif
         queue.async {
             let settings = AVCapturePhotoSettings()
             settings.photoQualityPrioritization = .balanced
@@ -45,6 +50,10 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
                     done(image)
                 }
             }
+            #if PRTS_DEV
+            request.recordingInteractionID = interactionID
+            request.recordingGeneration = generation
+            #endif
             self.requests[settings.uniqueID] = request
             self.photo.capturePhoto(with: settings, delegate: request)
         }
@@ -54,6 +63,9 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         queue.async {
             self.onFrame = nil
             if self.session.isRunning { self.session.stopRunning() }
+            #if PRTS_DEV
+            RecordingStore.shared.endVideoSegment(source: "textReading")
+            #endif
             Task { @MainActor in completion() }
         }
     }
@@ -93,9 +105,31 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         from connection: AVCaptureConnection
     ) {
         let now = ProcessInfo.processInfo.systemUptime
+        #if PRTS_DEV
+        if let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            RecordingStore.shared.videoFrame(
+                pixelBuffer: buffer,
+                timestamp: CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds,
+                metadata: ["source": "textReading", "orientation": "portrait_upright"]
+            )
+        }
+        #endif
         guard let onFrame, now - lastFrame >= 0.2 else { return }
         lastFrame = now
         Task { @MainActor in onFrame() }
+    }
+
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didDrop sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        #if PRTS_DEV
+        RecordingStore.shared.noteGap("text_camera_capture")
+        RecordingStore.shared.event("text_camera_frame_dropped", details: [
+            "timestamp": String(CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds),
+        ])
+        #endif
     }
 }
 
@@ -114,6 +148,10 @@ extension TextCapturing {
 nonisolated final class TextPhotoRequest: NSObject, AVCapturePhotoCaptureDelegate {
     private let completion: (CIImage?) -> Void
     private var image: CIImage?
+    #if PRTS_DEV
+    var recordingInteractionID: String?
+    var recordingGeneration: UInt64?
+    #endif
 
     init(completion: @escaping (CIImage?) -> Void) {
         self.completion = completion
@@ -128,7 +166,26 @@ nonisolated final class TextPhotoRequest: NSObject, AVCapturePhotoCaptureDelegat
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
-        image = photo.fileDataRepresentation().flatMap {
+        let data = photo.fileDataRepresentation()
+        #if PRTS_DEV
+        if let data {
+            RecordingStore.shared.attachment(
+                data: data,
+                kind: "original_image",
+                fileExtension: "photo",
+                metadata: [
+                    "feature": "textReading",
+                    "interactionID": recordingInteractionID ?? "unavailable",
+                    "captureID": String(photo.resolvedSettings.uniqueID),
+                    "encoding": "AVCapturePhoto.fileDataRepresentation",
+                ],
+                generation: recordingGeneration
+            )
+        } else {
+            RecordingStore.shared.noteGap("original_image", generation: recordingGeneration)
+        }
+        #endif
+        image = data.flatMap {
             CIImage(data: $0, options: [.applyOrientationProperty: true])
         }
     }
