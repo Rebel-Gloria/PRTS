@@ -1,6 +1,7 @@
 // On-device MiniCPM-V 4.7 photo description for PRTS, built on llama.cpp + mtmd.
 // Prompt layout and decoding match the benchmark in docs/validation.md.
 #include "prts_local_vlm.h"
+#include "prts_vlm_text_stream.h"
 #include "llama.h"
 #include "mtmd.h"
 #include "mtmd-helper.h"
@@ -79,8 +80,7 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const prts_vlm_ca
     prts_vlm_status status = PRTS_VLM_OK;
     const llama_vocab *vocab = llama_model_get_vocab(vlm->model);
     llama_sampler *sampler = llama_sampler_init_greedy();
-    std::string out;
-    size_t sent = 0;
+    prts_vlm_text_stream text(on_text, user);
     bool completed = false;
     for (int i = 0; i < max_tokens; i++) {
         if (prts_vlm_cancel_is_requested(cancel)) {
@@ -95,40 +95,22 @@ static prts_vlm_status generate(prts_vlm *vlm, int max_tokens, const prts_vlm_ca
         char piece[256];
         const int n = llama_token_to_piece(vocab, token, piece, sizeof piece, 0, false);
         if (n > 0)
-            out.append(piece, n);
-        if (on_text) {
-            // A token can end inside a multi-byte character; hold those bytes for the next one.
-            size_t end = out.size(), back = 0;
-            while (back < 4 && back < end - sent && (out[end - 1 - back] & 0xC0) == 0x80)
-                back++;
-            if (back < end - sent) {
-                const unsigned char lead = out[end - 1 - back];
-                const size_t need = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1;
-                if (need > back + 1)
-                    end -= back + 1;
-            }
-            if (end > sent) {
-                on_text(user, out.data() + sent, end - sent);
-                sent = end;
-            }
-        }
+            completed = text.append(piece, n);
         llama_batch batch = llama_batch_get_one(&token, 1);
         if (llama_decode(vlm->ctx, batch) != 0) {
             status = PRTS_VLM_EVAL_FAILED;
             break;
         }
-        const size_t stray = out.find("</think>", sent > 8 ? sent - 8 : 0);
-        if (stray != std::string::npos) {
-            out.resize(stray);
-            completed = true;
+        if (completed)
             break;
-        }
     }
     llama_sampler_free(sampler);
     if (status == PRTS_VLM_OK && !completed)
         return PRTS_VLM_OUTPUT_LIMIT;
-    if (status == PRTS_VLM_OK)
-        *answer = strdup(out.c_str());
+    if (status == PRTS_VLM_OK) {
+        text.finish();
+        *answer = strdup(text.text().c_str());
+    }
     return status;
 }
 

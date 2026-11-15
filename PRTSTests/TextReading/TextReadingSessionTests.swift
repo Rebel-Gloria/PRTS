@@ -10,7 +10,7 @@ private enum ReadingTestError: Error { case failed }
 nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sendable {
     let session = AVCaptureSession()
     private let lock = NSLock()
-    private var preview: (@MainActor () -> Void)?
+    private var previews: [@MainActor () -> Void] = []
     private var requests: [TextPhotoRequest] = []
     private var startCount = 0
     private var stopCount = 0
@@ -23,7 +23,7 @@ nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sen
 
     func start(frame: @escaping @MainActor () -> Void, failed: @escaping @MainActor () -> Void) {
         lock.withLock {
-            preview = frame
+            previews.append(frame)
             startCount += 1
         }
     }
@@ -52,7 +52,9 @@ nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sen
         callbacks.forEach { $0() }
     }
 
-    @MainActor func frame() { lock.withLock { preview }!() }
+    @MainActor func frame(_ index: Int? = nil) {
+        lock.withLock { previews[index ?? previews.count - 1] }()
+    }
     func deliver(_ index: Int, image: CIImage?) {
         lock.withLock { requests[index] }.complete(image)
     }
@@ -88,6 +90,35 @@ private final class ReadingTestAnswerAudio: AnswerAudio {
     func waitForSpeech(_ count: Int) async {
         if spoken.count >= count { return }
         await withCheckedContinuation { waiter = (count, $0) }
+    }
+}
+
+@MainActor
+private final class ReadingTestTimeout {
+    private var sleepers: [CheckedContinuation<Void, Never>?] = []
+    private var waiter: (Int, CheckedContinuation<Void, Never>)?
+
+    /// Deliberately ignores cancellation so tests also exercise the session's late-result guards.
+    func sleep(_ duration: Duration) async {
+        #expect(duration == TextReadingSession.cameraTimeout)
+        await withCheckedContinuation { continuation in
+            sleepers.append(continuation)
+            if let waiter, sleepers.count >= waiter.0 {
+                self.waiter = nil
+                waiter.1.resume()
+            }
+        }
+    }
+
+    func waitForSleep(_ count: Int = 1) async {
+        if sleepers.count >= count { return }
+        await withCheckedContinuation { waiter = (count, $0) }
+    }
+
+    func fire(_ index: Int = 0) {
+        let continuation = sleepers[index]
+        sleepers[index] = nil
+        continuation?.resume()
     }
 }
 
@@ -144,6 +175,7 @@ struct TextReadingSessionTests {
         h.session.start(intro: "intro", prepareCamera: { ready = $0 })
         #expect(h.session.phase == .aiming)
         #expect(h.camera.starts == 0)
+        #expect(h.session.work == nil)
         h.session.terminate()
         #expect(h.ended == 1)
         ready?()
@@ -156,9 +188,134 @@ struct TextReadingSessionTests {
         var ready: (@MainActor @Sendable () -> Void)?
         h.session.start(intro: "intro", prepareCamera: { ready = $0 })
         #expect(h.camera.starts == 0)
+        #expect(h.session.work == nil)
         ready?()
         #expect(h.camera.starts == 1)
+        #expect(h.session.work != nil)
         h.session.terminate()
+    }
+
+    @Test(arguments: [0, 1])
+    func aimingTimeoutCoversMissingAndStalledPreview(frames: Int) async {
+        let timeout = ReadingTestTimeout()
+        let h = ReadingHarness { services in
+            services.sleep = { await timeout.sleep($0) }
+        }
+        h.session.start(intro: "intro")
+        let work = h.session.work
+        await timeout.waitForSleep()
+        for _ in 0..<frames { h.camera.frame() }
+        #expect(h.session.framesSeen == frames)
+        timeout.fire()
+        await work?.value
+        #expect(h.session.phase == .ending)
+        #expect(h.audio.spoken == ["intro", "ocr.error.camera"])
+        #expect(h.camera.stops == 1)
+        #expect(h.camera.captures == 0)
+        #expect(h.ended == 0)
+
+        h.now += TextReadingSession.settle
+        h.camera.frame()
+        #expect(h.camera.captures == 0)
+        #expect(h.session.framesSeen == frames)
+        h.audio.finish()
+        #expect(h.session.phase == .idle)
+        #expect(h.ended == 1)
+        h.camera.frame()
+        h.audio.finish()
+        #expect(h.camera.captures == 0)
+        #expect(h.ended == 1)
+    }
+
+    @Test func aimingTimeoutCannotInterruptCapture() async {
+        let timeout = ReadingTestTimeout()
+        let h = ReadingHarness { services in
+            services.sleep = { await timeout.sleep($0) }
+        }
+        h.session.start(intro: "intro")
+        let work = h.session.work
+        await timeout.waitForSleep()
+        h.capture()
+        #expect(h.camera.captures == 1)
+        timeout.fire()
+        await work?.value
+        #expect(h.audio.spoken == ["intro", "ocr.capturing"])
+        #expect(h.camera.stops == 0)
+        #expect(h.ended == 0)
+        h.camera.deliver(0, image: h.image())
+        await h.audio.waitForSpeech(3)
+        await h.session.work?.value
+        #expect(h.audio.spoken.last == "ocr.lead.object：测试文字。")
+        h.audio.finish()
+        #expect(h.ended == 1)
+    }
+
+    @Test func aimingTimeoutCannotCancelRecognitionAlreadyInProgress() async {
+        let timeout = ReadingTestTimeout()
+        let entered = TestSignal()
+        let release = TestSignal()
+        let h = ReadingHarness { services in
+            services.sleep = { await timeout.sleep($0) }
+            services.vision = { _ in
+                await entered.signal()
+                await release.wait()
+                return "测试文字。"
+            }
+        }
+        h.session.start(intro: "intro")
+        let oldWork = h.session.work
+        await timeout.waitForSleep()
+        h.capture()
+        h.camera.deliver(0, image: h.image())
+        await entered.wait()
+        let reader = h.session.work
+        timeout.fire()
+        await oldWork?.value
+        #expect(reader?.isCancelled == false)
+        #expect(h.audio.spoken == ["intro", "ocr.capturing"])
+        #expect(h.ended == 0)
+        await release.signal()
+        await reader?.value
+        #expect(h.audio.spoken.last == "ocr.lead.object：测试文字。")
+        h.audio.finish()
+        #expect(h.ended == 1)
+    }
+
+    @Test(arguments: [false, true])
+    func oldTimeoutAndPreviewCannotAffectNewPass(cancel: Bool) async {
+        let timeout = ReadingTestTimeout()
+        let h = ReadingHarness { services in
+            services.sleep = { await timeout.sleep($0) }
+        }
+        h.session.start(intro: "A")
+        let oldWork = h.session.work
+        await timeout.waitForSleep()
+        if cancel {
+            h.session.cancel()
+            h.audio.finish()
+        } else {
+            h.session.terminate()
+        }
+        #expect(h.ended == 1)
+        h.session.start(intro: "B")
+        let newWork = h.session.work
+        await timeout.waitForSleep(2)
+        timeout.fire(0)
+        await oldWork?.value
+        h.camera.frame(0)
+        #expect(h.session.phase == .aiming)
+        #expect(h.session.framesSeen == 0)
+        #expect(h.camera.captures == 0)
+        #expect(h.audio.spoken.last == "B")
+        #expect(!h.audio.spoken.contains("ocr.error.camera"))
+        #expect(newWork?.isCancelled == false)
+        #expect(h.ended == 1)
+
+        timeout.fire(1)
+        await newWork?.value
+        #expect(h.audio.spoken.last == "ocr.error.camera")
+        h.audio.finish()
+        #expect(h.ended == 2)
     }
 
     @Test func guidanceRecoveryWaitsForTextCameraRelease() {

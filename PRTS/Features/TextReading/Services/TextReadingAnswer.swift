@@ -15,11 +15,6 @@ nonisolated struct TextReadingAnswer {
     mutating func append(_ piece: String) -> [String] {
         guard !closed else { return [] }
         buffer += piece
-        // A stray tag means the model started making up another turn; nothing after it is text.
-        if let tag = buffer.firstIndex(of: "<") {
-            buffer = String(buffer[..<tag])
-            closed = true
-        }
         var spoken: [String] = []
         while let end = buffer.firstIndex(where: { "\n。！？；!?".contains($0) }) {
             let next = buffer.index(after: end)
