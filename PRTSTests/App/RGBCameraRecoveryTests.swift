@@ -3,27 +3,32 @@ import Testing
 @testable import PRTS
 
 struct RGBCameraRecoveryTests {
+    private func expectRecovery(_ expected: Bool, _ recovery: inout RGBCameraRecovery) {
+        let requested = recovery.takeRecoveryRequest()
+        #expect(requested == expected)
+    }
+
     @Test func ordinaryFocusChangesNeverRequestCameraRecovery() {
         var recovery = RGBCameraRecovery()
         recovery.requestStart()
         recovery.setSceneActive(true)
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
         recovery.setSceneActive(false)
         recovery.setSceneActive(true)
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
     }
 
     @Test func mediaResetInBackgroundWaitsForForegroundAndRunsOnce() {
         var recovery = RGBCameraRecovery()
         recovery.requestStart()
         recovery.mediaServicesReset()
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
         recovery.setSceneActive(true)
-        #expect(recovery.takeRecoveryRequest())
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(true, &recovery)
+        expectRecovery(false, &recovery)
         recovery.setSceneActive(false)
         recovery.setSceneActive(true)
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
     }
 
     @Test func explicitStopCancelsDeferredResetRecovery() {
@@ -32,7 +37,7 @@ struct RGBCameraRecoveryTests {
         recovery.mediaServicesReset()
         recovery.requestStop()
         recovery.setSceneActive(true)
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
         #expect(!recovery.requested)
     }
 
@@ -42,19 +47,19 @@ struct RGBCameraRecoveryTests {
         recovery.setSceneActive(true)
         recovery.setInterrupted(true)
         recovery.mediaServicesReset()
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
         recovery.setInterrupted(false)
-        #expect(recovery.takeRecoveryRequest())
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(true, &recovery)
+        expectRecovery(false, &recovery)
     }
 
     @Test func manualStartSupersedesAResetForTheStoppedSession() {
         var recovery = RGBCameraRecovery()
         recovery.mediaServicesReset()
         recovery.setSceneActive(true)
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
         recovery.requestStart()
-        #expect(!recovery.takeRecoveryRequest())
+        expectRecovery(false, &recovery)
     }
 
     @Test func staleInterruptionAfterStopCannotBlockTheNextSession() {
@@ -67,6 +72,6 @@ struct RGBCameraRecoveryTests {
         recovery.setSceneActive(true)
         recovery.mediaServicesReset()
         #expect(!recovery.interrupted)
-        #expect(recovery.takeRecoveryRequest())
+        expectRecovery(true, &recovery)
     }
 }
