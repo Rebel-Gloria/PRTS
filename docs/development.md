@@ -29,25 +29,22 @@
      -destination 'generic/platform=iOS' -derivedDataPath build/Standard build
 
    # 开发版
-   xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Release \
-     -destination 'generic/platform=iOS' -xcconfig configs/DevCapture.xcconfig \
-     -derivedDataPath build/DevCapture build
+   xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Dev \
+     -destination 'generic/platform=iOS' -derivedDataPath build/Dev build
    ```
 
 如需将源码提交写入二进制，请添加构建参数 `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)`。
 
-### 开发版与标准版
+### 构建模式
 
-开发功能由编译条件 `PRTS_DEV_CAPTURE` 控制，与 Debug 配置无关。工程默认的 Debug 和 Release 配置都不启用该条件，只有传入 `configs/DevCapture.xcconfig` 时才启用。两种构建使用相同的避障算法。
+工程仅保留 `Release` 和 `Dev` 两个构建模式。两者使用相同的产品界面、避障算法、参数和编译优化；`Dev` 额外定义 `PRTS_DEV`，自动记录用于重放的数据，并提供分享和清理入口。旧的手动采集开关、演示面板、测试指令栏和独立开发配置文件已移除。
 
-| 开发版功能 | 说明 |
+| 模式 | 录制与界面 |
 |---|---|
-| 主页指标、图例和测试指令栏 | 默认显示；测试指令栏也用于 UI 测试 |
-| 演示选项和参数设置 | 调整底图、图层、路径、触觉反馈、深度来源和几何参数 |
-| 相机视频与分析数据采集 | 每次启动默认关闭 |
-| DIAG 和 Sessions | 自动记录诊断和逐帧数据，可导出 |
+| `Release` | 产品功能和错误日志，不保存相机、空间或提问音频数据 |
+| `Dev` | 自动录制；首页显示隐私提示；设置末尾提供分享和清除录制数据 |
 
-`ProbeSettingsView`、`DemoOptionsView`、`HomeDemoOverlay` 和 `DevCaptureRecorder` 只参与开发版编译。标准版使用 `RenderOptions.product`，不读取开发版的显示设置。检查标准版产物时，应确认其中不包含采集相关的类型和字符串。
+共享 `PRTS` scheme 在运行、分析和测试时默认使用 `Dev`，在归档和性能分析时默认使用 `Release`。如需更换模式，请修改 scheme 的构建配置或传入 `-configuration`。
 
 ## 测试
 
@@ -59,7 +56,7 @@
 bash scripts/validate_spatial.sh
 ```
 
-该脚本依次执行 SpatialCore 的 Debug 和 Release 测试、PRTSContracts 测试（应用不链接该包）、Python 测试，以及模拟器 Debug 和真机 Release 的无签名编译。LocalVLM 的模拟器库只包含 arm64，因此模拟器编译仅针对 arm64。该脚本不能代替真机交互测试。
+该脚本依次执行 SpatialCore 的 Debug 和 Release 测试、PRTSContracts 测试（应用不链接该包）、Python 测试，以及模拟器 Dev 和真机 Release 的无签名编译。LocalVLM 的模拟器库只包含 arm64，因此模拟器编译仅针对 arm64。该脚本不能代替真机交互测试。
 
 ### 单项检查
 
@@ -70,7 +67,7 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 git diff --check
 ```
 
-应用的单元测试和 UI 测试需要在真机上通过 Xcode 或 `xcodebuild test` 运行。
+不依赖传感器的应用单元测试可以在模拟器中运行；相机、音频、模型和交互验证需要在真机上通过 Xcode 或 `xcodebuild test` 运行。
 
 SpatialCore 的路线测试按场景使用独立的 `XCTestCase`，可按文件同名的套件筛选，例如 `swift test --package-path Packages/SpatialCore --filter RouteProjectionTests`。共享的合成场景由 `Tests/SpatialCoreTests/Support/RoutingTestScene.swift` 构造；测试通过该值类型生成帧、障碍和位姿，不实例化其他测试套件。
 
@@ -82,9 +79,11 @@ SpatialCore 的路线测试按场景使用独立的 `XCTestCase`，可按文件�
 |---|---|
 | `style-and-boundaries` | 格式检查、Python 测试、`git diff --check` |
 | `spatial-tests` | SpatialCore 测试和契约测试 |
-| `app-build` | 应用的无签名编译检查 |
+| `app-build` | 分别构建 `Release` 和 `Dev`，运行模拟器应用单元测试，并检查真机编译 |
 
-`app-build` 只验证代码能否编译：LocalVLM 以头文件和空静态库代替，权重以空文件占位，链接时允许未定义的模型符号，生成的产物无法运行。CI 不运行真机测试。
+`app-build` 为设备和模拟器编译可链接的 LocalVLM 替身，权重以空文件占位。替身始终报告模型不可用；CI 排除 `PhotoLocalModelTests`，不验证实际推理、真机相机、传感器或交互。其余 `PRTSTests` 在两个构建模式下实际运行，不再只检查测试目标能否编译。格式失败时上传 `style.patch` 和格式器日志；应用测试结果上传为压缩的 `.xcresult`。
+
+旧开发指令栏已移除，公开的 UI 自动化接口无法执行三指长按。依赖此手势的读字 UI 场景明确跳过，保留场景断言供真机验证；相关生命周期由可注入相机的单元测试覆盖。Dev 隐私提示、录制入口、清除二次确认与取消、系统分享及 Release 入口隔离使用普通界面操作验证。
 
 ### 代码格式
 
@@ -117,137 +116,65 @@ python scripts/style.py --fix    # 应用格式修正
 
 模型附带的 `Manifest.json` 和 `AppleModelCard.txt` 必须保留上游原始字节。`.gitattributes` 禁止对这些文件转换换行，`test_spatial_integration.py` 同时校验上游记录的字节数、SHA-256 和产品副本的一致性。
 
-## 诊断记录
+## 自动录制
 
-标准版只记录错误日志。DIAG、开发采集和 Sessions 仅用于开发版：
+`Dev` 每次启动自动创建 `Documents/Recordings/<时间戳>-<UUID>/`，不需要打开采集开关。相机和传感器由实际功能按需启动，录制不会额外开启 ARKit、LiDAR 或麦克风。录制内容按照原始时间戳关联；系统中断、丢帧或写入失败均作为缺口记录。
 
-| 类型 | 启用方式 | 位置与内容 |
-|---|---|---|
-| 错误日志 | 标准版和开发版自动记录 | 标准版为 `Documents/ErrorLogs/`，开发版为 `Documents/DevDiagnostics/Errors/`；只包含时间、版本、来源、错误域和错误码 |
-| 自动 DIAG | 开发版每次启动时自动创建，不会自动打开相机 | `Documents/DevDiagnostics/Diagnostics/<UTC 时间>-<UUID>/`；不包含画面、音频和位置 |
-| 开发采集 | 开发版在“设置 → 开发者选项”中手动开启 | DIAG 目录内的 `dev-capture-<UUID>/`；包含视频、传感器和分析数据 |
-| Sessions | 开发版每次开始避障时自动创建，可额外手动保存单帧样本 | `Documents/DevDiagnostics/Sessions/`；逐帧记录 `frames.jsonl` 和 `metrics.csv`，手动样本包含单帧深度、元数据、分析结果和网格 |
+| 数据 | 保存规则 |
+|---|---|
+| RGB 视频 | H.264，目标码率 1 Mbps；保持相机原始分辨率、比例、方向和实际时间间隔，不裁切或补帧 |
+| 深度、置信度和点云 | 原始尺寸和数值，无损压缩；保留单位、位姿、内参、帧标识和时间戳 |
+| 网格与空间结果 | 完整网格、锚点增删改、算法实际输入和输出、参数版本及路径结果 |
+| 拍照描述、提问和读字 | 单独保存取得的原图与实际送入识别服务的图像，避免视频压缩丢失文字或细节 |
+| 实时字幕 | 原尺寸 RGB 视频及实际提交的 JPEG 帧、选帧标识与时间戳；不额外保存每个采样帧的 PNG |
+| 语音提问 | 仅在提问录音期间保存麦克风音频，同时保存识别文本 |
+| 交互与返回 | 记录启停、功能操作、取消、前后台变化、错误日志和模型返回，以墙钟和单调时钟关联 |
+
+1 Mbps 只针对 RGB 视频，属于编码目标而非总容量上限。深度、点云、原图和音频另行保存，因此录制包的总码率和容量会更高。凭据、认证头和密钥不进入录制。
 
 > [!IMPORTANT]
-> 标准版第一次启动时，会删除旧版本留下的 `Documents/Sessions` 和 `Documents/Diagnostics`，且无法恢复。工程默认的 Debug 和 Release 配置都属于标准版。如需保留这些数据，请在安装前先提取。
+> 自动录制可能保存现场画面、空间结构、提问声音和返回内容。首页持续显示“此构建将自动录制数据到本地，请注意隐私安全”。数据仅保存在本地，由用户主动导出。
 
-### 采集与导出
+### 分享与清理
 
-开发采集每次启动默认关闭。录制期间主页持续显示提示，隐藏调试面板或相机画面不会停止录制。关闭开关、停止避障、进入后台或导出时，录制停止并完成 MP4 写入。
+如需分享录制数据，请在 Dev 的“设置”末尾选择“分享所有录制数据”。应用将已写入的所有会话打包为单个 `PRTS-<时间戳>.zip`，通过系统分享界面发送到 AirDrop 或保存到“文件”。导出期间继续保持功能运行，导出文件只包含打包时已完成写入的数据。
 
-开发版可以导出本次或历史 DIAG。导出前建议先停止避障，以免目录复制阻塞日志写入。如需连接 Mac 提取 DIAG，请运行以下命令：
+如需清除数据，请点击设置最下方红色的“清除所有录制数据”，并在弹窗中再次确认。清除后自动录制继续，新的操作写入新会话。清除前已发出的描述或读字请求仍完成计算，但其迟到记录不会写回；持续字幕使用新的采样窗口后自动恢复录制。取消确认不会删除数据。
+
+如需从已连接并配对的设备直接提取，请在 Mac 上运行：
 
 ```sh
-python3 scripts/pull_diag.py --device <设备标识> --output <新目录>
+python3 scripts/pull_recordings.py --device <设备标识> --output <录制文件.zip>
 ```
 
-开发采集不录音、不上传，也不申请位置、麦克风或相册权限。但视频和空间数据可能包含现场隐私信息，分享前请检查。
+该工具通过 `xcrun devicectl` 读取应用录制目录，并打包为一个 ZIP 文件，不需要应用内开关。设备必须允许读取该应用的数据容器。
 
-### DIAG 文件
+### 数据完整性
 
-每次启动使用一个目录，同一次启动中的多次开始和停止以 epoch 区分。JSONL 记录包含全局 `sequence`、写入时间 `writtenUptime` 和 `payload`，可附带 `attachment` 和 `diagnosticTiming`。
+二进制附件使用无损 raw DEFLATE 压缩，并保存原始长度及 SHA-256。RGB 视频按原始尺寸分段，尺寸或相机来源改变时创建新段；帧索引将视频时间与传感器、交互时间关联。保存点云时不将单目相对深度伪装为 LiDAR 米制数据。
 
-> [!IMPORTANT]
-> 对齐数据时，请使用 payload 中的源帧时间戳、epoch 和 frameID，不要使用写入时间。
-
-| 文件 | 内容 |
-|---|---|
-| `manifest.json` | 时钟基准、设备与版本、格式、采样策略、配额、算法版本（`routeAlgorithmRevision`） |
-| `status.json` | 约每秒更新一次：各数据流计数、队列、字节数、错误和配额状态 |
-| `events.jsonl` | 启停、权限、中断、参数、发热、内存警告和前后台切换 |
-| `capture.jsonl` | ARFrame 元数据：位姿、内参、跟踪状态、曝光、深度可用性和方向稳定性，不含像素 |
-| `analysis.jsonl` | 每个分析帧的指标、栅格、距离、原因和深度附件 |
-| `mesh.jsonl` | 网格的增加、修改和删除，分类和完整网格附件 |
-| `render.jsonl` | 绘制提交、跳过原因、GPU 完成时间、顶点数和图层 |
-| `prediction.jsonl` | 单目深度模型输出、尺度拟合和各阶段耗时 |
-| `path.jsonl` | 路线、目标、参数，以及保留、撤销和重新规划的原因（schema 4） |
-| `heartbeat.jsonl` | 约每秒记录一次：帧龄、FPS、热状态、电量（-1 表示不可用）、内存和丢帧数 |
-| `data-*.bin` | 分段存储的无损压缩深度和网格 |
-
-旧记录中缺少的字段按缺失处理，不推断补齐。从 schema 3 起，`path.jsonl` 包含 `plannedLength` 和 `planned`，以及可选的 `turnCandidateLength`、`turnReason`、`routePointCount` 和 `turnAngle`；转向被阻止时也记录实际偏离角。
-
-### 二进制附件
-
-`attachment` 字段记录文件名、偏移量、压缩前后长度、`codec=deflate-raw` 和原始内容的 SHA-256。偏移处依次存放压缩长度和原始长度（两个 UInt32 LE），然后是 raw DEFLATE 数据。在 Python 中使用 `zlib.decompress(data, -15)` 解压。二进制数据先于引用它的 JSONL 记录写入。
-
-| 附件 | 解压后的布局 |
-|---|---|
-| 深度 | UInt32 LE 头长度 → JSON 头 → `width*height` 个 Float32 LE 深度 → 可选的 UInt8 置信度 → 可选的预测支持掩码 |
-| 网格（`mesh_frame_binary_v1`） | UInt32 LE 头长度 → JSON 头 → `vertexCount×3` 个 Float32 坐标 → `indexCount` 个 UInt32 索引 → `classificationCount` 个 UInt8 分类 |
-
-深度的 JSON 头包含尺寸、epoch、frameID、时间戳、位姿、内参、参数、地面先验、方向稳定性和数据来源；网格的 JSON 头包含 ID、epoch、版本、回调时间、变换、来源和数量。网格不抽样；深度中的 NaN、Inf 和无效像素原样保留。缺少置信度时该段长度为 0，不补充高置信度。
-
-### 开发采集格式
-
-开发采集只保存已完成分析的帧，最高 5 Hz。编码繁忙时跳过帧，保留真实时间间隔，不补帧。
-
-```text
-dev-capture-<UUID>/
-  manifest.json
-  status.json                            # recording / completed / failed
-  camera.mp4
-  samples.jsonl                          # 帧标识、PTS、附件引用
-  <epoch>-<frame>.evidence.json.deflate
-  <epoch>-<frame>.depth.bin.deflate
-  <epoch>-<frame>.relative.f32.deflate
-```
-
-| 数据 | 内容 |
-|---|---|
-| 视频 | 无标注 H.264，800 kbps，最长边 960 像素，不裁切，无音轨 |
-| LiDAR | 分析实际使用的 Float32 `sceneDepth` 和 UInt8 置信度 |
-| 单目模型 | 校准前的相对逆深度、模型与尺寸、尺度样本和参数、地面参考、耗时；校准通过后另存米制深度 |
-| ARKit | 内参、位姿、跟踪状态、曝光、方向、水平平面和最多 512 个特征点 |
-| 网格 | 每帧的 anchor ID 与版本；完整内容从父 DIAG 读取并核对版本 |
-| 分析 | 完整的 `AnalysisResult`、`PathUpdate` 和路线参数 |
-
-开发采集不包含 ARKit 内部 SLAM 地图、原始 IMU 数据或 LiDAR 硬件时间戳。evidence 中的非有限数写为 `nan`、`+inf` 或 `-inf`。深度由 `DepthFrameCodec` 编码；relative 为行优先的 Float32 LE，尺寸见 `evidence.model`。视频 PTS 为 `ARFrame.timestamp - manifest.originARTimestamp`，timescale 为 60000。
+封存录制段时会写入终止时间并完成视频。停止某项功能只记录该功能的停止事件，其他功能和交互仍会继续录制。强制退出、系统挂起或存储不足可能留下不完整尾段；读取工具必须报告缺口，不能把缺少终止事件直接解释为崩溃，也不能补造缺帧。
 
 > [!NOTE]
-> 视频经过有损压缩，只能用于核对现场情况，不能用于重新运行模型并比较原始输出。几何回放请使用无损压缩的深度和模型附件。
-
-### 容量限制
-
-| 项目 | 上限 |
-|---|---|
-| DIAG 分段文件 | 32 MiB |
-| DIAG 每次启动 / 整个目录 | 不限制 |
-| DIAG 待写队列 | 64 条、16 MiB；为事件预留 8 条、64 KiB |
-| 开发采集单段 / 每次启动 | 10 分钟 / 不限制 |
-| 标准版错误日志 | 1 GB，超出后删除最早的分段 |
-| 开发采集最低剩余空间 | 256 MiB |
-
-开发版的 DIAG、开发采集和 Sessions 不限制总量，也不自动删除旧数据，请定期导出并通过“文件”App 或 Xcode 清理。分析深度默认约 10 Hz 保存，256×192 的深度加置信度每帧约 240 KiB，未压缩时每分钟约 141 MiB。
-
-队列满时会丢弃记录，DIAG 和开发采集的丢弃计数需要分别检查。强制退出或断电可能丢失最后约 1 s 的 DIAG，并留下未完成的 MP4；缺少终止事件不代表发生了崩溃。
-
-### 地面显示诊断
-
-如需排查地面未显示的原因，请按以下顺序检查：
-
-
-1. 检查 `analysis.payload.diagnostics` 中的深度和置信度读取状态、像素数量、`groundConfirmed`、连续确认次数和平面差异。地面需要连续 3 次确认，高度差小于 4 cm，法向差小于 3°。
-2. 检查 `groundReferenceMode`（`current_confirmed` 或 `retained_world_reference`），以及 `modelState` 和 `modelBlockReasons`。
-3. 检查 `render.jsonl` 中的 `surfacePresentationMode`（`current_depth`、`historical_wireframe` 或 `none`）。分析成功不代表画面已经绘制。
+> iOS 真正进入后台时可能中断相机和 ARKit，应用不能保证后台持续采集。录制可重放应用收到的空间输入、算法和交互过程，不包含 ARKit 私有 SLAM 内部状态。视频为有损压缩数据；需要逐像素核对的单次识别使用另存原图和实际模型输入。
 
 ## 数据工具
 
-以下工具均在本地处理数据，不上传采集内容。
+以下工具均在本地处理数据，不上传录制内容。
 
 | 任务 | 命令 |
 |---|---|
-| 从手机提取诊断 | `python3 scripts/pull_diag.py --device <设备标识> --output <新目录>` |
-| 校验 DIAG | `python3 scripts/read_diag.py <run> --verify-data` |
+| 从设备提取并打包录制 | `python3 scripts/pull_recordings.py --device <设备标识> --output <录制文件.zip>` |
+| 校验和解包录制 | `python3 scripts/read_recording.py`，具体参数见 `--help` |
+| 读取空间诊断字段 | `python3 scripts/read_diag.py <run> --verify-data` |
 | 提取深度帧 | `python3 scripts/read_diag.py <run> --extract-depth <epoch>:<frame> --output <目录>` |
 | 提取预测深度帧 | `python3 scripts/read_diag.py <run> --extract-prediction <epoch>:<frame> --output <目录>` |
-| 校验开发采集 | `python3 scripts/read_dev_capture.py <dev-capture>`（不解码视频） |
-| 汇总 Sessions | `python3 scripts/summarize_session.py <session>`（不支持 DIAG 目录） |
 | 比较路线结果 | `scripts/replay_routes.swift`、`scripts/compare_route_replays.py` |
 | 回放 `{result, options}` 快照 | `scripts/replay_route_snapshots.swift` |
-| 回放完整避障流程 | `bash Experiments/astra/run.sh <DIAG 目录>` |
+| 回放完整避障流程 | `bash Experiments/astra/run.sh <诊断目录>` |
 | 统计源码规模 | `python3 scripts/code_inventory.py`；加 `--write` 写入 `build/code-inventory.md` |
 
-`read_diag.py` 会核对长度、SHA-256、帧和网格标识，并报告截断的尾行和损坏的附件。深度提取输出 `metadata.json`、`depth.f32le` 和 `confidence.u8`。`source=synthetic` 表示合成数据，不能作为真机结果。
+`read_diag.py` 保留读取历史空间诊断数据的能力。历史 Sessions 和开发采集的读取工具仅用于旧文件，不代表当前应用仍使用旧录制机制。`source=synthetic` 表示合成数据，不能作为真机结果。
 
 ### 回放
 

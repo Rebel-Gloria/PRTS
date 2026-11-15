@@ -21,6 +21,22 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private let recognizer: any PhotoRecognizing
     private let audio: any AnswerAudio
     private let services: PhotoDescriptionServices
+    private var feedbackEnabled = true
+    private var interactionMaySpeak = true
+    private var awaitingPlayback = false
+    #if PRTS_DEV
+    private var recordingGeneration: UInt64 = 0
+    #endif
+
+    /// Losing UI focus mutes the current interaction permanently, while inference continues.
+    /// Enabling feedback again applies to the next interaction, never a delayed old answer.
+    func setFeedbackEnabled(_ enabled: Bool) {
+        feedbackEnabled = enabled
+        guard !enabled else { return }
+        interactionMaySpeak = false
+        audio.stop()
+        if awaitingPlayback { cancel() }
+    }
 
     convenience init() {
         self.init(
@@ -73,8 +89,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
                 throw PhotoChatError.emptyInput
             }
+            #if PRTS_DEV
+            DevInteractionRecording.original(
+                pixelBuffer: frame.frame.capturedImage,
+                orientation: frame.orientation,
+                feature: "photoDescription",
+                metadata: ["frameID": String(frame.id), "epoch": String(frame.epoch)]
+            )
+            #endif
             return Task.detached(priority: .userInitiated) {
-                try PhotoImageEncoder.jpeg(
+                return try PhotoImageEncoder.jpeg(
                     pixelBuffer: frame.frame.capturedImage,
                     orientation: frame.orientation,
                     longestSide: longestSide
@@ -101,6 +125,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         guard !busy else { return false }
         silence()
         generation = UUID()
+        interactionMaySpeak = feedbackEnabled
+        awaitingPlayback = false
+        #if PRTS_DEV
+        recordingGeneration = RecordingStore.shared.admissionGeneration
+        RecordingStore.shared.event(
+            "interaction_started",
+            details: ["feature": "photoDescription", "interactionID": generation.uuidString],
+            generation: recordingGeneration
+        )
+        #endif
         captureOperation = capture
         busy = true
         message = localized("photo.message.pressHint")
@@ -159,7 +193,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             work = Task { [weak self] in
                 guard let self else { return }
                 do {
-                    try await self.audio.cue(.submit)
+                    try await self.cue(.submit)
                     guard self.generation == id else { return }
                     self.submit(question: nil)
                 } catch {
@@ -177,7 +211,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 guard let self, self.generation == id else { return }
                 do {
                     self.recognizer.endCapture()
-                    try await self.audio.cue(.submit)
+                    try await self.cue(.submit)
                     guard self.generation == id else { return }
                     self.message = self.localized("photo.message.recognizing")
                     let text = try await self.recognizer.finish()
@@ -193,6 +227,18 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     func cancel(clearMessage: Bool = true) {
+        #if PRTS_DEV
+        if busy {
+            DevInteractionRecording.noteSuppressedAfterClear(
+                feature: "photoDescription", id: generation.uuidString, generation: recordingGeneration
+            )
+            RecordingStore.shared.event(
+                "interaction_ended",
+                details: ["feature": "photoDescription", "interactionID": generation.uuidString],
+                generation: recordingGeneration
+            )
+        }
+        #endif
         generation = UUID()
         press.cancel()
         timer?.cancel()
@@ -207,15 +253,26 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         request = nil
         busy = false
         isAnnouncing = false
+        awaitingPlayback = false
         if clearMessage { message = "" }
     }
 
     private func capture(purpose: PhotoImagePurpose) throws {
         guard let captureOperation, let request else { throw PhotoChatError.emptyInput }
         self.captureOperation = nil
+        #if PRTS_DEV
+        imageTask = try DevInteractionRecording.$interactionID.withValue(generation.uuidString) {
+            try DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                try captureOperation(
+                    purpose.longestSide(highResolution: request.configuration.highResolution)
+                )
+            }
+        }
+        #else
         imageTask = try captureOperation(
             purpose.longestSide(highResolution: request.configuration.highResolution)
         )
+        #endif
     }
 
     private func startRecording() {
@@ -240,12 +297,23 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             return
         }
         let id = generation
+        #if PRTS_DEV
+        let recordingGeneration = self.recordingGeneration
+        #endif
         work = Task { [weak self] in
             guard let self else { return }
             do {
-                try await self.audio.cue(.record)
+                try await self.cue(.record)
                 guard self.generation == id else { return }
+                #if PRTS_DEV
+                try await DevInteractionRecording.$interactionID.withValue(id.uuidString) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                        try await self.recognizer.start()
+                    }
+                }
+                #else
                 try await self.recognizer.start()
+                #endif
                 guard self.generation == id else { return }
                 self.message = self.localized("photo.message.speakNow")
             } catch {
@@ -257,6 +325,9 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private func submit(question: String?) {
         guard let imageTask, let request else { return }
         let id = generation
+        #if PRTS_DEV
+        let recordingGeneration = self.recordingGeneration
+        #endif
         let describe = services.describe
         self.request = nil
         message = localized("photo.message.describing")
@@ -264,13 +335,37 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             do {
                 let jpeg = try await imageTask.value
                 try Task.checkCancellation()
+                #if PRTS_DEV
+                let answer = try await DevInteractionRecording.$interactionID.withValue(id.uuidString) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                        try await describe(jpeg, question, request)
+                    }
+                }
+                #else
                 let answer = try await describe(jpeg, question, request)
+                #endif
                 try Task.checkCancellation()
                 guard let self, self.generation == id else { return }
                 self.imageTask = nil
                 self.recognizer.cancel()
+                #if PRTS_DEV
+                RecordingStore.shared.event(
+                    "interaction_result",
+                    details: [
+                        "feature": "photoDescription", "interactionID": id.uuidString,
+                        "question": question ?? "", "answer": answer,
+                        "provider": request.configuration.provider.rawValue,
+                    ],
+                    generation: recordingGeneration
+                )
+                #endif
+                guard self.interactionMaySpeak, self.feedbackEnabled else {
+                    self.cancel()
+                    return
+                }
                 self.message = self.localized("photo.message.speaking")
-                try self.audio.speak(answer)
+                self.awaitingPlayback = true
+                try self.speak(answer)
             } catch {
                 guard let self, self.generation == id else { return }
                 self.fail(error)
@@ -279,6 +374,15 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func fail(_ error: Error) {
+        #if PRTS_DEV
+        DevInteractionRecording.failure(
+            error,
+            feature: "photoDescription",
+            id: generation.uuidString,
+            generation: recordingGeneration
+        )
+        #endif
+        let maySpeak = interactionMaySpeak && feedbackEnabled
         cancel()
         guard !(error is CancellationError) else { return }
         services.errors.record(error)
@@ -287,16 +391,45 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         default: break
         }
         message = error.localizedDescription
-        if isAnnouncing {
+        if isAnnouncing && maySpeak {
             busy = true
+            awaitingPlayback = true
             do {
-                try audio.speak(message)
+                try speak(message)
             } catch {
                 services.errors.record(error)
                 audio.stop()
                 busy = false
                 isAnnouncing = false
             }
+        } else {
+            isAnnouncing = false
         }
+    }
+
+    private func cue(_ cue: AnswerCue) async throws {
+        guard interactionMaySpeak, feedbackEnabled else { return }
+        do {
+            #if PRTS_DEV
+            try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                try await audio.cue(cue)
+            }
+            #else
+            try await audio.cue(cue)
+            #endif
+        } catch {
+            // Muting an in-flight tone must not cancel the request that follows it.
+            if interactionMaySpeak && feedbackEnabled { throw error }
+        }
+    }
+
+    private func speak(_ text: String) throws {
+        #if PRTS_DEV
+        try DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+            try audio.speak(text)
+        }
+        #else
+        try audio.speak(text)
+        #endif
     }
 }

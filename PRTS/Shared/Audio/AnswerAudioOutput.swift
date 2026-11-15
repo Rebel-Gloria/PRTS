@@ -12,6 +12,9 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     private var activeCue: UUID?
     private let audioSession: AudioSessionCoordinator
     private var audioLease: AudioSessionCoordinator.Lease?
+    #if PRTS_DEV
+    private var recordingGeneration: UInt64?
+    #endif
     var onFinished: (() -> Void)?
 
     override convenience init() {
@@ -33,6 +36,13 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func cue(_ cue: AnswerCue) async throws {
+        #if PRTS_DEV
+        recordingGeneration =
+            DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
+        RecordingStore.shared.event(
+            "audio_cue", details: ["cue": String(describing: cue)], generation: recordingGeneration
+        )
+        #endif
         let id = UUID()
         activeCue = id
         // Short taps must not activate an input audio route or require microphone access.
@@ -51,11 +61,28 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
     func speak(_ text: String) throws {
         audioLease = try audioSession.activate(.speech)
         let utterance = makeUtterance(text)
+        #if PRTS_DEV
+        recordingGeneration =
+            DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
+        RecordingStore.shared.event(
+            "answer_speech_started",
+            details: [
+                "text": text, "voice": utterance.voice?.identifier ?? "system_default",
+                "rate": String(utterance.rate), "pitch": String(utterance.pitchMultiplier),
+            ],
+            generation: recordingGeneration
+        )
+        #endif
         activeUtterance = ObjectIdentifier(utterance)
         synthesizer.speak(utterance)
     }
 
     func stop() {
+        #if PRTS_DEV
+        if activeUtterance != nil || activeCue != nil {
+            RecordingStore.shared.event("answer_audio_stopped", generation: recordingGeneration)
+        }
+        #endif
         activeCue = nil
         activeUtterance = nil
         synthesizer.stopSpeaking(at: .immediate)

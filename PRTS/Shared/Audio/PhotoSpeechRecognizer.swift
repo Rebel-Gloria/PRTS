@@ -1,8 +1,8 @@
 import AVFoundation
 import Speech
 
-/// A single push-to-talk utterance. Audio buffers go only to native recognition;
-/// no audio file is created. The coordinator owns permission and gesture lifetime.
+/// A single push-to-talk utterance. Dev additionally preserves the already authorized
+/// microphone input for replay. The coordinator owns permission and gesture lifetime.
 @MainActor
 final class PhotoSpeechRecognizer: PhotoRecognizing {
     enum RecognitionError: LocalizedError {
@@ -30,6 +30,9 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
     private var result: Result<String, Error>?
     private var waiter: CheckedContinuation<String, Error>?
     private var timeout: Task<Void, Never>?
+    #if PRTS_DEV
+    private var recording: DevAudioRecording?
+    #endif
 
     convenience init() { self.init(audioSession: .shared) }
 
@@ -51,6 +54,10 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
     }
 
     func start() async throws {
+        #if PRTS_DEV
+        let recordingGeneration =
+            DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
+        #endif
         cancel()
         let id = UUID()
         generation = id
@@ -74,8 +81,15 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             cancel()
             throw RecognitionError.microphoneUnavailable
         }
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+        #if PRTS_DEV
+        let recording = DevAudioRecording(id: id.uuidString)
+        self.recording = recording
+        #endif
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, time in
             request.append(buffer)
+            #if PRTS_DEV
+            recording.append(buffer, time: time)
+            #endif
         }
         tapInstalled = true
         task = recognizer.recognitionTask(with: request) { [weak self] value, error in
@@ -86,6 +100,15 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             Task { @MainActor [weak self] in
                 guard let self, self.generation == id else { return }
                 if let text { self.latest = text }
+                #if PRTS_DEV
+                if let text {
+                    RecordingStore.shared.event(
+                        "speech_recognized",
+                        details: ["utteranceID": id.uuidString, "text": text, "final": String(final)],
+                        generation: recordingGeneration
+                    )
+                }
+                #endif
                 if final {
                     self.complete(self.textResult())
                 } else if failed {
@@ -168,6 +191,10 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             engine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
         }
+        #if PRTS_DEV
+        recording?.finish()
+        recording = nil
+        #endif
         audioSession.release(audioLease)
         audioLease = nil
     }

@@ -7,6 +7,29 @@ import Testing
 
 private enum ReadingTestError: Error { case failed }
 
+private actor ReadingPendingAnswer {
+    private var continuation: CheckedContinuation<String, Never>?
+    private var arrival: CheckedContinuation<Void, Never>?
+
+    func read() async -> String {
+        await withCheckedContinuation {
+            continuation = $0
+            arrival?.resume()
+            arrival = nil
+        }
+    }
+
+    func waitForRequest() async {
+        if continuation != nil { return }
+        await withCheckedContinuation { arrival = $0 }
+    }
+
+    func finish() {
+        continuation?.resume(returning: "旧文字。")
+        continuation = nil
+    }
+}
+
 nonisolated private final class ReadingTestCamera: TextCapturing, @unchecked Sendable {
     let session = AVCaptureSession()
     private let lock = NSLock()
@@ -169,6 +192,26 @@ private final class ReadingHarness {
 
 @MainActor
 struct TextReadingSessionTests {
+    @Test func mutedReaderCompletesWithoutCancellingOrReplayingSpeech() async {
+        let pending = ReadingPendingAnswer()
+        let h = ReadingHarness { services in
+            services.vision = { _ in await pending.read() }
+        }
+        h.session.start(intro: "intro")
+        h.capture()
+        h.camera.deliver(0, image: h.image())
+        await pending.waitForRequest()
+        let work = h.session.work
+        h.session.setFeedbackEnabled(false)
+        #expect(work?.isCancelled == false)
+        h.session.setFeedbackEnabled(true)
+        await pending.finish()
+        await work?.value
+        #expect(h.audio.spoken == ["intro", "ocr.capturing"])
+        #expect(h.session.phase == .idle)
+        #expect(h.ended == 1)
+    }
+
     @Test func cancelledHandoffCannotStartTheTextCameraLater() {
         let h = ReadingHarness()
         var ready: (@MainActor @Sendable () -> Void)?

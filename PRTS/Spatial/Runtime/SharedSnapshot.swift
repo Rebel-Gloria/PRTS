@@ -34,6 +34,7 @@ struct SharedSnapshot: Sendable {
     var analysisFPS: Double = 0
     var meshMS: Double = 0
     var running = false
+    var interrupted = false
     var geometryEnabled = false
     var minimumGeometryFrameID: UInt64 = 0
     var minimumGuidanceFrameID: UInt64 = 0
@@ -48,7 +49,7 @@ struct SharedSnapshot: Sendable {
     var meshDrops = 0
     var activeMonocular: MonocularFrame? {
         let prediction = frozen != nil ? frozenMonocular : monocular
-        guard usesMonocular, running, let prediction, prediction.frame.epoch == epoch,
+        guard usesMonocular, running, !interrupted, let prediction, prediction.frame.epoch == epoch,
             prediction.frame.parameterVersion == parameterVersion
         else { return nil }
         if frozen == nil
@@ -80,7 +81,8 @@ struct SharedSnapshot: Sendable {
         var gate = ResultPresentationGate()
         guard let frame else { return gate }
         gate.enabled =
-            running && geometryEnabled && frozen == nil && thermalRaw < 3 && frame.epoch == epoch
+            running && !interrupted && geometryEnabled && frozen == nil && thermalRaw < 3
+            && frame.epoch == epoch
             && frame.parameterVersion == parameterVersion
         gate.trackingNormal = frame.trackingNormal
         gate.directionStable = frame.directionStable

@@ -12,14 +12,7 @@ final class ProbeViewModel: ObservableObject {
     let engine: ProbeEngine
     @Published var snapshot = SharedSnapshot()
     @Published var options = RenderOptions() {
-        didSet {
-            #if PRTS_DEV_CAPTURE
-            if let data = try? JSONEncoder().encode(options) {
-                UserDefaults.standard.set(data, forKey: "homeRenderOptions.v1")
-            }
-            #endif
-            engine.updateOptions(options)
-        }
+        didSet { engine.updateOptions(options) }
     }
     /// Settings → Display → Scan mesh, the one picture option release builds offer.
     static let scanMeshKey = "display.scanMesh"
@@ -34,17 +27,13 @@ final class ProbeViewModel: ObservableObject {
         }
     }
     var supportsScanMesh: Bool { engine.capabilities.meshClassification }
-    @Published var parameters = ProbeParameters()
-    @Published var pathOptions = PathOptions()
-    #if PRTS_DEV_CAPTURE
-    @Published var devCaptureStatus = DevCaptureRecorder.Status()
-    #endif
+    let parameters = ProbeParameters()
+    let pathOptions = PathOptions()
+    @Published var recordingStatus = ""
+    @Published var clearingRecordings = false
     @Published var hapticStatus = "等待路径"
     var feedbackSuspended = false
     private let feedback: any SpatialFeedback
-    @Published var recorderStatus = RecorderStatus()
-    @Published var diagnosticStatus = DiagnosticStatus()
-    @Published var diagnosticRuns: [DiagnosticRun] = []
     @Published var permissionMessage: String?
     @Published var requestingPermission = false
     @Published var exporting = false
@@ -56,21 +45,8 @@ final class ProbeViewModel: ObservableObject {
     init(engine: ProbeEngine, feedback: any SpatialFeedback) {
         self.engine = engine
         self.feedback = feedback
-        #if PRTS_DEV_CAPTURE
-        if let data = UserDefaults.standard.data(forKey: "homeRenderOptions.v1"),
-            let saved = try? JSONDecoder().decode(RenderOptions.self, from: data)
-        {
-            options = saved
-        }
-        #else
         options = .product(scanMesh: UserDefaults.standard.bool(forKey: Self.scanMeshKey))
-        #endif
         engine.updateOptions(options)
-        if let data = UserDefaults.standard.data(forKey: "pathOptions"),
-            let options = try? JSONDecoder().decode(PathOptions.self, from: data)
-        {
-            pathOptions = options.validated()
-        }
         engine.store.update { $0.pathOptions = pathOptions }
         UIDevice.current.isBatteryMonitoringEnabled = true
         engine.diagnostics.event(
@@ -92,7 +68,6 @@ final class ProbeViewModel: ObservableObject {
         )
         if phase != .active {
             feedback.reset()
-            engine.stop(reason: "已切到后台，回来后请重新开始")
         }
         if phase == .background {
             endBackgroundFlush()
@@ -115,43 +90,43 @@ final class ProbeViewModel: ObservableObject {
             backgroundTask = .invalid
         }
     }
-    func refreshDiagnostics() {
-        engine.diagnostics.journal.listRuns { [weak self] runs in
-            Task { @MainActor [weak self] in self?.diagnosticRuns = runs }
-        }
-    }
-    func exportDiagnostics(runID: String? = nil) {
-        guard !exporting else { return }
+    func exportRecordings() {
+        guard !exporting, !clearingRecordings else { return }
         exporting = true
-        #if PRTS_DEV_CAPTURE
-        engine.devCapture.stop { [weak self] in
-            Task { @MainActor [weak self] in self?.performDiagnosticExport(runID: runID) }
+        #if PRTS_DEV
+        DevInteractionRecording.flush { [weak self] in
+            RecordingStore.shared.export { result in
+                Task { @MainActor [weak self] in
+                    self?.exporting = false
+                    switch result {
+                    case .success(let url): self?.exportURL = url
+                    case .failure(let error): self?.errorMessage = error.localizedDescription
+                    }
+                }
+            }
         }
         #else
-        performDiagnosticExport(runID: runID)
+        exporting = false
         #endif
     }
-    private func performDiagnosticExport(runID: String?) {
-        engine.diagnostics.journal.export(
-            runID: runID,
-            to: FileManager.default.temporaryDirectory.appendingPathComponent(
-                "DiagExports",
-                isDirectory: true
-            )
-        ) { [weak self] result in
+    func clearRecordings() {
+        guard !exporting, !clearingRecordings else { return }
+        clearingRecordings = true
+        RecordingStore.shared.clear { [weak self] result in
             Task { @MainActor [weak self] in
-                self?.exporting = false
-                switch result {
-                case .success(let url): self?.exportURL = url
-                case .failure(let error): self?.errorMessage = error.localizedDescription
-                }
+                self?.clearingRecordings = false
+                if case .failure(let error) = result { self?.errorMessage = error.localizedDescription }
+                self?.poll()
             }
         }
     }
     var capabilities: DeviceCapabilities { engine.capabilities }
     func poll() {
-        #if PRTS_DEV_CAPTURE
-        devCaptureStatus = engine.devCapture.status()
+        #if PRTS_DEV
+        let recording = RecordingStore.shared.status()
+        recordingStatus = recording.error ?? (recording.droppedTotal > 0
+            ? AppLocalization.interfaceString("recording.status.gaps")
+            : AppLocalization.interfaceString("recording.status.active"))
         #endif
         let thermal = ProcessInfo.processInfo.thermalState
         if thermal.rawValue != lastThermal {
@@ -178,8 +153,6 @@ final class ProbeViewModel: ObservableObject {
         }
         engine.store.update { $0.orientation = orientation }
         snapshot = engine.store.read()
-        recorderStatus = engine.recorder.status()
-        diagnosticStatus = engine.diagnostics.journal.status()
         feedback.tick(snapshot, diagnostics: engine.diagnostics, suspended: feedbackSuspended)
         hapticStatus = feedback.status
         let now = ProcessInfo.processInfo.systemUptime
@@ -194,10 +167,6 @@ final class ProbeViewModel: ObservableObject {
                 appState: String(UIApplication.shared.applicationState.rawValue)
             )
         }
-    }
-    func setSimulatedNoLiDAR(_ value: Bool) {
-        engine.setSimulatedNoLiDAR(value, device: deviceMetadata)
-        poll()
     }
     func start(allowed: Bool, isActive: Bool) async {
         engine.diagnostics.event(
@@ -234,45 +203,5 @@ final class ProbeViewModel: ObservableObject {
             "bundleID": Bundle.main.bundleIdentifier ?? "",
             "capabilities": capabilities.description,
         ]
-    }
-    func updatePathSettings() {
-        pathOptions = pathOptions.validated()
-        if let data = try? JSONEncoder().encode(pathOptions) {
-            UserDefaults.standard.set(data, forKey: "pathOptions")
-        }
-        feedback.reset()
-        engine.updatePathOptions(pathOptions)
-        poll()
-    }
-    func updateSettings() {
-        engine.updateParameters(parameters)
-        engine.updateOptions(options)
-        poll()
-    }
-    func updateLayers() {
-        engine.updateOptions(options)
-        poll()
-    }
-    func sample() {
-        engine.manualSample(display: [
-            "layer": options.layer.title, "smoothedDisplay": String(options.smoothedDisplay),
-            "surfaceModel": String(options.showSurfaceModel),
-            "blockingColumns": String(options.showBlockingColumns),
-            "viewport": "aspect-fit; raw sample is sensor orientation",
-        ])
-        poll()
-    }
-    func export() {
-        guard !exporting else { return }
-        exporting = true
-        engine.recorder.export { [weak self] result in
-            Task { @MainActor [weak self] in
-                self?.exporting = false
-                switch result {
-                case .success(let url): self?.exportURL = url
-                case .failure(let error): self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
     }
 }

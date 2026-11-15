@@ -16,10 +16,6 @@ private struct AnalysisJob: Sendable {
 final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     let store = SharedStore()
     let diagnostics = DiagnosticRecorder()
-    #if PRTS_DEV_CAPTURE
-    let devCapture: DevCaptureRecorder
-    #endif
-    let recorder: SessionRecorder
     let capabilities: DeviceCapabilities
     private let session: any ProbeSession
     private let sessionQueue: DispatchQueue
@@ -51,16 +47,11 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         self.session = session
         self.capabilities = capabilities
         self.sessionQueue = sessionQueue
-        #if PRTS_DEV_CAPTURE
-        devCapture = DevCaptureRecorder(root: diagnostics.journal.directory)
-        #endif
-        recorder = SessionRecorder(diagnostics: diagnostics)
         super.init()
         session.configure(delegate: self, queue: sessionQueue)
         let mono = DepthBackendPolicy(
             supportsSceneDepth: capabilities.depth,
-            requestedSimulation: UserDefaults.standard.bool(forKey: "simulateNoLiDAR")
-                || ProcessInfo.processInfo.arguments.contains("--simulate-no-lidar")
+            requestedSimulation: false
         ).usesMonocular
         store.update {
             $0.status = capabilities.description
@@ -111,6 +102,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.routeHazardWatermark = 0
                 $0.epoch = epoch
                 $0.running = true
+                $0.interrupted = false
                 $0.geometryEnabled = false
                 $0.frame = nil
                 $0.frozen = nil
@@ -131,7 +123,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.droppedFrames = 0
                 $0.meshDrops = 0
             }
-            recorder.begin(epoch: epoch, parameters: s.parameters, device: device)
+            diagnostics.event("session_started", details: device.description, epoch: epoch)
             diagnostics.event(
                 "session_configuration",
                 details:
@@ -139,7 +131,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 epoch: epoch
             )
             session.run(config)
-            recorder.event(
+            diagnostics.event(
                 "session_started",
                 details: capabilities.description + "; backend="
                     + (s.usesMonocular ? "apple_coreml_no_lidar" : "arkit_sceneDepth")
@@ -154,11 +146,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     ) {
         diagnostics.event("stop_requested", details: reason, epoch: store.read().epoch)
         sessionQueue.async { [self] in
-            #if PRTS_DEV_CAPTURE
-            devCapture.stop()
-            #endif
             store.update {
                 $0.running = false
+                $0.interrupted = false
                 $0.geometryEnabled = false
                 $0.frame = nil
                 $0.frozen = nil
@@ -178,9 +168,12 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             mailbox.discardPending()
             meshInbox.clear()
             session.pause()
+            #if PRTS_DEV
+            RecordingStore.shared.endVideoSegment(source: "arkit")
+            #endif
             directionGate.reset()
-            recorder.event("invalidated", details: reason, epoch: epoch)
-            recorder.finish(epoch: epoch)
+            diagnostics.event("invalidated", details: reason, epoch: epoch)
+            diagnostics.event("session_stopped", details: reason, epoch: epoch)
             completion()
         }
     }
@@ -196,36 +189,16 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         sessionQueue.async { [self] in
             analysisQueue.async { [self] in
                 meshQueue.async { [self] in
-                    recorder.flush { [self] in
-                        #if PRTS_DEV_CAPTURE
-                        devCapture.stop { [self] in diagnostics.journal.flush(completion: finish) }
-                        #else
-                        diagnostics.journal.flush(completion: finish)
-                        #endif
+                    #if PRTS_DEV
+                    DevInteractionRecording.flush { [self] in
+                        diagnostics.journal.suspend(completion: finish)
                     }
+                    #else
+                    diagnostics.journal.suspend(completion: finish)
+                    #endif
                 }
             }
         }
-    }
-    func setSimulatedNoLiDAR(_ requested: Bool, device: [String: String]) {
-        let effective = DepthBackendPolicy(
-            supportsSceneDepth: capabilities.depth,
-            requestedSimulation: requested
-        ).usesMonocular
-        let wasRunning = store.read().running
-        guard effective != store.read().usesMonocular else { return }
-        stop(reason: "深度来源切换，旧证据已清空")
-        UserDefaults.standard.set(requested, forKey: "simulateNoLiDAR")
-        store.update {
-            $0.usesMonocular = effective
-            $0.monocularStatus = "等待模型推理"
-        }
-        diagnostics.event(
-            "depth_backend_changed",
-            details: effective ? "apple_coreml_no_lidar" : "arkit_sceneDepth",
-            epoch: store.read().epoch
-        )
-        if wasRunning { start(device: device) }
     }
     func updateParameters(_ parameters: ProbeParameters) {
         store.update {
@@ -239,38 +212,13 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             $0.geometryEnabled = false
         }
         let s = store.read()
-        recorder.event(
+        diagnostics.event(
             "parameters_changed",
             details: String(
                 data: (try? JSONEncoder().encode(s.parameters)) ?? Data(),
                 encoding: .utf8
             ) ?? "",
             epoch: s.epoch
-        )
-    }
-    func updatePathOptions(_ options: PathOptions) {
-        store.update {
-            let next = options.validated()
-            if next.minimumWidth != $0.pathOptions.minimumWidth
-                || next.waypoints != $0.pathOptions.waypoints
-            {
-                $0.parameterVersion &+= 1
-                $0.result = nil
-                $0.pathUpdate = .init(reason: "body_options_changed")
-                $0.geometryEnabled = false
-            }
-            $0.pathOptions = next
-            if !options.enabled { $0.pathUpdate = .init(reason: "disabled") }
-            // Feedback/display controls do not restart ground or metric-scale confirmation.
-            // Geometry/body parameters retain their separate version/barrier path.
-        }
-        diagnostics.event(
-            "path_options",
-            details: String(
-                data: (try? DiagnosticJSON.encode(options.validated())) ?? Data(),
-                encoding: .utf8
-            ) ?? "",
-            epoch: store.read().epoch
         )
     }
     func updateOptions(_ options: RenderOptions) {
@@ -280,29 +228,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             details: String(data: (try? DiagnosticJSON.encode(options)) ?? Data(), encoding: .utf8)
                 ?? "encode_failed",
             epoch: store.read().epoch
-        )
-    }
-    func manualSample(display: [String: String]) {
-        let s = store.read()
-        if s.usesMonocular {
-            if let prediction = s.activeMonocular {
-                diagnostics.monocular(prediction, manual: true)
-                recorder.predictionSampleSubmitted()
-            } else {
-                diagnostics.event(
-                    "manual_prediction_unavailable",
-                    details: "no fresh matching prediction",
-                    epoch: s.epoch
-                )
-            }
-            return
-        }
-        guard let frame = s.frozen ?? s.analyzedFrame ?? s.displayedFrame else { return }
-        recorder.manualSample(
-            frame: frame,
-            result: s.diagnosticResult?.frameID == frame.id ? s.diagnosticResult : nil,
-            meshes: Array(s.meshes.values),
-            display: display
         )
     }
     func setThermal(raw: Int, name: String) {
@@ -320,12 +245,12 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             }
         }
         let s = store.read()
-        recorder.event("thermal_changed", details: name, epoch: s.epoch)
+        diagnostics.event("thermal_changed", details: name, epoch: s.epoch)
     }
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         let received = ProcessInfo.processInfo.systemUptime
         let s = store.read()
-        guard s.running else { return }
+        guard s.running, !s.interrupted else { return }
         let normal: Bool
         if case .normal = frame.camera.trackingState { normal = true } else { normal = false }
         let stable = directionGate.update(
@@ -353,10 +278,6 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             orientation: s.orientation
         )
         diagnostics.capture(snapshot)
-        if case .limited(.relocalizing) = frame.camera.trackingState {
-            stop(reason: "重定位：旧证据已清空，请重新开始")
-            return
-        }
         store.update {
             guard $0.running, $0.epoch == epoch else { return }
             $0.frame = snapshot
@@ -379,14 +300,14 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         if s.geometryEnabled != (normal && s.thermalRaw < 3)
             || s.frame?.tracking != snapshot.tracking || s.frame?.directionStable != stable
         {
-            recorder.event(
+            diagnostics.event(
                 "output_gate",
                 details:
                     "tracking=\(snapshot.tracking),directionStable=\(stable),geometryEnabled=\(normal && s.thermalRaw < 3),guidanceEnabled=\(normal && stable && s.thermalRaw < 3),thermal=\(s.thermalRaw)",
                 epoch: epoch
             )
         }
-        guard s.thermalRaw < 3 else { return }
+        guard normal, s.thermalRaw < 3 else { return }
         let hz = s.thermalRaw >= 2 ? min(5, s.parameters.processingHz) : s.parameters.processingHz
         guard frame.timestamp - lastSubmitted >= 1 / hz else { return }
         lastSubmitted = frame.timestamp
@@ -401,7 +322,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             autoreleasepool {
                 let frame = job.frame
                 let before = store.read()
-                guard before.running, before.epoch == frame.epoch,
+                guard before.running, !before.interrupted, before.epoch == frame.epoch,
                     before.parameterVersion == frame.parameterVersion
                 else { return }
                 // A tracking interruption can be shorter than the analysis interval. Observe the
@@ -591,7 +512,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     lastAnalysisCompletion > 0 ? 1 / max(0.001, now - lastAnalysisCompletion) : 0
                 lastAnalysisCompletion = now
                 store.update { s in
-                    guard s.running, s.epoch == frame.epoch,
+                    guard s.running, !s.interrupted, s.epoch == frame.epoch,
                         s.parameterVersion == frame.parameterVersion
                     else { return }
                     let decision = RoutePublicationPolicy.decide(
@@ -623,11 +544,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     }
                 }
                 let s = store.read()
-                #if PRTS_DEV_CAPTURE
-                let captureEnabled = devCapture.status().enabled
-                #else
-                let captureEnabled = false
-                #endif
+                let captureEnabled = diagnostics.journal.isEnabled
                 if lastAnalyzedEpoch != frame.epoch {
                     lastAnalyzedCaptureTimestamp = nil
                     lastAnalyzedEpoch = frame.epoch
@@ -658,30 +575,13 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     geometryOutputEligible: s.activeGeometryResult(now: now)?.frameID
                         == result.frameID
                 )
-                #if PRTS_DEV_CAPTURE
-                if s.running, s.epoch == frame.epoch, s.parameterVersion == frame.parameterVersion {
-                    devCapture.submit(
-                        frame: frame,
-                        result: result,
-                        path: pathUpdate,
-                        observation: observation,
-                        prediction: prediction,
-                        meshes: s.meshes,
-                        pathOptions: before.pathOptions
-                    )
-                }
-                #endif
                 diagnostics.analysis(
                     result,
                     frame: frame,
                     observation: observation,
                     metrics: metrics
                 )
-                if s.running, s.epoch == frame.epoch,
-                    s.parameterVersion == frame.parameterVersion
-                {
-                    recorder.record(result, frame: frame, metrics: metrics)
-                }
+
             }
         }
     }
@@ -696,7 +596,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
     }
     private func enqueueMeshes(_ anchors: [ARAnchor], removed: Bool) {
         let s = store.read()
-        guard s.running else { return }
+        guard s.running, !s.interrupted else { return }
         for case let anchor as ARMeshAnchor in anchors {
             let id = anchor.identifier.uuidString
             if removed {
@@ -731,7 +631,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     }
                     $0.meshDrops += 1
                 }
-                recorder.event("mesh_update_dropped", details: evicted, epoch: epoch)
+                diagnostics.event("mesh_update_dropped", details: evicted, epoch: epoch)
             }
             if submission.schedule { meshQueue.async { [self] in drainMeshes() } }
         }
@@ -740,7 +640,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         while let job = meshInbox.next() {
             autoreleasepool {
                 let s = store.read()
-                guard s.running, s.epoch == job.epoch else { return }
+                guard s.running, !s.interrupted, s.epoch == job.epoch else { return }
                 let start = ProcessInfo.processInfo.systemUptime
                 meshRevision &+= 1
                 let copied = job.anchor.flatMap {
@@ -756,7 +656,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                         ? "removed_applied" : (copied == nil ? "copy_failed" : "updated")
                 )
                 store.update { state in
-                    guard state.running, state.epoch == job.epoch else { return }
+                    guard state.running, !state.interrupted, state.epoch == job.epoch else {
+                        return
+                    }
                     state.meshes[job.id] = copied
                     // Bound world-background cache. Eviction removes evidence; never preserves stale certainty.
                     while state.meshes.count > 64
@@ -777,14 +679,48 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             }
         }
     }
-    func sessionWasInterrupted(_ session: ARSession) { stop(reason: "会话中断；旧证据已清空") }
+    func sessionWasInterrupted(_ session: ARSession) {
+        guard store.read().running else { return }
+        // ARKit resumes this session itself. Pausing here would prevent that recovery.
+        // A new evidence epoch also rejects work already running when the interruption arrived.
+        epoch &+= 1
+        mailbox.discardPending()
+        meshInbox.clear()
+        directionGate.reset()
+        lastSubmitted = 0
+        lastFrameTime = 0
+        store.update {
+            $0.epoch = epoch
+            $0.interrupted = true
+            $0.geometryEnabled = false
+            $0.frame = nil
+            $0.frozen = nil
+            $0.result = nil
+            $0.surfaceHistory.reset()
+            $0.pathUpdate = .init(reason: "session_interrupted")
+            $0.diagnosticResult = nil
+            $0.analyzedFrame = nil
+            $0.meshes = [:]
+            $0.monocular = nil
+            $0.frozenMonocular = nil
+            $0.nativePlanes = []
+            $0.minimumGeometryFrameID = frameID + 1
+            $0.minimumGuidanceFrameID = frameID + 1
+            $0.status = "相机被系统暂时中断"
+        }
+        diagnostics.event("session_interrupted", details: "awaiting_system_resume", epoch: epoch)
+    }
     func sessionInterruptionEnded(_ session: ARSession) {
         diagnostics.event(
             "session_interruption_ended",
-            details: "restart_required",
+            details: "awaiting_fresh_tracking",
             epoch: store.read().epoch
         )
-        store.update { $0.status = "中断结束，请点击开始建立新会话" }
+        store.update {
+            guard $0.running else { return }
+            $0.interrupted = false
+            $0.status = "相机恢复中，等待当前画面"
+        }
     }
     func session(_ session: ARSession, didFailWithError error: Error) {
         ErrorLog.application.record(error, source: .camera)
@@ -796,5 +732,5 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         )
         stop(reason: "ARSession 失败：\(error.localizedDescription)")
     }
-    func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { false }
+    func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool { store.read().running }
 }

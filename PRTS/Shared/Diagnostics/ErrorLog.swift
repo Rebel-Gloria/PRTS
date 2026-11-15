@@ -18,8 +18,8 @@ nonisolated final class ErrorLog: @unchecked Sendable {
     static let productionLimit = 1_000_000_000
     static let application: ErrorLog = {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        #if PRTS_DEV_CAPTURE
-        return ErrorLog(directory: documents.appendingPathComponent("DevDiagnostics/Errors"))
+        #if PRTS_DEV
+        return ErrorLog(directory: documents.appendingPathComponent("Recordings"), recordToStore: true)
         #else
         return ErrorLog(
             directory: documents.appendingPathComponent("ErrorLogs"),
@@ -37,6 +37,7 @@ nonisolated final class ErrorLog: @unchecked Sendable {
     }
 
     let directory: URL
+    private let recordToStore: Bool
     private let maximumBytes: Int?
     private let segmentBytes: Int
     private let version: String
@@ -55,15 +56,18 @@ nonisolated final class ErrorLog: @unchecked Sendable {
         maximumBytes: Int? = nil,
         segmentBytes: Int = 4 * 1024 * 1024,
         legacyDirectories: [URL] = [],
+        recordToStore: Bool = false,
         version: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
             as? String ?? ""
     ) {
         precondition(segmentBytes > 0 && (maximumBytes.map { $0 > 0 } ?? true))
         self.directory = directory
+        self.recordToStore = recordToStore
         self.maximumBytes = maximumBytes
         self.segmentBytes = segmentBytes
         self.version = version
         encoder.dateEncodingStrategy = .iso8601
+        guard !recordToStore else { return }
         queue.async {
             do {
                 try self.prepare(legacyDirectories: legacyDirectories)
@@ -83,6 +87,12 @@ nonisolated final class ErrorLog: @unchecked Sendable {
             domain: error.domain,
             code: error.code
         )
+        if recordToStore {
+            RecordingStore.shared.event("error", details: [
+                "source": source.rawValue, "domain": error.domain, "code": String(error.code),
+            ])
+            return
+        }
         let accepted = admission.withLock {
             guard pending < 64 else { return false }
             pending += 1
@@ -104,6 +114,10 @@ nonisolated final class ErrorLog: @unchecked Sendable {
     }
 
     func flush() async throws {
+        if recordToStore {
+            await withCheckedContinuation { done in RecordingStore.shared.flush { done.resume() } }
+            return
+        }
         try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
             queue.async {
                 do {

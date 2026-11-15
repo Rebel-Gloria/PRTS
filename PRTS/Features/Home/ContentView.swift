@@ -43,10 +43,6 @@ struct ContentView: View {
     /// Skips the Metal preview for users who don't look at the screen. Analysis, guidance,
     /// haptics and photo capture read the shared snapshot, not the renderer.
     @AppStorage(InteractionPreferences.noPreviewKey) private var noPreview = false
-    #if PRTS_DEV_CAPTURE
-    @AppStorage("developer.showCommandEntry") private var showCommandEntry = true
-    @State private var commandText = ""
-    #endif
     private let pollTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -73,21 +69,6 @@ struct ContentView: View {
 
                         Spacer()
                             .frame(maxWidth: .infinity)
-                            #if PRTS_DEV_CAPTURE
-                        .overlay(alignment: .topLeading) {
-                            // At accessibility text sizes the metrics would cover the controls.
-                            if !dynamicTypeSize.isAccessibilitySize {
-                                GeometryReader { bounds in
-                                    ScrollView {
-                                        HomeDemoOverlay(model: camera.model)
-                                    }
-                                    .frame(width: bounds.size.width, height: bounds.size.height)
-                                    .clipped()
-                                }
-                            }
-                        }
-
-                            #endif
 
                         GlassGroup(spacing: 0) {
                             VStack(spacing: 20) {
@@ -196,7 +177,7 @@ struct ContentView: View {
             .onChange(of: operationMessage) { _, message in
                 // Errors are otherwise only visible text, which a blind user without VoiceOver
                 // never learns of.
-                guard let message else { return }
+                guard let message, scenePhase == .active, homeActionsAvailable else { return }
                 if UIAccessibility.isVoiceOverRunning {
                     SpeechManager.postQueuedAnnouncement(message)
                 } else {
@@ -205,25 +186,27 @@ struct ContentView: View {
             }
             .onChange(of: photo.message) { _, message in
                 // Photo progress ("正在描述"…) is shown under the button; VoiceOver reads it too.
-                if !message.isEmpty, !photo.isAnnouncing, UIAccessibility.isVoiceOverRunning {
+                if !message.isEmpty, !photo.isAnnouncing, scenePhase == .active,
+                    homeActionsAvailable, UIAccessibility.isVoiceOverRunning
+                {
                     SpeechManager.postQueuedAnnouncement(message)
                 }
             }
             .onChange(of: isShowingSettings) { _, shown in
+                updateFeatureFeedback()
                 if shown {
-                    liveCaption.stop()
-                    photo.cancel()
-                    textReading.terminate()
                     feedback.reset()
-                    speechManager.cancelPerceptionSpeech()
+                    speechManager.stopCurrentSpeech()
                 }
             }
+            .onChange(of: lowVisionMode) { _, enabled in
+                camera.setLowVisionMode(enabled)
+            }
+            .onChange(of: isShowingUserGuide) { _, _ in updateFeatureFeedback() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { pointerCannotHold = Self.assistivePointerRunning }
+                updateFeatureFeedback()
                 if phase != .active {
-                    liveCaption.stop()
-                    photo.cancel()
-                    textReading.terminate()
                     stopHoldTask?.cancel()
                     stopHoldTask = nil
                     isHoldingStop = false
@@ -233,11 +216,13 @@ struct ContentView: View {
                 camera.lifecycle(phase)
                 if phase != .active {
                     feedback.reset()
-                    speechManager.cancelPerceptionSpeech()
+                    speechManager.stopCurrentSpeech()
                 }
                 runPendingCommand()
             }
             .onAppear {
+                camera.setLowVisionMode(lowVisionMode)
+                updateFeatureFeedback()
                 camera.poll(suspendFeedback: true)
                 speechManager.speakHomeScreen(cameraState: camera.state)
                 // The guide opens once, on the first launch. A launch from the Action button skips
@@ -275,9 +260,9 @@ struct ContentView: View {
                 }
             }
             .onDisappear {
-                liveCaption.stop()
-                photo.cancel()
-                textReading.terminate()
+                photo.setFeedbackEnabled(false)
+                liveCaption.setFeedbackEnabled(false)
+                textReading.setFeedbackEnabled(false)
             }
             .onReceive(
                 NotificationCenter.default.publisher(
@@ -306,6 +291,15 @@ struct ContentView: View {
     private var guidanceSuppressed: Bool { lowVisionMode || isShowingUserGuide }
 
     private var homeActionsAvailable: Bool { !isShowingSettings && !isShowingUserGuide }
+
+    private func updateFeatureFeedback() {
+        let enabled = scenePhase == .active && homeActionsAvailable
+        hapticManager.setFeedbackEnabled(enabled)
+        photo.setFeedbackEnabled(enabled)
+        liveCaption.setFeedbackEnabled(enabled)
+        textReading.setFeedbackEnabled(enabled)
+        if !enabled { camera.poll(suspendFeedback: true) }
+    }
 
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -339,6 +333,13 @@ struct ContentView: View {
 
     @ViewBuilder
     private var controls: some View {
+        #if PRTS_DEV
+        Text("recording.home.privacy")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .accessibilityIdentifier("recordingPrivacyNotice")
+        #endif
         if noPreview && camera.state == .running && !isShowingSettings { noPreviewNotice }
         if camera.state != .idle { cameraStatus }
         if let message = operationMessage {
@@ -349,10 +350,6 @@ struct ContentView: View {
                 .accessibilityIdentifier("homeOperationError")
         }
         if pointerCannotHold && camera.state == .running && !isShowingSettings { askButton }
-        #if PRTS_DEV_CAPTURE
-        // At accessibility sizes the column would reach the photo button in the middle of the preview.
-        if showCommandEntry && !(isLargeText && camera.state == .running) { commandEntry }
-        #endif
     }
 
     /// Tap alternative to holding the photo button: first tap starts the question, second sends it.
@@ -366,7 +363,7 @@ struct ContentView: View {
                 liveCaption.interruptAnnouncement()
                 photo.localized = { speechManager.interfaceString($0) }
                 photo.down(
-                    snapshot: { camera.model.snapshot.frame },
+                    capture: { try camera.capturePhoto(longestSide: $0) },
                     silence: { speechManager.stopCurrentSpeech() }
                 )
                 askingByTap = photo.busy
@@ -436,42 +433,6 @@ struct ContentView: View {
         CameraStatusView(state: camera.state, isLargeText: isLargeText)
     }
 
-    #if PRTS_DEV_CAPTURE
-    private var commandEntry: some View {
-        (isLargeText ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
-            TextField("home.command.placeholder", text: $commandText)
-                .font(.body)
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .glassSurface(in: Capsule())
-                .submitLabel(.send)
-                .onSubmit(submitCommand)
-                .accessibilityIdentifier("backendCommandField")
-            Button(action: submitCommand) {
-                Text("home.command.send").frame(maxWidth: isLargeText ? .infinity : nil)
-            }
-            .glassButtonStyle(prominent: true)
-            .disabled(commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .accessibilityIdentifier("backendCommandSend")
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private func submitCommand() {
-        let command = commandText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        commandText = ""
-        switch command {
-        case "开始", "start": startGuidance()
-        case "停止", "stop": camera.stopCamera()
-        case "状态", "status": speechManager.speak(camera.status)
-        case "读文字", "ocr": toggleTextReading()
-        default: speechManager.speak("只支持：开始、停止、状态、读文字。")
-        }
-        hapticManager.buttonTapped()
-    }
-
-    #endif
 
     private var primaryButton: some View {
         GuidanceButton(
@@ -575,7 +536,7 @@ struct ContentView: View {
             photo.localized = { speechManager.interfaceString($0) }
             if !photo.perform(
                 action,
-                snapshot: { camera.model.snapshot.frame },
+                capture: { try camera.capturePhoto(longestSide: $0) },
                 silence: { speechManager.stopCurrentSpeech() }
             ) {
                 liveCaption.cancelPress()
@@ -584,7 +545,7 @@ struct ContentView: View {
             photo.cancel()
             speechManager.stopCurrentSpeech()
             liveCaption.localized = { speechManager.interfaceString($0) }
-            liveCaption.start(snapshot: { camera.model.snapshot.frame })
+            liveCaption.start(capture: { try camera.captureCaptionFrame() })
         case .stop:
             liveCaption.stop()
             liveCaption.announce(speechManager.interfaceString("liveCaption.off"))

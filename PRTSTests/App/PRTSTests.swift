@@ -90,21 +90,22 @@ struct PRTSTests {
             JSONSerialization.jsonObject(with: JSONEncoder().encode(old)) as? [String: Any]
         )
         for key in [
-            "cameraImageVisible", "geometryOverlaysVisible", "pathVisible", "legendsVisible",
+            "cameraImageVisible", "geometryOverlaysVisible", "pathVisible",
         ] { json.removeValue(forKey: key) }
+        // Obsolete developer-only display fields in historical records are ignored.
+        json["legendsVisible"] = true
+        json["showHUD"] = true
         let decoded = try JSONDecoder().decode(
             RenderOptions.self,
             from: JSONSerialization.data(withJSONObject: json)
         )
         #expect(
             decoded.showCameraImage && decoded.showOverlays && decoded.showPath
-                && decoded.showLegends
         )
         var hidden = decoded
         hidden.showCameraImage = false
         hidden.showOverlays = false
         hidden.showPath = false
-        hidden.showHUD = false
         #expect(
             try JSONDecoder().decode(RenderOptions.self, from: JSONEncoder().encode(hidden))
                 == hidden

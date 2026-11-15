@@ -23,7 +23,7 @@ nonisolated enum PhotoDescriptionBackend {
         let configuration = request.configuration
         if configuration.provider == .onDevice {
             do {
-                let answer = try await PhotoLocalModel.shared.describe(
+                let answer = try await PhotoLocalModel.describe(
                     jpeg: jpeg,
                     prompt: text,
                     system: configuration.system,

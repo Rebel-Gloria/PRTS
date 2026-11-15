@@ -40,7 +40,22 @@ jobs:
           python -m pip install -r scripts/requirements-style.txt
           python scripts/install_shfmt.py
       - name: Check code style
+        id: style
         run: python scripts/style.py
+      - name: Collect formatter fixes
+        if: failure() && steps.style.outcome == 'failure'
+        run: |
+          python scripts/style.py --fix > "$RUNNER_TEMP/style-fix.log" 2>&1 || true
+          git diff --binary > "$RUNNER_TEMP/style.patch"
+      - name: Upload formatter fixes
+        if: always() && steps.style.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: style-fixes
+          path: |
+            ${{ runner.temp }}/style.patch
+            ${{ runner.temp }}/style-fix.log
+          retention-days: 7
       - name: Check tools and source boundaries
         run: python -B -m unittest discover -s scripts -p 'test_*.py'
       - name: Check whitespace
@@ -57,10 +72,14 @@ jobs:
         run: PRTS_CONTRACTS_ONLY=1 swift test --package-path Vendor/PRTSCore --scratch-path "$RUNNER_TEMP/Contracts"
 
   app-build:
-    # Compile check only: a header-only LocalVLM stub replaces llama.cpp and the weights are
-    # empty files, so the app links with undefined model symbols and is never run.
+    # The LocalVLM stub links normally but always reports an unavailable model.
+    # These tests cover application behavior, not model inference or physical sensors.
     runs-on: macos-26
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release, Dev]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Select the newest Xcode
@@ -72,15 +91,52 @@ jobs:
           stub="$RUNNER_TEMP/LocalVLMStub"
           mkdir -p "$stub/include" models/MiniCPM-V-4.7-1B
           cp Packages/LocalVLM/csrc/prts_local_vlm.h Packages/LocalVLM/csrc/module.modulemap "$stub/include/"
-          echo | xcrun --sdk iphoneos clang -x c -target arm64-apple-ios17.0 -c - -o "$stub/empty.o"
-          xcrun libtool -static -o "$stub/libPRTSLocalVLM.a" "$stub/empty.o"
+          for sdk in iphoneos iphonesimulator; do
+            mkdir -p "$stub/$sdk"
+            target=arm64-apple-ios17.0
+            if [ "$sdk" = iphonesimulator ]; then target="$target-simulator"; fi
+            xcrun --sdk "$sdk" clang++ -std=c++17 -target "$target" -I "$stub/include" \
+              -c scripts/ci/local_vlm_stub.cpp -o "$stub/$sdk/stub.o"
+            xcrun libtool -static -o "$stub/$sdk/libPRTSLocalVLM.a" "$stub/$sdk/stub.o"
+          done
           xcodebuild -create-xcframework -output Packages/LocalVLM/PRTSLocalVLM.xcframework \
-            -library "$stub/libPRTSLocalVLM.a" -headers "$stub/include"
+            -library "$stub/iphoneos/libPRTSLocalVLM.a" -headers "$stub/include" \
+            -library "$stub/iphonesimulator/libPRTSLocalVLM.a" -headers "$stub/include"
           touch models/MiniCPM-V-4.7-1B/MiniCPM-V-4_7-1B-Q5_K_M.gguf
           touch models/MiniCPM-V-4.7-1B/mmproj-model-f16.gguf
-      - name: Compile the app and test targets
+      - name: Select a simulator
+        run: |
+          device=$(xcrun simctl list devices available -j | python3 -c \
+            'import json,sys; print(next(d["udid"] for group in json.load(sys.stdin)["devices"].values() for d in group if d["name"].startswith("iPhone")))')
+          echo "PRTS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
+      - name: Test the app
         run: >-
-          xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration Debug
-          -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/App"
+          xcodebuild -project PRTS.xcodeproj -scheme PRTS
+          -configuration '${{ matrix.configuration }}'
+          -destination "platform=iOS Simulator,id=$PRTS_TEST_DEVICE"
+          -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
+          -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult"
+          -only-testing:PRTSTests -skip-testing:PRTSTests/PhotoLocalModelTests
+          -parallel-testing-enabled NO
           CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
-          'OTHER_LDFLAGS=$(inherited) -Wl,-undefined,dynamic_lookup' build-for-testing
+          ENABLE_TESTABILITY=YES ARCHS=arm64 test
+      - name: Compile the device app
+        run: >-
+          xcodebuild -project PRTS.xcodeproj -scheme PRTS
+          -configuration '${{ matrix.configuration }}'
+          -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/Device"
+          CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO build
+      - name: Pack test results
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/AppTests.xcresult" ]; then
+            ditto -c -k --keepParent "$RUNNER_TEMP/AppTests.xcresult" "$RUNNER_TEMP/AppTests.zip"
+          fi
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: app-tests-${{ matrix.configuration }}
+          path: ${{ runner.temp }}/AppTests.zip
+          if-no-files-found: ignore
+          retention-days: 7

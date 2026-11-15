@@ -11,7 +11,7 @@ nonisolated enum TextReadingBackend {
         let received = OSAllocatedUnfairLock(initialState: "")
         do {
             return TextReadingAnswer.Surface(
-                answer: try await PhotoLocalModel.shared.describe(
+                answer: try await PhotoLocalModel.describe(
                     jpeg: jpeg,
                     prompt: TextReadingPrompt.surfaceQuestion,
                     system: TextReadingPrompt.system,
@@ -26,7 +26,7 @@ nonisolated enum TextReadingBackend {
 
     /// Second question about the photo `surface(of:)` just looked at; the copy streams into `onText`.
     static func copy(onText: @escaping @Sendable (String) -> Void) async throws -> String {
-        try await PhotoLocalModel.shared.ask(
+        try await PhotoLocalModel.ask(
             TextReadingPrompt.copyQuestion,
             maxTokens: TextReadingPrompt.maxTokens,
             onText: onText

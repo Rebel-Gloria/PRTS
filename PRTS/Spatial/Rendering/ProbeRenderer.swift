@@ -692,21 +692,8 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         )
     }
     private func classColor(_ c: UInt8) -> SIMD4<Float> {
-        #if !PRTS_DEV_CAPTURE
-        // Release shows the mesh only because it looks good: one app-accent tone, floor fainter.
+        // Both builds use the product accent, with a fainter floor.
         return c == 2 ? SIMD4(0.25, 0.95, 0.77, 0.28) : SIMD4(0.25, 0.95, 0.77, 0.6)
-        #else
-        switch c {
-        case 1: SIMD4(0.8, 0.8, 0.95, 0.45)
-        case 2: SIMD4(0.1, 0.65, 1, 0.7)
-        case 3: SIMD4(0.75, 0.4, 1, 0.5)
-        case 4: SIMD4(1, 0.6, 0.1, 0.7)
-        case 5: SIMD4(0.95, 0.3, 0.5, 0.7)
-        case 6: SIMD4(0.2, 1, 1, 0.7)
-        case 7: SIMD4(0.6, 1, 0.4, 0.7)
-        default: SIMD4(0.55, 0.55, 0.55, 0.3)
-        }
-        #endif
     }
     private func updateBlockingBuffers(_ model: BlockingVolumeModel?, grid: LocalGrid) {
         guard let model else {

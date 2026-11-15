@@ -37,11 +37,3 @@ class DevCaptureCodecTests(unittest.TestCase):
             ):
                 with self.assertRaises(ValueError):
                     decode(Path(d), dict(ref, **changes))
-
-    def test_dev_code_is_compile_gated(self):
-        root = Path(__file__).resolve().parents[1]
-        source = (root / "PRTS/Spatial/DevCapture/DevCaptureRecorder.swift").read_text().strip()
-        self.assertTrue(source.startswith("#if PRTS_DEV_CAPTURE"))
-        self.assertTrue(source.endswith("#endif"))
-        # Normal project settings must not silently opt in.
-        self.assertNotIn("PRTS_DEV_CAPTURE", (root / "PRTS.xcodeproj/project.pbxproj").read_text())

@@ -34,6 +34,20 @@ final class TextReadingSession: ObservableObject {
     private var service = TextReadingService.vlm
     private var cloud: (key: String, service: PhotoChatService)?
     private var generation = UUID()
+    private var feedbackEnabled = true
+    private var passMaySpeak = true
+    #if PRTS_DEV
+    private var recordingGeneration: UInt64 = 0
+    #endif
+
+    func setFeedbackEnabled(_ enabled: Bool) {
+        feedbackEnabled = enabled
+        guard !enabled else { return }
+        passMaySpeak = false
+        voice.stop()
+        voiceBusy = false
+        if modelDone { end() }
+    }
 
     // Default arguments are evaluated outside the main actor, so the app uses this initializer.
     convenience init() {
@@ -68,6 +82,15 @@ final class TextReadingSession: ObservableObject {
         guard phase == .idle else { return }
         let id = UUID()
         generation = id
+        passMaySpeak = feedbackEnabled
+        #if PRTS_DEV
+        recordingGeneration = RecordingStore.shared.admissionGeneration
+        RecordingStore.shared.event(
+            "interaction_started",
+            details: ["feature": "textReading", "interactionID": id.uuidString],
+            generation: recordingGeneration
+        )
+        #endif
         phase = .aiming
         framesSeen = 0
         firstFrameAt = nil
@@ -147,17 +170,41 @@ final class TextReadingSession: ObservableObject {
 
     private func capture(_ id: UUID) {
         phase = .reading
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if feedbackEnabled && passMaySpeak {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
         cancelWork()
         do {
             try say("ocr.capturing")
-            camera.capture { [weak self] image in
+            let captured: (CIImage?) -> Void = { [weak self] image in
                 Task { @MainActor in
                     guard let self, self.generation == id else { return }
                     self.camera.stop()
-                    self.work = Task { await self.read(image, id) }
+                    #if PRTS_DEV
+                    let recordingGeneration = self.recordingGeneration
+                    #endif
+                    self.work = Task {
+                        #if PRTS_DEV
+                        await DevInteractionRecording.$interactionID.withValue(id.uuidString) {
+                            await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                                await self.read(image, id)
+                            }
+                        }
+                        #else
+                        await self.read(image, id)
+                        #endif
+                    }
                 }
             }
+            #if PRTS_DEV
+            DevInteractionRecording.$interactionID.withValue(id.uuidString) {
+                DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                    camera.capture(captured)
+                }
+            }
+            #else
+            camera.capture(captured)
+            #endif
         } catch {
             services.errors.record(error)
             end()
@@ -165,9 +212,22 @@ final class TextReadingSession: ObservableObject {
     }
 
     private func read(_ image: CIImage?, _ id: UUID) async {
+        #if PRTS_DEV
+        let recordingGeneration =
+            DevInteractionRecording.recordingGeneration ?? self.recordingGeneration
+        #endif
         do {
             guard let image else { throw PhotoChatError.emptyInput }
             let jpeg = try await services.encode(image)
+            #if PRTS_DEV
+            RecordingStore.shared.attachment(
+                data: jpeg,
+                kind: "model_input",
+                fileExtension: "jpg",
+                metadata: ["feature": "textReading", "interactionID": id.uuidString],
+                generation: recordingGeneration
+            )
+            #endif
             try await service.read(remoteAvailable: cloud != nil) { reader in
                 guard generation == id else { throw CancellationError() }
                 do {
@@ -186,6 +246,11 @@ final class TextReadingSession: ObservableObject {
         } catch is CancellationError {
             if generation == id { end() }
         } catch {
+            #if PRTS_DEV
+            DevInteractionRecording.failure(
+                error, feature: "textReading", id: id.uuidString, generation: recordingGeneration
+            )
+            #endif
             services.errors.record(error)
             finishModel(id, failed: true)
         }
@@ -234,11 +299,27 @@ final class TextReadingSession: ObservableObject {
             )
             received(text, id)
         }
+        #if PRTS_DEV
+        RecordingStore.shared.event(
+            "text_reading_backend_completed",
+            details: ["interactionID": id.uuidString, "backend": String(describing: reader)],
+            generation: recordingGeneration
+        )
+        #endif
         try Task.checkCancellation()
     }
 
     private func received(_ piece: String, _ id: UUID) {
         guard generation == id else { return }
+        #if PRTS_DEV
+        RecordingStore.shared.event(
+            "interaction_result_delta",
+            details: [
+                "feature": "textReading", "interactionID": id.uuidString, "text": piece,
+            ],
+            generation: recordingGeneration
+        )
+        #endif
         do {
             for line in answer.append(piece) { try speak(line) }
         } catch {
@@ -275,7 +356,14 @@ final class TextReadingSession: ObservableObject {
     private func say(_ key: String) throws { try speak(localized(key)) }
 
     private func speak(_ text: String) throws {
+        guard feedbackEnabled, passMaySpeak else { return }
+        #if PRTS_DEV
+        try DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+            try voice.speak(text)
+        }
+        #else
         try voice.speak(text)
+        #endif
         voiceBusy = true
         if phase == .reading { phase = .speaking }
     }
@@ -297,6 +385,16 @@ final class TextReadingSession: ObservableObject {
 
     private func end() {
         guard phase != .idle else { return }
+        #if PRTS_DEV
+        DevInteractionRecording.noteSuppressedAfterClear(
+            feature: "textReading", id: generation.uuidString, generation: recordingGeneration
+        )
+        RecordingStore.shared.event(
+            "interaction_ended",
+            details: ["feature": "textReading", "interactionID": generation.uuidString],
+            generation: recordingGeneration
+        )
+        #endif
         invalidateWork()
         voice.stop()
         voiceBusy = false

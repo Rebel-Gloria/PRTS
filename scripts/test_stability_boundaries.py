@@ -1,4 +1,4 @@
-"""Check home feedback wiring and lifecycle termination at the view boundary."""
+"""Check home feedback gating without restarting active computation."""
 
 import itertools
 import json
@@ -38,15 +38,40 @@ class StabilityBoundaryTests(unittest.TestCase):
         self.assertIn("if!suspendFeedback{", code)
         self.assertIn("elseif!isShowingSettings{", code)
 
-    def test_lifecycle_terminates_text_reading_silently(self):
+    def test_lifecycle_only_gates_feedback_and_preserves_work(self):
         source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
         lifecycle = source.split(".onChange(of: scenePhase)", 1)[1].split(".onAppear", 1)[0]
+        settings = source.split(".onChange(of: isShowingSettings)", 1)[1].split(
+            ".onChange(of: lowVisionMode)", 1
+        )[0]
+        for block in (lifecycle, settings):
+            self.assertIn("updateFeatureFeedback()", block)
+            for operation in ("textReading.terminate()", "photo.cancel()", "liveCaption.stop()"):
+                self.assertNotIn(operation, block)
+        disappearance = source.split(".onDisappear", 1)[1].split(".onReceive", 1)[0]
+        for feature in ("photo", "liveCaption", "textReading"):
+            self.assertIn(f"{feature}.setFeedbackEnabled(false)", disappearance)
+        model = (ROOT / "PRTS/Spatial/Runtime/ProbeViewModel.swift").read_text()
+        lifecycle = model.split("func lifecycle(", 1)[1].split("private func", 1)[0]
+        self.assertNotIn("engine.stop(", lifecycle)
+
+    def test_feedback_gate_reaches_haptics_and_pending_pulses(self):
+        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
+        gate = source.split("private func updateFeatureFeedback()", 1)[1].split(
+            "private var isLargeText", 1
+        )[0]
+        self.assertIn("hapticManager.setFeedbackEnabled(enabled)", gate)
+        self.assertIn("camera.poll(suspendFeedback: true)", gate)
+        haptics = (ROOT / "PRTS/Features/Guidance/Feedback/HapticManager.swift").read_text()
+        self.assertIn("feedbackGeneration &+= 1", haptics)
+        self.assertEqual(haptics.count("self?.feedbackGeneration == generation"), 2)
+
+    def test_audio_interruption_still_releases_unavailable_microphone(self):
+        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
         interruption = source.split("for: AVAudioSession.interruptionNotification", 1)[1]
         interruption = interruption.split(".onDisappear", 1)[0]
-        disappearance = source.split(".onDisappear", 1)[1].split(".onReceive", 1)[0]
-        for block in (lifecycle, interruption, disappearance):
-            self.assertIn("textReading.terminate()", block)
-            self.assertNotIn("textReading.cancel()", block)
+        self.assertIn("textReading.terminate()", interruption)
+        self.assertNotIn("textReading.cancel()", interruption)
 
     def test_recognition_failure_translations(self):
         catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text())

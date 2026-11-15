@@ -1,6 +1,7 @@
 import ARKit
 import AVFoundation
 import Combine
+import SpatialCore
 import SwiftUI
 import Testing
 
@@ -19,6 +20,32 @@ nonisolated final class TestProbeSession: ProbeSession, @unchecked Sendable {
     func pause() { lock.withLock { events.append("pause") } }
 }
 
+nonisolated final class TestRGBCamera: RGBCapturing, @unchecked Sendable {
+    let session = AVCaptureSession()
+    private let lock = NSLock()
+    private var isRunning = false
+    private var events: [String] = []
+    var operations: [String] { lock.withLock { events } }
+    var running: Bool { lock.withLock { isRunning } }
+
+    func setOrientation(_ orientation: ImageOrientation) {}
+    func snapshot(orientation: ImageOrientation) -> CameraImageSnapshot? { nil }
+    func start(completion: @escaping @Sendable (Bool) -> Void) {
+        lock.withLock {
+            isRunning = true
+            events.append("start")
+        }
+        completion(true)
+    }
+    func stop(completion: @escaping @Sendable () -> Void) {
+        lock.withLock {
+            if isRunning { events.append("stop") }
+            isRunning = false
+        }
+        completion()
+    }
+}
+
 @Suite(.serialized)
 @MainActor
 struct CameraRecoveryTests {
@@ -33,7 +60,8 @@ struct CameraRecoveryTests {
         queue: DispatchQueue = DispatchQueue(label: "test.camera.session"),
         permission: @escaping () async throws -> Bool = { true },
         isActive: @escaping () -> Bool = { true },
-        authorization: AVAuthorizationStatus = .authorized
+        authorization: AVAuthorizationStatus = .authorized,
+        rgbCamera: any RGBCapturing = TestRGBCamera()
     ) -> CameraManager {
         CameraManager(
             model: ProbeViewModel(
@@ -52,7 +80,8 @@ struct CameraRecoveryTests {
             ),
             permission: permission,
             isActive: isActive,
-            authorizationStatus: { authorization }
+            authorizationStatus: { authorization },
+            rgbCamera: rgbCamera
         )
     }
 
@@ -100,7 +129,9 @@ struct CameraRecoveryTests {
         camera.startCamera()
         await camera.startTask?.value
         #expect(camera.state == .running)
-        camera.pauseForTextReading()
+        await withCheckedContinuation { done in
+            camera.pauseForTextReading { done.resume() }
+        }
         #expect(camera.state == .idle)
         camera.finishTextReading(isActive: true)
         await camera.startTask?.value
@@ -112,7 +143,9 @@ struct CameraRecoveryTests {
         let camera = makeCamera()
         camera.startCamera()
         await camera.startTask?.value
-        camera.pauseForTextReading()
+        await withCheckedContinuation { done in
+            camera.pauseForTextReading { done.resume() }
+        }
         camera.finishTextReading(isActive: false)
         camera.lifecycle(.inactive)
         #expect(camera.state == .idle)
@@ -126,7 +159,9 @@ struct CameraRecoveryTests {
         let camera = makeCamera()
         camera.startCamera()
         await camera.startTask?.value
-        camera.pauseForTextReading()
+        await withCheckedContinuation { done in
+            camera.pauseForTextReading { done.resume() }
+        }
         camera.lifecycle(.active)
         #expect(camera.startTask == nil)
         #expect(camera.state == .idle)
@@ -227,6 +262,35 @@ struct CameraRecoveryTests {
         await stop(camera)
     }
 
+    @Test func permissionRecoveryAfterFocusReturnsDoesNotLeaveAStartPending() async {
+        var callbacks: [@Sendable (Bool) -> Void] = []
+        let first = TestSignal()
+        let second = TestSignal()
+        let session = TestProbeSession()
+        let camera = makeCamera(session: session, permission: {
+            try await CameraAuthorization.wait { callback in
+                callbacks.append(callback)
+                let signal = callbacks.count == 1 ? first : second
+                Task { await signal.signal() }
+            }
+        })
+        camera.startCamera()
+        let oldStart = camera.startTask
+        await first.wait()
+        camera.lifecycle(.inactive)
+        await oldStart?.value
+        #expect(camera.startTask == nil)
+        camera.lifecycle(.active)
+        await second.wait()
+        callbacks[0](true)
+        #expect(camera.model.requestingPermission)
+        callbacks[1](true)
+        await camera.startTask?.value
+        #expect(camera.state == .running)
+        #expect(session.operations == ["run"])
+        await stop(camera)
+    }
+
     @Test func inactiveApplicationDoesNotStartUntilActiveEvent() async {
         var active = false
         let session = TestProbeSession()
@@ -241,7 +305,7 @@ struct CameraRecoveryTests {
         await stop(camera)
     }
 
-    @Test func foregroundBeforeQueuedPauseCompletesStillRestarts() async {
+    @Test func losingFocusAndReturningKeepsTheSameSession() async {
         let queue = DispatchQueue(label: "test.camera.foreground")
         let session = TestProbeSession()
         let camera = makeCamera(session: session, queue: queue)
@@ -250,14 +314,120 @@ struct CameraRecoveryTests {
         queue.suspend()
         camera.lifecycle(.inactive)
         #expect(camera.suspendsFeedback)
-        #expect(camera.state == .idle)
-        camera.lifecycle(.active)
-        let start = camera.startTask
-        #expect(start != nil)
-        queue.resume()
-        await start?.value
-        #expect(session.operations == ["run", "pause", "run"])
+        #expect(camera.model.feedbackSuspended)
         #expect(camera.state == .running)
+        let epoch = camera.model.snapshot.epoch
+        camera.lifecycle(.active)
+        #expect(camera.startTask == nil)
+        queue.resume()
+        #expect(session.operations == ["run"])
+        #expect(camera.model.snapshot.epoch == epoch)
+        #expect(camera.state == .running)
+        await stop(camera)
+    }
+
+    @Test func lowVisionReleasesSpatialCaptureAndKeepsOnlyRGB() async {
+        let session = TestProbeSession()
+        let rgb = TestRGBCamera()
+        let camera = makeCamera(session: session, rgbCamera: rgb)
+        camera.startCamera()
+        await camera.startTask?.value
+        await withCheckedContinuation { done in
+            camera.setLowVisionMode(true) { done.resume() }
+        }
+        await camera.startTask?.value
+        #expect(session.operations == ["run", "pause"])
+        #expect(rgb.operations == ["start"])
+        #expect(!camera.model.engine.store.read().running)
+        #expect(camera.state == .running)
+        camera.lifecycle(.inactive)
+        camera.lifecycle(.active)
+        #expect(rgb.operations == ["start"])
+        #expect(session.operations == ["run", "pause"])
+        await withCheckedContinuation { done in
+            camera.setLowVisionMode(false) { done.resume() }
+        }
+        await camera.startTask?.value
+        #expect(rgb.operations == ["start", "stop"])
+        #expect(session.operations.last == "run")
+        #expect(camera.model.engine.store.read().running)
+        await stop(camera)
+    }
+
+    @Test func startDuringLowVisionHandoffWaitsForTheCameraRelease() async {
+        let queue = DispatchQueue(label: "test.camera.lowvision")
+        let session = TestProbeSession()
+        let rgb = TestRGBCamera()
+        let camera = makeCamera(session: session, queue: queue, rgbCamera: rgb)
+        queue.suspend()
+        let ready = TestSignal()
+        camera.setLowVisionMode(true) { Task { await ready.signal() } }
+        camera.startCamera()
+        #expect(camera.startTask == nil)
+        #expect(rgb.operations.isEmpty)
+        queue.resume()
+        await ready.wait()
+        await camera.startTask?.value
+        #expect(rgb.operations == ["start"])
+        #expect(session.operations == ["pause"])
+        await stop(camera)
+    }
+
+    @Test func cancellingTextReadingDuringRGBReleaseResumesAfterTheRelease() async {
+        let queue = DispatchQueue(label: "test.camera.rgb.cancel")
+        let rgb = TestRGBCamera()
+        let camera = makeCamera(queue: queue, rgbCamera: rgb)
+        await withCheckedContinuation { done in
+            camera.setLowVisionMode(true) { done.resume() }
+        }
+        camera.startCamera()
+        await camera.startTask?.value
+        queue.suspend()
+        let released = TestSignal()
+        camera.pauseForTextReading { Task { await released.signal() } }
+        camera.finishTextReading(isActive: true)
+        #expect(camera.startTask == nil)
+        #expect(rgb.operations == ["start"])
+        queue.resume()
+        await released.wait()
+        await camera.startTask?.value
+        #expect(rgb.operations == ["start", "stop", "start"])
+        #expect(camera.state == .running)
+        await stop(camera)
+    }
+
+    @Test func systemInterruptionRetainsSessionAndWaitsForFreshEvidence() async {
+        let queue = DispatchQueue(label: "test.camera.interruption")
+        let session = TestProbeSession()
+        let camera = makeCamera(session: session, queue: queue)
+        camera.startCamera()
+        await camera.startTask?.value
+        let engine = camera.model.engine
+        let epoch = engine.store.read().epoch
+        await withCheckedContinuation { done in
+            queue.async {
+                engine.sessionWasInterrupted(ARSession())
+                done.resume()
+            }
+        }
+        let interrupted = engine.store.read()
+        #expect(interrupted.running)
+        #expect(interrupted.interrupted)
+        #expect(interrupted.epoch > epoch)
+        #expect(!interrupted.geometryEnabled)
+        #expect(interrupted.frame == nil)
+        #expect(session.operations == ["run"])
+        await withCheckedContinuation { done in
+            queue.async {
+                engine.sessionInterruptionEnded(ARSession())
+                done.resume()
+            }
+        }
+        let resumed = engine.store.read()
+        #expect(!resumed.interrupted)
+        #expect(!resumed.geometryEnabled)
+        #expect(resumed.frame == nil)
+        #expect(session.operations == ["run"])
         await stop(camera)
     }
 
@@ -325,10 +495,8 @@ struct CameraRecoveryTests {
     @Test func scanMeshPublishesOneCompleteConfiguration() {
         let model = makeCamera().model
         let saved = UserDefaults.standard.object(forKey: ProbeViewModel.scanMeshKey)
-        let savedDeveloperOptions = UserDefaults.standard.object(forKey: "homeRenderOptions.v1")
         defer {
             UserDefaults.standard.set(saved, forKey: ProbeViewModel.scanMeshKey)
-            UserDefaults.standard.set(savedDeveloperOptions, forKey: "homeRenderOptions.v1")
         }
         var updates: [(Bool, Bool)] = []
         let observation = model.$options.dropFirst().sink {
