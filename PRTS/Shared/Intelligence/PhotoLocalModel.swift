@@ -17,6 +17,8 @@ nonisolated enum PhotoLocalModel {
         )!
     )
 
+    static func unload() async { await shared.unload() }
+
     static func describe(
         jpeg: Data,
         prompt: String,

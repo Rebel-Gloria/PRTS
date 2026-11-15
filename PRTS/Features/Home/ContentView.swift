@@ -359,7 +359,7 @@ struct ContentView: View {
             await captionShutdown.value
             await readingShutdown.value
             await camera.model.engine.drainStoppedWork()
-            await PhotoLocalModel.shared.unload()
+            await PhotoLocalModel.unload()
             await withCheckedContinuation { done in
                 DevInteractionRecording.flush { done.resume() }
             }
