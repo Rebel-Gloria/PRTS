@@ -37,7 +37,7 @@ nonisolated enum TextReadingBackend {
     static func remote(jpeg: Data, key: String, service: PhotoChatService) async throws -> (
         TextReadingAnswer.Surface, String
     ) {
-        TextReadingAnswer.split(
+        try parseRemoteAnswer(
             try await PhotoChatClient().describe(
                 jpeg: jpeg,
                 text: TextReadingPrompt.remotePrompt,
@@ -46,5 +46,46 @@ nonisolated enum TextReadingBackend {
                 system: TextReadingPrompt.remoteSystem
             )
         )
+    }
+
+    /// A leading reasoning block is metadata only when followed by the expected answer envelope.
+    /// Ambiguous or incomplete envelopes fail into the existing reader fallback.
+    static func parseRemoteAnswer(
+        _ response: String
+    ) throws -> (TextReadingAnswer.Surface, String) {
+        var text = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("<think>") {
+            guard let end = text.range(of: "</think>") else {
+                throw PhotoChatError.malformedStream
+            }
+            let remainder = String(text[end.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let heading = String(remainder.prefix { !$0.isNewline })
+                .trimmingCharacters(in: .whitespaces)
+            guard remainder == TextReadingPrompt.none
+                || TextReadingAnswer.Surface(rawValue: heading) != nil
+            else { throw PhotoChatError.malformedStream }
+            text = remainder
+        }
+        return TextReadingAnswer.split(copyBeforeStrayMarker(text))
+    }
+
+    /// Paired tags within the copy are literal OCR text; only an unmatched closing marker stops it.
+    private static func copyBeforeStrayMarker(_ text: String) -> String {
+        var position = text.startIndex
+        var openings = 0
+        while let closing = text.range(of: "</think>", range: position..<text.endIndex) {
+            var cursor = position
+            while let opening = text.range(of: "<think>", range: cursor..<closing.lowerBound) {
+                openings += 1
+                cursor = opening.upperBound
+            }
+            guard openings > 0 else {
+                return String(text[..<closing.lowerBound])
+            }
+            openings -= 1
+            position = closing.upperBound
+        }
+        return text
     }
 }

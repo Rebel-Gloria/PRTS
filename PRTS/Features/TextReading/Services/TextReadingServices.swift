@@ -3,6 +3,18 @@ import Foundation
 
 @MainActor
 struct TextReadingServices {
+    /// Missing setup stays offline without a prompt; photo upload still requires permission.
+    static func cloudSetup() -> (key: String, service: PhotoChatService)? {
+        let provider = IntelligenceFeature.textReading.provider()!
+        guard let service = provider.service() else { return nil }
+        guard UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed") else {
+            return nil
+        }
+        guard let key = try? PhotoCredentialStore.read(account: provider.keyAccount), !key.isEmpty
+        else { return nil }
+        return (key, service)
+    }
+
     var errors = ErrorReporter(source: .textReading)
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     var sleep: (Duration) async throws -> Void = { try await Task.sleep(for: $0) }

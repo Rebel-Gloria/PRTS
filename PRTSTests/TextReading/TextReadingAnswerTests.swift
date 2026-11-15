@@ -30,11 +30,20 @@ struct TextReadingAnswerTests {
         #expect(!stop.spokeText)
     }
 
-    @Test func dropsAMadeUpTurnAfterAStrayTag() {
-        var answer = TextReadingAnswer(lead: "你面前的牌子上写着")
-        #expect(answer.append("幸福便利店\n24小时营业</thi") == ["你面前的牌子上写着：幸福便利店"])
-        #expect(answer.append("nk>\n\n牌子\n幸福便利店") == [])
-        #expect(answer.finish() == ["24小时营业"])
+    @Test func preservesComparisonSignsAcrossPieces() {
+        var answer = TextReadingAnswer(lead: "你面前的纸张上写着")
+        #expect(answer.append("温度") == [])
+        #expect(answer.append("<") == [])
+        #expect(answer.append("5℃。请冷藏。") == ["你面前的纸张上写着：温度<5℃。", "请冷藏。"])
+        #expect(answer.finish() == [])
+    }
+
+    @Test(arguments: ["<5℃冷藏", "<div>营业时间</div>", "a<b", "原文</thi"])
+    func preservesLiteralRecognizedText(text: String) {
+        var answer = TextReadingAnswer(lead: "你面前的物体上写着")
+        #expect(answer.append(text) == [])
+        #expect(answer.finish() == ["你面前的物体上写着：\(text)"])
+        #expect(answer.spokeText)
     }
 
     @Test func surfaceIsTheFirstOfTheFourWords() {

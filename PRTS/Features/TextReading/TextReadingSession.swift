@@ -12,7 +12,7 @@ final class TextReadingSession: ObservableObject {
     @Published private(set) var framesSeen = 0
     /// After the first frame, focus and exposure get this long before the photo is taken.
     static let settle: TimeInterval = 1
-    /// No preview frame by then means the camera never started.
+    /// Bounds camera startup and preview settling after the previous camera owner yields.
     static let cameraTimeout: Duration = .seconds(10)
 
     /// A string by localization key, in the interface language.
@@ -31,7 +31,6 @@ final class TextReadingSession: ObservableObject {
     private var answer = TextReadingAnswer(lead: "")
     private var firstFrameAt: TimeInterval?
     private(set) var work: Task<Void, Never>?
-    private var timeout: Task<Void, Never>?
     private var service = TextReadingService.vlm
     private var cloud: (key: String, service: PhotoChatService)?
     private var generation = UUID()
@@ -43,7 +42,7 @@ final class TextReadingSession: ObservableObject {
             voice: AnswerAudioOutput(),
             services: TextReadingServices(),
             selectedService: { TextReadingService.current() },
-            cloudSetup: { TextReadingSession.cloudSetup() }
+            cloudSetup: { TextReadingServices.cloudSetup() }
         )
     }
 
@@ -79,15 +78,7 @@ final class TextReadingSession: ObservableObject {
         do {
             try say(intro)
             prepareCamera { [weak self] in
-                guard let self, self.generation == id, self.phase == .aiming else { return }
-                self.camera.start(
-                    frame: { [weak self] in self?.frame(id) },
-                    failed: { [weak self] in self?.cameraFailed(id) }
-                )
-                self.timeout = Task { [weak self, services] in
-                    do { try await services.sleep(Self.cameraTimeout) } catch { return }
-                    if self?.framesSeen == 0 { self?.cameraFailed(id) }
-                }
+                self?.startCamera(id)
             }
         } catch {
             services.errors.record(error)
@@ -115,8 +106,26 @@ final class TextReadingSession: ObservableObject {
         end()
     }
 
+    private func startCamera(_ id: UUID) {
+        guard generation == id, phase == .aiming else { return }
+        work = Task { [weak self, services] in
+            do {
+                try await services.sleep(Self.cameraTimeout)
+                try Task.checkCancellation()
+            } catch { return }
+            self?.cameraFailed(id)
+        }
+        camera.start(
+            frame: { [weak self] in self?.frame(id) },
+            failed: { [weak self] in self?.cameraFailed(id) }
+        )
+    }
+
     private func cameraFailed(_ id: UUID) {
         guard generation == id, phase == .aiming else { return }
+        // Queued preview callbacks must not start a capture while the error is being spoken.
+        phase = .ending
+        cancelWork()
         camera.stop()
         services.errors.record(NSError(domain: "PRTS.TextCamera", code: 1))
         do {
@@ -139,8 +148,7 @@ final class TextReadingSession: ObservableObject {
     private func capture(_ id: UUID) {
         phase = .reading
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        timeout?.cancel()
-        timeout = nil
+        cancelWork()
         do {
             try say("ocr.capturing")
             camera.capture { [weak self] image in
@@ -229,18 +237,6 @@ final class TextReadingSession: ObservableObject {
         try Task.checkCancellation()
     }
 
-    /// Missing setup stays offline without a prompt; photo upload still requires permission.
-    private static func cloudSetup() -> (key: String, service: PhotoChatService)? {
-        let provider = IntelligenceFeature.textReading.provider()!
-        guard let service = provider.service() else { return nil }
-        guard UserDefaults.standard.bool(forKey: "photoDescription.uploadAllowed") else {
-            return nil
-        }
-        guard let key = try? PhotoCredentialStore.read(account: provider.keyAccount), !key.isEmpty
-        else { return nil }
-        return (key, service)
-    }
-
     private func received(_ piece: String, _ id: UUID) {
         guard generation == id else { return }
         do {
@@ -291,10 +287,12 @@ final class TextReadingSession: ObservableObject {
 
     private func invalidateWork() {
         generation = UUID()
+        cancelWork()
+    }
+
+    private func cancelWork() {
         work?.cancel()
         work = nil
-        timeout?.cancel()
-        timeout = nil
     }
 
     private func end() {
