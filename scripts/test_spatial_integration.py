@@ -275,7 +275,7 @@ class SpatialIntegrationTests(unittest.TestCase):
             '.alert("recording.clear.title", isPresented: $confirmClearRecordings)', settings
         )
         self.assertIn('Button("recording.clear.confirm", role: .destructive)', settings)
-        self.assertEqual(settings.count("model.clearRecordings()"), 1)
+        self.assertEqual(settings.count("resetRecordings()"), 1)
         self.assertIn('Button("recording.clear.cancel", role: .cancel) {}', settings)
         self.assertIn("UIActivityViewController(activityItems: [url]", share)
         for text in (share, settings):

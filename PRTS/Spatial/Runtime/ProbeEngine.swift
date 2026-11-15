@@ -177,6 +177,16 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             completion()
         }
     }
+    func drainStoppedWork() async {
+        await withCheckedContinuation { done in
+            sessionQueue.async { [self] in
+                analysisQueue.async { [self] in
+                    meshQueue.async { done.resume() }
+                }
+            }
+        }
+    }
+
     func flushDiagnostics(lifecycle: String, completion: @escaping @Sendable () -> Void) {
         diagnostics.journal.noteLifecycle(lifecycle)
         let finish: @Sendable () -> Void = {

@@ -5,6 +5,13 @@ nonisolated enum RecordingArchive {
     static let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("RecordingExports", isDirectory: true)
 
+    static func removePreviousExports(at directory: URL = root) throws {
+        let files = FileManager.default
+        if files.fileExists(atPath: directory.path) {
+            try files.removeItem(at: directory)
+        }
+    }
+
     static func create(from directories: [URL]) throws -> URL {
         let files = FileManager.default
         var sourceBytes: Int64 = 0

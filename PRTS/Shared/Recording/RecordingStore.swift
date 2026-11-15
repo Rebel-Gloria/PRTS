@@ -31,6 +31,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     private var directory: URL?
     private var handles: [String: FileHandle] = [:]
     private var sequence: UInt64 = 0
+    private var streamCounts: [String: Int] = [:]
     private var segment = 0
     private var segmentBytes = 0
     private var openedAt = Date()
@@ -267,6 +268,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             directory = next
             openedAt = Date()
             sequence = 0
+            streamCounts = [:]
             segment = 0
             segmentBytes = 0
             lock.withLock { state.runID = id }
@@ -342,6 +344,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             state.bytesWritten += line.count
             state.written[stream, default: 0] += 1
         }
+        streamCounts[stream, default: 0] += 1
         if ProcessInfo.processInfo.systemUptime - lastCheckpoint >= 2 { try checkpoint() }
     }
 
@@ -349,12 +352,16 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         at target: URL? = nil,
         endTime: Date? = nil,
         startTime: Date? = nil,
-        segmentStatus: DiagnosticStatus? = nil
+        segmentStatus: DiagnosticStatus? = nil,
+        recordCounts: [String: Int]? = nil,
+        lastSequence: UInt64? = nil
     ) throws {
         guard let destination = target ?? directory else { return }
         let status = segmentStatus ?? status()
         let manifest: [String: Any] = [
-            "schemaVersion": 2, "format": "prts-recording", "launchID": launchID,
+            "schemaVersion": 3, "format": "prts-recording", "launchID": launchID,
+            "recordCounts": recordCounts ?? streamCounts,
+            "lastSequence": lastSequence ?? sequence,
             "buildConfiguration": "Dev", "createdAt": (startTime ?? openedAt).timeIntervalSince1970,
             "updatedAt": Date().timeIntervalSince1970,
             "endedAt": endTime.map { $0.timeIntervalSince1970 as Any } ?? NSNull(),
@@ -418,6 +425,8 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         } catch { fail(error, kind: "close") }
         handles.removeAll()
         let sealedStatus = status()
+        let sealedCounts = streamCounts
+        let sealedSequence = sequence
         #if PRTS_DEV
         let previousVideo = video
         video = nil
@@ -441,7 +450,9 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                             at: previous,
                             endTime: endedAt,
                             startTime: previousOpenedAt,
-                            segmentStatus: segmentStatus
+                            segmentStatus: segmentStatus,
+                            recordCounts: sealedCounts,
+                            lastSequence: sealedSequence
                         )
                     }
                 } catch { fail(error, kind: "seal") }
@@ -500,7 +511,11 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         }
     }
 
-    func clear(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+    /// Close admission before stopping producers; deletion waits for their cancellation barriers.
+    func clear(
+        afterStopping: @escaping @Sendable () async -> Void = {},
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
         guard isEnabled else {
             completion(.failure(RecordingError.disabled))
             return
@@ -518,39 +533,42 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             completion(.failure(RecordingError.busy))
             return
         }
-        queue.async { [self] in
-            seal { [self] in
-                do {
-                    let files = FileManager.default
-                    let documents = root.deletingLastPathComponent()
-                    let targets =
-                        [root, RecordingArchive.root]
-                        + ["DevDiagnostics", "Sessions", "Diagnostics"].map {
-                            documents.appendingPathComponent($0, isDirectory: true)
+        Task { [self] in
+            await afterStopping()
+            queue.async { [self] in
+                seal { [self] in
+                    do {
+                        let files = FileManager.default
+                        let documents = root.deletingLastPathComponent()
+                        let targets =
+                            [root, RecordingArchive.root]
+                            + ["DevDiagnostics", "Sessions", "Diagnostics"].map {
+                                documents.appendingPathComponent($0, isDirectory: true)
+                            }
+                        for target in targets {
+                            if files.fileExists(atPath: target.path) {
+                                try files.removeItem(at: target)
+                            }
                         }
-                    for target in targets {
-                        if files.fileExists(atPath: target.path) {
-                            try files.removeItem(at: target)
+                        lock.withLock {
+                            let pending = state.pending
+                            let pendingBytes = state.pendingBytes
+                            state = DiagnosticStatus()
+                            state.pending = pending
+                            state.pendingBytes = pendingBytes
+                            clearing = false
+                            maintenance = false
                         }
+                        event("recording_started", details: ["reason": "clear_completed"])
+                        completion(.success(()))
+                    } catch {
+                        lock.withLock {
+                            clearing = false
+                            maintenance = false
+                        }
+                        fail(error, kind: "clear")
+                        completion(.failure(error))
                     }
-                    lock.withLock {
-                        let pending = state.pending
-                        let pendingBytes = state.pendingBytes
-                        state = DiagnosticStatus()
-                        state.pending = pending
-                        state.pendingBytes = pendingBytes
-                        clearing = false
-                        maintenance = false
-                    }
-                    event("recording_started", details: ["reason": "clear_completed"])
-                    completion(.success(()))
-                } catch {
-                    lock.withLock {
-                        clearing = false
-                        maintenance = false
-                    }
-                    fail(error, kind: "clear")
-                    completion(.failure(error))
                 }
             }
         }

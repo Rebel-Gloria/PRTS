@@ -237,6 +237,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         }
     }
 
+    func shutdown() async {
+        let pendingWork = work
+        let pendingImage = imageTask
+        let pendingTimer = timer
+        cancel()
+        await pendingWork?.value
+        _ = await pendingImage?.result
+        await pendingTimer?.value
+    }
+
     func cancel(clearMessage: Bool = true) {
         #if PRTS_DEV
         if busy {

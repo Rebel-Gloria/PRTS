@@ -39,6 +39,69 @@ struct RecordingStoreTests {
     }
 
     #if PRTS_DEV
+    private actor StopBarrier {
+        private var entered = false
+        private var arrival: CheckedContinuation<Void, Never>?
+        private var release: CheckedContinuation<Void, Never>?
+        func stop() async {
+            await withCheckedContinuation { done in
+                entered = true
+                release = done
+                arrival?.resume()
+                arrival = nil
+            }
+        }
+        func waitForStop() async {
+            if entered { return }
+            await withCheckedContinuation { arrival = $0 }
+        }
+        func finish() { release?.resume(); release = nil }
+    }
+
+    @Test func clearBlocksProducersUntilShutdownFinishes() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let store = RecordingStore(root: base.appendingPathComponent("Recordings"))
+        store.event("before_reset")
+        await flush(store)
+        let previous = store.status().runID
+        let barrier = StopBarrier()
+        let reset = Task {
+            await withCheckedContinuation { done in
+                store.clear(afterStopping: { await barrier.stop() }) {
+                    done.resume(returning: $0)
+                }
+            }
+        }
+        await barrier.waitForStop()
+        store.event("late_spatial_result")
+        await flush(store)
+        #expect(FileManager.default.fileExists(atPath: store.root.appendingPathComponent(previous).path))
+        await barrier.finish()
+        try await reset.value.get()
+        store.event("new_runtime")
+        await flush(store)
+        let directory = store.root.appendingPathComponent(store.status().runID)
+        let events = try String(contentsOf: directory.appendingPathComponent("events.jsonl"), encoding: .utf8)
+        #expect(!events.contains("before_reset"))
+        #expect(!events.contains("late_spatial_result"))
+        #expect(events.contains("new_runtime"))
+    }
+
+    @Test func nextLaunchRemovesOnlyTemporaryExports() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let exports = base.appendingPathComponent("RecordingExports")
+        try FileManager.default.createDirectory(at: exports, withIntermediateDirectories: true)
+        let original = base.appendingPathComponent("original.bin")
+        try Data([1, 2]).write(to: original)
+        try Data([3, 4]).write(to: exports.appendingPathComponent("previous.zip"))
+        try RecordingArchive.removePreviousExports(at: exports)
+        #expect(!FileManager.default.fileExists(atPath: exports.path))
+        #expect(try Data(contentsOf: original) == Data([1, 2]))
+        try RecordingArchive.removePreviousExports(at: exports)
+    }
+
     @Test func exportSealsOneSnapshotAndKeepsRecording() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -62,6 +125,13 @@ struct RecordingStoreTests {
         #expect(manifest["finalized"] as? Bool == true)
         let status = try #require(manifest["status"] as? [String: Any])
         #expect(status["runID"] as? String == firstID)
+        #expect(manifest["recordCounts"] as? [String: Int] == ["events": 3])
+        #expect(manifest["lastSequence"] as? Int == 3)
+        let secondData = try Data(contentsOf: root.appendingPathComponent(store.status().runID).appendingPathComponent("manifest.json"))
+        // Explicitly checkpoint the current segment before checking its independent inventory.
+        let second = try #require(JSONSerialization.jsonObject(with: secondData) as? [String: Any])
+        #expect(second["recordCounts"] as? [String: Int] == ["events": 1])
+        #expect(second["lastSequence"] as? Int == 1)
     }
 
     @Test func clearRejectsLateOriginalsAndAutomaticallyResumes() async throws {

@@ -34,6 +34,7 @@ final class TextReadingSession: ObservableObject {
     private var service = TextReadingService.vlm
     private var cloud: (key: String, service: PhotoChatService)?
     private var generation = UUID()
+    private(set) var interactionID = UUID()
     private var feedbackEnabled = true
     private var passMaySpeak = true
     #if PRTS_DEV
@@ -82,6 +83,7 @@ final class TextReadingSession: ObservableObject {
         guard phase == .idle else { return }
         let id = UUID()
         generation = id
+        interactionID = id
         passMaySpeak = feedbackEnabled
         #if PRTS_DEV
         recordingGeneration = RecordingStore.shared.admissionGeneration
@@ -123,6 +125,14 @@ final class TextReadingSession: ObservableObject {
             services.errors.record(error)
             end()
         }
+    }
+
+    func shutdown() async {
+        let pending = work
+        finished = {}
+        end()
+        await pending?.value
+        await withCheckedContinuation { done in camera.stop { done.resume() } }
     }
 
     func terminate() {
@@ -393,12 +403,12 @@ final class TextReadingSession: ObservableObject {
         #if PRTS_DEV
         DevInteractionRecording.noteSuppressedAfterClear(
             feature: "textReading",
-            id: generation.uuidString,
+            id: interactionID.uuidString,
             generation: recordingGeneration
         )
         RecordingStore.shared.event(
             "interaction_ended",
-            details: ["feature": "textReading", "interactionID": generation.uuidString],
+            details: ["feature": "textReading", "interactionID": interactionID.uuidString],
             generation: recordingGeneration
         )
         #endif

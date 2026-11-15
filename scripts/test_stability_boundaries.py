@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class StabilityBoundaryTests(unittest.TestCase):
     def test_home_feedback_shares_all_existing_pause_conditions(self):
-        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
+        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         poll = source.split(".onReceive(pollTimer)", 1)[1].split(".onChange", 1)[0]
         expression = re.search(r"let suspendHaptics =\s+(.*?)\n\s*//", poll, re.S)[1]
         names = (
@@ -40,7 +40,7 @@ class StabilityBoundaryTests(unittest.TestCase):
         self.assertIn("elseif!isShowingSettings{", code)
 
     def test_lifecycle_only_gates_feedback_and_preserves_work(self):
-        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
+        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         lifecycle = source.split(".onChange(of: scenePhase)", 1)[1].split(".onAppear", 1)[0]
         settings = source.split(".onChange(of: isShowingSettings)", 1)[1].split(
             ".onChange(of: lowVisionMode)", 1
@@ -52,23 +52,25 @@ class StabilityBoundaryTests(unittest.TestCase):
         disappearance = source.split(".onDisappear", 1)[1].split(".onReceive", 1)[0]
         for feature in ("photo", "liveCaption", "textReading"):
             self.assertIn(f"{feature}.setFeedbackEnabled(false)", disappearance)
-        model = (ROOT / "PRTS/Spatial/Runtime/ProbeViewModel.swift").read_text()
+        model = (ROOT / "PRTS/Spatial/Runtime/ProbeViewModel.swift").read_text(encoding="utf-8")
         lifecycle = model.split("func lifecycle(", 1)[1].split("private func", 1)[0]
         self.assertNotIn("engine.stop(", lifecycle)
 
     def test_feedback_gate_reaches_haptics_and_pending_pulses(self):
-        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
+        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         gate = source.split("private func updateFeatureFeedback()", 1)[1].split(
             "private var isLargeText", 1
         )[0]
         self.assertIn("hapticManager.setFeedbackEnabled(enabled)", gate)
         self.assertIn("camera.poll(suspendFeedback: true)", gate)
-        haptics = (ROOT / "PRTS/Features/Guidance/Feedback/HapticManager.swift").read_text()
+        haptics = (ROOT / "PRTS/Features/Guidance/Feedback/HapticManager.swift").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("feedbackGeneration &+= 1", haptics)
         self.assertEqual(haptics.count("self?.feedbackGeneration == generation"), 2)
 
     def test_audio_interruption_still_releases_unavailable_microphone(self):
-        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
+        source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         interruption = source.split("for: AVAudioSession.interruptionNotification", 1)[1]
         interruption = interruption.split(".onDisappear", 1)[0]
         self.assertIn("photo.handleAudioInterruption()", interruption)
@@ -77,12 +79,12 @@ class StabilityBoundaryTests(unittest.TestCase):
             self.assertNotIn(stop, interruption)
         photo = (
             ROOT / "PRTS/Features/PhotoDescription/PhotoDescriptionCoordinator.swift"
-        ).read_text()
+        ).read_text(encoding="utf-8")
         handler = photo.split("func handleAudioInterruption()", 1)[1].split("    ///", 1)[0]
         self.assertIn("recognizer.endCapture()", handler)
 
     def test_recognition_failure_translations(self):
-        catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text())
+        catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text(encoding="utf-8"))
         translations = catalog["strings"]["ocr.failed"]["localizations"]
         self.assertEqual(
             translations["en"]["stringUnit"]["value"], "Couldn't read the text. Try again."
@@ -106,9 +108,9 @@ class StabilityBoundaryTests(unittest.TestCase):
                 self.assertEqual(len({value.count("%lld") for value in values}), 1)
 
     def test_ci_stub_uses_the_source_cancellation_header(self):
-        workflow = (ROOT / ".github/workflows/code-quality.yml").read_text()
+        workflow = (ROOT / ".github/workflows/code-quality.yml").read_text(encoding="utf-8")
         self.assertIn("cp Packages/LocalVLM/csrc/prts_local_vlm.h", workflow)
-        header = (ROOT / "Packages/LocalVLM/csrc/prts_local_vlm.h").read_text()
+        header = (ROOT / "Packages/LocalVLM/csrc/prts_local_vlm.h").read_text(encoding="utf-8")
         for function in ("create", "set", "is_requested", "free"):
             self.assertIn(f"prts_vlm_cancel_{function}", header)
         self.assertNotIn("volatile int", header)

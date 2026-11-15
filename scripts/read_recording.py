@@ -110,10 +110,28 @@ def validate(directory):
             continue
         count = 0
         video_files = set()
+        actual_counts = {}
+        sequences = set()
+        strict = metadata.get("schemaVersion", 0) >= 3
+        expected_counts = metadata.get("recordCounts")
+        if strict and not isinstance(expected_counts, dict):
+            issues.append({"run": run.name, "error": "Missing per-segment record counts"})
+            expected_counts = {}
+        if not strict:
+            issues.append(
+                {"run": run.name, "error": "Legacy manifest cannot verify stream completeness"}
+            )
         for path in sorted(run.glob("*.jsonl")):
+            actual_counts[path.stem] = 0
             for record in records(path, issues):
+                actual_counts[path.stem] += 1
                 count += 1
                 try:
+                    sequence = record.get("sequence")
+                    if strict:
+                        if type(sequence) is not int or sequence <= 0 or sequence in sequences:
+                            raise ValueError("Invalid or duplicate record sequence")
+                        sequences.add(sequence)
                     raw = attachment(run, record["attachment"]) if "attachment" in record else None
                     if path.name == "capture.jsonl" and raw is not None:
                         sensor_frame(raw)
@@ -133,6 +151,32 @@ def validate(directory):
                         video_files.add(name)
                 except (ValueError, KeyError, OSError, TypeError) as error:
                     issues.append({"file": str(path.relative_to(directory)), "error": str(error)})
+        if strict:
+            for stream in set(actual_counts) | set(expected_counts):
+                expected = expected_counts.get(stream, 0)
+                actual = actual_counts.get(stream, 0)
+                if type(expected) is not int or expected < 0 or actual != expected:
+                    issues.append(
+                        {
+                            "run": run.name,
+                            "error": "Record count mismatch",
+                            "stream": stream,
+                            "expected": expected,
+                            "actual": actual,
+                        }
+                    )
+                elif expected > 0 and stream not in actual_counts:
+                    issues.append(
+                        {"run": run.name, "error": "Missing record stream", "stream": stream}
+                    )
+            last = metadata.get("lastSequence")
+            if (
+                type(last) is not int
+                or last < 0
+                or len(sequences) != last
+                or (sequences and (min(sequences) != 1 or max(sequences) != last))
+            ):
+                issues.append({"run": run.name, "error": "Record sequence is incomplete"})
         status = metadata.get("status", {})
         if not metadata.get("finalized"):
             issues.append(

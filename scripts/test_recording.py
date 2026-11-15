@@ -77,7 +77,14 @@ class RecordingTests(unittest.TestCase):
             root = Path(temporary)
             run = root / "run"
             run.mkdir()
-            metadata = {"format": "prts-recording", "finalized": True, "status": {}}
+            metadata = {
+                "schemaVersion": 3,
+                "format": "prts-recording",
+                "finalized": True,
+                "status": {},
+                "recordCounts": {"events": 1},
+                "lastSequence": 1,
+            }
             (run / "manifest.json").write_text(json.dumps(metadata))
             raw = b"original unchanged"
             compressor = zlib.compressobj(wbits=-15)
@@ -93,7 +100,7 @@ class RecordingTests(unittest.TestCase):
                 "uncompressedBytes": len(raw),
                 "sha256": hashlib.sha256(raw).hexdigest(),
             }
-            event = {"payload": {"kind": "original"}, "attachment": reference}
+            event = {"sequence": 1, "payload": {"kind": "original"}, "attachment": reference}
             (run / "events.jsonl").write_text(json.dumps(event) + "\n")
             self.assertEqual(validate(root)["issues"], [])
             reference["sha256"] = "bad"
@@ -103,13 +110,54 @@ class RecordingTests(unittest.TestCase):
             (run / "manifest.json").write_text(json.dumps(metadata))
             self.assertEqual(len(validate(root)["issues"]), 2)
 
+    def test_validation_rejects_missing_stream_and_complete_line_deletion(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            metadata = {
+                "schemaVersion": 3,
+                "format": "prts-recording",
+                "finalized": True,
+                "status": {},
+                "recordCounts": {"events": 2},
+                "lastSequence": 2,
+            }
+            (root / "manifest.json").write_text(json.dumps(metadata), encoding="utf-8")
+            self.assertTrue(validate(root)["issues"])
+            row = {"sequence": 1, "payload": {"name": "start"}}
+            (root / "events.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+            self.assertTrue(validate(root)["issues"])
+            # Equal counts do not hide a duplicate ID or a missing sequence.
+            (root / "events.jsonl").write_text((json.dumps(row) + "\n") * 2, encoding="utf-8")
+            self.assertTrue(validate(root)["issues"])
+            second = {"sequence": 2, "payload": {"name": "end"}}
+            (root / "events.jsonl").write_text(
+                json.dumps(row) + "\n" + json.dumps(second) + "\n", encoding="utf-8"
+            )
+            self.assertEqual(validate(root)["issues"], [])
+
+    def test_legacy_manifest_never_claims_complete_validation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 2,
+                        "format": "prts-recording",
+                        "finalized": True,
+                        "status": {"written": {"capture": 60}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertTrue(validate(root)["issues"])
+
     def test_native_builds_only(self):
         root = Path(__file__).resolve().parents[1]
-        project = (root / "PRTS.xcodeproj/project.pbxproj").read_text()
+        project = (root / "PRTS.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
         self.assertNotIn("name = Debug;", project)
         self.assertNotIn("PRTS_DEV_CAPTURE", project)
         self.assertIn("PRTS_DEV", project)
-        source = (root / "PRTS/Shared/Recording/RecordingStore.swift").read_text()
+        source = (root / "PRTS/Shared/Recording/RecordingStore.swift").read_text(encoding="utf-8")
         self.assertIn("enabled && Self.compiledIn", source)
 
 

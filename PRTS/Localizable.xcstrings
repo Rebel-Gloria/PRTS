@@ -245,13 +245,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All local recordings will be permanently deleted. Automatic recording will continue afterward."
+            "value": "All recordings will be deleted and current tasks will stop. The app will reset to Home and start a new recording."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将永久删除本地所有录制数据。清除后会继续自动录制。"
+            "value": "将删除全部录制并停止当前任务。应用将重置到首页，重新开始录制。"
           }
         }
       }

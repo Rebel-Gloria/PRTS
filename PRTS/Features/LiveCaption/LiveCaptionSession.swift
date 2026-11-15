@@ -215,6 +215,12 @@ final class LiveCaptionSession: ObservableObject {
         }
     }
 
+    func shutdown() async {
+        let pending = Array(requests.values) + [work, sampling, pressTimer].compactMap { $0 }
+        stop()
+        for task in pending { await task.value }
+    }
+
     func stop() {
         #if PRTS_DEV
         if isRunning {

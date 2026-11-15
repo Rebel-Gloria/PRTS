@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: ProbeViewModel
+    var resetRecordings: () -> Void
     #if PRTS_DEV
     @State private var confirmClearRecordings = false
     #endif
@@ -168,7 +169,7 @@ struct SettingsView: View {
                 .accessibilityIdentifier("clearRecordingsButton")
                 .alert("recording.clear.title", isPresented: $confirmClearRecordings) {
                     Button("recording.clear.confirm", role: .destructive) {
-                        model.clearRecordings()
+                        resetRecordings()
                     }
                     Button("recording.clear.cancel", role: .cancel) {}
                 } message: {

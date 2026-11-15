@@ -107,20 +107,6 @@ final class ProbeViewModel: ObservableObject {
         exporting = false
         #endif
     }
-    func clearRecordings() {
-        guard !exporting, !clearingRecordings else { return }
-        errorMessage = nil
-        clearingRecordings = true
-        RecordingStore.shared.clear { [weak self] result in
-            Task { @MainActor [weak self] in
-                self?.clearingRecordings = false
-                if case .failure(let error) = result {
-                    self?.errorMessage = error.localizedDescription
-                }
-                self?.poll()
-            }
-        }
-    }
     var capabilities: DeviceCapabilities { engine.capabilities }
     func poll() {
         #if PRTS_DEV

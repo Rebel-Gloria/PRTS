@@ -15,6 +15,11 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
+    var startAutomatically = false
+    var initialError: String?
+    var restartApplication: (Bool, String?) -> Void = { _, _ in }
+    @State private var initialStartHandled = false
+    @State private var resettingRecording = false
     @StateObject private var camera = CameraManager()
     @StateObject private var photo = PhotoDescriptionCoordinator()
     @StateObject private var liveCaption = LiveCaptionSession()
@@ -115,12 +120,13 @@ struct ContentView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingSettings) {
-                SettingsView(model: camera.model)
+                SettingsView(model: camera.model, resetRecordings: resetRecordings)
             }
             .sheet(isPresented: $isShowingUserGuide) {
                 UserGuideView().environmentObject(speechManager)
             }
             .onChange(of: camera.state) { _, newState in
+                guard !resettingRecording else { return }
                 if newState != .running && !isShowingSettings {
                     liveCaption.stop()
                     photo.cancel()
@@ -132,6 +138,7 @@ struct ContentView: View {
                 if newState == .running { hapticManager.cameraStarted() }
             }
             .onReceive(pollTimer) { _ in
+                guard !resettingRecording else { return }
                 // Text reading owns the voice until it ends; route speech would cut into the text.
                 let reading = textReading.phase != .idle
                 let suspendHaptics =
@@ -202,10 +209,11 @@ struct ContentView: View {
                 }
             }
             .onChange(of: lowVisionMode) { _, enabled in
-                camera.setLowVisionMode(enabled)
+                if !resettingRecording { camera.setLowVisionMode(enabled) }
             }
             .onChange(of: isShowingUserGuide) { _, _ in updateFeatureFeedback() }
             .onChange(of: scenePhase) { _, phase in
+                guard !resettingRecording else { return }
                 if phase == .active { pointerCannotHold = Self.assistivePointerRunning }
                 updateFeatureFeedback()
                 if phase != .active {
@@ -223,7 +231,13 @@ struct ContentView: View {
                 runPendingCommand()
             }
             .onAppear {
+                guard !resettingRecording else { return }
                 camera.setLowVisionMode(lowVisionMode)
+                if !initialStartHandled {
+                    initialStartHandled = true
+                    camera.model.errorMessage = initialError
+                    if startAutomatically { camera.startCamera() }
+                }
                 updateFeatureFeedback()
                 camera.poll(suspendFeedback: true)
                 if homeFeedbackEnabled { speechManager.speakHomeScreen(cameraState: camera.state) }
@@ -287,6 +301,7 @@ struct ContentView: View {
             }
         }
 
+        .disabled(resettingRecording)
         .tint(.appAccent)
         .preferredColorScheme(.dark)
     }
@@ -294,7 +309,9 @@ struct ContentView: View {
     /// Low vision mode gives no guidance; the first-launch guide keeps it quiet while open.
     private var guidanceSuppressed: Bool { lowVisionMode || isShowingUserGuide }
 
-    private var homeActionsAvailable: Bool { !isShowingSettings && !isShowingUserGuide }
+    private var homeActionsAvailable: Bool {
+        !resettingRecording && !isShowingSettings && !isShowingUserGuide
+    }
 
     private var homeFeedbackEnabled: Bool {
         scenePhase == .active && homeActionsAvailable && !audioInterrupted
@@ -318,6 +335,43 @@ struct ContentView: View {
         liveCaption.setFeedbackEnabled(enabled)
         textReading.setFeedbackEnabled(enabled)
         if !enabled { camera.poll(suspendFeedback: true) }
+    }
+
+    private func resetRecordings() {
+        #if PRTS_DEV
+        guard !resettingRecording, !camera.model.exporting else { return }
+        let resume = camera.requestedRunning
+        resettingRecording = true
+        camera.model.clearingRecordings = true
+        updateFeatureFeedback()
+        speechManager.stopCurrentSpeech()
+        feedback.reset()
+        stopHoldTask?.cancel()
+        stopHoldTask = nil
+        camera.model.engine.diagnostics.retire()
+        RecordingStore.shared.clear(afterStopping: { @MainActor in
+            // Cancel all producers before waiting for any one of them to drain.
+            let photoShutdown = Task { await photo.shutdown() }
+            let captionShutdown = Task { await liveCaption.shutdown() }
+            let readingShutdown = Task { await textReading.shutdown() }
+            await withCheckedContinuation { done in camera.stopCamera { done.resume() } }
+            await photoShutdown.value
+            await captionShutdown.value
+            await readingShutdown.value
+            await camera.model.engine.drainStoppedWork()
+            await PhotoLocalModel.shared.unload()
+            await withCheckedContinuation { done in
+                DevInteractionRecording.flush { done.resume() }
+            }
+        }) { result in
+            Task { @MainActor in
+                switch result {
+                case .success: restartApplication(resume, nil)
+                case .failure(let error): restartApplication(false, error.localizedDescription)
+                }
+            }
+        }
+        #endif
     }
 
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
@@ -404,7 +458,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var cameraSurface: some View {
-        if textReading.phase != .idle && !isShowingSettings {
+        if resettingRecording {
+            Color.appBackground
+        } else if textReading.phase != .idle && !isShowingSettings {
             // Attaching the preview while the session is still being configured stalls the UI for seconds.
             if !noPreview && textReading.framesSeen > 0 {
                 TextCameraPreview(session: textReading.camera.session)
@@ -534,7 +590,7 @@ struct ContentView: View {
 
     /// Starts the camera from a shortcut, or leaves text reading, once the app is active.
     private func runPendingCommand() {
-        guard scenePhase == .active, commands.startRequested else { return }
+        guard !resettingRecording, scenePhase == .active, commands.startRequested else { return }
         commands.startRequested = false
         isShowingSettings = false
         isShowingUserGuide = false

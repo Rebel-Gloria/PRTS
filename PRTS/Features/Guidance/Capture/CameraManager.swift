@@ -48,6 +48,7 @@ final class CameraManager: ObservableObject {
     private var pendingCameraReleases = 0
     private(set) var lowVisionMode = false
     var rgbSession: AVCaptureSession { rgbCamera.session }
+    var requestedRunning: Bool { wantsCameraRunning }
     var suspendsFeedback: Bool {
         !wantsCameraRunning || pausedForTextReading || !sceneActive || !isActive()
     }
