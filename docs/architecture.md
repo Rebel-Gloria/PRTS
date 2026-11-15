@@ -145,7 +145,7 @@ ARSession
 
 ## 相机交接
 
-避障使用 `ProbeEngine` 中的 `ARSession`，读文字使用 `TextCamera` 中独立的 `AVCaptureSession`，两者不同时运行。`CameraManager` 保存用户是否要运行避障（运行意图），交接规则如下：
+避障使用 `ProbeEngine` 中的 `ARSession`，低视力模式使用 `RGBCamera`，读文字使用 `TextCamera` 中独立的 `AVCaptureSession`。三个采集后端不同时占用相机。`CameraManager` 保存用户是否要运行避障（运行意图），交接规则如下：
 
 | 事件 | 处理 | 负责类型 |
 |---|---|---|
@@ -154,10 +154,15 @@ ARSession
 | 开始读文字 | 停止字幕和描述；`pauseForTextReading(completion:)` 暂停会话但保留运行意图，会话停止后 `TextReadingSession` 才打开主摄 | `ContentView`、`CameraManager` |
 | 读文字结束、失败或取消 | 主摄停止后，`finishTextReading(isActive:)` 解除占用；在前台时立即恢复已启动的避障，在后台时等到回到前台 | `TextReadingSession`、`CameraManager` |
 | 用户取消读文字 | 播报取消提示，读完后释放音频会话 | `TextReadingSession` |
-| 进入后台、音频中断、打开设置、离开首页 | 字幕、描述和读文字静默结束；应用离开活跃状态（包括进入后台、打开控制中心或显示系统弹窗）时暂停会话并取消尚未完成的权限请求，保留运行意图 | `ContentView`、`CameraManager` |
+| 进入设置、失去焦点或离开首页 | 保留已有采集与计算，只停止语音和振动；尚未完成的启动请求不能在非活跃状态抢占相机 | `ContentView`、`CameraManager` |
+| 真正进入后台 | 不主动停止空间会话；封存录制片段，接受系统对相机和执行时间的限制 | `ProbeViewModel`、`RecordingStore` |
+| 系统音频中断 | 停止反馈；正在录音的提问释放麦克风并完成已取得内容的处理，不取消已提交的图像推理 | `ContentView`、`PhotoDescriptionCoordinator` |
+| ARKit 系统中断 | 不调用暂停或重建；清除旧证据并提升 epoch，等待系统恢复及新的有效跟踪帧 | `ProbeEngine` |
+| RGB 媒体服务重置 | 仅在用户仍请求相机、应用活跃且系统中断结束时尝试恢复一次 | `RGBCamera`、`RGBCameraRecovery` |
 | 回到活跃状态 | 仅恢复用户已启动、且未被读文字占用的会话 | `CameraManager` |
 | 快捷指令开始 | 不停止正在运行的相机；读文字期间退出读文字，并恢复之前的相机状态 | `ContentView` |
-| 低视力模式、首次使用说明 | 暂停避障反馈，不关闭相机，不禁用描述、提问或读文字 | `ContentView` |
+| 低视力模式 | 释放 ARKit 相机并清空空间计算输入，再启动普通 RGB；关闭模式时按相反顺序切换 | `CameraManager` |
+| 首次使用说明 | 暂停反馈，保留计算 | `ContentView` |
 
 停止之后，较晚到达的权限结果和读文字结束回调都不会重新启动相机。
 
@@ -191,7 +196,7 @@ ContentView.photoDown
 | `SpatialCore` 不得导入 ARKit、UIKit、SwiftUI、AVFoundation、Metal 或 Core ML | `test_repository_layout.py` |
 | `SpatialAnalyzer` 与 `Experiments/SpatialProbe` 中冻结的对照实现保持一致，比较时忽略格式和注释 | `test_spatial_integration.py` |
 | 渲染器仅读取 `SharedSnapshot`，语音和振动仅读取分析结果。隐藏画面不影响分析；如需停止绘制，请使用无画面模式 | `test_spatial_integration.py`，部分覆盖 |
-| 所有异步请求必须处理取消。停止避障、进入后台或来电后，较晚返回的结果不得更新界面或触发播报 | `TextReadingSessionTests`、`LiveCaptionSessionTests`、`test_stability_boundaries.py`，部分覆盖 |
+| 所有异步请求必须处理取消和反馈代次。显式取消后的结果不得发布；设置、失焦和音频中断保留计算，但旧回答不得补播 | `TextReadingSessionTests`、`LiveCaptionSessionTests`、`test_stability_boundaries.py`，部分覆盖 |
 
 应用内的语音和录音通过 `AudioSessionCoordinator` 激活音频会话。每次激活返回一个租约，只有持有最新租约的一方才能关闭会话，因此旧朗读结束时不会打断新的输出。
 

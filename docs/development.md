@@ -135,6 +135,26 @@ python scripts/style.py --fix    # 应用格式修正
 > [!IMPORTANT]
 > 自动录制可能保存现场画面、空间结构、提问声音和返回内容。首页持续显示“此构建将自动录制数据到本地，请注意隐私安全”。数据仅保存在本地，由用户主动导出。
 
+### 录制通路
+
+```mermaid
+flowchart LR
+    AR[ARKit 帧与网格] --> Spatial[空间记录适配器]
+    Spatial --> Store[RecordingStore]
+    RGB[普通 RGB 与文字相机] --> Store
+    Interaction[原图、提问音频、请求与返回] --> Store
+    Events[交互事件与错误日志] --> Store
+    Store --> Video[原尺寸 H.264 视频分段]
+    Store --> Data[无损附件、索引与清单]
+    Video --> Snapshot[封存导出快照]
+    Data --> Snapshot
+    Snapshot --> ZIP[单个 ZIP 文件]
+    ZIP --> Share[系统分享与 AirDrop]
+    Device[设备提取脚本] --> ZIP
+```
+
+录制写入与导出打包使用不同队列。导出只读取已封存的数据；之后的数据继续写入新片段。清除时更新录制代次，迟到的原图、音频和模型回调不得写回已经删除的数据。系统中断和写入缺口保留在事件或清单中。
+
 ### 分享与清理
 
 如需分享录制数据，请在 Dev 的“设置”末尾选择“分享所有录制数据”。应用将已写入的所有会话打包为单个 `PRTS-<时间戳>.zip`，通过系统分享界面发送到 AirDrop 或保存到“文件”。导出期间继续保持功能运行，导出文件只包含打包时已完成写入的数据。
