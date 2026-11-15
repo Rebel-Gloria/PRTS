@@ -126,9 +126,12 @@ nonisolated final class TextCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
     ) {
         #if PRTS_DEV
         RecordingStore.shared.noteGap("text_camera_capture")
-        RecordingStore.shared.event("text_camera_frame_dropped", details: [
-            "timestamp": String(CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds),
-        ])
+        RecordingStore.shared.event(
+            "text_camera_frame_dropped",
+            details: [
+                "timestamp": String(CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds)
+            ]
+        )
         #endif
     }
 }

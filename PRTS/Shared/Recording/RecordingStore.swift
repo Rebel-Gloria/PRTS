@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import SpatialCore
+
 #if PRTS_DEV
 import AVFoundation
 #endif
@@ -44,7 +45,9 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     #endif
 
     init(root: URL? = nil, enabled: Bool = RecordingStore.compiledIn) {
-        self.root = root ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.root =
+            root
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Recordings", isDirectory: true)
         isEnabled = enabled && Self.compiledIn
         if isEnabled { event("recording_started", details: ["reason": "app_launch"]) }
@@ -101,12 +104,17 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             let wallTime: String
         }
         let value = Event(
-            name: name, details: details,
+            name: name,
+            details: details,
             uptime: ProcessInfo.processInfo.systemUptime,
             wallTime: ISO8601DateFormatter().string(from: Date())
         )
-        let cost = details.reduce(name.utf8.count + 4096) { $0 + $1.key.utf8.count + $1.value.utf8.count }
-        submit(.events, estimatedBytes: cost, generation: generation) { .init(json: try DiagnosticJSON.encode(value)) }
+        let cost = details.reduce(name.utf8.count + 4096) {
+            $0 + $1.key.utf8.count + $1.value.utf8.count
+        }
+        submit(.events, estimatedBytes: cost, generation: generation) {
+            .init(json: try DiagnosticJSON.encode(value))
+        }
     }
 
     func noteGap(_ kind: String, generation expected: UInt64? = nil) {
@@ -129,18 +137,28 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         let wallTime = Date().timeIntervalSince1970
         queue.async { [self] in
             defer { complete(cost) }
-            guard valid(token), expectedGeneration == nil || expectedGeneration == token else { return }
+            guard valid(token), expectedGeneration == nil || expectedGeneration == token else {
+                return
+            }
             do {
                 try prepare()
-                try write(try make(), stream: stream.rawValue, received: received, wallTime: wallTime)
+                try write(
+                    try make(),
+                    stream: stream.rawValue,
+                    received: received,
+                    wallTime: wallTime
+                )
             } catch { fail(error, kind: stream.rawValue) }
         }
     }
 
     /// Non-video originals and exact model payloads are losslessly compressed, never resized.
     func attachment(
-        data: Data, kind: String, fileExtension: String,
-        metadata: [String: String] = [:], generation expectedGeneration: UInt64? = nil
+        data: Data,
+        kind: String,
+        fileExtension: String,
+        metadata: [String: String] = [:],
+        generation expectedGeneration: UInt64? = nil
     ) {
         nonisolated struct Header: Encodable, Sendable {
             let kind: String, fileExtension: String, metadata: [String: String]
@@ -158,7 +176,9 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     func videoFrame(
-        pixelBuffer: CVPixelBuffer, timestamp: Double, metadata: [String: String] = [:]
+        pixelBuffer: CVPixelBuffer,
+        timestamp: Double,
+        metadata: [String: String] = [:]
     ) {
         let cost = CVPixelBufferGetDataSize(pixelBuffer) + 4096
         guard timestamp.isFinite, let token = admit("video", bytes: cost, videoFrame: true) else {
@@ -170,16 +190,21 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             guard valid(token) else { return }
             do {
                 try prepare()
-                if let video, timestamp - video.origin >= 30 || timestamp < video.origin
-                    || video.width != CVPixelBufferGetWidth(image.buffer)
-                    || video.height != CVPixelBufferGetHeight(image.buffer)
-                    || videoSource != metadata["source"]
+                if let video,
+                    timestamp - video.origin >= 30 || timestamp < video.origin
+                        || video.width != CVPixelBufferGetWidth(image.buffer)
+                        || video.height != CVPixelBufferGetHeight(image.buffer)
+                        || videoSource != metadata["source"]
                 {
                     finishVideo(video)
                     self.video = nil
                 }
                 if video == nil, let directory {
-                    video = try RecordingVideoWriter(directory: directory, image: image.buffer, timestamp: timestamp)
+                    video = try RecordingVideoWriter(
+                        directory: directory,
+                        image: image.buffer,
+                        timestamp: timestamp
+                    )
                     videoSource = metadata["source"]
                 }
                 guard let video else { throw RecordingError.writeFailed }
@@ -192,9 +217,12 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                     "pts": timestamp - video.origin, "width": video.width, "height": video.height,
                     "metadata": metadata,
                 ]
-                try write(.init(json: JSONSerialization.data(withJSONObject: value)),
-                          stream: "video", received: ProcessInfo.processInfo.systemUptime,
-                          wallTime: Date().timeIntervalSince1970)
+                try write(
+                    .init(json: JSONSerialization.data(withJSONObject: value)),
+                    stream: "video",
+                    received: ProcessInfo.processInfo.systemUptime,
+                    wallTime: Date().timeIntervalSince1970
+                )
             } catch { fail(error, kind: "video") }
         }
     }
@@ -227,7 +255,8 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     private func prepare() throws {
         let files = FileManager.default
         if directory == nil {
-            let id = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            let id =
+                ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
                 + "-" + UUID().uuidString
             let next = root.appendingPathComponent(id, isDirectory: true)
             try files.createDirectory(at: next, withIntermediateDirectories: true)
@@ -246,8 +275,10 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastCapacityCheck >= 1 {
             lastCapacityCheck = now
-            let capacity = try root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-                .volumeAvailableCapacityForImportantUsage
+            let capacity = try root.resourceValues(forKeys: [
+                .volumeAvailableCapacityForImportantUsageKey
+            ])
+            .volumeAvailableCapacityForImportantUsage
             if let capacity, capacity < 256 * 1024 * 1024 {
                 throw RecordingError.insufficientSpace
             }
@@ -267,7 +298,10 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     private func write(
-        _ packet: DiagnosticPacket, stream: String, received: Double, wallTime: Double
+        _ packet: DiagnosticPacket,
+        stream: String,
+        received: Double,
+        wallTime: Double
     ) throws {
         var object: [String: Any] = ["payload": try JSONSerialization.jsonObject(with: packet.json)]
         sequence &+= 1
@@ -309,8 +343,10 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     private func checkpoint(
-        at target: URL? = nil, endTime: Date? = nil,
-        startTime: Date? = nil, segmentStatus: DiagnosticStatus? = nil
+        at target: URL? = nil,
+        endTime: Date? = nil,
+        startTime: Date? = nil,
+        segmentStatus: DiagnosticStatus? = nil
     ) throws {
         guard let destination = target ?? directory else { return }
         let status = segmentStatus ?? status()
@@ -322,17 +358,25 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             "finalized": endTime != nil,
             "complete": endTime != nil && status.error == nil && status.droppedTotal == 0,
             "status": try JSONSerialization.jsonObject(with: DiagnosticJSON.encode(status)),
-            "video": ["codec": "h264", "targetBitsPerSecond": 1_000_000,
-                      "resolution": "native", "timing": "source monotonic timestamps"],
+            "video": [
+                "codec": "h264", "targetBitsPerSecond": 1_000_000,
+                "resolution": "native", "timing": "source monotonic timestamps",
+            ],
             "coordinateConvention": "ARKit gravity world; meters; camera forward -Z",
-            "replayBoundary": "Application sensor inputs and outputs; not private ARKit SLAM internals. RGB is lossy. Gaps and unfinished tails must be reported.",
-            "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+            "replayBoundary":
+                "Application sensor inputs and outputs; not private ARKit SLAM internals. RGB is lossy. Gaps and unfinished tails must be reported.",
+            "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+                as? String ?? "",
             "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
             "os": ProcessInfo.processInfo.operatingSystemVersionString,
-            "commit": Bundle.main.object(forInfoDictionaryKey: "PRTSCommit") as? String ?? "unavailable",
+            "commit": Bundle.main.object(forInfoDictionaryKey: "PRTSCommit") as? String
+                ?? "unavailable",
         ]
-        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
-            .write(to: destination.appendingPathComponent("manifest.json"), options: .atomic)
+        try JSONSerialization.data(
+            withJSONObject: manifest,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        .write(to: destination.appendingPathComponent("manifest.json"), options: .atomic)
         if target == nil { lastCheckpoint = ProcessInfo.processInfo.systemUptime }
     }
 
@@ -345,7 +389,10 @@ nonisolated final class RecordingStore: @unchecked Sendable {
 
     func flush(lifecycle: String? = nil, completion: @escaping @Sendable () -> Void = {}) {
         if let lifecycle { noteLifecycle(lifecycle) }
-        guard isEnabled else { completion(); return }
+        guard isEnabled else {
+            completion()
+            return
+        }
         queue.async { [self] in
             do {
                 for handle in handles.values { try handle.synchronize() }
@@ -361,7 +408,10 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         let previousOpenedAt = openedAt
         let endedAt = Date()
         do {
-            for handle in handles.values { try handle.synchronize(); try handle.close() }
+            for handle in handles.values {
+                try handle.synchronize()
+                try handle.close()
+            }
         } catch { fail(error, kind: "close") }
         handles.removeAll()
         let sealedStatus = status()
@@ -384,8 +434,12 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                             segmentStatus.failed["video_finalize", default: 0] += 1
                         }
                         #endif
-                        try checkpoint(at: previous, endTime: endedAt, startTime: previousOpenedAt,
-                                       segmentStatus: segmentStatus)
+                        try checkpoint(
+                            at: previous,
+                            endTime: endedAt,
+                            startTime: previousOpenedAt,
+                            segmentStatus: segmentStatus
+                        )
                     }
                 } catch { fail(error, kind: "seal") }
                 completion()
@@ -399,24 +453,37 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     func suspend(completion: @escaping @Sendable () -> Void = {}) {
-        guard isEnabled else { completion(); return }
+        guard isEnabled else {
+            completion()
+            return
+        }
         event("recording_segment_stopped", details: ["reason": "system_background"])
         queue.async { [self] in seal(completion: completion) }
     }
 
     func export(completion: @escaping @Sendable (Result<URL, Error>) -> Void) {
-        guard isEnabled else { completion(.failure(RecordingError.disabled)); return }
-        guard lock.withLock({
-            if maintenance { return false }
-            maintenance = true
-            return true
-        }) else { completion(.failure(RecordingError.busy)); return }
+        guard isEnabled else {
+            completion(.failure(RecordingError.disabled))
+            return
+        }
+        guard
+            lock.withLock({
+                if maintenance { return false }
+                maintenance = true
+                return true
+            })
+        else {
+            completion(.failure(RecordingError.busy))
+            return
+        }
         event("export_requested")
         queue.async { [self] in
             // Enumerate before rotating so new data cannot enter the immutable export set.
-            let included = (try? FileManager.default.contentsOfDirectory(
-                at: root, includingPropertiesForKeys: [.isDirectoryKey]
-            )) ?? []
+            let included =
+                (try? FileManager.default.contentsOfDirectory(
+                    at: root,
+                    includingPropertiesForKeys: [.isDirectoryKey]
+                )) ?? []
             seal { [self] in
                 exportQueue.async { [self] in
                     defer { lock.withLock { maintenance = false } }
@@ -431,25 +498,37 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     func clear(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        guard isEnabled else { completion(.failure(RecordingError.disabled)); return }
-        guard lock.withLock({
-            if maintenance { return false }
-            maintenance = true
-            clearing = true
-            generation &+= 1
-            boundaryUptime = ProcessInfo.processInfo.systemUptime
-            return true
-        }) else { completion(.failure(RecordingError.busy)); return }
+        guard isEnabled else {
+            completion(.failure(RecordingError.disabled))
+            return
+        }
+        guard
+            lock.withLock({
+                if maintenance { return false }
+                maintenance = true
+                clearing = true
+                generation &+= 1
+                boundaryUptime = ProcessInfo.processInfo.systemUptime
+                return true
+            })
+        else {
+            completion(.failure(RecordingError.busy))
+            return
+        }
         queue.async { [self] in
             seal { [self] in
                 do {
                     let files = FileManager.default
                     let documents = root.deletingLastPathComponent()
-                    let targets = [root, RecordingArchive.root] + ["DevDiagnostics", "Sessions", "Diagnostics"].map {
-                        documents.appendingPathComponent($0, isDirectory: true)
-                    }
+                    let targets =
+                        [root, RecordingArchive.root]
+                        + ["DevDiagnostics", "Sessions", "Diagnostics"].map {
+                            documents.appendingPathComponent($0, isDirectory: true)
+                        }
                     for target in targets {
-                        if files.fileExists(atPath: target.path) { try files.removeItem(at: target) }
+                        if files.fileExists(atPath: target.path) {
+                            try files.removeItem(at: target)
+                        }
                     }
                     lock.withLock {
                         let pending = state.pending
@@ -463,7 +542,10 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                     event("recording_started", details: ["reason": "clear_completed"])
                     completion(.success(()))
                 } catch {
-                    lock.withLock { clearing = false; maintenance = false }
+                    lock.withLock {
+                        clearing = false
+                        maintenance = false
+                    }
                     fail(error, kind: "clear")
                     completion(.failure(error))
                 }
@@ -473,7 +555,8 @@ nonisolated final class RecordingStore: @unchecked Sendable {
 }
 
 nonisolated enum RecordingError: LocalizedError {
-    case disabled, busy, noData, insufficientSpace, exportSpace, writeFailed, video(String)
+    case disabled, busy, noData, insufficientSpace, exportSpace, writeFailed
+    case video(String)
     var errorDescription: String? {
         let key: String
         switch self {

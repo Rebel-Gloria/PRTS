@@ -230,7 +230,9 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         #if PRTS_DEV
         if busy {
             DevInteractionRecording.noteSuppressedAfterClear(
-                feature: "photoDescription", id: generation.uuidString, generation: recordingGeneration
+                feature: "photoDescription",
+                id: generation.uuidString,
+                generation: recordingGeneration
             )
             RecordingStore.shared.event(
                 "interaction_ended",
@@ -307,7 +309,9 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 guard self.generation == id else { return }
                 #if PRTS_DEV
                 try await DevInteractionRecording.$interactionID.withValue(id.uuidString) {
-                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(
+                        recordingGeneration
+                    ) {
                         try await self.recognizer.start()
                     }
                 }
@@ -336,8 +340,12 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 let jpeg = try await imageTask.value
                 try Task.checkCancellation()
                 #if PRTS_DEV
-                let answer = try await DevInteractionRecording.$interactionID.withValue(id.uuidString) {
-                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                let answer = try await DevInteractionRecording.$interactionID.withValue(
+                    id.uuidString
+                ) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(
+                        recordingGeneration
+                    ) {
                         try await describe(jpeg, question, request)
                     }
                 }

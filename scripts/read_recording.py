@@ -72,6 +72,34 @@ def sensor_frame(raw):
     return header, payload
 
 
+def audio_packets(raw):
+    """Decode the native PCM container without changing sample bits or channel layout."""
+    position = 0
+    packets = []
+    while position < len(raw):
+        if len(raw) - position < 4:
+            raise ValueError("Missing audio packet header")
+        length = struct.unpack_from("<I", raw, position)[0]
+        position += 4
+        if not 0 < length <= len(raw) - position:
+            raise ValueError("Invalid audio header length")
+        header = json.loads(raw[position : position + length])
+        position += length
+        sizes = header["bufferByteCounts"]
+        if not sizes or not all(isinstance(size, int) and size >= 0 for size in sizes):
+            raise ValueError("Invalid audio buffer sizes")
+        if header["sampleRate"] <= 0 or header["channels"] <= 0 or header["frameLength"] <= 0:
+            raise ValueError("Invalid audio format")
+        if sum(sizes) > len(raw) - position:
+            raise ValueError("Truncated audio samples")
+        buffers = []
+        for size in sizes:
+            buffers.append(memoryview(raw)[position : position + size])
+            position += size
+        packets.append((header, buffers))
+    return packets
+
+
 def validate(directory):
     issues = []
     runs = []
@@ -91,6 +119,8 @@ def validate(directory):
                         sensor_frame(raw)
                     if path.name == "analysis.jsonl" and raw is not None:
                         depth_frame(raw)
+                    if record["payload"].get("kind") == "microphone_audio" and raw is not None:
+                        audio_packets(raw)
                     if path.name == "video.jsonl":
                         payload = record["payload"]
                         name = payload["file"]

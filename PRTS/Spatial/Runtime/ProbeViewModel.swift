@@ -95,7 +95,7 @@ final class ProbeViewModel: ObservableObject {
         exporting = true
         #if PRTS_DEV
         DevInteractionRecording.flush { [weak self] in
-            RecordingStore.shared.export { result in
+            RecordingStore.shared.export { [weak self] result in
                 Task { @MainActor [weak self] in
                     self?.exporting = false
                     switch result {
@@ -115,7 +115,9 @@ final class ProbeViewModel: ObservableObject {
         RecordingStore.shared.clear { [weak self] result in
             Task { @MainActor [weak self] in
                 self?.clearingRecordings = false
-                if case .failure(let error) = result { self?.errorMessage = error.localizedDescription }
+                if case .failure(let error) = result {
+                    self?.errorMessage = error.localizedDescription
+                }
                 self?.poll()
             }
         }
@@ -124,9 +126,11 @@ final class ProbeViewModel: ObservableObject {
     func poll() {
         #if PRTS_DEV
         let recording = RecordingStore.shared.status()
-        recordingStatus = recording.error ?? (recording.droppedTotal > 0
-            ? AppLocalization.interfaceString("recording.status.gaps")
-            : AppLocalization.interfaceString("recording.status.active"))
+        recordingStatus =
+            recording.error
+            ?? (recording.droppedTotal > 0
+                ? AppLocalization.interfaceString("recording.status.gaps")
+                : AppLocalization.interfaceString("recording.status.active"))
         #endif
         let thermal = ProcessInfo.processInfo.thermalState
         if thermal.rawValue != lastThermal {

@@ -134,7 +134,10 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
         } catch {
             #if PRTS_DEV
             DevInteractionRecording.failure(
-                error, feature: "cloud_model", id: recordingID, generation: recordingGeneration
+                error,
+                feature: "cloud_model",
+                id: recordingID,
+                generation: recordingGeneration
             )
             #endif
             throw error

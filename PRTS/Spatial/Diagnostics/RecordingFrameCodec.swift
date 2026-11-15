@@ -33,27 +33,55 @@ nonisolated enum RecordingFrameCodec {
                 throw RecordingError.writeFailed
             }
             defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
-            guard let base = CVPixelBufferGetBaseAddress(buffer) else { throw RecordingError.writeFailed }
+            guard let base = CVPixelBufferGetBaseAddress(buffer) else {
+                throw RecordingError.writeFailed
+            }
             let width = CVPixelBufferGetWidth(buffer)
             let height = CVPixelBufferGetHeight(buffer)
             let stride = CVPixelBufferGetBytesPerRow(buffer)
             let rowBytes = width * bytesPerPixel
             guard stride >= rowBytes else { throw RecordingError.writeFailed }
-            sections.append(.init(name: name, offset: payload.count, bytes: rowBytes * height,
-                                  width: width, height: height,
-                                  pixelFormat: CVPixelBufferGetPixelFormatType(buffer)))
+            sections.append(
+                .init(
+                    name: name,
+                    offset: payload.count,
+                    bytes: rowBytes * height,
+                    width: width,
+                    height: height,
+                    pixelFormat: CVPixelBufferGetPixelFormatType(buffer)
+                )
+            )
             for row in 0..<height {
-                payload.append(base.advanced(by: row * stride).assumingMemoryBound(to: UInt8.self), count: rowBytes)
+                payload.append(
+                    base.advanced(by: row * stride).assumingMemoryBound(to: UInt8.self),
+                    count: rowBytes
+                )
             }
         }
         try append(frame.frame.sceneDepth?.depthMap, name: "depth", bytesPerPixel: 4)
         try append(frame.frame.sceneDepth?.confidenceMap, name: "confidence", bytesPerPixel: 1)
-        try append(frame.frame.smoothedSceneDepth?.depthMap, name: "smoothed_depth", bytesPerPixel: 4)
-        try append(frame.frame.smoothedSceneDepth?.confidenceMap, name: "smoothed_confidence", bytesPerPixel: 1)
+        try append(
+            frame.frame.smoothedSceneDepth?.depthMap,
+            name: "smoothed_depth",
+            bytesPerPixel: 4
+        )
+        try append(
+            frame.frame.smoothedSceneDepth?.confidenceMap,
+            name: "smoothed_confidence",
+            bytesPerPixel: 1
+        )
         let points = frame.frame.rawFeaturePoints
         let count = points?.points.count ?? 0
-        sections.append(.init(name: "feature_points", offset: payload.count, bytes: count * 20,
-                              width: count, height: 1, pixelFormat: 0))
+        sections.append(
+            .init(
+                name: "feature_points",
+                offset: payload.count,
+                bytes: count * 20,
+                width: count,
+                height: 1,
+                pixelFormat: 0
+            )
+        )
         if let points {
             for index in 0..<count {
                 var identifier = points.identifiers[index].littleEndian
@@ -65,9 +93,14 @@ nonisolated enum RecordingFrameCodec {
                 }
             }
         }
-        let header = Header(epoch: frame.epoch, frameID: frame.id, timestamp: frame.frame.timestamp,
-                            sections: sections, featureCount: count,
-                            planes: MonocularDepthProvider.planes(frame))
+        let header = Header(
+            epoch: frame.epoch,
+            frameID: frame.id,
+            timestamp: frame.frame.timestamp,
+            sections: sections,
+            featureCount: count,
+            planes: MonocularDepthProvider.planes(frame)
+        )
         let json = try DiagnosticJSON.encode(header)
         var length = UInt32(json.count).littleEndian
         var data = withUnsafeBytes(of: &length) { Data($0) }

@@ -1,11 +1,12 @@
 import Foundation
 import SpatialCore
 import Testing
+
+@testable import PRTS
+
 #if PRTS_DEV
 import AVFoundation
 #endif
-
-@testable import PRTS
 
 @Suite(.serialized)
 struct RecordingStoreTests {
@@ -38,6 +39,31 @@ struct RecordingStoreTests {
     }
 
     #if PRTS_DEV
+    @Test func exportSealsOneSnapshotAndKeepsRecording() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = RecordingStore(root: root)
+        store.event("before_export")
+        await flush(store)
+        let firstID = store.status().runID
+        let result: Result<URL, Error> = await withCheckedContinuation { done in
+            store.export { done.resume(returning: $0) }
+        }
+        let archive = try result.get()
+        defer { try? FileManager.default.removeItem(at: archive) }
+        #expect(try Data(contentsOf: archive).prefix(2) == Data([0x50, 0x4b]))
+        store.event("after_export")
+        await flush(store)
+        #expect(store.status().runID != firstID)
+        let data = try Data(
+            contentsOf: root.appendingPathComponent(firstID).appendingPathComponent("manifest.json")
+        )
+        let manifest = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(manifest["finalized"] as? Bool == true)
+        let status = try #require(manifest["status"] as? [String: Any])
+        #expect(status["runID"] as? String == firstID)
+    }
+
     @Test func clearRejectsLateOriginalsAndAutomaticallyResumes() async throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let root = base.appendingPathComponent("Recordings")
@@ -50,13 +76,23 @@ struct RecordingStoreTests {
             store.clear { done.resume(returning: $0) }
         }
         try clearResult.get()
-        store.attachment(data: Data([4, 5]), kind: "late_original", fileExtension: "bin",
-                         generation: oldGeneration)
+        store.attachment(
+            data: Data([4, 5]),
+            kind: "late_original",
+            fileExtension: "bin",
+            generation: oldGeneration
+        )
         store.event("after_clear")
         await flush(store)
-        let directories = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        let directories = try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil
+        )
         #expect(directories.count == 1)
-        let events = try String(contentsOf: #require(directories.first).appendingPathComponent("events.jsonl"), encoding: .utf8)
+        let events = try String(
+            contentsOf: #require(directories.first).appendingPathComponent("events.jsonl"),
+            encoding: .utf8
+        )
         #expect(events.contains("clear_completed"))
         #expect(events.contains("after_clear"))
         #expect(!events.contains("before_clear"))
@@ -70,11 +106,20 @@ struct RecordingStoreTests {
         let raw = Data((0..<4096).map { UInt8($0 % 256) })
         store.attachment(data: raw, kind: "synthetic", fileExtension: "bin")
         await flush(store)
-        let directory = try #require(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
-        let lines = try String(contentsOf: directory.appendingPathComponent("events.jsonl"), encoding: .utf8)
-            .split(separator: "\n")
-        let objects = try lines.map { try JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
-        let reference = try #require(objects.compactMap { $0?["attachment"] as? [String: Any] }.first)
+        let directory = try #require(
+            FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first
+        )
+        let lines = try String(
+            contentsOf: directory.appendingPathComponent("events.jsonl"),
+            encoding: .utf8
+        )
+        .split(separator: "\n")
+        let objects = try lines.map {
+            try JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]
+        }
+        let reference = try #require(
+            objects.compactMap { $0?["attachment"] as? [String: Any] }.first
+        )
         let file = try #require(reference["file"] as? String)
         let data = try Data(contentsOf: directory.appendingPathComponent(file))
         let decoded = try (data.dropFirst(8) as NSData).decompressed(using: .zlib) as Data
@@ -89,8 +134,16 @@ struct RecordingStoreTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         var pixelBuffer: CVPixelBuffer?
-        #expect(CVPixelBufferCreate(nil, 128, 96, kCVPixelFormatType_32BGRA,
-            [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &pixelBuffer) == kCVReturnSuccess)
+        #expect(
+            CVPixelBufferCreate(
+                nil,
+                128,
+                96,
+                kCVPixelFormatType_32BGRA,
+                [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary,
+                &pixelBuffer
+            ) == kCVReturnSuccess
+        )
         let image = try #require(pixelBuffer)
         CVPixelBufferLockBaseAddress(image, [])
         memset(CVPixelBufferGetBaseAddress(image), 80, CVPixelBufferGetDataSize(image))
@@ -99,13 +152,22 @@ struct RecordingStoreTests {
         store.videoFrame(pixelBuffer: image, timestamp: 42, metadata: ["source": "synthetic"])
         await flush(store)
         await withCheckedContinuation { done in store.suspend { done.resume() } }
-        let directory = try #require(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
-        let line = try String(contentsOf: directory.appendingPathComponent("video.jsonl"), encoding: .utf8)
-        let record = try #require(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        let directory = try #require(
+            FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first
+        )
+        let line = try String(
+            contentsOf: directory.appendingPathComponent("video.jsonl"),
+            encoding: .utf8
+        )
+        let record = try #require(
+            JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+        )
         let payload = try #require(record["payload"] as? [String: Any])
         #expect(payload["timestamp"] as? Double == 42)
         #expect(payload["pts"] as? Double == 0)
-        let asset = AVURLAsset(url: directory.appendingPathComponent(try #require(payload["file"] as? String)))
+        let asset = AVURLAsset(
+            url: directory.appendingPathComponent(try #require(payload["file"] as? String))
+        )
         let track = try #require(try await asset.loadTracks(withMediaType: .video).first)
         let size = try await track.load(.naturalSize)
         #expect(size.width == 128 && size.height == 96)
