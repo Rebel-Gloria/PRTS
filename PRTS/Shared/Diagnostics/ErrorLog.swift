@@ -19,7 +19,10 @@ nonisolated final class ErrorLog: @unchecked Sendable {
     static let application: ErrorLog = {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         #if PRTS_DEV
-        return ErrorLog(directory: documents.appendingPathComponent("Recordings"), recordToStore: true)
+        return ErrorLog(
+            directory: documents.appendingPathComponent("Recordings"),
+            recordToStore: true
+        )
         #else
         return ErrorLog(
             directory: documents.appendingPathComponent("ErrorLogs"),
@@ -88,9 +91,12 @@ nonisolated final class ErrorLog: @unchecked Sendable {
             code: error.code
         )
         if recordToStore {
-            RecordingStore.shared.event("error", details: [
-                "source": source.rawValue, "domain": error.domain, "code": String(error.code),
-            ])
+            RecordingStore.shared.event(
+                "error",
+                details: [
+                    "source": source.rawValue, "domain": error.domain, "code": String(error.code),
+                ]
+            )
             return
         }
         let accepted = admission.withLock {

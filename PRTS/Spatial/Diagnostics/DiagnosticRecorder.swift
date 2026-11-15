@@ -87,7 +87,11 @@ final class DiagnosticRecorder: @unchecked Sendable {
     let journal: RecordingStore
     init(journal: RecordingStore = .shared) {
         self.journal = journal
-        event("spatial_configuration", details: PRTSRuntimeProfile.routePlanningPolicy.rawValue, epoch: 0)
+        event(
+            "spatial_configuration",
+            details: PRTSRuntimeProfile.routePlanningPolicy.rawValue,
+            epoch: 0
+        )
     }
     func event(_ name: String, details: String, epoch: UInt64) {
         guard journal.isEnabled else { return }
@@ -109,14 +113,19 @@ final class DiagnosticRecorder: @unchecked Sendable {
         guard journal.isEnabled else { return }
         let record = CaptureDiagnostic(frame)
         journal.submit(.capture, estimatedBytes: 12 * 1024 * 1024) {
-            .init(json: try DiagnosticJSON.encode(record), binary: try RecordingFrameCodec.encode(frame))
+            .init(
+                json: try DiagnosticJSON.encode(record),
+                binary: try RecordingFrameCodec.encode(frame)
+            )
         }
         #if PRTS_DEV
         journal.videoFrame(
             pixelBuffer: frame.frame.capturedImage,
             timestamp: frame.frame.timestamp,
-            metadata: ["source": "arkit", "epoch": String(frame.epoch),
-                       "frameID": String(frame.id), "orientation": String(frame.orientation.rawValue)]
+            metadata: [
+                "source": "arkit", "epoch": String(frame.epoch),
+                "frameID": String(frame.id), "orientation": String(frame.orientation.rawValue),
+            ]
         )
         #endif
     }

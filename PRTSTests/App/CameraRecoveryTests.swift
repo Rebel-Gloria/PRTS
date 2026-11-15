@@ -267,13 +267,16 @@ struct CameraRecoveryTests {
         let first = TestSignal()
         let second = TestSignal()
         let session = TestProbeSession()
-        let camera = makeCamera(session: session, permission: {
-            try await CameraAuthorization.wait { callback in
-                callbacks.append(callback)
-                let signal = callbacks.count == 1 ? first : second
-                Task { await signal.signal() }
+        let camera = makeCamera(
+            session: session,
+            permission: {
+                try await CameraAuthorization.wait { callback in
+                    callbacks.append(callback)
+                    let signal = callbacks.count == 1 ? first : second
+                    Task { await signal.signal() }
+                }
             }
-        })
+        )
         camera.startCamera()
         let oldStart = camera.startTask
         await first.wait()

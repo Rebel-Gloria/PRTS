@@ -104,7 +104,9 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
                 if let text {
                     RecordingStore.shared.event(
                         "speech_recognized",
-                        details: ["utteranceID": id.uuidString, "text": text, "final": String(final)],
+                        details: [
+                            "utteranceID": id.uuidString, "text": text, "final": String(final),
+                        ],
                         generation: recordingGeneration
                     )
                 }

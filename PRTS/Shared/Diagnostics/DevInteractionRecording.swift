@@ -87,7 +87,9 @@ nonisolated enum DevInteractionRecording {
             else {
                 RecordingStore.shared.noteGap("original_image", generation: generation)
                 RecordingStore.shared.event(
-                    "original_image_failed", details: recordedDetails, generation: generation
+                    "original_image_failed",
+                    details: recordedDetails,
+                    generation: generation
                 )
                 return
             }
@@ -107,7 +109,10 @@ nonisolated enum DevInteractionRecording {
     }
 
     static func failure(
-        _ error: Error, feature: String, id: String, generation: UInt64? = nil
+        _ error: Error,
+        feature: String,
+        id: String,
+        generation: UInt64? = nil
     ) {
         let value = error as NSError
         RecordingStore.shared.event(
@@ -190,7 +195,10 @@ nonisolated final class DevAudioRecording: @unchecked Sendable {
         for source in buffers {
             sizes.append(Int(source.mDataByteSize))
             if let bytes = source.mData {
-                payload.append(bytes.assumingMemoryBound(to: UInt8.self), count: Int(source.mDataByteSize))
+                payload.append(
+                    bytes.assumingMemoryBound(to: UInt8.self),
+                    count: Int(source.mDataByteSize)
+                )
             } else if source.mDataByteSize > 0 {
                 admission.withLock { pending -= 1 }
                 RecordingStore.shared.noteGap("microphone_audio", generation: admittedGeneration)

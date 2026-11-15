@@ -40,7 +40,9 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
         recordingGeneration =
             DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
         RecordingStore.shared.event(
-            "audio_cue", details: ["cue": String(describing: cue)], generation: recordingGeneration
+            "audio_cue",
+            details: ["cue": String(describing: cue)],
+            generation: recordingGeneration
         )
         #endif
         let id = UUID()
@@ -115,7 +117,7 @@ final class AnswerAudioOutput: NSObject, AVSpeechSynthesizerDelegate {
 
     /// Preparing the player takes tens of milliseconds, so it happens before the main thread
     /// takes it. It is not used off the main thread after this.
-    private struct Tone: @unchecked Sendable {
+    nonisolated private struct Tone: @unchecked Sendable {
         let player: AVAudioPlayer
 
         init(_ cue: AnswerCue) throws {

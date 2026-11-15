@@ -74,7 +74,10 @@ nonisolated enum PhotoLocalModel {
         } catch {
             #if PRTS_DEV
             DevInteractionRecording.failure(
-                error, feature: "onDevice_model", id: id, generation: generation
+                error,
+                feature: "onDevice_model",
+                id: id,
+                generation: generation
             )
             #endif
             throw error
@@ -123,7 +126,10 @@ nonisolated enum PhotoLocalModel {
         } catch {
             #if PRTS_DEV
             DevInteractionRecording.failure(
-                error, feature: "onDevice_model", id: id, generation: generation
+                error,
+                feature: "onDevice_model",
+                id: id,
+                generation: generation
             )
             #endif
             throw error

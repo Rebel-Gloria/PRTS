@@ -186,7 +186,9 @@ final class TextReadingSession: ObservableObject {
                     self.work = Task {
                         #if PRTS_DEV
                         await DevInteractionRecording.$interactionID.withValue(id.uuidString) {
-                            await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                            await DevInteractionRecording.$recordingGeneration.withValue(
+                                recordingGeneration
+                            ) {
                                 await self.read(image, id)
                             }
                         }
@@ -248,7 +250,10 @@ final class TextReadingSession: ObservableObject {
         } catch {
             #if PRTS_DEV
             DevInteractionRecording.failure(
-                error, feature: "textReading", id: id.uuidString, generation: recordingGeneration
+                error,
+                feature: "textReading",
+                id: id.uuidString,
+                generation: recordingGeneration
             )
             #endif
             services.errors.record(error)
@@ -387,7 +392,9 @@ final class TextReadingSession: ObservableObject {
         guard phase != .idle else { return }
         #if PRTS_DEV
         DevInteractionRecording.noteSuppressedAfterClear(
-            feature: "textReading", id: generation.uuidString, generation: recordingGeneration
+            feature: "textReading",
+            id: generation.uuidString,
+            generation: recordingGeneration
         )
         RecordingStore.shared.event(
             "interaction_ended",

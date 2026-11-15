@@ -1,3 +1,4 @@
+import ARKit
 import AVFoundation
 import Combine
 import SpatialCore
@@ -214,7 +215,8 @@ final class CameraManager: ObservableObject {
         startTask = Task {
             do {
                 try Task.checkCancellation()
-                let allowed = lowVisionMode || model.capabilities.world
+                let allowed =
+                    lowVisionMode || model.capabilities.world
                     ? try await permission() : true
                 try Task.checkCancellation()
                 model.requestingPermission = false
@@ -223,7 +225,9 @@ final class CameraManager: ObservableObject {
                         rgbCamera.start { done.resume(returning: $0) }
                     }
                     guard startGeneration == id else { return }
-                    if !started { model.errorMessage = String(localized: "camera.error.noRearCamera") }
+                    if !started {
+                        model.errorMessage = String(localized: "camera.error.noRearCamera")
+                    }
                 } else if !lowVisionMode || !allowed {
                     await model.start(allowed: allowed, isActive: sceneActive && isActive())
                 }

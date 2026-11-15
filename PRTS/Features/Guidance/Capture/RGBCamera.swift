@@ -107,7 +107,7 @@ nonisolated final class RGBCamera: NSObject, RGBCapturing,
         session.addInput(input)
         output.videoSettings = [
             kCVPixelBufferPixelFormatTypeKey as String:
-                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         ]
         output.alwaysDiscardsLateVideoFrames = true
         output.setSampleBufferDelegate(self, queue: queue)
@@ -155,7 +155,7 @@ nonisolated final class RGBCamera: NSObject, RGBCapturing,
         RecordingStore.shared.event(
             "rgb_camera_frame_dropped",
             details: [
-                "timestamp": String(CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds),
+                "timestamp": String(CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds)
             ]
         )
         #endif

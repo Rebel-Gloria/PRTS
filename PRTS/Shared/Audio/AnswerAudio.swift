@@ -1,4 +1,4 @@
-enum AnswerCue { case submit, record }
+nonisolated enum AnswerCue: Sendable { case submit, record }
 
 /// Handles user-requested answers, status prompts and tones for descriptions, live captions and
 /// text reading; SpeechManager handles obstacle announcements.

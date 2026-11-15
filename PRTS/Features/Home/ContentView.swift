@@ -433,7 +433,6 @@ struct ContentView: View {
         CameraStatusView(state: camera.state, isLargeText: isLargeText)
     }
 
-
     private var primaryButton: some View {
         GuidanceButton(
             state: camera.state,

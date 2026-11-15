@@ -8,10 +8,22 @@ import zlib
 from pathlib import Path
 
 from pull_recordings import pack
-from read_recording import extract, sensor_frame, validate
+from read_recording import audio_packets, extract, sensor_frame, validate
 
 
 class RecordingTests(unittest.TestCase):
+    def test_native_audio_preserves_channels_and_rejects_truncation(self):
+        samples = struct.pack("<ffff", 0.25, -0.5, 0.75, -1)
+        header = json.dumps(
+            {"sampleRate": 48000, "channels": 2, "frameLength": 2, "bufferByteCounts": [8, 8]}
+        ).encode()
+        packet = struct.pack("<I", len(header)) + header + samples
+        decoded = audio_packets(packet + packet)
+        self.assertEqual(len(decoded), 2)
+        self.assertEqual(b"".join(decoded[0][1]), samples)
+        with self.assertRaises(ValueError):
+            audio_packets(packet[:-1])
+
     def test_zip_roundtrip_preserves_all_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

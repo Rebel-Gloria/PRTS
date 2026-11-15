@@ -18,18 +18,24 @@ nonisolated final class RecordingVideoWriter: @unchecked Sendable {
         width = CVPixelBufferGetWidth(image)
         height = CVPixelBufferGetHeight(image)
         origin = timestamp
-        writer = try AVAssetWriter(outputURL: directory.appendingPathComponent(file), fileType: .mp4)
+        writer = try AVAssetWriter(
+            outputURL: directory.appendingPathComponent(file),
+            fileType: .mp4
+        )
         writer.movieFragmentInterval = CMTime(seconds: 1, preferredTimescale: 60_000)
-        input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: width,
-            AVVideoHeightKey: height,
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: 1_000_000,
-                AVVideoMaxKeyFrameIntervalDurationKey: 1,
-                AVVideoAllowFrameReorderingKey: false,
-            ],
-        ])
+        input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: width,
+                AVVideoHeightKey: height,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoAverageBitRateKey: 1_000_000,
+                    AVVideoMaxKeyFrameIntervalDurationKey: 1,
+                    AVVideoAllowFrameReorderingKey: false,
+                ],
+            ]
+        )
         input.expectsMediaDataInRealTime = true
         adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: input,
@@ -68,7 +74,10 @@ nonisolated final class RecordingVideoWriter: @unchecked Sendable {
         }
         input.markAsFinished()
         writer.finishWriting { [self] in
-            completion(writer.status == .completed ? nil : (writer.error?.localizedDescription ?? "finishWriting"))
+            completion(
+                writer.status == .completed
+                    ? nil : (writer.error?.localizedDescription ?? "finishWriting")
+            )
         }
     }
 }

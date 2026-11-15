@@ -200,7 +200,9 @@ final class LiveCaptionSession: ObservableObject {
             do {
                 #if PRTS_DEV
                 try await DevInteractionRecording.$interactionID.withValue(recordingInteractionID) {
-                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(
+                        recordingGeneration
+                    ) {
                         try await run(capture: capture, key: key)
                     }
                 }
@@ -294,7 +296,9 @@ final class LiveCaptionSession: ObservableObject {
         do {
             let opening = try await skippingOverlong {
                 #if PRTS_DEV
-                try await DevInteractionRecording.$recordingGeneration.withValue(openingRecordingGeneration) {
+                try await DevInteractionRecording.$recordingGeneration.withValue(
+                    openingRecordingGeneration
+                ) {
                     try await describeOpening(first[0].jpeg, key)
                 }
                 #else
@@ -305,7 +309,9 @@ final class LiveCaptionSession: ObservableObject {
             consecutiveFailures = 0
             if let opening, feedbackEnabled, feedbackGeneration == openingFeedbackGeneration {
                 #if PRTS_DEV
-                try DevInteractionRecording.$recordingGeneration.withValue(openingRecordingGeneration) {
+                try DevInteractionRecording.$recordingGeneration.withValue(
+                    openingRecordingGeneration
+                ) {
                     try present(opening)
                 }
                 #else
@@ -354,7 +360,9 @@ final class LiveCaptionSession: ObservableObject {
             do {
                 let response = try await skippingOverlong {
                     #if PRTS_DEV
-                    try await DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
+                    try await DevInteractionRecording.$recordingGeneration.withValue(
+                        recordingGeneration
+                    ) {
                         try await describeChange(video, previous, key)
                     }
                     #else
@@ -368,11 +376,15 @@ final class LiveCaptionSession: ObservableObject {
                 #if PRTS_DEV
                 RecordingStore.shared.event(
                     "interaction_result",
-                    details: ["feature": "liveCaption", "requestID": String(id), "answer": response],
+                    details: [
+                        "feature": "liveCaption", "requestID": String(id), "answer": response,
+                    ],
                     generation: recordingGeneration
                 )
                 #endif
-                guard feedbackEnabled, feedbackGeneration == requestFeedbackGeneration else { return }
+                guard feedbackEnabled, feedbackGeneration == requestFeedbackGeneration else {
+                    return
+                }
                 #if PRTS_DEV
                 try DevInteractionRecording.$recordingGeneration.withValue(recordingGeneration) {
                     try receive(response, id: id)
@@ -501,7 +513,9 @@ final class LiveCaptionSession: ObservableObject {
 
     private func recordSelection(_ frames: some Collection<LiveCaptionFrame>, phase: String) {
         DevInteractionRecording.noteSuppressedAfterClear(
-            feature: "liveCaption", id: interactionID.uuidString, generation: recordingGeneration
+            feature: "liveCaption",
+            id: interactionID.uuidString,
+            generation: recordingGeneration
         )
         for (index, frame) in frames.enumerated() {
             RecordingStore.shared.event(
@@ -511,7 +525,7 @@ final class LiveCaptionSession: ObservableObject {
                     "interactionID": interactionID.uuidString,
                     "sampledAt": String(frame.sampledAt),
                     "sourceFrameID": frame.sourceFrameID.map(String.init) ?? "unavailable",
-                    "sourceTimestamp": frame.sourceTimestamp.map(String.init) ?? "unavailable",
+                    "sourceTimestamp": frame.sourceTimestamp.map { String($0) } ?? "unavailable",
                 ],
                 generation: recordingGeneration
             )
