@@ -29,6 +29,7 @@ struct ContentView: View {
     @State private var didCompleteStopHold = false
     @GestureState private var isPressingStop = false
     @State private var isShowingSettings = false
+    @State private var audioInterrupted = false
     @State private var isShowingUserGuide = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
     @AppStorage(InteractionPreferences.lowVisionKey) private var lowVisionMode = false
@@ -120,7 +121,7 @@ struct ContentView: View {
                 UserGuideView().environmentObject(speechManager)
             }
             .onChange(of: camera.state) { _, newState in
-                if newState != .running {
+                if newState != .running && !isShowingSettings {
                     liveCaption.stop()
                     photo.cancel()
                 }
@@ -138,6 +139,7 @@ struct ContentView: View {
                     || photo.busy || reading
                     || isShowingSettings || isHoldingStop
                     || guidanceSuppressed || scenePhase != .active
+                    || audioInterrupted
                 // Live captions own the voice only. They run while the user walks, so
                 // vibration keeps guiding; pausing it left no obstacle feedback at all.
                 let suspendFeedback = suspendHaptics || liveCaption.suspendsFeedback
@@ -251,12 +253,14 @@ struct ContentView: View {
             .onReceive(
                 NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             ) { notification in
-                if let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                    AVAudioSession.InterruptionType(rawValue: raw) == .began
-                {
-                    liveCaption.stop()
-                    photo.cancel()
-                    textReading.terminate()
+                guard let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                    let interruption = AVAudioSession.InterruptionType(rawValue: raw)
+                else { return }
+                audioInterrupted = interruption == .began
+                updateFeatureFeedback()
+                if audioInterrupted {
+                    photo.handleAudioInterruption()
+                    speechManager.stopCurrentSpeech()
                 }
             }
             .onDisappear {
@@ -293,7 +297,7 @@ struct ContentView: View {
     private var homeActionsAvailable: Bool { !isShowingSettings && !isShowingUserGuide }
 
     private func updateFeatureFeedback() {
-        let enabled = scenePhase == .active && homeActionsAvailable
+        let enabled = scenePhase == .active && homeActionsAvailable && !audioInterrupted
         hapticManager.setFeedbackEnabled(enabled)
         photo.setFeedbackEnabled(enabled)
         liveCaption.setFeedbackEnabled(enabled)

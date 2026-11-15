@@ -24,6 +24,7 @@ class StabilityBoundaryTests(unittest.TestCase):
             "isHoldingStop",
             "guidanceSuppressed",
             "scenePhase != .active",
+            "audioInterrupted",
         )
         for flags in itertools.product((False, True), repeat=len(names)):
             evaluated = expression
@@ -70,8 +71,15 @@ class StabilityBoundaryTests(unittest.TestCase):
         source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text()
         interruption = source.split("for: AVAudioSession.interruptionNotification", 1)[1]
         interruption = interruption.split(".onDisappear", 1)[0]
-        self.assertIn("textReading.terminate()", interruption)
-        self.assertNotIn("textReading.cancel()", interruption)
+        self.assertIn("photo.handleAudioInterruption()", interruption)
+        self.assertIn("updateFeatureFeedback()", interruption)
+        for stop in ("textReading.terminate()", "photo.cancel()", "liveCaption.stop()"):
+            self.assertNotIn(stop, interruption)
+        photo = (
+            ROOT / "PRTS/Features/PhotoDescription/PhotoDescriptionCoordinator.swift"
+        ).read_text()
+        handler = photo.split("func handleAudioInterruption()", 1)[1].split("    ///", 1)[0]
+        self.assertIn("recognizer.endCapture()", handler)
 
     def test_recognition_failure_translations(self):
         catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text())
