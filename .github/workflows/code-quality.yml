@@ -75,7 +75,7 @@ jobs:
     # The LocalVLM stub links normally but always reports an unavailable model.
     # These tests cover application behavior, not model inference or physical sensors.
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -112,8 +112,17 @@ jobs:
       - name: Boot the simulator
         timeout-minutes: 10
         run: xcrun simctl bootstatus "$PRTS_TEST_DEVICE" -b
+      - name: Build simulator tests
+        timeout-minutes: 15
+        run: >-
+          xcodebuild -project PRTS.xcodeproj -scheme PRTS
+          -configuration '${{ matrix.configuration }}'
+          -destination "platform=iOS Simulator,id=$PRTS_TEST_DEVICE"
+          -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
+          CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
+          ENABLE_TESTABILITY=YES ARCHS=arm64 build-for-testing
       - name: Test the app
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: >-
           xcodebuild -project PRTS.xcodeproj -scheme PRTS
           -configuration '${{ matrix.configuration }}'
@@ -125,8 +134,9 @@ jobs:
           -test-timeouts-enabled YES -default-test-execution-time-allowance 60
           -maximum-test-execution-time-allowance 120
           CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
-          ENABLE_TESTABILITY=YES ARCHS=arm64 test
+          ENABLE_TESTABILITY=YES ARCHS=arm64 test-without-building
       - name: Compile the device app
+        timeout-minutes: 15
         run: >-
           xcodebuild -project PRTS.xcodeproj -scheme PRTS
           -configuration '${{ matrix.configuration }}'
