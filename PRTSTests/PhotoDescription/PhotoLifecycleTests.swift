@@ -139,6 +139,35 @@ private final class PhotoFixture {
 
 @MainActor
 struct PhotoLifecycleTests {
+    @Test func audioInterruptionPreservesImageInference() async {
+        let f = PhotoFixture()
+        f.down()
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        f.coordinator.handleAudioInterruption()
+        #expect(f.coordinator.busy)
+        await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
+        #expect(!f.coordinator.busy)
+        #expect(f.audio.spoken.isEmpty)
+    }
+
+    @Test func audioInterruptionReleasesMicrophoneAndFinishesQuestionSilently() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        await f.coordinator.work?.value
+        f.coordinator.handleAudioInterruption()
+        await f.network.waitForRequests(1)
+        #expect(f.state.events.contains("stop-mic"))
+        #expect(await f.network.requests[0].question == "门在哪里？")
+        await f.network.reply(0, "左边。")
+        await f.coordinator.work?.value
+        #expect(f.audio.spoken.isEmpty)
+        #expect(!f.coordinator.busy)
+    }
+
     #if PRTS_DEV
     @Test func captureReceivesTheInteractionRecordingContextBeforeDetachedEncoding() async {
         let f = PhotoFixture()

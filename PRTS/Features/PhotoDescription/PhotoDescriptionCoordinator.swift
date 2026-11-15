@@ -24,6 +24,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private var feedbackEnabled = true
     private var interactionMaySpeak = true
     private var awaitingPlayback = false
+    private var capturingQuestion = false
+
+    /// An audio interruption releases the microphone, while captured-image inference can finish.
+    func handleAudioInterruption() {
+        setFeedbackEnabled(false)
+        guard capturingQuestion else { return }
+        recognizer.endCapture()
+        press.cancel()
+        perform(.stopRecording)
+    }
     #if PRTS_DEV
     private var recordingGeneration: UInt64 = 0
     #endif
@@ -202,7 +212,8 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             }
         case .startRecording: startRecording()
         case .stopRecording:
-            guard imageTask != nil else { return }
+            guard capturingQuestion, imageTask != nil else { return }
+            capturingQuestion = false
             let id = generation
             // A release can arrive while the microphone is still starting.
             let starting = work
@@ -256,6 +267,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         busy = false
         isAnnouncing = false
         awaitingPlayback = false
+        capturingQuestion = false
         if clearMessage { message = "" }
     }
 
@@ -298,6 +310,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             fail(error)
             return
         }
+        capturingQuestion = true
         let id = generation
         #if PRTS_DEV
         let recordingGeneration = self.recordingGeneration

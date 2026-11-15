@@ -117,9 +117,8 @@ struct RecordingStoreTests {
         let objects = try lines.map {
             try JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]
         }
-        let reference = try #require(
-            objects.compactMap { $0?["attachment"] as? [String: Any] }.first
-        )
+        let references = objects.compactMap { $0?["attachment"] as? [String: Any] }
+        let reference = try #require(references.first)
         let file = try #require(reference["file"] as? String)
         let data = try Data(contentsOf: directory.appendingPathComponent(file))
         let decoded = try (data.dropFirst(8) as NSData).decompressed(using: .zlib) as Data
