@@ -151,9 +151,14 @@ struct SettingsView: View {
             }
             #if PRTS_DEV
             Section("recording.settings.title") {
-                Text(verbatim: model.recordingStatus)
-                    .font(.caption).foregroundStyle(.secondary)
-                    .accessibilityIdentifier("recordingStatus")
+                if model.clearingRecordings {
+                    ProgressView("recording.status.resetting")
+                        .accessibilityIdentifier("recordingResetProgress")
+                } else {
+                    Text(verbatim: model.recordingStatus)
+                        .font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("recordingStatus")
+                }
                 if let error = model.errorMessage {
                     Text(verbatim: error).font(.caption).foregroundStyle(.red)
                         .accessibilityIdentifier("recordingOperationError")

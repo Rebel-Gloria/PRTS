@@ -203,15 +203,20 @@ struct TextReadingSessionTests {
         let store = RecordingStore.shared
         await withCheckedContinuation { done in store.flush { done.resume() } }
         var names: [String] = []
-        for directory in try FileManager.default.contentsOfDirectory(at: store.root, includingPropertiesForKeys: nil) {
+        for directory in try FileManager.default.contentsOfDirectory(
+            at: store.root,
+            includingPropertiesForKeys: nil
+        ) {
             let path = directory.appendingPathComponent("events.jsonl")
             guard let contents = try? String(contentsOf: path, encoding: .utf8) else { continue }
             for line in contents.split(separator: "\n") {
-                let object = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+                let object =
+                    try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
                 guard let payload = object?["payload"] as? [String: Any],
-                      let details = payload["details"] as? [String: String],
-                      details["interactionID"] == id,
-                      let name = payload["name"] as? String else { continue }
+                    let details = payload["details"] as? [String: String],
+                    details["interactionID"] == id,
+                    let name = payload["name"] as? String
+                else { continue }
                 names.append(name)
             }
         }

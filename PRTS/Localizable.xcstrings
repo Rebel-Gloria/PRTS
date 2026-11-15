@@ -120,6 +120,23 @@
         }
       }
     },
+    "recording.status.resetting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopping tasks and clearing recordings…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在停止任务并清除录制…"
+          }
+        }
+      }
+    },
     "recording.status.active": {
       "extractionState": "manual",
       "localizations": {

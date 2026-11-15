@@ -55,7 +55,10 @@ struct RecordingStoreTests {
             if entered { return }
             await withCheckedContinuation { arrival = $0 }
         }
-        func finish() { release?.resume(); release = nil }
+        func finish() {
+            release?.resume()
+            release = nil
+        }
     }
 
     @Test func clearBlocksProducersUntilShutdownFinishes() async throws {
@@ -76,13 +79,18 @@ struct RecordingStoreTests {
         await barrier.waitForStop()
         store.event("late_spatial_result")
         await flush(store)
-        #expect(FileManager.default.fileExists(atPath: store.root.appendingPathComponent(previous).path))
+        #expect(
+            FileManager.default.fileExists(atPath: store.root.appendingPathComponent(previous).path)
+        )
         await barrier.finish()
         try await reset.value.get()
         store.event("new_runtime")
         await flush(store)
         let directory = store.root.appendingPathComponent(store.status().runID)
-        let events = try String(contentsOf: directory.appendingPathComponent("events.jsonl"), encoding: .utf8)
+        let events = try String(
+            contentsOf: directory.appendingPathComponent("events.jsonl"),
+            encoding: .utf8
+        )
         #expect(!events.contains("before_reset"))
         #expect(!events.contains("late_spatial_result"))
         #expect(events.contains("new_runtime"))
@@ -127,7 +135,11 @@ struct RecordingStoreTests {
         #expect(status["runID"] as? String == firstID)
         #expect(manifest["recordCounts"] as? [String: Int] == ["events": 3])
         #expect(manifest["lastSequence"] as? Int == 3)
-        let secondData = try Data(contentsOf: root.appendingPathComponent(store.status().runID).appendingPathComponent("manifest.json"))
+        let secondData = try Data(
+            contentsOf: root.appendingPathComponent(store.status().runID).appendingPathComponent(
+                "manifest.json"
+            )
+        )
         // Explicitly checkpoint the current segment before checking its independent inventory.
         let second = try #require(JSONSerialization.jsonObject(with: secondData) as? [String: Any])
         #expect(second["recordCounts"] as? [String: Int] == ["events": 1])

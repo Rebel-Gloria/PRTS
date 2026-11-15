@@ -176,6 +176,8 @@ python3 scripts/pull_recordings.py --device <设备标识> --output <录制文�
 
 `read_diag.py` 保留读取历史空间诊断数据的能力。历史 Sessions 和开发采集的读取工具仅用于旧文件，不代表当前应用仍使用旧录制机制。`source=synthetic` 表示合成数据，不能作为真机结果。
 
+录制清单 schema 3 保存每段独立的 `recordCounts` 和 `lastSequence`。校验器检查缺失文件、记录数量及重复或断号；旧版清单仍可读取，但会报告无法验证流完整性。
+
 ### 回放
 
 路线回放使用已记录的深度和分析结果，只重新运行规划。比较两个版本时，必须使用相同的帧顺序、epoch、frameID 和时间戳。缺失的帧无法补齐，回放也无法模拟用户走向另一条路线后看到的场景。
@@ -207,5 +209,3 @@ python3 scripts/pull_recordings.py --device <设备标识> --output <录制文�
 |---|---|
 | `app-logo-prts.svg` | 1024×1024、不含透明通道的 PNG，用于浅色、深色和着色图标 |
 | `app-logo.svg` | 主页标志，按 32 pt 导出 1×、2×、3× PNG，保持黑底白字 |
-
-录制清单 schema 3 保存每段独立的 `recordCounts` 和 `lastSequence`。校验器检查缺失文件、记录数量及重复或断号；旧版清单仍可读取，但会报告无法验证流完整性。

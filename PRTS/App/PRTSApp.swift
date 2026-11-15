@@ -31,10 +31,10 @@ struct PRTSApp: App {
                     runtimeID = UUID()
                 }
             )
-                .id(runtimeID)
-                .environmentObject(speechManager)
-                .environmentObject(hapticManager)
-                .environment(\.locale, speechManager.interfaceLocale)
+            .id(runtimeID)
+            .environmentObject(speechManager)
+            .environmentObject(hapticManager)
+            .environment(\.locale, speechManager.interfaceLocale)
         }
     }
 }
