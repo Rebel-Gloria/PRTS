@@ -153,6 +153,10 @@ struct SettingsView: View {
                 Text(verbatim: model.recordingStatus)
                     .font(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("recordingStatus")
+                if let error = model.errorMessage {
+                    Text(verbatim: error).font(.caption).foregroundStyle(.red)
+                        .accessibilityIdentifier("recordingOperationError")
+                }
                 Button("recording.settings.export") { model.exportRecordings() }
                     .disabled(model.exporting || model.clearingRecordings)
                     .accessibilityIdentifier("exportRecordingsButton")

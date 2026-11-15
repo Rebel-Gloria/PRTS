@@ -312,6 +312,9 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         if let binary = packet.binary {
             let compressed = try (binary as NSData).compressed(using: .zlib) as Data
             if segmentBytes > 0, segmentBytes + compressed.count + 8 > 32 * 1024 * 1024 {
+                let previous = handles.removeValue(forKey: String(format: "data-%05d.bin", segment))
+                try previous?.synchronize()
+                try previous?.close()
                 segment += 1
                 segmentBytes = 0
             }

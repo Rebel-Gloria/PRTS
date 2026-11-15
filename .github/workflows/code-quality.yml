@@ -109,7 +109,11 @@ jobs:
           device=$(xcrun simctl list devices available -j | python3 -c \
             'import json,sys; print(next(d["udid"] for group in json.load(sys.stdin)["devices"].values() for d in group if d["name"].startswith("iPhone")))')
           echo "PRTS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
+      - name: Boot the simulator
+        timeout-minutes: 10
+        run: xcrun simctl bootstatus "$PRTS_TEST_DEVICE" -b
       - name: Test the app
+        timeout-minutes: 10
         run: >-
           xcodebuild -project PRTS.xcodeproj -scheme PRTS
           -configuration '${{ matrix.configuration }}'
@@ -118,6 +122,8 @@ jobs:
           -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult"
           -only-testing:PRTSTests -skip-testing:PRTSTests/PhotoLocalModelTests
           -parallel-testing-enabled NO
+          -test-timeouts-enabled YES -default-test-execution-time-allowance 60
+          -maximum-test-execution-time-allowance 120
           CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
           ENABLE_TESTABILITY=YES ARCHS=arm64 test
       - name: Compile the device app

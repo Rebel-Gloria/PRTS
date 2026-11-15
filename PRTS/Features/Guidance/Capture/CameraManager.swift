@@ -37,6 +37,7 @@ final class CameraManager: ObservableObject {
         self.isActive = isActive
         self.authorizationStatus = authorizationStatus
         self.rgbCamera = rgbCamera
+        rgbCamera.setSceneActive(isActive())
     }
     private var wantsCameraRunning = false
     private var pausedForTextReading = false
@@ -51,7 +52,6 @@ final class CameraManager: ObservableObject {
         !wantsCameraRunning || pausedForTextReading || !sceneActive || !isActive()
     }
     @Published private(set) var state: CameraState = .idle
-    @Published private(set) var status = "离线空间感知待启动"
     /// The home screen reads this right after `poll` and no view shows it, so it is not
     /// published: a new result arrives ten times a second.
     private(set) var latestSceneResult: SceneResult?
@@ -72,8 +72,6 @@ final class CameraManager: ObservableObject {
             suspendFeedback || !runningIntent || suspendsFeedback || !isActive()
         model.poll()
         if lowVisionMode { rgbCamera.setOrientation(model.snapshot.orientation) }
-        let currentStatus = lowVisionMode ? "低视力模式 · 相机画面" : model.snapshot.status
-        if status != currentStatus { status = currentStatus }
         latestSceneResult =
             runningIntent && !lowVisionMode && !suspendsFeedback
             ? SceneSnapshotAdapter.measuredResult(
@@ -288,6 +286,7 @@ final class CameraManager: ObservableObject {
     }
     func lifecycle(_ phase: ScenePhase) {
         sceneActive = phase == .active
+        rgbCamera.setSceneActive(sceneActive && isActive())
         // A permission/start operation cannot take the camera while the app is inactive.
         // Once running, retain the session; ARKit/AVFoundation handle OS interruptions.
         if phase != .active, startTask != nil, !model.snapshot.running, !rgbCamera.running {
