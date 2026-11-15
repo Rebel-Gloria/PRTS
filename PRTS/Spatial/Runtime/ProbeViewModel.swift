@@ -28,10 +28,8 @@ final class ProbeViewModel: ObservableObject {
     }
     var supportsScanMesh: Bool { engine.capabilities.meshClassification }
     let parameters = ProbeParameters()
-    let pathOptions = PathOptions()
     @Published var recordingStatus = ""
     @Published var clearingRecordings = false
-    @Published var hapticStatus = "等待路径"
     var feedbackSuspended = false
     private let feedback: any SpatialFeedback
     @Published var permissionMessage: String?
@@ -47,7 +45,6 @@ final class ProbeViewModel: ObservableObject {
         self.feedback = feedback
         options = .product(scanMesh: UserDefaults.standard.bool(forKey: Self.scanMeshKey))
         engine.updateOptions(options)
-        engine.store.update { $0.pathOptions = pathOptions }
         UIDevice.current.isBatteryMonitoringEnabled = true
         engine.diagnostics.event(
             "launch_environment",
@@ -92,6 +89,7 @@ final class ProbeViewModel: ObservableObject {
     }
     func exportRecordings() {
         guard !exporting, !clearingRecordings else { return }
+        errorMessage = nil
         exporting = true
         #if PRTS_DEV
         DevInteractionRecording.flush { [weak self] in
@@ -111,6 +109,7 @@ final class ProbeViewModel: ObservableObject {
     }
     func clearRecordings() {
         guard !exporting, !clearingRecordings else { return }
+        errorMessage = nil
         clearingRecordings = true
         RecordingStore.shared.clear { [weak self] result in
             Task { @MainActor [weak self] in
@@ -158,7 +157,6 @@ final class ProbeViewModel: ObservableObject {
         engine.store.update { $0.orientation = orientation }
         snapshot = engine.store.read()
         feedback.tick(snapshot, diagnostics: engine.diagnostics, suspended: feedbackSuspended)
-        hapticStatus = feedback.status
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastHeartbeat >= 1 {
             lastHeartbeat = now

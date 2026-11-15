@@ -25,9 +25,12 @@ nonisolated final class TestRGBCamera: RGBCapturing, @unchecked Sendable {
     private let lock = NSLock()
     private var isRunning = false
     private var events: [String] = []
+    private var visibility: [Bool] = []
     var operations: [String] { lock.withLock { events } }
     var running: Bool { lock.withLock { isRunning } }
+    var sceneVisibility: [Bool] { lock.withLock { visibility } }
 
+    func setSceneActive(_ active: Bool) { lock.withLock { visibility.append(active) } }
     func setOrientation(_ orientation: ImageOrientation) {}
     func snapshot(orientation: ImageOrientation) -> CameraImageSnapshot? { nil }
     func start(completion: @escaping @Sendable (Bool) -> Void) {
@@ -311,7 +314,8 @@ struct CameraRecoveryTests {
     @Test func losingFocusAndReturningKeepsTheSameSession() async {
         let queue = DispatchQueue(label: "test.camera.foreground")
         let session = TestProbeSession()
-        let camera = makeCamera(session: session, queue: queue)
+        let rgb = TestRGBCamera()
+        let camera = makeCamera(session: session, queue: queue, rgbCamera: rgb)
         camera.startCamera()
         await camera.startTask?.value
         queue.suspend()
@@ -324,6 +328,7 @@ struct CameraRecoveryTests {
         #expect(camera.startTask == nil)
         queue.resume()
         #expect(session.operations == ["run"])
+        #expect(rgb.sceneVisibility == [true, false, true])
         #expect(camera.model.snapshot.epoch == epoch)
         #expect(camera.state == .running)
         await stop(camera)

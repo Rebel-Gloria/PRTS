@@ -125,7 +125,7 @@ struct ContentView: View {
                     liveCaption.stop()
                     photo.cancel()
                 }
-                guard scenePhase == .active, !isShowingSettings, !photo.busy,
+                guard homeFeedbackEnabled, !photo.busy,
                     textReading.phase == .idle, !liveCaption.suspendsFeedback, !guidanceSuppressed
                 else { return }
                 speechManager.announceCameraState(newState)
@@ -179,7 +179,7 @@ struct ContentView: View {
             .onChange(of: operationMessage) { _, message in
                 // Errors are otherwise only visible text, which a blind user without VoiceOver
                 // never learns of.
-                guard let message, scenePhase == .active, homeActionsAvailable else { return }
+                guard let message, homeFeedbackEnabled else { return }
                 if UIAccessibility.isVoiceOverRunning {
                     SpeechManager.postQueuedAnnouncement(message)
                 } else {
@@ -188,8 +188,8 @@ struct ContentView: View {
             }
             .onChange(of: photo.message) { _, message in
                 // Photo progress ("正在描述"…) is shown under the button; VoiceOver reads it too.
-                if !message.isEmpty, !photo.isAnnouncing, scenePhase == .active,
-                    homeActionsAvailable, UIAccessibility.isVoiceOverRunning
+                if !message.isEmpty, !photo.isAnnouncing, homeFeedbackEnabled,
+                    UIAccessibility.isVoiceOverRunning
                 {
                     SpeechManager.postQueuedAnnouncement(message)
                 }
@@ -226,7 +226,7 @@ struct ContentView: View {
                 camera.setLowVisionMode(lowVisionMode)
                 updateFeatureFeedback()
                 camera.poll(suspendFeedback: true)
-                speechManager.speakHomeScreen(cameraState: camera.state)
+                if homeFeedbackEnabled { speechManager.speakHomeScreen(cameraState: camera.state) }
                 // The guide opens once, on the first launch. A launch from the Action button skips
                 // it so guidance can start at once; the guide stays in Settings.
                 if !userGuideShown && !commands.startRequested {
@@ -296,8 +296,12 @@ struct ContentView: View {
 
     private var homeActionsAvailable: Bool { !isShowingSettings && !isShowingUserGuide }
 
+    private var homeFeedbackEnabled: Bool {
+        scenePhase == .active && homeActionsAvailable && !audioInterrupted
+    }
+
     private func updateFeatureFeedback() {
-        let enabled = scenePhase == .active && homeActionsAvailable && !audioInterrupted
+        let enabled = homeFeedbackEnabled
         hapticManager.setFeedbackEnabled(enabled)
         photo.setFeedbackEnabled(enabled)
         liveCaption.setFeedbackEnabled(enabled)

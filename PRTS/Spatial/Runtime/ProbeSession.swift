@@ -7,12 +7,12 @@ nonisolated protocol ProbeSession: AnyObject {
 }
 
 extension ARSession: ProbeSession {
-    func configure(delegate: any ARSessionDelegate, queue: DispatchQueue) {
+    nonisolated func configure(delegate: any ARSessionDelegate, queue: DispatchQueue) {
         self.delegate = delegate
         delegateQueue = queue
     }
 
-    func run(_ configuration: ARWorldTrackingConfiguration) {
+    nonisolated func run(_ configuration: ARWorldTrackingConfiguration) {
         run(configuration, options: [.resetTracking, .removeExistingAnchors])
     }
 }
