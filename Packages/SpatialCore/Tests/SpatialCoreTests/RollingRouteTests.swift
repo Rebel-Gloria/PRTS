@@ -4,9 +4,11 @@ import simd
 @testable import SpatialCore
 
 /// Synthetic policy regressions. Real recording comparisons live in the offline replay report.
-extension ForwardRouteTests {
+final class RollingRouteTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testSeparateFarWallDoesNotEnlargeNearBox() throws {
-        let r = frame(cells: { p in
+        let r = fixture.frame(cells: { p in
             if abs(p.x) < 0.1 && -p.z > 0.8 && -p.z < 1 { return .obstacle }
             if -p.z > 2.5 && -p.z < 2.7 { return .obstacle }
             return .candidate
@@ -21,7 +23,7 @@ extension ForwardRouteTests {
     }
 
     func testPlanningDoesNotDependOnDisplayTriangles() throws {
-        var r = frame()
+        var r = fixture.frame()
         r.surfaceModel = nil
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
         let update = planner.update(result: r, observation: nil, options: .init())
@@ -29,7 +31,7 @@ extension ForwardRouteTests {
     }
 
     func testRawGroundSupportExtendsButNeverFillsUnobservedStripe() throws {
-        var r = frame()
+        var r = fixture.frame()
         r.surfaceModel = nil
         for i in r.grid!.cells.indices {
             let center = r.grid!.center(i)
@@ -47,7 +49,7 @@ extension ForwardRouteTests {
     }
 
     func testStaleGroundSamplesCannotAuthorizeNewCells() {
-        var r = frame()
+        var r = fixture.frame()
         r.surfaceModel = nil
         for i in r.grid!.cells.indices {
             r.grid!.cells[i].state = .unknown
@@ -61,10 +63,10 @@ extension ForwardRouteTests {
 
     func testRollingHorizonKeepsLengthWhileWalkingAndPreservesGoalIdentity() throws {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        let first = planner.update(result: frame(), observation: nil, options: .init())
+        let first = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let original = try XCTUnwrap(first.path)
         for i in 1...30 {
-            let r = frame(
+            let r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
                 pose: .init(position: V3(0, 1.4, -Float(i) * 0.1))
@@ -80,13 +82,13 @@ extension ForwardRouteTests {
 
     func testTiltAtDistantOriginDoesNotResetLocallyConsistentReference() throws {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        let first = planner.update(result: frame(), observation: nil, options: .init())
+        let first = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let plane = GroundPlane(
             normal: simd_normalize(V3(0, 1, 0.02)),
             offset: 0.19996,
             floorPriorConfirmed: true
         )
-        var r = frame(2, 2, pose: .init(position: V3(0, 1.4, -10)))
+        var r = fixture.frame(2, 2, pose: .init(position: V3(0, 1.4, -10)))
         r.plane = plane
         r.grid!.basis = GroundBasis(plane: plane, pose: r.sourcePose!)!
         r.diagnostics?.groundConfirmed = true
@@ -99,8 +101,8 @@ extension ForwardRouteTests {
 
     func testActualLocalFloorJumpStillWithdrawsReference() {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
-        var r = frame(2, 1.1)
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
+        var r = fixture.frame(2, 1.1)
         r.plane = .init(normal: V3(0, 1, 0), offset: -0.3, floorPriorConfirmed: true)
         r.diagnostics?.groundConfirmed = true
         let update = planner.update(result: r, observation: nil, options: .init())
@@ -110,7 +112,7 @@ extension ForwardRouteTests {
 
     func testBlockedCentralEntryCanUseObservedLateralEntry() throws {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        let r = frame(cells: { p in
+        let r = fixture.frame(cells: { p in
             if abs(p.x) < 0.15 && -p.z > 0.6 && -p.z < 1.7 { return .obstacle }
             return -p.z > 1 ? .candidate : .unknown
         })
@@ -124,11 +126,11 @@ extension ForwardRouteTests {
 
     func testCameraBlindZoneDoesNotPreventIntentionalTurnAfterThreeSeconds() throws {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var update = PathUpdate()
         for i in 1...34 {
-            let p = pose(yaw: 65)
-            let r = frame(
+            let p = fixture.pose(yaw: 65)
+            let r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
                 pose: p,

@@ -4,9 +4,11 @@ import simd
 @testable import SpatialCore
 
 // Synthetic evidence only; no device accuracy claims.
-extension ForwardRouteTests {
+final class RouteProjectionTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testProjectionExtendsBeyondObservedGridWithoutChangingUnknown() throws {
-        let r = frame(cells: { _ in .unknown })
+        let r = fixture.frame(cells: { _ in .unknown })
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
         let update = planner.update(result: r, observation: nil, options: .init())
         let projection = try XCTUnwrap(update.projection)
@@ -26,7 +28,7 @@ extension ForwardRouteTests {
     }
 
     func testProjectionClipsAtWallAndDoesNotCrossIt() throws {
-        let r = frame(cells: { -$0.z > 2 && -$0.z < 2.2 ? .obstacle : .candidate })
+        let r = fixture.frame(cells: { -$0.z > 2 && -$0.z < 2.2 ? .obstacle : .candidate })
         let reference = ForwardRouteReference(origin: .zero, forward: V3(0, 0, -1), plane: r.plane!)
         let p = try XCTUnwrap(
             RouteProjection.make(result: r, reference: reference, options: .init())
@@ -48,7 +50,7 @@ extension ForwardRouteTests {
     }
 
     func testProjectionKeepsHalfMetreCorridorOpen() throws {
-        var r = frame()
+        var r = fixture.frame()
         r.grid!.halfWidth += 0.05
         // Put centres at +/- 0.30; their 0.10m cells leave exactly 0.50m.
         for i in r.grid!.cells.indices {
@@ -63,8 +65,8 @@ extension ForwardRouteTests {
 
     func testProjectionMovesWindowAndKeepsWorldHeading() throws {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
-        let r = frame(2, 1.1, pose: pose(yaw: 25, position: V3(0, 1.4, -1)))
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
+        let r = fixture.frame(2, 1.1, pose: fixture.pose(yaw: 25, position: V3(0, 1.4, -1)))
         let p = try XCTUnwrap(
             planner.update(result: r, observation: nil, options: .init()).projection
         )
@@ -74,7 +76,7 @@ extension ForwardRouteTests {
     }
 
     func testProjectionGatesTrackingAgeEpochAndFutureTimestamp() throws {
-        let r = frame()
+        let r = fixture.frame()
         let ref = ForwardRouteReference(origin: .zero, forward: V3(0, 0, -1), plane: r.plane!)
         let p = try XCTUnwrap(RouteProjection.make(result: r, reference: ref, options: .init()))
         var gate = ResultPresentationGate()
@@ -97,22 +99,26 @@ extension ForwardRouteTests {
     }
 
     func testProjectionRejectsStaleGridAndMissingReference() {
-        var r = frame()
+        var r = fixture.frame()
         let ref = ForwardRouteReference(origin: .zero, forward: V3(0, 0, -1), plane: r.plane!)
         r.grid?.frameID = 0
         XCTAssertNil(RouteProjection.make(result: r, reference: ref, options: .init()))
-        r = frame()
+        r = fixture.frame()
         r.diagnostics?.groundReferenceMode = "unavailable"
         XCTAssertNotNil(RouteProjection.make(result: r, reference: ref, options: .init()))
     }
 
     func testProjectionAbsentDuringDetourAndCodableRoundtrip() throws {
         var planner = PathPredictor(obstacleConfirmationSeconds: 0)
-        let u = planner.update(result: frame(cells: box), observation: nil, options: .init())
+        let u = planner.update(
+            result: fixture.frame(cells: fixture.box),
+            observation: nil,
+            options: .init()
+        )
         XCTAssertNotNil(u.strategy?.maneuverID)
         XCTAssertNil(u.projection)
         planner.reset()
-        let projected = planner.update(result: frame(), observation: nil, options: .init())
+        let projected = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let data = try JSONEncoder().encode(projected)
         let decoded = try JSONDecoder().decode(PathUpdate.self, from: data)
         XCTAssertEqual(decoded.projection?.points, projected.projection?.points)

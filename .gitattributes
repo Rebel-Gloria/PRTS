@@ -14,4 +14,9 @@
 .gitignore text eol=lf
 .gitattributes text eol=lf
 scripts/requirements-style.txt text eol=lf
+# Preserve upstream bytes used by the bundled model's size and SHA-256 checks.
+PRTS/Spatial/Models/DepthAnythingV2SmallF16.mlpackage/Manifest.json -text
+PRTS/Spatial/Models/AppleModelCard.txt -text
+Experiments/SpatialProbe/App/Models/DepthAnythingV2SmallF16.mlpackage/Manifest.json -text
+Experiments/SpatialProbe/App/Models/AppleModelCard.txt -text
 Vendor/PRTSCore/** !text !eol

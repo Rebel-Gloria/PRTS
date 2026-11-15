@@ -5,7 +5,7 @@ import simd
 
 /// Synthetic timestamps and geometry; not live-sensor validation.
 final class WaypointStabilityTests: XCTestCase {
-    private let fixture = ForwardRouteTests()
+    private let fixture = RoutingTestScene()
 }
 
 extension WaypointStabilityTests {

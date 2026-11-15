@@ -5,7 +5,7 @@ import simd
 
 /// Synthetic geometry/time. These tests do not treat a sampled recording as full-rate truth.
 final class OccupancyFootprintTests: XCTestCase {
-    private let fixture = ForwardRouteTests()
+    private let fixture = RoutingTestScene()
     func testConfirmedGeometryUsesLatestCellNotAssociationAnchor() throws {
         var filter = TemporalOccupancyGrid()
         for i in 0...3 {

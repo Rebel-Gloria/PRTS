@@ -10,13 +10,13 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 |---|---|---|
 | `PRTS/App/` | 应用入口和快捷指令 | `PRTSApp`、`ToggleGuidanceIntent`、`HomeCommandCenter` |
 | `PRTS/Features/Home/` | 首页界面；同时协调各功能的生命周期，并轮询避障反馈 | `ContentView` |
-| `PRTS/Features/Guidance/` | 避障相机的运行意图，语音和振动反馈 | `CameraManager`、`FeedbackCoordinator`、`SpeechManager`、`PathHaptics` |
-| `PRTS/Spatial/` | ARKit 会话、帧快照、渲染和诊断记录 | `ProbeEngine`、`ProbeViewModel`、`ProbeRenderer` |
+| `PRTS/Features/Guidance/` | `Capture/` 管理相机运行意图和状态，`Views/` 展示预览与操作，`Feedback/` 管理语音和振动，`Integration/` 适配空间结果 | `CameraManager`、`FeedbackCoordinator`、`SpeechManager`、`PathHaptics` |
+| `PRTS/Spatial/` | ARKit 会话、帧快照、渲染和诊断记录；`ProbeRenderer` 管理绘制和资源，`ProbeOverlayGeometry` 构造叠加层顶点 | `ProbeEngine`、`ProbeViewModel`、`ProbeRenderer` |
 | `PRTS/Features/PhotoDescription/` | 拍照描述和语音提问。模型后端在 `Services/PhotoDescriptionBackend.swift` 中选择，提示词在 `Services/PhotoPrompts.swift` 中 | `PhotoDescriptionCoordinator` |
-| `PRTS/Features/LiveCaption/` | 流式字幕：采样、请求和朗读；同时负责拍照按键的连按判定 | `LiveCaptionSession` |
+| `PRTS/Features/LiveCaption/` | 会话管理采样、请求和朗读；`Services/` 保存服务装配、请求和提示词；按键策略负责连按判定 | `LiveCaptionSession` |
 | `PRTS/Features/TextReading/` | 读文字：主摄拍照、识别和朗读 | `TextReadingSession` |
-| `PRTS/Features/Settings/` | 设置、智能服务设置和使用说明 | `SettingsView`、`IntelligenceSettingsView` |
-| `PRTS/Features/Developer/` | 开发版专用界面 | `ProbeSettingsView` |
+| `PRTS/Features/Settings/` | 设置、智能服务设置和使用说明；说明资源选择与 Markdown 文档解析分别由 `UserGuide` 和 `UserGuideDocument` 负责 | `SettingsView`、`IntelligenceSettingsView` |
+| `PRTS/Features/Developer/` | 开发版专用界面；文件导出界面由 `ExportDocumentPicker` 适配 UIKit | `ProbeSettingsView` |
 | `PRTS/Shared/Intelligence/` | 模型服务的公共实现：请求协议、流式解析、服务配置、钥匙串凭据和本机模型路径 | `PhotoChatService`、`IntelligenceFeature` |
 | `PRTS/Shared/Imaging/` | 照片缩放与 JPEG 编码 | `PhotoImageEncoder` |
 | `PRTS/Shared/Audio/` | 音频会话、回答朗读、提示音和语音识别 | `AudioSessionCoordinator`、`AnswerAudioOutput`、`PhotoSpeechRecognizer` |
@@ -31,17 +31,21 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 
 ## 应用装配
 
-```text
-PRTSApp
-  ├─ SpeechManager、HapticManager（环境对象）
-  └─ ContentView
-       ├─ CameraManager → ProbeViewModel → ProbeEngine → ARSession
-       ├─ PhotoDescriptionCoordinator
-       ├─ LiveCaptionSession
-       ├─ TextReadingSession → TextCamera（AVCaptureSession）
-       └─ FeedbackCoordinator
-
-ToggleGuidanceIntent → HomeCommandCenter.startRequested → ContentView.runPendingCommand
+```mermaid
+flowchart TD
+    App[PRTSApp] --> Audio[SpeechManager / HapticManager 环境对象]
+    App --> Home[ContentView]
+    Intent[ToggleGuidanceIntent] --> Command[HomeCommandCenter.startRequested]
+    Command -->|runPendingCommand| Home
+    Home --> Camera[CameraManager]
+    Camera --> ViewModel[ProbeViewModel]
+    ViewModel --> Engine[ProbeEngine]
+    Engine --> AR[ARSession]
+    Home --> Photo[PhotoDescriptionCoordinator]
+    Home --> Caption[LiveCaptionSession]
+    Home --> Reading[TextReadingSession]
+    Reading --> TextCamera[TextCamera / AVCaptureSession]
+    Home --> Feedback[FeedbackCoordinator]
 ```
 
 `ContentView` 持有各功能的协调对象，并负责它们之间的交接：打开设置、进入后台、音频中断和离开首页时停止字幕、描述和读文字；读文字开始和结束时交出、收回相机。快捷指令只设置 `HomeCommandCenter` 中的请求标志，应用回到前台后由 `ContentView` 启动避障。

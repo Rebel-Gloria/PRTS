@@ -1,6 +1,7 @@
 """Source/resource parity and preserved home-layout guards; not device acceptance."""
 
 import hashlib
+import json
 import unittest
 from pathlib import Path
 
@@ -223,6 +224,13 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn("routeDisplayedVerifiedLength:drawnPath > 0", renderer)
 
     def test_model_matches_verified_probe(self):
+        provenance = json.loads((PROBE / "App/Models/provenance.json").read_text(encoding="utf-8"))
+        for item in provenance["files"]:
+            relative = "AppleModelCard.txt" if item["path"] == "README.md" else item["path"]
+            data = (PROBE / "App/Models" / relative).read_bytes()
+            with self.subTest(upstream=relative):
+                self.assertEqual(len(data), item["bytes"])
+                self.assertEqual(hashlib.sha256(data).hexdigest(), item["sha256"])
         sources = [p for p in (PROBE / "App/Models").rglob("*") if p.is_file()]
         for source in sources:
             target = ROOT / "PRTS/Spatial/Models" / source.relative_to(PROBE / "App/Models")
@@ -279,7 +287,7 @@ class SpatialIntegrationTests(unittest.TestCase):
             "header": (ROOT / "PRTS/Features/Home/HomeHeaderView.swift").read_text(encoding="utf-8")
             + home,
             "cameraStatus": (
-                ROOT / "PRTS/Features/Guidance/Capture/CameraStatusView.swift"
+                ROOT / "PRTS/Features/Guidance/Views/CameraStatusView.swift"
             ).read_text(encoding="utf-8"),
         }
         self.assertIn(".onAppear {", home)

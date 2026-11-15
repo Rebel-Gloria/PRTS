@@ -3,14 +3,16 @@ import simd
 
 @testable import SpatialCore
 
-extension ForwardRouteTests {
+final class RouteEvidenceTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testEvidenceSurvivesYawWithoutRefreshingObservationAge() throws {
         var map = RouteEvidenceMap()
-        let r = frame()
+        let r = fixture.frame()
         XCTAssertTrue(map.ingest(r))
         let p = V3(0, 0, -1.2)
         let original = try XCTUnwrap(map.support(from: p, to: p, width: 0.9, at: 1))
-        var rotated = frame(2, 1.2, pose: pose(yaw: 90), cells: { _ in .unknown })
+        var rotated = fixture.frame(2, 1.2, pose: fixture.pose(yaw: 90), cells: { _ in .unknown })
         rotated.diagnostics?.groundReferenceMode = "current_confirmed"
         XCTAssertTrue(map.ingest(rotated))
         let kept = try XCTUnwrap(map.support(from: p, to: p, width: 0.9, at: 1.2))
@@ -20,23 +22,23 @@ extension ForwardRouteTests {
     func testObstacleMemoryRequiresPositiveFreeEvidenceToClear() throws {
         var map = RouteEvidenceMap()
         let p = V3(0, 0, -1.2)
-        _ = map.ingest(frame(cells: { _ in .obstacle }))
-        _ = map.ingest(frame(2, 1.21, cells: { _ in .unknown }))
+        _ = map.ingest(fixture.frame(cells: { _ in .obstacle }))
+        _ = map.ingest(fixture.frame(2, 1.21, cells: { _ in .unknown }))
         XCTAssertNil(map.support(from: p, to: p, width: 0.9, at: 1.21))
-        _ = map.ingest(frame(3, 1.42))
+        _ = map.ingest(fixture.frame(3, 1.42))
         XCTAssertNil(map.support(from: p, to: p, width: 0.9, at: 1.42))
-        _ = map.ingest(frame(4, 1.63))
+        _ = map.ingest(fixture.frame(4, 1.63))
         XCTAssertNotNil(map.support(from: p, to: p, width: 0.9, at: 1.63))
     }
     func testWorldWindowEvictsOldRegionAndEpochResets() {
         var map = RouteEvidenceMap()
-        _ = map.ingest(frame())
+        _ = map.ingest(fixture.frame())
         _ = map.ingest(
-            frame(2, 1.1, pose: .init(position: V3(20, 1.4, 0)), cells: { _ in .unknown })
+            fixture.frame(2, 1.1, pose: .init(position: V3(20, 1.4, 0)), cells: { _ in .unknown })
         )
         XCTAssertNil(map.support(from: V3(0, 0, -1), to: V3(0, 0, -2), width: 0.9, at: 1.1))
         XCTAssertLessThan(map.count, 10)
-        var next = frame(1, 1.2, cells: { _ in .unknown })
+        var next = fixture.frame(1, 1.2, cells: { _ in .unknown })
         next.epoch = 2
         next.grid?.epoch = 2
         _ = map.ingest(next)
@@ -45,11 +47,11 @@ extension ForwardRouteTests {
     }
     func testRollingVerifiedTailReadyBeforeLocalEnd() throws {
         var planner = PathPredictor(policy: .verified)
-        let first = planner.update(result: frame(), observation: nil, options: .init())
+        let first = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let id = try XCTUnwrap(first.path).id
         var extensions = 0
         for i in 1...35 {
-            let r = frame(
+            let r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
                 pose: .init(position: V3(0, 1.4, -Float(i) * 0.1))
@@ -64,8 +66,8 @@ extension ForwardRouteTests {
     }
     func testPublicationLateAndOutOfOrderKeepValidPrefix() throws {
         var planner = PathPredictor(policy: .verified)
-        let a = planner.update(result: frame(), observation: nil, options: .init())
-        let b = planner.update(result: frame(2, 1.1), observation: nil, options: .init())
+        let a = planner.update(result: fixture.frame(), observation: nil, options: .init())
+        let b = planner.update(result: fixture.frame(2, 1.1), observation: nil, options: .init())
         var gate = ResultPresentationGate()
         gate.enabled = true
         gate.trackingNormal = true
@@ -106,7 +108,7 @@ extension ForwardRouteTests {
     }
     func testHazardWatermarkRejectsPreHazardCandidate() throws {
         var planner = PathPredictor(policy: .verified)
-        let a = planner.update(result: frame(), observation: nil, options: .init())
+        let a = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var gate = ResultPresentationGate()
         gate.enabled = true
         gate.trackingNormal = true
@@ -125,7 +127,7 @@ extension ForwardRouteTests {
     }
     func testUnrelatedMapVersionDoesNotStarvePublication() {
         var planner = PathPredictor(policy: .verified)
-        let a = planner.update(result: frame(), observation: nil, options: .init())
+        let a = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var gate = ResultPresentationGate()
         gate.enabled = true
         gate.trackingNormal = true
@@ -145,9 +147,9 @@ extension ForwardRouteTests {
     }
     func testNoEvidenceExpiresRatherThanBecomingFree() {
         var planner = PathPredictor(policy: .verified)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let u = planner.update(
-            result: frame(2, 1.6, cells: { _ in .unknown }),
+            result: fixture.frame(2, 1.6, cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
@@ -191,9 +193,9 @@ extension ForwardRouteTests {
     func testCurrentClusterPreemptsBeforeSlowConfirmation() throws {
         var planner = PathPredictor(policy: .verified)
         let old = try XCTUnwrap(
-            planner.update(result: frame(), observation: nil, options: .init()).path
+            planner.update(result: fixture.frame(), observation: nil, options: .init()).path
         )
-        let hit = frame(
+        let hit = fixture.frame(
             2,
             1.1,
             cells: { abs($0.x) < 0.15 && abs($0.z + 1.5) < 0.15 ? .obstacle : .candidate }
@@ -212,7 +214,7 @@ extension ForwardRouteTests {
     }
     func testRawDepthClusterVetoAndIsolatedPixelTolerance() throws {
         var planner = PathPredictor(policy: .verified)
-        let r = frame()
+        let r = fixture.frame()
         let old = try XCTUnwrap(planner.update(result: r, observation: nil, options: .init()).path)
         let k = CameraIntrinsics(fx: 200, fy: 200, cx: 1.5, cy: 1.5, width: 4, height: 4)
         var values = Array(repeating: Float.nan, count: 16)
@@ -242,7 +244,7 @@ extension ForwardRouteTests {
     func testExpiredSuffixDoesNotEraseSupportedPrefixOrRefreshEvidence() throws {
         var planner = PathPredictor(policy: .verified)
         var p = try XCTUnwrap(
-            planner.update(result: frame(), observation: nil, options: .init()).path
+            planner.update(result: fixture.frame(), observation: nil, options: .init()).path
         )
         p.points = [V3(0, 0, -1), V3(0, 0, -3)]
         p.evidenceIntervals = [
@@ -256,7 +258,7 @@ extension ForwardRouteTests {
     }
     func testEpochAndBodyChangeRejectOldCandidate() throws {
         var planner = PathPredictor(policy: .verified)
-        let old = planner.update(result: frame(), observation: nil, options: .init())
+        let old = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var gate = ResultPresentationGate()
         gate.enabled = true
         gate.trackingNormal = true
@@ -298,10 +300,10 @@ extension ForwardRouteTests {
     func testWorldRouteRetainedWhenPhoneYawChanges() throws {
         var planner = PathPredictor(policy: .verified)
         let first = try XCTUnwrap(
-            planner.update(result: frame(), observation: nil, options: .init()).path
+            planner.update(result: fixture.frame(), observation: nil, options: .init()).path
         )
         let u = planner.update(
-            result: frame(2, 1.1, pose: pose(yaw: 60), cells: { _ in .unknown }),
+            result: fixture.frame(2, 1.1, pose: fixture.pose(yaw: 60), cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
@@ -311,9 +313,13 @@ extension ForwardRouteTests {
     }
     func testGhostMemoryCannotBecomeMultipleSensorHits() {
         var planner = PathPredictor(policy: .verified)
-        _ = planner.update(result: frame(cells: box), observation: nil, options: .init())
+        _ = planner.update(
+            result: fixture.frame(cells: fixture.box),
+            observation: nil,
+            options: .init()
+        )
         let missing = planner.update(
-            result: frame(2, 1.4, cells: { _ in .unknown }),
+            result: fixture.frame(2, 1.4, cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
@@ -339,10 +345,10 @@ extension ForwardRouteTests {
     }
     func testVerifiedCorridorUsesSameEnvelopeAfterSimplification() throws {
         var planner = PathPredictor(policy: .verified)
-        let narrow = frame(cells: { abs($0.x) < 0.35 ? .candidate : .obstacle })
+        let narrow = fixture.frame(cells: { abs($0.x) < 0.35 ? .candidate : .obstacle })
         XCTAssertNil(planner.update(result: narrow, observation: nil, options: .init()).path)
         planner.reset()
-        let wide = frame(cells: { abs($0.x) < 0.65 ? .candidate : .obstacle })
+        let wide = fixture.frame(cells: { abs($0.x) < 0.65 ? .candidate : .obstacle })
         let p = try XCTUnwrap(planner.update(result: wide, observation: nil, options: .init()).path)
         var map = RouteEvidenceMap()
         _ = map.ingest(wide)
@@ -355,9 +361,9 @@ extension ForwardRouteTests {
 
     func testReferenceConflictPreemptsEvenWhenReplacementWouldBeLate() throws {
         var planner = PathPredictor(policy: .verified)
-        let a = planner.update(result: frame(), observation: nil, options: .init())
+        let a = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let path = try XCTUnwrap(a.path)
-        var conflict = frame(2, 1.1)
+        var conflict = fixture.frame(2, 1.1)
         conflict.plane = GroundPlane(normal: V3(0, 1, 0), offset: 0.2)
         XCTAssertEqual(
             RouteSafety.invalidationReason(path, result: conflict, observation: nil),

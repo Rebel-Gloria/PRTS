@@ -4,11 +4,13 @@ import simd
 @testable import SpatialCore
 
 /// Synthetic metre-scale scenes and timestamps; no live-sensor acceptance is implied.
-extension ForwardRouteTests {
+final class ObstacleWaypointTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testWaypointOpenSceneHasNoDrawnRoute() {
         var predictor = PathPredictor()
         let update = predictor.update(
-            result: frame(cells: { _ in .unknown }),
+            result: fixture.frame(cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
@@ -23,7 +25,7 @@ extension ForwardRouteTests {
         var update = PathUpdate()
         for i in 0...4 {
             update = predictor.update(
-                result: frame(
+                result: fixture.frame(
                     UInt64(i + 1),
                     1 + Double(i) * 0.1,
                     cells: {
@@ -42,7 +44,7 @@ extension ForwardRouteTests {
     }
 }
 
-extension ForwardRouteTests {
+extension ObstacleWaypointTests {
     /// Direct confirmed model input isolates target scheduling from the separately tested 300ms filter.
     private func waypointModel(
         _ id: UInt64 = 1,
@@ -50,7 +52,7 @@ extension ForwardRouteTests {
         pose: RigidPose = .init(position: V3(0, 1.4, 0)),
         cells: (V3) -> CellState
     ) -> AnalysisResult {
-        var value = frame(id, time, pose: pose, cells: cells)
+        var value = fixture.frame(id, time, pose: pose, cells: cells)
         for index in value.grid!.cells.indices where value.grid!.cells[index].state != .obstacle {
             value.grid!.cells[index].state = .candidate
         }
@@ -59,7 +61,7 @@ extension ForwardRouteTests {
 
     func testWaypointNearObstacleProducesCheckedBendAndMutablePreview() throws {
         var planner = ObstacleWaypointPlanner()
-        let r = waypointModel(cells: box)
+        let r = waypointModel(cells: fixture.box)
         let first = planner.update(result: r, cameraResult: nil, options: .init(), view: nil)
         let path = try XCTUnwrap(first.path)
         let goal = try XCTUnwrap(first.goal)
@@ -72,7 +74,7 @@ extension ForwardRouteTests {
         XCTAssertNotNil(first.waypointGuidance?.nextTarget)
         XCTAssertFalse(path.points.contains(first.waypointGuidance!.nextTarget!))
         let second = planner.update(
-            result: waypointModel(2, 1.1, cells: box),
+            result: waypointModel(2, 1.1, cells: fixture.box),
             cameraResult: nil,
             options: .init(),
             view: nil
@@ -84,7 +86,7 @@ extension ForwardRouteTests {
     func testWaypointArrivalAtomicallyPromotesNextWithoutEmptyFrame() throws {
         var planner = ObstacleWaypointPlanner()
         let first = planner.update(
-            result: waypointModel(cells: box),
+            result: waypointModel(cells: fixture.box),
             cameraResult: nil,
             options: .init(),
             view: nil
@@ -94,7 +96,7 @@ extension ForwardRouteTests {
         // Remain beyond arrival tolerance: even a prepared next target is not drawn.
         let midway = goal.point * 0.25 + V3(0, 1.4, 0)
         let pending = planner.update(
-            result: waypointModel(2, 1.1, pose: .init(position: midway), cells: box),
+            result: waypointModel(2, 1.1, pose: .init(position: midway), cells: fixture.box),
             cameraResult: nil,
             options: .init(),
             view: nil
@@ -105,7 +107,7 @@ extension ForwardRouteTests {
                 3,
                 1.2,
                 pose: .init(position: goal.point + V3(0, 1.4, 0)),
-                cells: box
+                cells: fixture.box
             ),
             cameraResult: nil,
             options: .init(),
@@ -121,7 +123,7 @@ extension ForwardRouteTests {
     func testWaypointPreviewObstacleChangesOnlyUncommittedSuffix() throws {
         var planner = ObstacleWaypointPlanner()
         let first = planner.update(
-            result: waypointModel(cells: box),
+            result: waypointModel(cells: fixture.box),
             cameraResult: nil,
             options: .init(),
             view: nil
@@ -132,7 +134,7 @@ extension ForwardRouteTests {
                 2,
                 1.35,
                 cells: {
-                    self.box($0) == .obstacle || simd_distance($0, target) < 0.16
+                    self.fixture.box($0) == .obstacle || simd_distance($0, target) < 0.16
                         ? .obstacle : .unknown
                 }
             ),
@@ -150,7 +152,7 @@ extension ForwardRouteTests {
     func testWaypointConfirmedCurrentTargetBlockReplans() throws {
         var planner = ObstacleWaypointPlanner()
         let first = planner.update(
-            result: waypointModel(cells: box),
+            result: waypointModel(cells: fixture.box),
             cameraResult: nil,
             options: .init(),
             view: nil
@@ -160,7 +162,8 @@ extension ForwardRouteTests {
             2,
             1.1,
             cells: {
-                self.box($0) == .obstacle || simd_distance($0, point) < 0.16 ? .obstacle : .unknown
+                self.fixture.box($0) == .obstacle || simd_distance($0, point) < 0.16
+                    ? .obstacle : .unknown
             }
         )
         let update = planner.update(result: r, cameraResult: nil, options: .init(), view: nil)
@@ -188,7 +191,7 @@ extension ForwardRouteTests {
         var planner = ObstacleWaypointPlanner()
         XCTAssertNotNil(
             planner.update(
-                result: waypointModel(cells: box),
+                result: waypointModel(cells: fixture.box),
                 cameraResult: nil,
                 options: .init(),
                 view: nil
@@ -266,11 +269,11 @@ extension ForwardRouteTests {
         for i in 0...30 {
             let original = waypointModel(UInt64(i + 2), 1.1 + Double(i) * 0.1, cells: far)
             var lane = original
-            lane.sourcePose = pose(yaw: -90)
+            lane.sourcePose = fixture.pose(yaw: -90)
             let turned = waypointModel(
                 UInt64(i + 2),
                 1.1 + Double(i) * 0.1,
-                pose: pose(yaw: -90),
+                pose: fixture.pose(yaw: -90),
                 cells: far
             )
             last = planner.update(result: lane, cameraResult: turned, options: .init(), view: nil)
@@ -285,11 +288,11 @@ extension ForwardRouteTests {
         let view = RouteCameraView(
             intrinsics: .init(fx: 200, fy: 200, cx: 320, cy: 240, width: 640, height: 480)
         )
-        let r = waypointModel(cells: box)
+        let r = waypointModel(cells: fixture.box)
         _ = planner.update(result: r, cameraResult: nil, options: .init(), view: nil)
-        var turned = waypointModel(2, 1.1, cells: box)
-        turned.sourcePose = pose(yaw: -90)
-        let camera = waypointModel(2, 1.1, pose: pose(yaw: -90), cells: box)
+        var turned = waypointModel(2, 1.1, cells: fixture.box)
+        turned.sourcePose = fixture.pose(yaw: -90)
+        let camera = waypointModel(2, 1.1, pose: fixture.pose(yaw: -90), cells: fixture.box)
         let update = planner.update(
             result: turned,
             cameraResult: camera,
@@ -318,14 +321,14 @@ extension ForwardRouteTests {
         }
         for i in 0...4 {
             original = predictor.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: obstacle),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: obstacle),
                 observation: nil,
                 options: .init()
             )
         }
         let goal = try XCTUnwrap(original.goal)
         for i in 5...10 {
-            var r = frame(
+            var r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
                 pose: .init(position: V3(0, 1.4, -0.3)),
@@ -337,7 +340,12 @@ extension ForwardRouteTests {
             XCTAssertEqual(u.goal?.id, goal.id)
         }
         let near = predictor.update(
-            result: frame(12, 2.1, pose: .init(position: V3(0, 1.4, -1.2)), cells: obstacle),
+            result: fixture.frame(
+                12,
+                2.1,
+                pose: .init(position: V3(0, 1.4, -1.2)),
+                cells: obstacle
+            ),
             observation: nil,
             options: .init()
         )
@@ -351,19 +359,19 @@ extension ForwardRouteTests {
         var before = PathUpdate()
         for i in 0...3 {
             before = predictor.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: fixture.box),
                 observation: nil,
                 options: .init()
             )
         }
         XCTAssertNotNil(before.path)
         _ = predictor.update(
-            result: frame(5, 1.4, cells: { _ in .unknown }),
+            result: fixture.frame(5, 1.4, cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
         let clear = predictor.update(
-            result: frame(6, 2.0, cells: { _ in .unknown }),
+            result: fixture.frame(6, 2.0, cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
@@ -401,13 +409,13 @@ extension ForwardRouteTests {
         var old = PathUpdate()
         for i in 0...3 {
             old = predictor.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: fixture.box),
                 observation: nil,
                 options: .init()
             )
         }
         XCTAssertNotNil(old.path)
-        var r = frame(1, 3, cells: { _ in .unknown })
+        var r = fixture.frame(1, 3, cells: { _ in .unknown })
         r.epoch = 2
         r.grid?.epoch = 2
         let reset = predictor.update(result: r, observation: nil, options: .init())
@@ -430,7 +438,7 @@ extension ForwardRouteTests {
     }
 }
 
-extension ForwardRouteTests {
+extension ObstacleWaypointTests {
     func testWaypointConnectedSideWallDoesNotShortenFrontDistance() throws {
         var planner = ObstacleWaypointPlanner()
         let r = waypointModel(cells: { p in
@@ -455,7 +463,7 @@ extension ForwardRouteTests {
         var planner = PathPredictor()
         for i in 0...3 {
             let u = planner.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: fixture.box),
                 observation: nil,
                 options: .init()
             )
@@ -468,14 +476,14 @@ extension ForwardRouteTests {
             }
         }
         let clear = planner.update(
-            result: frame(5, 1.4, cells: { _ in .unknown }),
+            result: fixture.frame(5, 1.4, cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
         XCTAssertEqual(clear.occupancyFilter?.confirmedCells, 0)
         XCTAssertNotNil(clear.path)
         let settled = planner.update(
-            result: frame(6, 2.0, cells: { _ in .unknown }),
+            result: fixture.frame(6, 2.0, cells: { _ in .unknown }),
             observation: nil,
             options: .init()
         )
@@ -485,7 +493,7 @@ extension ForwardRouteTests {
 
     func testWaypointNoGroundDoesNotPreventClearDecision() {
         var planner = PathPredictor()
-        var r = frame(cells: { _ in .unknown })
+        var r = fixture.frame(cells: { _ in .unknown })
         r.plane = nil
         r.grid = nil
         let u = planner.update(result: r, observation: nil, options: .init())
@@ -495,7 +503,7 @@ extension ForwardRouteTests {
     }
 }
 
-extension ForwardRouteTests {
+extension ObstacleWaypointTests {
     func testWaypointOutOfImageReplacementCannotSelectAnotherInvisibleTarget() {
         let view = RouteCameraView(
             intrinsics: .init(fx: 100, fy: 100, cx: 49.5, cy: 49.5, width: 100, height: 100)
@@ -510,11 +518,11 @@ extension ForwardRouteTests {
     }
 }
 
-extension ForwardRouteTests {
+extension ObstacleWaypointTests {
     func testWaypointNearCornerDoesNotReannounceTheSameGoalEveryFrame() throws {
         var planner = ObstacleWaypointPlanner()
         let first = planner.update(
-            result: waypointModel(cells: box),
+            result: waypointModel(cells: fixture.box),
             cameraResult: nil,
             options: .init(),
             view: nil
@@ -528,7 +536,7 @@ extension ForwardRouteTests {
                     UInt64(i),
                     1 + Double(i) * 0.1,
                     pose: .init(position: foot + V3(0, 1.4, 0)),
-                    cells: box
+                    cells: fixture.box
                 ),
                 cameraResult: nil,
                 options: .init(),
