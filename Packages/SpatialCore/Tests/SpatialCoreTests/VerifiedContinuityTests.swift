@@ -3,9 +3,11 @@ import simd
 
 @testable import SpatialCore
 
-extension ForwardRouteTests {
+final class VerifiedContinuityTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testVerifiedComparatorDoesNotAuthorizeGroundOnly() {
-        var r = frame(cells: { _ in .unknown })
+        var r = fixture.frame(cells: { _ in .unknown })
         for i in r.grid!.cells.indices {
             r.grid!.cells[i].groundSamples = 5
             r.grid!.cells[i].observedAt = r.timestamp
@@ -16,7 +18,7 @@ extension ForwardRouteTests {
 
     func testVerifiedComparatorUsesBodyEnvelope() throws {
         var planner = PathPredictor(policy: .verified)
-        let r = frame()
+        let r = fixture.frame()
         let p = try XCTUnwrap(planner.update(result: r, observation: nil, options: .init()).path)
         XCTAssertEqual(
             p.requiredWidth,
@@ -28,7 +30,7 @@ extension ForwardRouteTests {
     func testPresentationDoesNotHideMerelyNearLocalEnd() throws {
         var planner = PathPredictor(policy: .verified)
         var path = try XCTUnwrap(
-            planner.update(result: frame(), observation: nil, options: .init()).path
+            planner.update(result: fixture.frame(), observation: nil, options: .init()).path
         )
         path.points = [V3(0, 0, -0.05), V3(0, 0, -0.25)]
         var gate = ResultPresentationGate()

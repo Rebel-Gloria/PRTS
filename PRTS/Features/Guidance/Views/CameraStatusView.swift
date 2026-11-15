@@ -5,8 +5,8 @@ struct CameraStatusView: View {
     let isLargeText: Bool
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: state.iconName)
-                .foregroundStyle(state.tintColor)
+            Image(systemName: iconName)
+                .foregroundStyle(tintColor)
                 .symbolEffect(.variableColor.iterative, isActive: state.isBusy)
                 .symbolEffect(.pulse, isActive: state == .running)
                 .accessibilityHidden(true)
@@ -25,5 +25,29 @@ struct CameraStatusView: View {
         .accessibilityLabel("home.camera.status.label")
         .accessibilityValue(LocalizedStringKey(state.statusLocalizationKey))
         .accessibilityIdentifier("cameraStatus")
+    }
+
+    private var iconName: String {
+        switch state {
+        case .running:
+            return "figure.walk"
+        case .permissionDenied, .unavailable:
+            return "exclamationmark.triangle.fill"
+        case .requestingPermission, .starting:
+            return "ellipsis"
+        case .idle:
+            return "checkmark.circle.fill"
+        }
+    }
+
+    private var tintColor: Color {
+        switch state {
+        case .permissionDenied, .unavailable:
+            return .orange
+        case .requestingPermission, .starting:
+            return .yellow
+        case .idle, .running:
+            return Color(red: 0.25, green: 0.95, blue: 0.77)
+        }
     }
 }

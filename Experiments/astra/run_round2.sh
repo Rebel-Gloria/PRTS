@@ -9,7 +9,13 @@ export OPENBLAS_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 python3 Experiments/astra/prepare.py "$diag_root" > Experiments/astra/results/inventory.log
 swift build --disable-sandbox --package-path Packages/SpatialCore --scratch-path Experiments/astra/build -j 2 > Experiments/astra/results/build.log 2>&1
-swiftc -O -g -j 2 -module-cache-path "$CLANG_MODULE_CACHE_PATH" -I Experiments/astra/build/out/Products/Debug -L Experiments/astra/build/out/Products/Debug -lSpatialCore -o Experiments/astra/bin/replay Experiments/astra/Replay.swift Experiments/astra/Drawing.swift Experiments/astra/generated/*.swift > Experiments/astra/results/tool-build.log 2>&1
+swiftc -O -g -j 2 -module-cache-path "$CLANG_MODULE_CACHE_PATH" -I Experiments/astra/build/out/Products/Debug -L Experiments/astra/build/out/Products/Debug -lSpatialCore -o Experiments/astra/bin/replay Experiments/astra/Replay.swift Experiments/astra/Drawing.swift \
+    Experiments/astra/generated/AstraOccupancyGrid.swift \
+    Experiments/astra/generated/AstraWaypointPlanner.swift \
+    Experiments/astra/generated/Speech.swift \
+    Experiments/astra/generated/AdaptiveSpeech.swift \
+    Experiments/astra/generated/Turns.swift \
+    Experiments/astra/generated/Haptics.swift > Experiments/astra/results/tool-build.log 2>&1
 Experiments/astra/bin/replay --self-test > Experiments/astra/results/self-tests.log
 replay_run="$(python3 -c 'import json; print(json.load(open("Experiments/astra/results/inventory.json"))["run"])')"
 Experiments/astra/bin/replay "$replay_run" Experiments/astra/results/index.jsonl > Experiments/astra/results/replay.jsonl 2> Experiments/astra/results/replay.log

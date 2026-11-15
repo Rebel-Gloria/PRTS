@@ -72,6 +72,8 @@ git diff --check
 
 应用的单元测试和 UI 测试需要在真机上通过 Xcode 或 `xcodebuild test` 运行。
 
+SpatialCore 的路线测试按场景使用独立的 `XCTestCase`，可按文件同名的套件筛选，例如 `swift test --package-path Packages/SpatialCore --filter RouteProjectionTests`。共享的合成场景由 `Tests/SpatialCoreTests/Support/RoutingTestScene.swift` 构造；测试通过该值类型生成帧、障碍和位姿，不实例化其他测试套件。
+
 ### 持续集成
 
 `.github/workflows/code-quality.yml` 在推送到 `main` 和面向 `main` 的拉取请求时运行：
@@ -112,6 +114,8 @@ python scripts/style.py --fix    # 应用格式修正
 ```
 
 检查范围包括新增的未跟踪源码，不包括 `Vendor/PRTSCore`、被忽略的生成文件和原始评测数据。
+
+模型附带的 `Manifest.json` 和 `AppleModelCard.txt` 必须保留上游原始字节。`.gitattributes` 禁止对这些文件转换换行，`test_spatial_integration.py` 同时校验上游记录的字节数、SHA-256 和产品副本的一致性。
 
 ## 诊断记录
 
@@ -258,7 +262,9 @@ dev-capture-<UUID>/
 | 用途 | 文件 |
 |---|---|
 | 回放当前源码 | `run.sh` 调用 `run_product.sh`，后者使用 `prepare_product.py`、`ReplayProduct.swift`、`metrics_product.py` 和 `seal_product.py` |
-| 复现第二轮历史实验 | `run_round2.sh`，使用 `prepare.py`、`Replay.swift` 和 `metrics.py`，基于固定的历史提交 |
+| 复现第二轮历史实验 | `run_round2.sh`，使用 `prepare.py`、`Replay.swift` 和 `metrics.py`；原型源码按固定历史提交提取，`SpatialCore` 使用当前工作区 |
+
+两组工具共用 `generated/` 目录，但各自只编译明确列出的生成文件，避免先运行产品回放后将其适配器混入历史实验。历史实验还需要本地存在 `prepare.py` 指定的提交；源码缺失时不能复现完整回放。
 
 结论以[验证结果](validation.md)为准，回放工具不生成报告。
 

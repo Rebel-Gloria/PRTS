@@ -33,7 +33,7 @@
 
 ## 提示词
 
-拍照描述和语音提问的提示词定义在 `PRTS/Features/PhotoDescription/Services/PhotoPrompts.swift` 中，流式字幕的提示词定义在 `PRTS/Features/LiveCaption/LiveCaptionPrompts.swift` 中：
+拍照描述和语音提问的提示词定义在 `PRTS/Features/PhotoDescription/Services/PhotoPrompts.swift` 中，流式字幕的提示词定义在 `PRTS/Features/LiveCaption/Services/LiveCaptionPrompts.swift` 中：
 
 | 场景 | 系统提示词 | 约束 |
 |---|---|---|
@@ -55,7 +55,7 @@
 
 ## 流式字幕
 
-流式字幕以视频的形式向千问发送画面。其他服务在测试中会编造动作，因此该功能不跟随服务配比，配置要求见上文“服务配比”。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，并先对拍照按键做连按判定（见[工程架构](architecture.md#拍照按键)），`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`LiveCaptionBackend.swift` 组装请求。
+流式字幕以视频的形式向千问发送画面。其他服务在测试中会编造动作，因此该功能不跟随服务配比，配置要求见上文“服务配比”。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，并先对拍照按键做连按判定（见[工程架构](architecture.md#拍照按键)），`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`Services/LiveCaptionBackend.swift` 组装请求，`Services/LiveCaptionServices.swift` 装配服务调用。
 
 ### 请求流程
 
@@ -94,7 +94,7 @@
 
 ### 本地识别流程
 
-1. 停止 ARKit 会话，改用后置主摄。相机在应用启动时预先配置，从开始识别到显示预览约 0.3 s；10 s 内未收到图像时，提示“无法打开相机”并退出。
+1. 停止 ARKit 会话，改用后置主摄。相机在应用启动时预先配置，从开始识别到显示预览约 0.3 s；从请求启动主摄起，10 s 内仍未开始拍照时，提示“无法打开相机”并退出。该超时覆盖没有首帧和首帧后预览中断的情况，不包含等待 ARKit 释放相机的时间。
 2. 收到第一帧后等待 1 s，使对焦和曝光稳定，然后自动拍照并振动。
 3. 按下文“图像与数据处理”的最长边规则缩放照片，向模型提问：文字位于路标、牌子、纸张还是物体上。应用在回答中查找这四个词，找不到时按“物体”处理。
 4. 在同一对话中继续提问，转写照片里的文字；没有文字时回答“无”。此步骤复用已编码的图像，不重新进行视觉编码。
@@ -112,7 +112,20 @@
 | `remoteSystem` | 联网服务，第一行分类，其余行转写 |
 | `remotePrompt` | 联网识别的用户消息：“读出照片里的文字。” |
 
-实现位于 `PRTS/Features/TextReading/`：`TextReadingSession.swift` 管理一次识别的生命周期，`Capture/TextCamera.swift` 管理主摄，`Services/TextReadingServices.swift` 集中了会话用到的时钟、编码和识别调用，测试可以替换。`Services/` 中，`TextReadingPrompt.swift` 定义提示词，`TextReadingBackend.swift` 发出本机和联网请求，`TextReadingAnswer.swift` 解析分类和逐句输出，`TextReadingFallback.swift` 处理回退，`TextRecognizer.swift` 调用 Apple Vision。服务选择由 `PRTS/Shared/Intelligence/TextReadingService.swift` 定义。
+实现位于 `PRTS/Features/TextReading/`，职责划分如下：
+
+| 文件 | 职责 |
+|---|---|
+| `TextReadingSession.swift` | 管理采集、识别和朗读的生命周期；按阶段管理异步任务，结束或取消后拒绝迟到回调 |
+| `Capture/TextCamera.swift` | 管理主摄、预览回调和照片采集 |
+| `Services/TextReadingServices.swift` | 读取联网服务配置，提供可替换的时钟、编码和识别调用；配置在每次开始识别时读取 |
+| `Services/TextReadingBackend.swift` | 发出本机和联网请求，处理对应模型的输出约定 |
+| `Services/TextReadingAnswer.swift` | 解析分类和逐句朗读内容，保留普通小于号及其他原文符号 |
+| `Services/TextReadingFallback.swift` | 处理识别服务回退 |
+| `Services/TextReadingPrompt.swift` | 定义识别提示词 |
+| `Services/TextRecognizer.swift` | 调用 Apple Vision |
+
+服务选择由 `PRTS/Shared/Intelligence/TextReadingService.swift` 定义，供功能装配和设置页共同使用。相机准备超时后，会话先退出采集阶段，再等待错误提示播完和相机释放；迟到的预览帧不能重新触发拍照。拍照开始后取消相机准备计时，不以该计时限制识别或朗读。
 
 ## 本地视觉模型
 
@@ -139,7 +152,12 @@
 - `describe`：接收一张照片和一个问题，返回回答。
 - `ask`：在同一图像上下文中继续提问，无须重新进行视觉编码。
 
-两个接口都支持流式输出，并保证不会截断 UTF-8 字符。模型在首次请求时加载，之后常驻内存。所有请求在同一串行队列上执行，取消在两个 token 之间生效。模型偶尔在回答后输出 `</think>` 并继续生成，推理封装在该标记处停止；文字识别解析流式回答时还会丢弃 `<` 之后的内容。
+两个接口都支持流式输出，并保证不会截断 UTF-8 字符。模型在首次请求时加载，之后常驻内存。所有请求在同一串行队列上执行，取消在两个 token 之间生效。模型偶尔在回答后输出 `</think>` 并继续生成，推理封装在完整标记处停止，并在流式回调前暂存可能属于标记的片段，避免跨片段标记进入朗读。模型正常结束时，未构成完整标记的字面前缀仍作为正文保留。
+
+联网读字在响应适配层处理控制标记。完整响应开头的 `<think>…</think>` 仅在后接明确分类行或“无”时作为思考前缀移除；前缀不完整或后续格式不明确时触发已有识别回退。正文中的成对标签按原文保留，孤立的 `</think>` 终止当前回答。公共朗读解析不再把普通 `<` 当作结束信号。
+
+> [!NOTE]
+> 自定义服务将思考内容放入 `content` 时，标签与合法 OCR 原文可能具有相同形式。上述规则依赖分类行约定，不能仅凭字符串无歧义地区分所有输入；缺少分类信息的思考前缀按失败处理。
 
 `PRTS/Shared/Intelligence/PhotoLocalModel.swift` 指定安装包中的模型路径。
 

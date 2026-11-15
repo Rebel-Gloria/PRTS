@@ -7,16 +7,22 @@ import simd
 // in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
 
 // Synthetic tests of explicitly selected occupancy policy, not sensor accuracy.
-extension ForwardRouteTests {
+final class TemporalOccupancyTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testExperimentalGhostDoesNotStopRouteOrTriggerDetour() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        let first = planner.update(result: frame(cells: box), observation: nil, options: .init())
+        let first = planner.update(
+            result: fixture.frame(cells: fixture.box),
+            observation: nil,
+            options: .init()
+        )
         XCTAssertNotNil(first.path)
         XCTAssertNil(first.strategy?.maneuverID)
         XCTAssertGreaterThan(first.occupancyFilter?.pendingCells ?? 0, 0)
         XCTAssertEqual(first.occupancyFilter?.confirmedCells, 0)
         XCTAssertGreaterThan(first.path?.length ?? 0, 3)
-        let gone = planner.update(result: frame(2, 1.1), observation: nil, options: .init())
+        let gone = planner.update(result: fixture.frame(2, 1.1), observation: nil, options: .init())
         XCTAssertEqual(gone.occupancyFilter?.confirmedCells, 0)
         XCTAssertEqual(gone.occupancyFilter?.pendingCells, 0)
         XCTAssertNil(gone.strategy?.maneuverID)
@@ -25,7 +31,7 @@ extension ForwardRouteTests {
     func testExperimentalPersistentObstacleActivatesAt300ms() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
         for index in 0..<4 {
-            let r = frame(UInt64(index + 1), 1 + Double(index) * 0.1, cells: box)
+            let r = fixture.frame(UInt64(index + 1), 1 + Double(index) * 0.1, cells: fixture.box)
             let u = planner.update(result: r, observation: nil, options: .init())
             if index < 3 {
                 XCTAssertEqual(u.occupancyFilter?.confirmedCells, 0)
@@ -41,20 +47,22 @@ extension ForwardRouteTests {
 
     func testExperimentalDisappearResetsTimerAndEpochIsolatesEvidence() {
         var filter = TemporalOccupancyGrid()
-        for i in 0..<3 { _ = filter.apply(frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box)) }
-        _ = filter.apply(frame(4, 1.25))
-        _ = filter.apply(frame(5, 1.3, cells: box))
+        for i in 0..<3 {
+            _ = filter.apply(fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: fixture.box))
+        }
+        _ = filter.apply(fixture.frame(4, 1.25))
+        _ = filter.apply(fixture.frame(5, 1.3, cells: fixture.box))
         XCTAssertEqual(filter.diagnostics.confirmedCells, 0)
         XCTAssertEqual(filter.diagnostics.maximumAge, 0, accuracy: 0.0001)
         var planner = PathPredictor(legacyContinuousOccupancy: true)
         for i in 0..<4 {
             _ = planner.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: fixture.box),
                 observation: nil,
                 options: .init()
             )
         }
-        var next = frame(1, 2, cells: box)
+        var next = fixture.frame(1, 2, cells: fixture.box)
         next.epoch = 2
         next.grid?.epoch = 2
         let update = planner.update(result: next, observation: nil, options: .init())
@@ -64,15 +72,15 @@ extension ForwardRouteTests {
 
     func testExperimentalGapDoesNotCountAsContinuousDetection() {
         var filter = TemporalOccupancyGrid()
-        _ = filter.apply(frame(1, 1, cells: box))
-        _ = filter.apply(frame(2, 1.8, cells: box))
+        _ = filter.apply(fixture.frame(1, 1, cells: fixture.box))
+        _ = filter.apply(fixture.frame(2, 1.8, cells: fixture.box))
         XCTAssertEqual(filter.diagnostics.confirmedCells, 0)
         XCTAssertEqual(filter.diagnostics.maximumAge, 0, accuracy: 0.0001)
     }
 
     func testExperimentalGridDoesNotRewriteRawObservation() throws {
         var filter = TemporalOccupancyGrid()
-        let input = frame(cells: { abs($0.x) < 0.1 ? .obstacle : .unknown })
+        let input = fixture.frame(cells: { abs($0.x) < 0.1 ? .obstacle : .unknown })
         let before = try JSONEncoder().encode(input)
         let planned = try XCTUnwrap(filter.apply(input))
         XCTAssertTrue(planned.grid!.cells.allSatisfy { $0.state == .candidate })
@@ -83,7 +91,7 @@ extension ForwardRouteTests {
     }
 
     func testGreedyBypassReturnsToReferenceWithoutCrossingObstacle() throws {
-        let r = frame(cells: {
+        let r = fixture.frame(cells: {
             abs($0.x) < 0.15 && -$0.z > 1.4 && -$0.z < 1.7 ? .obstacle : .candidate
         }
         )
@@ -117,11 +125,11 @@ extension ForwardRouteTests {
         var filter = TemporalOccupancyGrid()
         for i in 0..<4 {
             _ = filter.apply(
-                frame(
+                fixture.frame(
                     UInt64(i + 1),
                     1 + Double(i) * 0.1,
                     pose: .init(position: V3(0, 1.4, -Float(i) * 0.1)),
-                    cells: box
+                    cells: fixture.box
                 )
             )
         }
@@ -130,7 +138,7 @@ extension ForwardRouteTests {
 
     func testVerifiedComparatorStillRejectsFirstFrameObstacle() {
         var planner = PathPredictor(policy: .verified)
-        let r = frame(cells: box)
+        let r = fixture.frame(cells: fixture.box)
         let u = planner.update(result: r, observation: nil, options: .init())
         XCTAssertNil(u.occupancyFilter)
         XCTAssertNil(u.strategy?.maneuverID)

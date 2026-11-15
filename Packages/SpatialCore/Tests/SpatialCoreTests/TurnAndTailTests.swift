@@ -7,22 +7,24 @@ import simd
 // in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
 
 /// Synthetic clocks and poses: checks turn intent and rolling geometry, not device measurements.
-extension ForwardRouteTests {
+final class TurnAndTailTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testVetoCanAdoptSideAndReverseHeadingsAfterThreeSeconds() throws {
         for yaw: Float in [-180, -135, -90, 90, 135, 180] {
             var planner = PathPredictor(legacyContinuousOccupancy: true)
             let first = planner.update(
-                result: frame(cells: { _ in .unknown }),
+                result: fixture.frame(cells: { _ in .unknown }),
                 observation: nil,
                 options: .init()
             )
             var next = first
             for i in 1...36 {
                 next = planner.update(
-                    result: frame(
+                    result: fixture.frame(
                         UInt64(i + 1),
                         1 + Double(i) * 0.1,
-                        pose: pose(yaw: yaw),
+                        pose: fixture.pose(yaw: yaw),
                         cells: { _ in .unknown }
                     ),
                     observation: nil,
@@ -30,7 +32,7 @@ extension ForwardRouteTests {
                 )
                 if i < 30 { XCTAssertEqual(next.goal?.id, first.goal?.id) }
             }
-            let expected = -pose(yaw: yaw).back
+            let expected = -fixture.pose(yaw: yaw).back
             XCTAssertGreaterThan(
                 simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), expected),
                 0.99,
@@ -41,13 +43,13 @@ extension ForwardRouteTests {
     }
     func testTurnDwellUsesHeadingRatherThanGlobalPitchStability() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var next = PathUpdate()
         for i in 1...35 {
-            var r = frame(
+            var r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
-                pose: pose(yaw: 70),
+                pose: fixture.pose(yaw: 70),
                 cells: { _ in .unknown }
             )
             // AR tracking is valid; unrelated pitch motion must not reset yaw dwell.
@@ -60,30 +62,34 @@ extension ForwardRouteTests {
             )
         }
         XCTAssertGreaterThan(
-            simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), -pose(yaw: 70).back),
+            simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), -fixture.pose(yaw: 70).back),
             0.99
         )
     }
     func testTurnDwellWorksAtTwoHz() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var next = PathUpdate()
         for i in 1...8 {
             next = planner.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.5, pose: pose(yaw: 65)),
+                result: fixture.frame(
+                    UInt64(i + 1),
+                    1 + Double(i) * 0.5,
+                    pose: fixture.pose(yaw: 65)
+                ),
                 observation: nil,
                 options: .init()
             )
         }
         XCTAssertGreaterThan(
-            simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), -pose(yaw: 65).back),
+            simd_dot(try XCTUnwrap(next.strategy?.reference?.forward), -fixture.pose(yaw: 65).back),
             0.99
         )
     }
     func testStraightRollingTailDoesNotAccumulateGreedyWaypoints() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
         for i in 0...150 {
-            let r = frame(
+            let r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
                 pose: .init(position: V3(0, 1.4, -Float(i) * 0.2)),
@@ -105,7 +111,7 @@ extension ForwardRouteTests {
         var first = PathUpdate()
         for i in 0...3 {
             first = planner.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: obstacle),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: obstacle),
                 observation: nil,
                 options: .init()
             )
@@ -115,7 +121,7 @@ extension ForwardRouteTests {
         let goal = try XCTUnwrap(path.points.last)
         let near = goal + V3(0, 1.4, 0.5)
         // Keep the known forward obstacle model present during this synthetic large movement.
-        var moved = frame(5, 1.4, pose: .init(position: near), cells: obstacle)
+        var moved = fixture.frame(5, 1.4, pose: .init(position: near), cells: obstacle)
         // The immediate result can finish a maneuver; either way it must extend, not end here.
         let next = planner.update(result: moved, observation: nil, options: .init())
         XCTAssertNotNil(next.path)
@@ -129,13 +135,13 @@ extension ForwardRouteTests {
     }
     func testNewHeadingChecksObstaclesOutsideOriginalRouteWindow() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        _ = planner.update(result: frame(), observation: nil, options: .init())
+        _ = planner.update(result: fixture.frame(), observation: nil, options: .init())
         var update = PathUpdate()
         for i in 1...40 {
-            let r = frame(
+            let r = fixture.frame(
                 UInt64(i + 1),
                 1 + Double(i) * 0.1,
-                pose: pose(yaw: 90),
+                pose: fixture.pose(yaw: 90),
                 cells: { p in
                     p.x < -0.3 && p.x > -0.6 && abs(p.z) < 1 ? .obstacle : .unknown
                 }
@@ -153,7 +159,7 @@ extension ForwardRouteTests {
         for i in 0...60 {
             let p = try XCTUnwrap(
                 planner.update(
-                    result: frame(UInt64(i + 1), 1 + Double(i) * 0.1),
+                    result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1),
                     observation: nil,
                     options: .init()
                 ).path
@@ -172,7 +178,7 @@ extension ForwardRouteTests {
         XCTAssertEqual(RouteArc.coalescingCollinear([a, b, c, b]), [a, c, b])
     }
     func testDirectGreedyPrefixStopsAtFirstOccupiedEnvelope() throws {
-        let r = frame(cells: { -$0.z > 2 && -$0.z < 2.2 ? .obstacle : .unknown })
+        let r = fixture.frame(cells: { -$0.z > 2 && -$0.z < 2.2 ? .obstacle : .unknown })
         let raster = try XCTUnwrap(RoutePlanningGrid(result: r, obstacleVeto: true))
         let reference = ForwardRouteReference(origin: .zero, forward: V3(0, 0, -1), plane: r.plane!)
         let trace = ForwardPathSearch.straight(raster: raster, reference: reference, foot: .zero)
@@ -220,7 +226,7 @@ extension ForwardRouteTests {
     }
 
     func testVetoMaskOpensQueryBoundaryButStillVetoesOccupiedCells() throws {
-        let r = frame(cells: { _ in .unknown })
+        let r = fixture.frame(cells: { _ in .unknown })
         var grid = try XCTUnwrap(r.grid)
         let index = try XCTUnwrap(grid.index(x: 0.05, z: 0.05))
         XCTAssertFalse(PathClearance.mask(grid: grid, radius: 0.25)[index])

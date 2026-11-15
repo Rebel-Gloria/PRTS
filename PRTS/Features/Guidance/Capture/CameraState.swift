@@ -1,7 +1,3 @@
-import Combine
-import SpatialCore
-import SwiftUI
-
 nonisolated enum CameraUnavailableReason: Equatable {
     case noRearCamera
 
@@ -69,30 +65,6 @@ nonisolated enum CameraState: Equatable {
             return "accessibility.camera.permissionDenied"
         case .unavailable:
             return "accessibility.camera.unavailable"
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .running:
-            return "figure.walk"
-        case .permissionDenied, .unavailable:
-            return "exclamationmark.triangle.fill"
-        case .requestingPermission, .starting:
-            return "ellipsis"
-        case .idle:
-            return "checkmark.circle.fill"
-        }
-    }
-
-    var tintColor: Color {
-        switch self {
-        case .permissionDenied, .unavailable:
-            return .orange
-        case .requestingPermission, .starting:
-            return .yellow
-        case .idle, .running:
-            return Color(red: 0.25, green: 0.95, blue: 0.77)
         }
     }
 

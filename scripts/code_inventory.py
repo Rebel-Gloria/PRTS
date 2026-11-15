@@ -19,7 +19,7 @@ GROUPS = ("App", "SpatialCore", "LocalVLM", "Contracts", "OptionalModels", "Test
 
 
 def category(path):
-    """Classify first-party source only; frozen Experiments are deliberately excluded."""
+    """Classify owned and imported source; frozen Experiments are deliberately excluded."""
     name = path.as_posix()
     if name.startswith("PRTS/") and (path.suffix == ".swift" or name.endswith(".metal.txt")):
         return "App"
@@ -89,7 +89,7 @@ def report(records):
         "",
         "物理行数包含空行和注释，非空行数只排除空行，两者都不等于可执行语句数。",
         "",
-        "App 统计 Swift 和 Metal 源码，LocalVLM 包含本地模型封装与准备脚本，Tests 包含 Swift 与 Python 测试。Contracts 指 App 使用的 `PRTSContracts`，OptionalModels 指未链接进 App 的可选模型源码。Total 是本表统计范围的合计，不能当作 App 的实际编译量。",
+        "App 统计 Swift 和 Metal 源码，LocalVLM 包含本地模型封装与准备脚本，Tests 包含 Swift 与 Python 测试。Contracts 指仅运行契约测试的上游 `PRTSContracts`，OptionalModels 指上游可选模型源码；二者均未链接进 App。Total 是本表统计范围的合计，不能当作 App 的实际编译量。",
         "",
         "脚本只扫描 App、测试、SpatialCore、PRTSCore 和 scripts 中指定的源码目录。包含自有 LocalVLM 封装，不统计 Experiments、模型权重、图片、文档和工程配置。",
         "",

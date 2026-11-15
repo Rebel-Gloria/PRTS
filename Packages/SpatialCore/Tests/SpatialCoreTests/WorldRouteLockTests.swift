@@ -6,13 +6,19 @@ import simd
 // Build18 continuous-route comparison. Product three-state/waypoint scheduling is tested
 // in ObstacleWaypointTests; these retain reusable search/publication/geometry regressions.
 
-extension ForwardRouteTests {
+final class WorldRouteLockTests: XCTestCase {
+    private let fixture = RoutingTestScene()
+
     func testExperimentalRouteSurvivesRotatingLocalGridWithoutReselection() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        let initial = planner.update(result: frame(), observation: nil, options: .init())
+        let initial = planner.update(result: fixture.frame(), observation: nil, options: .init())
         let original = try XCTUnwrap(initial.path)
         for i in 1...12 {
-            var r = frame(UInt64(i + 1), 1 + Double(i) * 0.1, pose: pose(yaw: Float(i) * 4))
+            var r = fixture.frame(
+                UInt64(i + 1),
+                1 + Double(i) * 0.1,
+                pose: fixture.pose(yaw: Float(i) * 4)
+            )
             r.sourceDirectionStable = false
             let u = planner.update(result: r, observation: nil, options: .init())
             let path = try XCTUnwrap(u.path)
@@ -27,9 +33,9 @@ extension ForwardRouteTests {
 
     func testExperimentalRoutePlaneDoesNotFollowFitNoise() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        let first = planner.update(result: frame(), observation: nil, options: .init())
+        let first = planner.update(result: fixture.frame(), observation: nil, options: .init())
         for i in 1...10 {
-            var r = frame(UInt64(i + 1), 1 + Double(i) * 0.1)
+            var r = fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1)
             r.plane?.offset = i % 2 == 0 ? 0.025 : -0.025
             r.diagnostics?.groundConfirmed = true
             let u = planner.update(result: r, observation: nil, options: .init())
@@ -42,7 +48,7 @@ extension ForwardRouteTests {
     func testLockedApproachAndRetainedRouteAreSolidMeshes() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
         let path = try XCTUnwrap(
-            planner.update(result: frame(), observation: nil, options: .init()).path
+            planner.update(result: fixture.frame(), observation: nil, options: .init()).path
         )
         let presentation = PathPresentation(
             path: path,
@@ -59,10 +65,10 @@ extension ForwardRouteTests {
 
     func testLockedRouteStillWithdrawsForConfirmedNewObstacle() throws {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        let initial = planner.update(result: frame(), observation: nil, options: .init())
+        let initial = planner.update(result: fixture.frame(), observation: nil, options: .init())
         for i in 1...4 {
             let u = planner.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: box),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: fixture.box),
                 observation: nil,
                 options: .init()
             )
@@ -77,8 +83,8 @@ extension ForwardRouteTests {
 
     func testVetoRouteKeepsWorldPlaneDespiteGroundFitChange() {
         var planner = PathPredictor(legacyContinuousOccupancy: true)
-        let first = planner.update(result: frame(), observation: nil, options: .init())
-        var r = frame(2, 1.1)
+        let first = planner.update(result: fixture.frame(), observation: nil, options: .init())
+        var r = fixture.frame(2, 1.1)
         r.plane?.offset = 0.25
         r.diagnostics?.groundConfirmed = true
         let u = planner.update(result: r, observation: nil, options: .init())
@@ -93,7 +99,7 @@ extension ForwardRouteTests {
         var last = PathUpdate()
         for i in 0..<4 {
             last = planner.update(
-                result: frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: obstacle),
+                result: fixture.frame(UInt64(i + 1), 1 + Double(i) * 0.1, cells: obstacle),
                 observation: nil,
                 options: .init()
             )
@@ -102,10 +108,10 @@ extension ForwardRouteTests {
         XCTAssertEqual(last.strategy?.mode, .sideRoute)
         // No current occupancy intersects the selected side route; only the viewport moves.
         for i in 1...6 {
-            var r = frame(
+            var r = fixture.frame(
                 UInt64(i + 4),
                 1.3 + Double(i) * 0.1,
-                pose: pose(yaw: -Float(i) * 5),
+                pose: fixture.pose(yaw: -Float(i) * 5),
                 cells: obstacle
             )
             r.sourceDirectionStable = false
