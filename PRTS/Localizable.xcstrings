@@ -528,22 +528,19 @@
         }
       }
     },
-    "0.50m仅是预测线的通道宽度要求，不额外叠加身体宽度/余量，也不代表所有人的身体都能通过。原有净空检查参数不变。" : {
-
-    },
     "accessibility.camera.permissionDenied" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No camera access. Turn it on in Settings."
+            "value" : "Camera access is off. Turn it on in iPhone Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限，请到设置里打开。"
+            "value" : "没有相机权限，请前往系统设置开启。"
           }
         }
       }
@@ -649,12 +646,6 @@
           }
         }
       }
-    },
-    "Apple Depth Anything V2 Small FP16 · 相对深度。结合ARKit原生平面/稀疏特征校验尺度；无法确认时只显示相对深度。没有传感器置信度，可绘实验预测线，但不授权已验证净空通道。" : {
-
-    },
-    "ARKit floor 分类填色" : {
-
     },
     "camera.error.noRearCamera" : {
       "extractionState" : "manual",
@@ -775,23 +766,7 @@
         }
       }
     },
-    "DIAG · 每次启动自动记录" : {
-
-    },
-    "DIAG %lld KB · 丢弃 %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "DIAG %1$lld KB · 丢弃 %2$lld"
-          }
-        }
-      }
-    },
     "English" : {
-
-    },
-    "floor 分类不是地面真值；候选区域不代表安全。关闭面板可检查图像四角，底部仍保留实验警告。" : {
 
     },
     "home.camera.button.start" : {
@@ -817,13 +792,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Starts the rear camera and shows the live preview"
+            "value" : "Starts the camera and obstacle guidance"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启动后置相机并显示实时预览"
+            "value" : "开启相机并开始避障"
           }
         }
       }
@@ -896,40 +871,6 @@
         }
       }
     },
-    "home.command.placeholder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Test command (e.g. start)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "测试指令（例如：开始）"
-          }
-        }
-      }
-    },
-    "home.command.send" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "发送"
-          }
-        }
-      }
-    },
     "home.idle.tip.guide" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -970,13 +911,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hold three fingers on the screen to read the text in front of you"
+            "value" : "Hold three fingers on the screen to read text ahead"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "三指长按屏幕阅读面前文本"
+            "value" : "三指按住屏幕，朗读面前文字"
           }
         }
       }
@@ -993,7 +934,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在确定目前环境安全下点击开始"
+            "value" : "确认周围安全后，点按开始"
           }
         }
       }
@@ -1072,13 +1013,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens video and voice options"
+            "value" : "Opens intelligence, interaction, and speech settings"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打开视频和语音选项"
+            "value" : "打开智能服务、交互和语音设置"
           }
         }
       }
@@ -1100,22 +1041,7 @@
         }
       }
     },
-    "LiDAR 设备使用 ARKit 实测深度；无 LiDAR 使用原生平面与本地 Core ML 预测，预测不等于实测。候选通道不等于安全路线。" : {
-
-    },
-    "LiDAR几何使用原始sceneDepth。无LiDAR热图与输入RGB同帧显示，推理存在延迟；无传感器置信度。所有图层保持完整视野。" : {
-
-    },
-    "LiDAR手动样本含深度、置信度和几何；无LiDAR手动样本写入DIAG的prediction记录。均不保存RGB。预测数据不能用旧测量深度回放器冒充LiDAR数据。" : {
-
-    },
     "PRTS" : {
-
-    },
-    "RGB 叠加深度热图" : {
-
-    },
-    "RGB画面已隐藏；采集状态见主按钮" : {
 
     },
     "liveCaption.off" : {
@@ -1181,7 +1107,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已退出文字识别"
+            "value" : "已退出读文字"
           }
         }
       }
@@ -1328,13 +1254,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lets the on-device model answer more broadly, but answers may be less accurate."
+            "value" : "Lets the on-device model give broader answers, though accuracy may drop."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使得本地模型回答范围更发散，准确性可能下降。"
+            "value" : "本机模型会尝试回答更多细节，但结果可能没那么准确。"
           }
         }
       }
@@ -1362,13 +1288,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Improves accuracy but reduces responsiveness."
+            "value" : "More accurate, with slightly longer wait times."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提高准确性，但实时性会下降"
+            "value" : "回答更准确，但等待时间会变长。"
           }
         }
       }
@@ -1396,13 +1322,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Thinks more carefully when answering questions, but takes noticeably longer."
+            "value" : "Thinks longer before answering, which noticeably slows down replies."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提问时会更仔细的思考，但会显著增加耗时。"
+            "value" : "回答前会多想一会儿，等待时间明显变长。"
           }
         }
       }
@@ -1753,13 +1679,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera preview, descriptions, questions and text reading remain available. Depth sensing, obstacle processing and guidance pause."
+            "value" : "Camera preview, descriptions, questions, and text reading stay on. Depth sensing and obstacle guidance pause."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保留相机画面、描述、提问和读文字。暂停深度感知、避障计算及提示。"
+            "value" : "开启后会保留相机画面、描述、提问和读文字，但会暂停深度检测和避障提示。"
           }
         }
       }
@@ -1838,13 +1764,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Answers may be more careful but take longer."
+            "value" : "Thinks a little longer before answering."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回答可能更仔细，但要多等一会儿。"
+            "value" : "回答前会多想一会儿，要多等一下。"
           }
         }
       }
@@ -2042,13 +1968,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No camera access. Allow it in Settings."
+            "value" : "No camera access. Turn it on in Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限，去设置打开。"
+            "value" : "没有相机权限，去设置开启。"
           }
         }
       }
@@ -2308,290 +2234,7 @@
         }
       }
     },
-    "丢弃日志记录：%lld" : {
-
-    },
     "中文" : {
-
-    },
-    "主图层" : {
-
-    },
-    "主页面信息栏" : {
-
-    },
-    "主页面叠加层" : {
-
-    },
-    "主页面画面" : {
-
-    },
-    "主页面画面、叠加层和指标栏请在“演示模式选项”中设置。" : {
-
-    },
-    "仅当前深度的可见表面；高出已确认地面至少5 cm并有空间支持时标红。不补遮挡背面，不保证物体与地面接触。蓝色表示地面表面，不代表可通行。启用时替代历史floor填色和二维栅格投影，俯视图仍保留未知状态。" : {
-
-    },
-    "会话指标与手动空间样本" : {
-
-    },
-    "传感器底图" : {
-
-    },
-    "传感器显示" : {
-
-    },
-    "关闭叠加层或路径显示不停止分析，也不关闭方向振动。表面建模开启时替代地面分类填色及栅格投影。振动请在触觉和路径设置中调整。" : {
-
-    },
-    "最近分析（可能过期）：%@" : {
-
-    },
-    "几何参数（更改会撤销旧结果）" : {
-
-    },
-    "几何叠加" : {
-
-    },
-    "几何叠加总开关" : {
-
-    },
-    "分类网格线框" : {
-
-    },
-    "刷新诊断记录列表" : {
-
-    },
-    "包含 manifest.json、frames.jsonl、metrics.csv、events.jsonl，以及手动样本。导出运行中会话时得到该时刻的快照；停止后导出可获得完整会话。" : {
-
-    },
-    "原生地面分类" : {
-
-    },
-    "参数指标栏" : {
-
-    },
-    "参考方向是相机朝向的地面投影，不等于人体前进方向。近身盲区不连接到候选段。不能宣称可靠台阶、落差、玻璃或细小障碍检测。" : {
-
-    },
-    "叠加深度热图" : {
-
-    },
-    "叠加透明度" : {
-
-    },
-    "只按沿地面距离选择最远可达点，不偏好正前方。选中后固定世界位置，不因新出现更远点而移动。范围边缘有5°/0.2m余量，持续越界0.3秒后重选。新障碍、追踪异常和地面冲突仍优先撤销提示。" : {
-
-    },
-    "只隐藏 RGB 画面；相机采集、空间感知、路径计算和 DIAG 继续运行。关闭后仍可在深色背景查看叠加层。停止采集请使用主页面停止按钮。" : {
-
-    },
-    "图例与来源说明" : {
-
-    },
-    "图层、路径、触觉与 DIAG 日志" : {
-
-    },
-    "完成" : {
-
-    },
-    "实验验证，候选通道不等于安全路线" : {
-
-    },
-    "实验验证，候选通道不等于安全路线。蓝色只代表地面表面；红色上方柱体是禁入范围，不是实测实体。" : {
-
-    },
-    "导出会话文件夹到“文件”" : {
-
-    },
-    "导出历史 DIAG（最近30次）" : {
-
-    },
-    "导出未完成" : {
-
-    },
-    "导出本次完整 DIAG" : {
-
-    },
-    "局部栅格：未知／障碍／候选" : {
-
-    },
-    "局部栅格投影：未知／障碍／候选" : {
-
-    },
-    "局部范围：前4 m／左右各1.5 m；栅格10 cm；仅高置信度建立肯定证据；最多250 ms结果年龄。更稀疏采样可能只得到更多未知，不会补洞。" : {
-
-    },
-    "平滑深度（仅显示）" : {
-
-    },
-    "开关自动保存；返回主页面立即生效，无需另行启动演示模式。" : {
-
-    },
-    "开启后禁用 sceneDepth、平滑深度及场景网格；运行中切换将重建会话，清空旧证据。" : {
-
-    },
-    "当前设备无世界追踪；仅显示界面，不提供实测空间数据" : {
-
-    },
-    "所有行走测试由视力正常人员在受控环境完成，不进行无保护盲行。真机能力须实测，模拟器不构成 LiDAR 验收。" : {
-
-    },
-    "扇形目标路径与偏航振动" : {
-
-    },
-    "振动提示方向偏差" : {
-
-    },
-    "提示语言" : {
-
-    },
-    "无损压缩、32 MiB分段；单次启动512 MiB、Diagnostics目录2 GiB上限。达到限额不删除旧记录；丢失数据会计数。深度／空间结构同样可能包含环境隐私。" : {
-
-    },
-    "旧版多方向候选段（关闭预测线后显示）" : {
-
-    },
-    "显示摄像机画面" : {
-
-    },
-    "暂无分析结果；零耗时不代表完成分析" : {
-
-    },
-    "未校准相对深度：仅远近色阶，不提供米制距离" : {
-
-    },
-    "未采集 · 等待开始" : {
-
-    },
-    "未采集；无当前传感器数据" : {
-
-    },
-    "本机不支持 sceneDepth：无LiDAR模式固定开启，不能关闭。" : {
-
-    },
-    "本次：%@" : {
-
-    },
-    "来源：ARKit LiDAR" : {
-
-    },
-    "来源：Core ML 预测＋原生尺度校准（非LiDAR实测）" : {
-
-    },
-    "模拟无LiDAR设备" : {
-
-    },
-    "正在准备导出…" : {
-
-    },
-    "深度和置信度底图独立于 RGB 开关；缺失数据不会显示为有效观测。" : {
-
-    },
-    "深度数据来源" : {
-
-    },
-    "深度采样步长 %lld" : {
-
-    },
-    "演示模式选项" : {
-
-    },
-    "目标位置与连线证据分开保留。证据过期时隐藏连线并停振，但不另换一个目标；恢复后仍尝试连接同一世界点。" : {
-
-    },
-    "确定" : {
-
-    },
-    "空间感知 · 参数指标" : {
-
-    },
-    "空间感知与演示" : {
-
-    },
-    "绘制脚下到扇形目标的预测线" : {
-
-    },
-    "置信度：低＝红 · 中＝黄 · 高＝青；无效/缺失＝灰，无LiDAR无传感器置信度" : {
-
-    },
-    "能力与边界" : {
-
-    },
-    "自动保存深度／置信度帧（按分析频率）、位姿、网格更新、各阶段判定与性能。不会保存 RGB／彩色视频，也不上传。相机仍需点击开始。" : {
-
-    },
-    "蓝：地面表面 · 红：突起／阻挡范围 · 未知不补成可通行" : {
-
-    },
-    "蓝色地面与红色突起" : {
-
-    },
-    "表面建模：蓝地面／红突起" : {
-
-    },
-    "观测帧 %llu · 实验验证，候选通道不等于安全路线" : {
-
-    },
-    "触觉" : {
-
-    },
-    "触觉提示" : {
-
-    },
-    "设置" : {
-
-    },
-    "诊断达到磁盘限额，已停止新增数据；请导出并通过文件管理清理历史记录。" : {
-
-    },
-    "语言" : {
-
-    },
-    "语速" : {
-
-    },
-    "语音" : {
-
-    },
-    "语音提示" : {
-
-    },
-    "跟随系统语言" : {
-
-    },
-    "路径与目标点" : {
-
-    },
-    "连线偏左：重复双短振；偏右：重复长振。偏差越大越强、越密。进入对准范围稳定0.3秒强振一次，之后保持静默；达到重新提示角度并持续0.25秒才恢复。只有单个振动器，靠节奏区分左右，不是在手机左右两侧发振。强振只确认角度，不确认位置或安全。" : {
-
-    },
-    "追踪：%@ · 热状态：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "追踪：%1$@ · 热状态：%2$@"
-          }
-        }
-      }
-    },
-    "采集中" : {
-
-    },
-    "障碍上方红色阻挡柱" : {
-
-    },
-    "障碍及上方阻挡柱（红色）" : {
-
-    },
-    "验证参数" : {
-
-    },
-    "黄圈：远端目标；黄实线：已观测区连线；橙虚线：短时缓存。青虚线：估计脚下至观测起点的未验证连接，不能据此确认盲区可通行。已观测路线不跨未知缺口；蓝地面并不证明头部净空、台阶或落差安全。无LiDAR使用已校准预测几何，误差更大。" : {
-
-    },
-    "黄线／圈：观测路径／目标 · 橙虚线：短时缓存 · 青虚线：未验证近身连接" : {
 
     },
     "home.camera.action.stop" : {
@@ -2736,13 +2379,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Speech recognition may use Apple services. Photos, recordings, questions and answers are not saved."
+            "value" : "Voice questions may use Apple speech recognition. Photos, recordings, questions, and answers are not saved."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音识别可能使用 Apple 服务。照片、录音、提问和回答都不保存。"
+            "value" : "语音提问可能用到 Apple 语音识别；你的照片、录音、提问和回答都不会保存。"
           }
         }
       }
@@ -2770,13 +2413,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questions and text reading use sharper photos, with slightly longer responses and more tokens."
+            "value" : "Questions and text reading use sharper photos, which takes a little longer and uses more data."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提问和读文字使用更清晰的照片，略微增加响应时间和Token消耗。"
+            "value" : "提问和读文字使用更清晰的照片，回答会稍慢一些，也会消耗更多流量或额度。"
           }
         }
       }
@@ -3229,13 +2872,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use an https address, and enter a model."
+            "value" : "Enter an https address and a model name."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "地址要使用https，并填写模型。"
+            "value" : "请填写以 https 开头的地址和模型名称。"
           }
         }
       }
@@ -3246,13 +2889,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Supports OpenAI-compatible vision-language models."
+            "value" : "Supports OpenAI-compatible vision models."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "支持兼容 OpenAI 格式、VLM模型。"
+            "value" : "支持兼容 OpenAI 格式的视觉模型。"
           }
         }
       }
@@ -3399,13 +3042,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voice guidance pauses while reading. Use it only where you know it is safe."
+            "value" : "Guidance speech pauses while reading text. Use this only when it is safe to stop and listen."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用时会暂停语音播报，请在确认环境安全时使用。"
+            "value" : "读文字时会暂停避障播报，请在站定或确认安全时使用。"
           }
         }
       }
@@ -3433,13 +3076,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use default provider follows your default selection. If the remote service is unavailable, text reading uses the on-device model, then Apple Vision. Apple Vision reads the text without the surrounding scene."
+            "value" : "Follows your default provider when selected. If the online service is unavailable, text reading falls back to the on-device model, then Apple Vision. Apple Vision reads text without scene context."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“跟随默认服务商”使用默认选择。远端不可用时依次使用本机模型和 Apple Vision。Apple Vision 识别文字无法结合场景。"
+            "value" : "选择“跟随默认服务商”时，将使用你在上方选定的服务。如果联网服务不可用，会依次改用本机模型和 Apple Vision；Apple Vision 只识别文字，不结合周围画面。"
           }
         }
       }
@@ -3467,13 +3110,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Camera allowed. Return to PRTS and tap Start."
+            "value" : "Camera access granted. Return to PRTS and tap Start."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已授权，回到 PRTS 后点“开始”。"
+            "value" : "已获得相机权限，回到 PRTS 后点“开始”即可。"
           }
         }
       }
@@ -3484,13 +3127,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No camera access. Turn it on in Settings."
+            "value" : "Camera access is off. Turn it on in iPhone Settings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有相机权限。请到“设置”里打开。"
+            "value" : "没有相机权限，请前往系统设置开启。"
           }
         }
       }
@@ -3705,13 +3348,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The description service returned invalid data"
+            "value" : "Couldn't read the service response"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "图片描述服务返回了无效数据"
+            "value" : "服务返回的内容无法识别"
           }
         }
       }
@@ -3722,13 +3365,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The description ended early. Try again."
+            "value" : "Response ended early. Try again."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "图片描述连接提前结束，请重试"
+            "value" : "回答提前中断，请重试"
           }
         }
       }
@@ -3739,13 +3382,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The description service returned no answer"
+            "value" : "No answer was returned"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "图片描述服务没有返回正文"
+            "value" : "服务没有返回回答"
           }
         }
       }
@@ -3756,13 +3399,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The description response was too long"
+            "value" : "The response was too long"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "图片描述响应过长"
+            "value" : "返回内容太长，无法处理"
           }
         }
       }
@@ -3773,13 +3416,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Description request failed (HTTP %lld)"
+            "value" : "Request failed (HTTP %lld)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "图片描述请求失败（HTTP %lld）"
+            "value" : "服务请求失败（HTTP %lld）"
           }
         }
       }
@@ -3875,13 +3518,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The on-device model did not load"
+            "value" : "Couldn't load the on-device model"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机模型没能加载"
+            "value" : "本机模型加载失败"
           }
         }
       }
@@ -3892,13 +3535,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The on-device model cannot read this photo"
+            "value" : "The on-device model couldn't read this photo"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机模型读不了这张照片"
+            "value" : "本机模型无法处理这张照片"
           }
         }
       }

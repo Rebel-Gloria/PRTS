@@ -1,183 +1,99 @@
 # 图像与文字识别
 
-本文介绍拍照描述、语音提问、流式字幕和文字识别的实现，包括模型服务、提示词、本地视觉模型和数据处理方式。操作方式请参阅[功能与操作](usage.md)。
+PRTS 的画面描述、语音提问和文字识别默认由随包携带的 MiniCPM-V 4.7 1B 离线执行，也可按功能分别切换到联网大模型或 Apple Vision；流式字幕由于动作理解准确性要求，固定使用通义千问。这些视觉功能与 `SpatialCore` 避障算法完全解耦。
 
-拍照描述、语音提问和文字识别默认使用随应用打包的 MiniCPM-V 4.7 1B，在设备上离线运行，也可以改用联网服务；流式字幕使用通义千问。视觉模型不参与避障，避障由 `SpatialCore` 独立完成。
+## 服务路由与设置
 
-## 模型服务
+用户可在“设置 → 智能”中指定默认服务商，并为各服务商独立维护凭据与高级开关：
 
-在“设置 → 智能”中选择默认服务商，并在“服务商设置”中为每个服务商分别配置：
-
-| 服务 | 模型与接口 | 默认思考设置 |
+| 服务商 | 默认模型与接口地址 | 思考参数配置 |
 |---|---|---|
 | 本机（默认） | MiniCPM-V 4.7 1B | 空思考段 |
-| 通义千问 | `qwen3.8-flash`，`maas.qianwenaiapi.com/compatible-mode/v1/chat/completions` | `enable_thinking: false` |
-| DeepSeek | `deepseek-flash`，`api.deepseek.com/chat/completions` | `thinking: {type: disabled}` |
-| 自定义 | 用户指定的模型和 HTTPS 地址；仅填写基础地址时自动补全 `/chat/completions` | 仅发送标准字段 |
+| 通义千问 | `qwen3.8-flash`（`maas.qianwenaiapi.com/compatible-mode/v1/chat/completions`） | 默认关闭（`enable_thinking: false`） |
+| DeepSeek | `deepseek-flash`（`api.deepseek.com/chat/completions`） | 默认关闭（`thinking: {type: disabled}`） |
+| 自定义 | 用户指定的 HTTPS 兼容接口（仅填域名基础路径时自动补全 `/chat/completions`） | 仅发送标准字段 |
 
-联网服务使用兼容 OpenAI 的流式 Chat Completions 请求，照片以 `data:image/jpeg;base64` 形式写入请求正文。应用只读取第一个 choice 的 `delta.content`，忽略思考内容，并在收到完整回答后开始朗读。连接中断、缺少结束标志或服务端报告回答被截断时，未完成的回答会被丢弃；描述和提问会播报失败提示，流式字幕的处理见下文。本机模型达到 token 上限时同样按截断处理。
+联网请求均采用兼容 OpenAI 的流式 Chat Completions 接口，照片以 `data:image/jpeg;base64` 传入。客户端仅提取首个 choice 的 `delta.content`，丢弃思考过程，待整段回答完整返回后再开始朗读；若中途断流、缺少结束标记或触发长度上限，未完回答会被丢弃并播报失败（流式字幕则静默跳过该句）。
 
-通义千问的设置页提供默认关闭的“使用 Omni 模型”（`photoDescription.qwenOmni`）。开启后，描述、提问、流式字幕和读文字都改用 `qwen3.8-omni-flash`，价格不变，准确度较高，但耗时增加。该模型默认开启思考，因此请求必须发送 `enable_thinking: false`。
+- **通义千问 Omni 开关**（`photoDescription.qwenOmni`，默认关闭）：开启后所有千问请求改走 `qwen3.8-omni-flash`，准确率提高但单次延迟更长。因该模型默认会输出长段思考，客户端仍强制关闭思考。
+- **提问时深度思考**（`photoDescription.questionThinking` / `.deepseek`，默认关闭）：仅在语音提问时生效。实测开启后延迟显著飙升而质量未见稳定收益，因此默认关闭。
+- **本机增强模式**（`photoDescription.localEnhanced`，默认关闭）：开启后本机语音提问复用联网版提问提示词，允许更发散的细节描述。
 
-开启“提问时深度思考”后，千问请求发送 `enable_thinking: true`，DeepSeek 请求发送 `thinking: {type: enabled}`。该开关按服务商分别保存：千问使用 `photoDescription.questionThinking`，DeepSeek 使用 `photoDescription.questionThinking.deepseek`。该设置只影响语音提问，自定义服务和本机服务不提供此选项。测试中开启后等待时间明显增加，质量没有稳定提升，因此默认关闭。
+### 按功能配比
 
-本机服务的设置页提供默认关闭的“增强模式”，开启后本机语音提问改用联网服务的提问提示词，见下文“提示词”。
+描述画面（`intelligence.provider.description`）、语音提问（`intelligence.provider.question`）和读文字（`ocr.service`）默认跟随默认服务商；`ocr.service` 设为 `vision` 时直接走系统离线 OCR。`IntelligenceFeature` 在每次触发时读取最新配置并校验上传许可与 API Key。公共请求层位于 `PRTS/Shared/Intelligence/`，业务协调器仅通过协议调用后端。
 
-### 服务配比
+## 提示词设计
 
-描述画面、语音提问和读文字可以分别选择服务商，默认跟随默认服务商。选择保存在 `intelligence.provider.description`、`intelligence.provider.question` 和 `ocr.service` 中，没有保存值时跟随默认服务商；`ocr.service` 为 `vlm` 时同样跟随默认服务商，为 `vision` 时使用 Apple Vision。`IntelligenceFeature` 负责按功能解析服务商，拍照描述在确定是短按还是提问后检查对应服务商的上传许可和 API Key。
+短按描述和语音提问提示词写在 `PRTS/Features/PhotoDescription/Services/PhotoPrompts.swift`，流式字幕提示词写在 `PRTS/Features/LiveCaption/Services/LiveCaptionPrompts.swift`：
 
-流式字幕固定使用通义千问，与默认服务商无关，开始前要求允许发送照片并已保存千问的 API Key。
-
-请求、凭据和本机模型的公共实现位于 `PRTS/Shared/Intelligence/`。拍照描述的模型后端由 `PhotoDescription/Services/PhotoDescriptionBackend.swift` 选择，协调器只通过 `PhotoDescriptionServices` 调用，不直接依赖网络或推理实现。
-
-## 提示词
-
-拍照描述和语音提问的提示词定义在 `PRTS/Features/PhotoDescription/Services/PhotoPrompts.swift` 中，流式字幕的提示词定义在 `PRTS/Features/LiveCaption/Services/LiveCaptionPrompts.swift` 中：
-
-| 场景 | 系统提示词 | 约束 |
+| 场景 | 符号 | 核心约束 |
 |---|---|---|
-| 短按描述 | `PhotoPrompts.system` | 用户消息固定为“描述眼前。”。先说明最近的物体及其位置，再说明路面；一到两句，四十字以内 |
-| 流式字幕开场 | `LiveCaptionPrompts.opening` | 用户消息固定为“描述眼前。”。一句话说明地点和面前主要的一两样东西，最多 20 字 |
-| 流式字幕动作 | `LiveCaptionPrompts.system` | 输入 6～21 帧视频和上一句，帧数见下文请求流程。只说谁或什么做了什么动作，最多 24 字；没有明显动作时只输出“无” |
-| 语音提问（联网服务） | `PhotoPrompts.questionSystem` | 直接回答问题，可以描述颜色、穿着、数量、文字和用途，也可以翻译；最多三句 |
-| 语音提问（本机，增强模式关闭） | `PhotoPrompts.localQuestionSystem` | 在描述提示词的基础上调整，以问答示例约束回答细节；最多三句 |
-| 语音提问（本机，增强模式开启） | `PhotoPrompts.questionSystem` | 复用联网提问提示词，允许更广泛的细节、翻译与解释；最多三句 |
+| 短按描述 | `PhotoPrompts.system` | 用户消息固定为“描述眼前。”。先说最近物体和路面，限制 1–2 句、40 字内，禁用模糊距离估算和通行建议 |
+| 语音提问（联网 / 本机增强） | `PhotoPrompts.questionSystem` | 直接回答问题本身（颜色、数量、文字、翻译等），最多 3 句，不代替用户做通行决策 |
+| 语音提问（本机常规） | `PhotoPrompts.localQuestionSystem` | 沿用短按描述的防幻觉规则并附带问答示例，最多 3 句 |
+| 流式字幕开场 | `LiveCaptionPrompts.opening` | 用户消息固定为“描述眼前。”。一句话说明所处位置与面前主要物体，≤ 20 字 |
+| 流式字幕动作 | `LiveCaptionPrompts.system` | 接收 6–21 帧视频及上一句文本，仅描述新发生的动作，≤ 24 字；静止时只返回“无” |
 
-语音提问直接发送语音识别的原文，不添加前缀。提问的回答由 `threeSentences` 在第三句结束处截断。
-
-`PhotoPrompts.localSystem` 在每次本机请求时读取 `photoDescription.localEnhanced`：没有问题时使用 `system`，有问题时根据开关选择 `localQuestionSystem` 或 `questionSystem`。联网提问继续使用 `questionSystem`；OCR 始终使用 `TextReadingPrompt`，包括远端失败后的本机回退。增强模式不增加新的固定提示词。
-
-描述和提问提示词要求只描述可见内容，不编造、不估计米数、不给出通行许可或绕行建议，无法判断时明确说明。流式字幕提示词禁止猜测身份、情绪和目的，不判断能否通行。文字识别提示词只要求按原样转写。
-
-> [!NOTE]
-> 提示词无法完全消除模型错误，台阶方向和“能否通行”类问题尤其容易出错。通行判断应以避障功能为准。各版本提示词的评估结果请参阅[验证结果](validation.md#拍照描述与提问)。
+语音提问直接将系统语音识别出的原文送给模型，不额外包裹提示前缀；回答通过 `threeSentences` 在第三个句末标点处强制截断。所有提示词均禁止模型猜测米数或给出“可以往前走”之类的安全承诺；更多提示词评测数据见[验证结果](validation.md#拍照描述与提问)。
 
 ## 流式字幕
 
-流式字幕以视频的形式向千问发送画面。其他服务在测试中会编造动作，因此该功能不跟随服务配比，配置要求见上文“服务配比”。实现位于 `PRTS/Features/LiveCaption/`：`LiveCaptionSession.swift` 管理采样、请求和朗读，并先对拍照按键做连按判定（见[工程架构](architecture.md#拍照按键)），`LiveCaptionFrame.swift` 处理采样帧，`LiveCaptionPolicy.swift` 处理回答和调度，`Services/LiveCaptionBackend.swift` 组装请求，`Services/LiveCaptionServices.swift` 装配服务调用。
+流式字幕把相机画面拼成短视频段发给通义千问，其他后端由于在测试中容易对静态场景编造动作而未开放。核心实现位于 `PRTS/Features/LiveCaption/`（按键连按仲裁参见[工程架构](architecture.md#拍照按键分发链路)）。
 
-### 请求流程
+### 采样与发送节拍
 
-1. 开始时播报“流式字幕已开启，再次点按退出”，同时以第一帧发出单图请求生成开场句，生成上限为 40 个 token。开场句在启动播报读完后朗读。
-2. 之后每 0.1 s 取一次当前相机帧（普通模式来自 ARKit，低视力模式来自 RGB 相机），只保留最近 2 s 的最多 20 帧。每帧保存最长边为 960 像素、保持原比例、质量为 0.5 的 JPEG，以及 48×64 灰度图。
-3. 无论画面是否变化，每 2 s 发送一次视频，并附上一句文字。生成上限为 24 个 token，关闭深度思考。没有动作时由模型回答“无”。
-4. 每次视频由新画面和上一次视频的最后一帧组成，至少 4 帧。新画面的帧数按窗口内的累计运动量决定：运动量不超过 30 时为 5 帧，不低于 150 时为 20 帧（相当于 10 帧每秒），两者之间按比例增加。
+1. **启动**：先播报“流式字幕已开启，再次点按退出”，同时将当前首帧作为单图发出，生成最多 40 token 的开场句，在启动提示读完后播出。
+2. **滑动采样**：随后每 0.1 s 从当前采集端抽取一帧，保存最长边 960 像素、质量 0.5 的 JPEG 以及一张 48×64 灰度图，只保留最近 2 s 内的最多 20 帧。
+3. **固定发送**：每 2 s 固定发一次视频请求（上限 24 token，关闭思考），静止时由模型回答“无”。
+4. **运动自适应抽帧**：每段视频包含上一段的最后一帧以及本次窗口的新帧（总计不少于 4 帧）。新帧数量根据窗口内相邻灰度图平均差的总和线性插值：总运动量 ≤ 30 时抽 5 帧，≥ 150 时抽满 20 帧（10 fps），按累计运动量等分点挑帧以避开重复画面。
 
-运动量为相邻两帧灰度图逐像素绝对差的平均值。以窗口首帧为起点累计运动量，在总量的等分点处依次选择累计值最近且尚未选中的帧；画面完全静止时按时间等分。
+### 并发与输出过滤
 
-### 调度与回答处理
+因为单次网络往返常超过 2 s，系统允许最多 3 个字幕请求并发在途，超出时跳过本拍；单次报错静默跳过，连续失败 3 次才播报错误并退出。先发后至的过时回复会被序号丢弃；若上一句仍在朗读，仅缓存最新一条结果等待顺延播出。
 
-请求耗时通常长于 2 s，因此请求可以重叠，最多 3 个同时进行，超过时跳过本次发送。单次请求失败时跳过，下一次继续发送；连续失败 3 次时播报错误并退出字幕，成功一次后重新计数。请求可能乱序返回，比已处理结果更早发出的回答会被丢弃。上一句仍在朗读时，只保留最新的一条回答，读完后朗读。
-
-开场句通常直接朗读，达到 40 个 token 的上限时跳过，字幕继续运行。动作句由 `LiveCaptionPolicy.answer` 处理，只取第一行，以下情况不朗读：
-
-| 情况 | 说明 |
-|---|---|
-| 回答为“无”或“无。” | 画面中没有动作 |
-| 超过 24 字，或达到生成上限 | 不朗读，字幕继续运行 |
-| 包含“照片”“画面”或“镜头” | 模型在描述画面而不是动作 |
-| 与上一句相同 | 重复描述 |
+`LiveCaptionPolicy.answer` 只取返回的首行，遇到以下情形静默忽略：回答“无”或“无。”、超过 24 字、触发 token 截断、包含“照片 / 画面 / 镜头”等元描述词汇，或与上一句完全相同。
 
 ## 文字识别
 
-文字识别的服务在“设置 → 智能 → 服务配比 → 读文字”中选择：
+读文字服务在一次交互内依次按“选定后端 → 本机模型 → Apple Vision”三级回退（若直接选定 Apple Vision 则无回退），全部失败才播报“读文字失败，请重试”。当触发远端超时、网络错误或主动取消（包括 `URLError.cancelled`）时，立刻清理资源并终止流程。
 
-| 服务 | 处理方式 | 失败时 |
-|---|---|---|
-| 跟随默认服务商（默认），或指定服务商 | 使用所选服务商。本机模型分两次完成分类和转写；联网服务在一次请求中完成分类和转写 | 远端不可用时静默改用本机模型，本机模型失败后改用 Apple Vision |
-| Apple Vision | 系统离线文字识别，不判断物体类型，统一使用“你面前的物体上写着” | 不调用其他服务 |
+### 识别流程与解析边界
 
-所选服务商为联网服务、允许上传照片并保存了该服务商的 API Key 时，先使用远端识别；否则直接在本机识别。远端连接失败、超时或返回错误时改用本机模型，本机模型失败时改用 Apple Vision。所有服务都失败或照片无法编码时，应用播报“读文字失败，请重试”，并丢弃尚未读出的文字。取消识别会结束整个过程，包括网络层以 `URLError.cancelled` 报告的取消。
+1. 暂停 ARKit 或普通 RGB 采集，切换至预配置好的后置主摄。启动后若 10 s 内未完成对焦稳定并拍照，则播报“无法打开相机”并退出。
+2. 收到首帧后等待 1 s 待对焦和曝光稳定，拍照并触发反馈振动。
+3. **本机两次提问**：先发 8 token 短问判断文字载体的类别（路标 / 牌子 / 纸张 / 物体），再复用同一组视觉特征向同一会话发 400 token 转写请求逐行流式朗读。问句刻意写成“照片里的文字”，避免模型把提问词当成待抄录文字；若转写达到 400 token 上限，判定为失败截断并自动回退至 Apple Vision。
+4. **联网单次请求**：提示词要求模型首行输出载体分类、次行起逐字抄录，格式不符合约定时同样回退。
 
-旧版的“远端 API”选项按“跟随默认服务商”处理，“本地 VLM”按“本机”处理。
-
-### 本地识别流程
-
-1. 停止 ARKit 会话，改用后置主摄。相机在应用启动时预先配置，从开始识别到显示预览约 0.3 s；从请求启动主摄起，10 s 内仍未开始拍照时，提示“无法打开相机”并退出。该超时覆盖没有首帧和首帧后预览中断的情况，不包含等待 ARKit 释放相机的时间。
-2. 收到第一帧后等待 1 s，使对焦和曝光稳定，然后自动拍照并振动。
-3. 按下文“图像与数据处理”的最长边规则缩放照片，向模型提问：文字位于路标、牌子、纸张还是物体上。应用在回答中查找这四个词，找不到时按“物体”处理。
-4. 在同一对话中继续提问，转写照片里的文字；没有文字时回答“无”。此步骤复用已编码的图像，不重新进行视觉编码。
-5. 转写结果按行或句逐步朗读，无须等待全部生成。
-
-提示词使用“照片里的文字”而不是“上面的文字”，以免模型将问题本身当作待转写内容。转写的生成上限为 400 个 token；达到上限时按识别失败处理，停止朗读并改用 Apple Vision，因此无法保证完整覆盖一整页密集文字。判断物体这一步只有 8 个 token，超出时按已生成的内容查找这四个词，不影响转写。
-
-文字识别的提示词定义在 `PRTS/Features/TextReading/Services/TextReadingPrompt.swift` 中：
-
-| 提示词 | 用途 |
-|---|---|
-| `system` | 本机模型的系统提示词，约束逐字转写、阅读顺序和输出格式 |
-| `surfaceQuestion` | 本机模型判断文字所在的物体 |
-| `copyQuestion` | 本机模型在同一图像上下文中转写文字 |
-| `remoteSystem` | 联网服务，第一行分类，其余行转写 |
-| `remotePrompt` | 联网识别的用户消息：“读出照片里的文字。” |
-
-实现位于 `PRTS/Features/TextReading/`，职责划分如下：
-
-| 文件 | 职责 |
-|---|---|
-| `TextReadingSession.swift` | 管理采集、识别和朗读的生命周期；按阶段管理异步任务，结束或取消后拒绝迟到回调 |
-| `Capture/TextCamera.swift` | 管理主摄、预览回调和照片采集 |
-| `Services/TextReadingServices.swift` | 读取联网服务配置，提供可替换的时钟、编码和识别调用；配置在每次开始识别时读取 |
-| `Services/TextReadingBackend.swift` | 发出本机和联网请求，处理对应模型的输出约定 |
-| `Services/TextReadingAnswer.swift` | 解析分类和逐句朗读内容，保留普通小于号及其他原文符号 |
-| `Services/TextReadingFallback.swift` | 处理识别服务回退 |
-| `Services/TextReadingPrompt.swift` | 定义识别提示词 |
-| `Services/TextRecognizer.swift` | 调用 Apple Vision |
-
-服务选择由 `PRTS/Shared/Intelligence/TextReadingService.swift` 定义，供功能装配和设置页共同使用。相机准备超时后，会话先退出采集阶段，再等待错误提示播完和相机释放；迟到的预览帧不能重新触发拍照。拍照开始后取消相机准备计时，不以该计时限制识别或朗读。
+由于模型偶尔会在回答前夹带 `<think>…</think>` 标签，或将思考泄漏到正文末尾：本机封装会在遇到孤立 `</think>` 时截断停止（并在流式回调前暂存潜在标签前缀防止误读）；联网适配层仅在 `<think>…</think>` 后紧跟有效分类词或“无”时剥离前置思考段，正文里的正常 `<` 和成对标签保持原文朗读。
 
 ## 本地视觉模型
 
-| 项目 | 配置 |
+| 配置项 | 当前规格 |
 |---|---|
-| 来源 | `openbmb/MiniCPM-V-4.7-1B-gguf` |
-| 语言模型 | `MiniCPM-V-4_7-1B-Q5_K_M.gguf`，约 752 MB |
-| 视觉模块 | `mmproj-model-f16.gguf`，约 1.1 GB |
-| 推理引擎 | llama.cpp，固定提交 `620d222`，启用 mtmd 和 Metal |
-| 描述参数 | 贪心解码，最多 160 个 token，切片上限 9 |
+| 模型与来源 | `openbmb/MiniCPM-V-4.7-1B-gguf`（主模型 `Q5_K_M` 约 752 MB + `mmproj` FP16 约 1.1 GB） |
+| 推理引擎 | llama.cpp（固定提交 `620d222`），启用 mtmd 与 Metal 加速 |
+| 解码参数 | 贪心解码，描述最多 160 token，动态切片上限 9 |
 
-切片上限由 mmproj 元数据 `clip.vision.max_slice_nums` 控制，修改时无须重新转换权重。切片上限为 9 时保留的画面细节最多；MiniCPM-V 4.6 和 Gemma 4 E2B 经对比后未采用，数据请参阅[验证结果](validation.md#本地视觉模型)。
+切片上限直接读取 mmproj 元数据 `clip.vision.max_slice_nums`（模型对比结果见[验证结果](validation.md#本地视觉模型)）。该模型与 llama.cpp 由 `Packages/LocalVLM/prepare.sh` 编译为支持真机与 arm64 模拟器的 `PRTSLocalVLM.xcframework`（构建说明见[开发指南](development.md#构建)），Xcode 构建时通过 `cp -c` 以 APFS 克隆方式打入 `PRTS.app/LocalVLM/`。
 
-### 准备与打包
+`Packages/LocalVLM` 对外暴露 `describe` 与在同一图像上下文内追问的 `ask` 两个流式接口。模型在首次调用时懒加载并常驻内存，所有推理请求在单串行队列排队执行，取消标志在 token 间隔生效，并确保不会在多字节 UTF-8 字符中间截断回调。
 
-模型和推理库由 `Packages/LocalVLM/prepare.sh` 准备。该脚本编译 llama.cpp 和 `csrc/` 中的封装，生成包含真机和模拟器（仅 arm64）的 `Packages/LocalVLM/PRTSLocalVLM.xcframework`，并下载两个权重文件、校验 SHA-256。权重保存在 `models/MiniCPM-V-4.7-1B/`。编译产物和权重均不纳入版本控制。运行方法请参阅[开发指南](development.md#构建)。
+## 图像规格与隐私边界
 
-构建应用时，Xcode 的“Copy offline model”阶段使用 `cp -c` 将权重复制到 `PRTS.app/LocalVLM/`。在 APFS 上该操作创建文件克隆，不会立即占用额外空间。权重使安装包增加约 1.9 GB。
+所有拍照和流式字幕图像统一经 `PRTS/Shared/Imaging/PhotoImageEncoder.swift` 转正和缩放：
 
-### 推理接口
+| 功能 | 最长边限制（默认 / 高分辨率） | JPEG 质量 |
+|---|---|---|
+| 短按描述 | 1280 px / 1280 px | 0.8 |
+| 语音提问与读文字 | 1280 px / 1920 px | 0.8 |
+| 流式字幕 | 固定 960 px | 0.5 |
 
-`Packages/LocalVLM` 提供两个接口：
-
-- `describe`：接收一张照片和一个问题，返回回答。
-- `ask`：在同一图像上下文中继续提问，无须重新进行视觉编码。
-
-两个接口都支持流式输出，并保证不会截断 UTF-8 字符。模型在首次请求时加载，之后常驻内存。所有请求在同一串行队列上执行，取消在两个 token 之间生效。模型偶尔在回答后输出 `</think>` 并继续生成，推理封装在完整标记处停止，并在流式回调前暂存可能属于标记的片段，避免跨片段标记进入朗读。模型正常结束时，未构成完整标记的字面前缀仍作为正文保留。
-
-联网读字在响应适配层处理控制标记。完整响应开头的 `<think>…</think>` 仅在后接明确分类行或“无”时作为思考前缀移除；前缀不完整或后续格式不明确时触发已有识别回退。正文中的成对标签按原文保留，孤立的 `</think>` 终止当前回答。公共朗读解析不再把普通 `<` 当作结束信号。
-
-> [!NOTE]
-> 自定义服务将思考内容放入 `content` 时，标签与合法 OCR 原文可能具有相同形式。上述规则依赖分类行约定，不能仅凭字符串无歧义地区分所有输入；缺少分类信息的思考前缀按失败处理。
-
-`PRTS/Shared/Intelligence/PhotoLocalModel.swift` 指定安装包中的模型路径。
-
-## 图像与数据处理
-
-短按描述、语音提问和流式字幕使用当前采集后端的图像快照；普通模式来自 ARKit，低视力模式来自不提供深度和世界追踪的 RGB 相机。读文字使用后置主摄照片。图像转正后保留完整画面，最长边默认缩放至 1280 像素；开启“高分辨率”（`photoDescription.highResolution`，默认关闭）后，语音提问和读文字的最长边为 1920 像素，短按描述仍为 1280 像素。流式字幕固定为 960 像素。所有模型后端共用 `PRTS/Shared/Imaging/PhotoImageEncoder.swift`；普通照片以 0.8 的质量编码为 JPEG，流式字幕使用 0.5。
-
-| 数据 | 处理方式 |
-|---|---|
-| API Key | 按服务分别存储在钥匙串中，访问级别为 `WhenUnlockedThisDeviceOnly`。千问保留旧账户名 `api-key` 以兼容已有配置 |
-| 网络请求 | 仅允许 HTTPS，拒绝重定向，不使用缓存或 Cookie |
-| 照片、录音、问题和回答 | Release 不写入文件；Dev 自动保存到本地录制，具体数据范围和清理方式见[开发指南](development.md#自动录制) |
-| 语音识别 | 使用系统语音识别，即使选择本机服务，也可能调用 Apple 的服务 |
-
-回答通过 `SpeechVoice.utterance` 朗读，使用应用当前的音色、语言和语速。
+- **凭据安全**：API Key 分服务商保存在钥匙串（`WhenUnlockedThisDeviceOnly`；千问保留 `api-key` 账户名以兼容升级），网络层强制 HTTPS、禁用重定向、Cookie 与缓存。
+- **数据留存**：Release 构建不落盘任何照片、语音和问答文本；Dev 构建自动录制的数据仅存本机供手动导出（见[开发指南](development.md#自动录制)）。调用语音提问时，系统语音识别可能会连接 Apple 服务。
 
 ## 已知限制
 
-- 模型加载后不会主动释放。收到内存警告时只写入诊断事件，不卸载模型。
-- 尚未验证与 ARKit 同时运行时的资源占用、连续调用时的发热，以及 8 GB 内存的 iPhone 15 Pro。
-- 权重通过 mmap 加载，文件大小不等于 `phys_footprint` 中计入的内存。
-- 文字识别尚未覆盖反光、倾斜、远处小字、手写和整页密集文字。
-- 尚未检查三指手势与长按停止手势之间的冲突。
+- 本地 VLM 权重通过 mmap 加载，首次加载后常驻内存直到进程退出；收到内存警告时仅记日志不主动卸载，尚未在 8 GB 内存机型（如 iPhone 15 Pro）验证与 ARKit 长期并发的发热和内存峰值。
+- 文字识别尚未系统覆盖强反光、大角度倾斜、远处极小字、手写体以及整页密集印刷文档。
+- 尚未验证三指读文字手势与主按钮长按停止手势之间的边界冲突。
