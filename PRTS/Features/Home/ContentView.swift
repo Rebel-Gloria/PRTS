@@ -302,6 +302,16 @@ struct ContentView: View {
 
     private func updateFeatureFeedback() {
         let enabled = homeFeedbackEnabled
+        #if PRTS_DEV
+        RecordingStore.shared.event(
+            "feedback_gate",
+            details: [
+                "enabled": String(enabled), "settings": String(isShowingSettings),
+                "userGuide": String(isShowingUserGuide), "audioInterrupted": String(audioInterrupted),
+                "scenePhase": String(describing: scenePhase),
+            ]
+        )
+        #endif
         hapticManager.setFeedbackEnabled(enabled)
         photo.setFeedbackEnabled(enabled)
         liveCaption.setFeedbackEnabled(enabled)
