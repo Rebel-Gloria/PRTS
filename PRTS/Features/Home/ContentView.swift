@@ -307,7 +307,8 @@ struct ContentView: View {
             "feedback_gate",
             details: [
                 "enabled": String(enabled), "settings": String(isShowingSettings),
-                "userGuide": String(isShowingUserGuide), "audioInterrupted": String(audioInterrupted),
+                "userGuide": String(isShowingUserGuide),
+                "audioInterrupted": String(audioInterrupted),
                 "scenePhase": String(describing: scenePhase),
             ]
         )
