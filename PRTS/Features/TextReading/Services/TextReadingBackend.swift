@@ -62,8 +62,9 @@ nonisolated enum TextReadingBackend {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let heading = String(remainder.prefix { !$0.isNewline })
                 .trimmingCharacters(in: .whitespaces)
-            guard remainder == TextReadingPrompt.none
-                || TextReadingAnswer.Surface(rawValue: heading) != nil
+            guard
+                remainder == TextReadingPrompt.none
+                    || TextReadingAnswer.Surface(rawValue: heading) != nil
             else { throw PhotoChatError.malformedStream }
             text = remainder
         }

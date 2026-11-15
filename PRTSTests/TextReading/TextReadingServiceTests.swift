@@ -31,12 +31,9 @@ struct TextReadingServiceTests {
     func streamedReasoningEnvelopeNeverReachesSpeech(whitespace: String) throws {
         var stream = PhotoChatStream()
         for piece in [whitespace + "<thi", "nk>我在识别文本。</think>\n纸张\n", "药品名称"] {
-            let event: [String: Any] = [
-                "choices": [[
-                    "index": 0,
-                    "delta": ["content": piece, "reasoning_content": "不应朗读的独立思考字段"],
-                ]],
-            ]
+            let delta = ["content": piece, "reasoning_content": "不应朗读的独立思考字段"]
+            let choice: [String: Any] = ["index": 0, "delta": delta]
+            let event: [String: Any] = ["choices": [choice]]
             let data = try JSONSerialization.data(withJSONObject: event)
             let payload = try #require(String(data: data, encoding: .utf8))
             try stream.receive(line: "data: \(payload)")
