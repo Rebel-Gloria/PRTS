@@ -22,6 +22,7 @@ PRTS 由一个 SwiftUI 应用和两个本地 Swift 包组成。避障算法位�
 | `PRTS/Shared/Audio/` | 音频会话、回答朗读、提示音和语音识别 | `AudioSessionCoordinator`、`AnswerAudioOutput`、`PhotoSpeechRecognizer` |
 | `PRTS/Shared/Input/` | 拍照按键的状态判定、实体按键和交互偏好 | `PhotoPressState`、`PhotoHardwareButtons`、`InteractionPreferences` |
 | `PRTS/Shared/Diagnostics/` | 产品错误日志 | `ErrorLog`、`ErrorReporter` |
+| `PRTS/Shared/Recording/` | Dev 自动录制、原图与音频附件、视频编码和打包导出 | `RecordingStore`、`DevInteractionRecording`、`RecordingVideoWriter`、`RecordingArchive` |
 | `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与振动策略（`Feedback/`） | `SpatialAnalyzer`、`PathPredictor` |
 | `Packages/LocalVLM/` | llama.cpp 封装，在设备上运行 MiniCPM-V | `LocalVLM` |
 | `Vendor/PRTSCore/` | 上游契约代码。应用不链接此包，只运行其契约测试 | — |
