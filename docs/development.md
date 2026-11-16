@@ -81,6 +81,26 @@ git diff --check
 
 `app-build` 使用 `scripts/ci/local_vlm_stub.cpp` 编译可链接的 LocalVLM 替身与空占位权重，因此 CI 会跳过 `PhotoLocalModelTests`，也不验证真机传感器与真实推理；其余 `PRTSTests` 在两种构建下实际运行。依赖三指长按的读文字 UI 测试项受限于公开自动化接口能力默认跳过并在真机手工核验，生命周期由单元测试覆盖。
 
+### IPA 预发布构建
+
+`.github/workflows/prerelease.yml` 在 `main` 的 Code quality 检查成功后自动构建并发布 GitHub Pre-release，也支持在 Actions 中手动运行。手动运行仅接受 `main`，且当前提交必须已有成功的 Code quality 检查。拉取请求不会发布安装包。
+
+| 项目 | 行为 |
+|---|---|
+| 构建依赖 | 独立编译真实 LocalVLM 推理库并下载校验完整模型；不复用测试替身 |
+| 产物 | `PRTS-Release-<提交>-unsigned.ipa` 和 `PRTS-Dev-<提交>-unsigned.ipa` |
+| 发布标识 | `preview-<运行编号>-<重试编号>`，标签指向已通过检查的源码提交 |
+| 完整性 | 每个 IPA 附带 JSON，记录提交、版本、构建模式、模型校验和及安装包 SHA-256 |
+| 上传 | 两种配置均打包成功后上传到草稿，附件上传完成后发布；不替换正式版本 |
+| 临时存储 | 真实推理库和模型按 Xcode 与源码指纹缓存；IPA 直接上传 Release |
+
+> [!IMPORTANT]
+> IPA 未签名，安装前需要使用自己的签名或侧载工具重新签名。Dev 会自动保存现场画面、空间数据和提问音频。CI 验证构建与包内模型完整性，不代表已通过真机传感器或真实推理验收。
+
+GitHub 的单个 Release 附件必须小于 2 GiB。`scripts/package_ipa.py` 在上传前检查大小、设备平台、源码提交、真实推理库符号及模型 SHA-256；任一检查失败都会停止发布。
+
+如需只准备真机推理库，可运行 `DEVICE_ONLY=1 bash Packages/LocalVLM/prepare.sh`。默认仍同时准备真机和模拟器库。
+
 ### 代码格式化
 
 格式工具版本固定，`scripts/style.py` 在版本不符时报错：

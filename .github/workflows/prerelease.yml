@@ -1,0 +1,100 @@
+name: Prerelease IPA
+
+on:
+  workflow_run:
+    workflows: [Code quality]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prerelease-ipa
+  cancel-in-progress: false
+
+jobs:
+  prerelease:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+    env:
+      SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Verify successful main CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh run list --workflow code-quality.yml --commit "$SOURCE_COMMIT" --limit 100 \
+            --json conclusion,event,headBranch \
+            --jq '[.[] | select(.conclusion == "success" and .headBranch == "main" and (.event == "push" or .event == "workflow_dispatch"))] | length')
+          test "$count" -gt 0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Select Xcode
+        id: xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          xcodebuild -version
+          echo "version=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
+      - name: Restore real model dependencies
+        id: dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            Packages/LocalVLM/PRTSLocalVLM.xcframework
+            models/MiniCPM-V-4.7-1B
+          key: ipa-device-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('Packages/LocalVLM/prepare.sh', 'Packages/LocalVLM/models.sha256', 'Packages/LocalVLM/csrc/**') }}
+      - name: Prepare real inference library and weights
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        run: |
+          command -v cmake || brew install cmake
+          command -v ninja || brew install ninja
+          DEVICE_ONLY=1 JOBS=2 bash Packages/LocalVLM/prepare.sh
+      - name: Build and package both device configurations
+        run: |
+          for configuration in Release Dev; do
+            derived="$RUNNER_TEMP/IPA-$configuration"
+            xcodebuild -project PRTS.xcodeproj -scheme PRTS -configuration "$configuration" \
+              -destination 'generic/platform=iOS' -derivedDataPath "$derived" \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+              DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO \
+              PRTS_SOURCE_COMMIT="$SOURCE_COMMIT" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" build
+            python3 scripts/package_ipa.py "$derived/Build/Products/$configuration-iphoneos/PRTS.app" \
+              --configuration "$configuration" --commit "$SOURCE_COMMIT" --output "$RUNNER_TEMP/ipa"
+          done
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="preview-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          notes="$RUNNER_TEMP/prerelease-notes.md"
+          cat > "$notes" <<EOF
+          自动构建，源码提交：$SOURCE_COMMIT
+
+          - Release：标准版，不自动录制现场数据。
+          - Dev：自动录制画面、空间数据和提问音频，仅用于开发测试。
+          - 两种 IPA 均未签名，安装前需要使用自己的签名或侧载工具重新签名。
+          - 包含完整离线模型；此构建未进行真机传感器和真实模型推理验收。
+          - JSON 附件记录版本、提交、模型及 IPA 的 SHA-256。
+
+          Unsigned iOS device builds. Re-sign before installation. Dev automatically records local replay data.
+          EOF
+          gh release create "$tag" "$RUNNER_TEMP/ipa/"*.ipa "$RUNNER_TEMP/ipa/"*.json \
+            --target "$SOURCE_COMMIT" --title "PRTS preview ${SOURCE_COMMIT:0:12}" \
+            --notes-file "$notes" --prerelease --draft --latest=false
+          gh release edit "$tag" --draft=false --prerelease --latest=false

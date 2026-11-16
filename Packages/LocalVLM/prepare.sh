@@ -31,22 +31,29 @@ build() {
     xcrun libtool -static -no_warning_for_no_symbols -o $dir/libPRTSLocalVLM.a $(find $dir -name 'lib*.a' ! -name libPRTSLocalVLM.a) $dir/prts_local_vlm.o
 }
 build iphoneos arm64-apple-ios17.0
-build iphonesimulator arm64-apple-ios17.0-simulator
+if [[ ${DEVICE_ONLY:-0} != 1 ]]; then
+    build iphonesimulator arm64-apple-ios17.0-simulator
+fi
 
 rm -rf $work/include $here/PRTSLocalVLM.xcframework
 mkdir -p $work/include
 cp $here/csrc/prts_local_vlm.h $here/csrc/module.modulemap $work/include/
-xcodebuild -create-xcframework -output $here/PRTSLocalVLM.xcframework \
-    -library $work/iphoneos/libPRTSLocalVLM.a -headers $work/include \
-    -library $work/iphonesimulator/libPRTSLocalVLM.a -headers $work/include > /dev/null
+libraries=(-library "$work/iphoneos/libPRTSLocalVLM.a" -headers "$work/include")
+if [[ ${DEVICE_ONLY:-0} != 1 ]]; then
+    libraries+=(-library "$work/iphonesimulator/libPRTSLocalVLM.a" -headers "$work/include")
+fi
+xcodebuild -create-xcframework -output "$here/PRTSLocalVLM.xcframework" \
+    "${libraries[@]}" > /dev/null
+cp "$src/LICENSE" "$here/PRTSLocalVLM.xcframework/LICENSE.llama.cpp"
 
 # Official files from openbmb/MiniCPM-V-4.7-1B-gguf; hashes are the LFS SHA-256 on Hugging Face.
 models=$root/models/MiniCPM-V-4.7-1B
+model_revision=e81247fa2eac0d99e43aeac55da199221959af15
 mkdir -p $models
 fetch() {
     local name=$1 sha=$2 file=$models/$1
     if [[ ! -f $file || $(shasum -a 256 $file | cut -d' ' -f1) != $sha ]]; then
-        curl -fL --retry 3 -C - -o $file.part https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/main/$name
+        curl -fL --retry 3 -C - -o $file.part https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/$model_revision/$name
         [[ $(shasum -a 256 $file.part | cut -d' ' -f1) == $sha ]] || {
             echo "SHA-256 mismatch: $name" >&2
             exit 1
@@ -54,6 +61,7 @@ fetch() {
         mv $file.part $file
     fi
 }
-fetch MiniCPM-V-4_7-1B-Q5_K_M.gguf 9e513c61e42e83a1aa271957eab2b06b15335f6f12756465c739da1ea3192bc5
-fetch mmproj-model-f16.gguf fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
+while read -r sha name; do
+    fetch "$name" "$sha"
+done < "$here/models.sha256"
 echo "PRTSLocalVLM.xcframework and models/MiniCPM-V-4.7-1B are ready"
