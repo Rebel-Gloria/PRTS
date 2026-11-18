@@ -7,14 +7,25 @@ nonisolated struct TextReadingAnswer {
     let lead: String
     private var buffer = ""
     private var closed = false
-    private var noText = false
+    private let expectsModelEmptyMarker: Bool
     private(set) var spokeText = false
 
-    init(lead: String) { self.lead = lead }
+    init(lead: String, expectsModelEmptyMarker: Bool = false) {
+        self.lead = lead
+        self.expectsModelEmptyMarker = expectsModelEmptyMarker
+    }
+
+    // A streamed marker can still turn out to be the first line of a longer transcription.
+    private var pendingEmptyMarker: Bool {
+        guard expectsModelEmptyMarker, !spokeText else { return false }
+        let text = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text == TextReadingPrompt.none || text == TextReadingPrompt.none + "。"
+    }
 
     mutating func append(_ piece: String) -> [String] {
         guard !closed else { return [] }
         buffer += piece
+        if pendingEmptyMarker { return [] }
         var spoken: [String] = []
         while let end = buffer.firstIndex(where: { "\n。！？；!?".contains($0) }) {
             let next = buffer.index(after: end)
@@ -26,7 +37,7 @@ nonisolated struct TextReadingAnswer {
 
     /// Whatever is left once the model is done.
     mutating func finish() -> [String] {
-        let rest = buffer
+        let rest = pendingEmptyMarker ? "" : buffer
         buffer = ""
         closed = true
         return say(rest)
@@ -34,23 +45,10 @@ nonisolated struct TextReadingAnswer {
 
     private mutating func say(_ part: String) -> [String] {
         let text = part.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !noText else { return [] }
+        guard !text.isEmpty else { return [] }
         if spokeText { return [text] }
-        // "无" first means there is no text at all; the model is not asked to go on after it.
-        guard text.trimmingCharacters(in: .punctuationCharacters) != TextReadingPrompt.none else {
-            noText = true
-            return []
-        }
         spokeText = true
         return ["\(lead)：\(text)"]
-    }
-
-    /// First line names the surface. A first line without one of the four words is already text.
-    static func split(_ answer: String) -> (Surface, String) {
-        let text = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        let head = text.prefix { $0 != "\n" }
-        guard let surface = Surface(word: String(head)) else { return (.object, text) }
-        return (surface, String(text.dropFirst(head.count)))
     }
 
     enum Surface: String, CaseIterable {
@@ -62,7 +60,7 @@ nonisolated struct TextReadingAnswer {
         /// The first of the four words in the answer; anything else counts as an object.
         init(answer: String) { self = Surface(word: answer) ?? .object }
 
-        init?(word: String) {
+        private init?(word: String) {
             guard
                 let first = Self.allCases
                     .compactMap({ surface in

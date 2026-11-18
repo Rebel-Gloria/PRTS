@@ -513,18 +513,24 @@ struct LiveCaptionSessionTests {
         return session
     }
 
-    @Test func sendsEveryTwoSecondsWithThePreviousLastFrame() async {
+    @Test(arguments: [false, true])
+    func carriesThePreviousFrameOnlyAcrossContinuousCapture(interrupted: Bool) async {
         let audio = CaptionTestAnswerAudio()
         let clock = CaptionTestClock()
         let replies = CaptionTestReplies()
         let session = captionSession(audio, clock, replies)
         var time = 0.0
         await advance(clock, until: 1, replies, from: &time)
+        if interrupted {
+            await clock.waitForSleep(at: time + LiveCaptionPolicy.sampleInterval)
+            time += 10
+            clock.advance(to: time)
+        }
         await advance(clock, until: 2, replies, from: &time)
         let videos = await replies.videos
         #expect((LiveCaptionPolicy.minimumVideoFrames...6).contains(videos[0].count))
         #expect((LiveCaptionPolicy.minimumVideoFrames...6).contains(videos[1].count))
-        #expect(videos[1].first == videos[0].last)
+        #expect((videos[1].first == videos[0].last) == !interrupted)
         session.stop()
         clock.finish()
         await replies.finish()

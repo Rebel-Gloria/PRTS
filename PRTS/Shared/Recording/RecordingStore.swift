@@ -31,6 +31,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     private var directory: URL?
     private var handles: [String: FileHandle] = [:]
     private var sequence: UInt64 = 0
+    private var droppedAtLastSeal: [String: Int] = [:]
     private var streamCounts: [String: Int] = [:]
     private var segment = 0
     private var segmentBytes = 0
@@ -348,17 +349,29 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         if ProcessInfo.processInfo.systemUptime - lastCheckpoint >= 2 { try checkpoint() }
     }
 
+    private func segmentDrops(_ status: DiagnosticStatus) -> [String: Int] {
+        var drops: [String: Int] = [:]
+        for (kind, total) in status.dropped {
+            let count = total - droppedAtLastSeal[kind, default: 0]
+            if count > 0 { drops[kind] = count }
+        }
+        return drops
+    }
+
     private func checkpoint(
         at target: URL? = nil,
         endTime: Date? = nil,
         startTime: Date? = nil,
         segmentStatus: DiagnosticStatus? = nil,
+        dropped: [String: Int]? = nil,
         recordCounts: [String: Int]? = nil,
         lastSequence: UInt64? = nil
     ) throws {
         guard let destination = target ?? directory else { return }
         let status = segmentStatus ?? status()
+        let segmentDropped = dropped ?? segmentDrops(status)
         let manifest: [String: Any] = [
+            "segmentDropped": segmentDropped,
             "schemaVersion": 3, "format": "prts-recording", "launchID": launchID,
             "recordCounts": recordCounts ?? streamCounts,
             "lastSequence": lastSequence ?? sequence,
@@ -366,7 +379,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             "updatedAt": Date().timeIntervalSince1970,
             "endedAt": endTime.map { $0.timeIntervalSince1970 as Any } ?? NSNull(),
             "finalized": endTime != nil,
-            "complete": endTime != nil && status.error == nil && status.droppedTotal == 0,
+            "complete": endTime != nil && status.error == nil && segmentDropped.isEmpty,
             "status": try JSONSerialization.jsonObject(with: DiagnosticJSON.encode(status)),
             "video": [
                 "codec": "h264", "targetBitsPerSecond": 1_000_000,
@@ -425,6 +438,8 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         } catch { fail(error, kind: "close") }
         handles.removeAll()
         let sealedStatus = status()
+        let sealedDrops = segmentDrops(sealedStatus)
+        if previous != nil { droppedAtLastSeal = sealedStatus.dropped }
         let sealedCounts = streamCounts
         let sealedSequence = sequence
         #if PRTS_DEV
@@ -451,6 +466,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                             endTime: endedAt,
                             startTime: previousOpenedAt,
                             segmentStatus: segmentStatus,
+                            dropped: sealedDrops,
                             recordCounts: sealedCounts,
                             lastSequence: sealedSequence
                         )
@@ -550,6 +566,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                                 try files.removeItem(at: target)
                             }
                         }
+                        droppedAtLastSeal = [:]
                         lock.withLock {
                             let pending = state.pending
                             let pendingBytes = state.pendingBytes

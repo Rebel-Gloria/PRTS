@@ -20,14 +20,15 @@ struct TextReadingAnswerTests {
         #expect(answer.finish() == [])
     }
 
-    @Test func noTextSaysNothing() {
-        var bare = TextReadingAnswer(lead: "你面前的物体上写着")
-        #expect(bare.append("无") == [])
-        #expect(bare.finish() == [])
-        #expect(!bare.spokeText)
-        var stop = TextReadingAnswer(lead: "你面前的物体上写着")
-        #expect(stop.append("无。\n人民路\n") == [])
-        #expect(!stop.spokeText)
+    @Test func onlyAWholeLocalModelReplyMeansNoText() {
+        var model = TextReadingAnswer(lead: "正文", expectsModelEmptyMarker: true)
+        #expect(model.append("无。\n") == [])
+        var empty = model
+        #expect(empty.finish() == [])
+        #expect(model.append("请看背面。") == ["正文：无。", "请看背面。"])
+
+        var vision = TextReadingAnswer(lead: "正文")
+        #expect(vision.append("无") + vision.finish() == ["正文：无"])
     }
 
     @Test func preservesComparisonSignsAcrossPieces() {
@@ -55,14 +56,11 @@ struct TextReadingAnswerTests {
         #expect(Surface(answer: "药物") == .object)
     }
 
-    @Test func remoteAnswerSplitsIntoSurfaceAndText() {
-        #expect(TextReadingAnswer.split("路标\n人民路\n地铁站 200米") == (.roadSign, "\n人民路\n地铁站 200米"))
-        #expect(TextReadingAnswer.split("无") == (.object, "无"))
-        // No surface word in the first line: it is already text.
-        #expect(TextReadingAnswer.split("幸福便利店\n24小时营业") == (.object, "幸福便利店\n24小时营业"))
-        var answer = TextReadingAnswer(lead: "你面前的路标上写着")
-        #expect(answer.append(TextReadingAnswer.split("路标\n人民路").1) == [])
-        #expect(answer.finish() == ["你面前的路标上写着：人民路"])
+    @Test func remoteHeadingMustMatchTheWholeLine() throws {
+        let parse = TextReadingBackend.parseRemoteAnswer
+        #expect(try parse("路标\r\n人民路") == (.roadSign, "\r\n人民路"))
+        #expect(try parse("纸张回收须知\n请分类投放") == (.object, "纸张回收须知\n请分类投放"))
+        #expect(try parse("纸张\n无") == (.paper, "\n无"))
+        #expect(try parse("无") == (.object, ""))
     }
-
 }

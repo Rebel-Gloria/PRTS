@@ -135,6 +135,39 @@ class RecordingTests(unittest.TestCase):
             )
             self.assertEqual(validate(root)["issues"], [])
 
+    def test_capture_requires_attachment_even_when_counts_match(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "schemaVersion": 3,
+                "format": "prts-recording",
+                "finalized": True,
+                "recordCounts": {"capture": 1},
+                "lastSequence": 1,
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest))
+            (root / "capture.jsonl").write_text('{"sequence":1,"payload":{"frameID":1}}\n')
+            self.assertEqual(
+                validate(root)["issues"][0]["error"], "Missing sensor frame attachment"
+            )
+
+    def test_segment_drops_take_precedence_over_launch_totals(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "schemaVersion": 3,
+                "format": "prts-recording",
+                "finalized": True,
+                "recordCounts": {},
+                "lastSequence": 0,
+                "status": {"dropped": {"video": 1}},
+            }
+            for drops, reports_loss in [(None, True), ({"video": 1}, True), ({}, False)]:
+                if drops is not None:
+                    manifest["segmentDropped"] = drops
+                (root / "manifest.json").write_text(json.dumps(manifest))
+                self.assertEqual(bool(validate(root)["issues"]), reports_loss)
+
     def test_legacy_manifest_never_claims_complete_validation(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

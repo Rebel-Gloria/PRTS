@@ -68,7 +68,16 @@ nonisolated enum TextReadingBackend {
             else { throw PhotoChatError.malformedStream }
             text = remainder
         }
-        return TextReadingAnswer.split(copyBeforeStrayMarker(text))
+        let copy = copyBeforeStrayMarker(text).trimmingCharacters(in: .whitespacesAndNewlines)
+        if copy == TextReadingPrompt.none || copy == TextReadingPrompt.none + "。" {
+            return (.object, "")
+        }
+        let line = copy.prefix { !$0.isNewline }
+        let heading = line.trimmingCharacters(in: .whitespaces)
+        guard let surface = TextReadingAnswer.Surface(rawValue: heading) else {
+            return (.object, copy)
+        }
+        return (surface, String(copy.dropFirst(line.count)))
     }
 
     /// Paired tags within the copy are literal OCR text; only an unmatched closing marker stops it.

@@ -132,8 +132,12 @@ def validate(directory):
                         if type(sequence) is not int or sequence <= 0 or sequence in sequences:
                             raise ValueError("Invalid or duplicate record sequence")
                         sequences.add(sequence)
+                    if path.name == "capture.jsonl" and not isinstance(
+                        record.get("attachment"), dict
+                    ):
+                        raise ValueError("Missing sensor frame attachment")
                     raw = attachment(run, record["attachment"]) if "attachment" in record else None
-                    if path.name == "capture.jsonl" and raw is not None:
+                    if path.name == "capture.jsonl":
                         sensor_frame(raw)
                     if path.name == "analysis.jsonl" and raw is not None:
                         depth_frame(raw)
@@ -184,7 +188,7 @@ def validate(directory):
             )
         if (
             status.get("error")
-            or any(status.get("dropped", {}).values())
+            or any(metadata.get("segmentDropped", status.get("dropped", {})).values())
             or any(status.get("failed", {}).values())
         ):
             issues.append(

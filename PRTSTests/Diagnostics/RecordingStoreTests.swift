@@ -114,6 +114,7 @@ struct RecordingStoreTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RecordingStore(root: root)
+        store.noteGap("video")
         store.event("before_export")
         await flush(store)
         let firstID = store.status().runID
@@ -131,19 +132,24 @@ struct RecordingStoreTests {
         )
         let manifest = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(manifest["finalized"] as? Bool == true)
+        #expect(manifest["complete"] as? Bool == false)
+        #expect(manifest["segmentDropped"] as? [String: Int] == ["video": 1])
         let status = try #require(manifest["status"] as? [String: Any])
         #expect(status["runID"] as? String == firstID)
         #expect(manifest["recordCounts"] as? [String: Int] == ["events": 3])
         #expect(manifest["lastSequence"] as? Int == 3)
+        await withCheckedContinuation { done in store.suspend { done.resume() } }
         let secondData = try Data(
             contentsOf: root.appendingPathComponent(store.status().runID).appendingPathComponent(
                 "manifest.json"
             )
         )
-        // Explicitly checkpoint the current segment before checking its independent inventory.
         let second = try #require(JSONSerialization.jsonObject(with: secondData) as? [String: Any])
-        #expect(second["recordCounts"] as? [String: Int] == ["events": 1])
-        #expect(second["lastSequence"] as? Int == 1)
+        #expect(second["recordCounts"] as? [String: Int] == ["events": 2])
+        #expect(second["lastSequence"] as? Int == 2)
+        #expect(second["complete"] as? Bool == true)
+        #expect(second["segmentDropped"] as? [String: Int] == [:])
+        #expect(store.status().dropped["video"] == 1)
     }
 
     @Test func clearRejectsLateOriginalsAndAutomaticallyResumes() async throws {
