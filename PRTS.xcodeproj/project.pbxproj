@@ -30,6 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F1000000000000000000000E /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
 		DDE04D7230132D31000C8361 /* PRTS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PRTS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE04D7F30132D33000C8361 /* PRTSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PRTSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE04D8930132D33000C8361 /* PRTSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PRTSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,6 +98,7 @@
 		DDE04D6930132D31000C8361 = {
 			isa = PBXGroup;
 			children = (
+				F1000000000000000000000E /* Signing.xcconfig */,
 				DDE04D7430132D31000C8361 /* PRTS */,
 				DDE04D8230132D33000C8361 /* PRTSTests */,
 				DDE04D8C30132D33000C8361 /* PRTSUITests */,
@@ -327,6 +329,7 @@
 /* Begin XCBuildConfiguration section */
 		DDE04D9130132D33000C8361 /* Dev */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1000000000000000000000E /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -382,6 +385,7 @@
 		};
 		DDE04D9230132D33000C8361 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1000000000000000000000E /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -440,7 +444,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 25;
-				DEVELOPMENT_TEAM = 56PKSY3B35;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -462,7 +465,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 0.9.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTS;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRTS_DEV_BUNDLE_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PRTS_SOURCE_COMMIT = unavailable;
 				REGISTER_APP_GROUPS = YES;
@@ -487,7 +490,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 25;
-				DEVELOPMENT_TEAM = 56PKSY3B35;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -537,7 +539,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 0.9.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTSTests;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRTS_DEV_BUNDLE_ID)Tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -586,7 +588,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 0.9.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jingxuan.PRTSUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRTS_DEV_BUNDLE_ID)UITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;

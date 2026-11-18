@@ -35,6 +35,12 @@
 
 如需将源码提交哈希写入二进制，请附加构建参数 `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)`。
 
+### 本机签名
+
+工程启用自动签名，不指定开发团队。要使用自己的 Apple 账号在真机上运行，请在 Xcode 中登录账号，然后在 `Config/Signing.local.xcconfig` 中设置 `DEVELOPMENT_TEAM` 为该账号的团队 ID。此文件仅供本机使用，不提交到仓库。
+
+如果团队不能使用默认标识符 `com.jingxuan.PRTS`，可以在同一文件中设置 `PRTS_DEV_BUNDLE_ID` 为团队可用的唯一标识符。此设置只影响 Dev 应用及其测试目标，不会更改 Release 的标识符。使用个人团队进行开发签名时，需要在该团队下注册测试设备。
+
 ### 构建模式
 
 工程仅提供 `Release` 与 `Dev` 两种构建配置。两者共享完全一致的界面、避障算法和编译优化；`Dev` 额外定义 `PRTS_DEV` 编译宏，用于启用自动录制并在设置末尾提供导出与清除操作：

@@ -22,3 +22,6 @@
 .ruff_cache/
 __pycache__/
 *.pyc
+
+# Developer-specific Xcode signing settings
+/Config/Signing.local.xcconfig

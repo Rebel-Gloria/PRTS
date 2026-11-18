@@ -1,0 +1,2 @@
+PRTS_DEV_BUNDLE_ID = com.jingxuan.PRTS
+#include? "Signing.local.xcconfig"
