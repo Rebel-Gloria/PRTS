@@ -343,7 +343,8 @@ final class LiveCaptionSession: ObservableObject {
                     && $0.sampledAt > (carried?.sampledAt ?? -.infinity)
             }
             guard let firstFresh = fresh.first else { continue }
-            if let last = carried, firstFresh.sampledAt - last.sampledAt > LiveCaptionPolicy.window {
+            if let last = carried, firstFresh.sampledAt - last.sampledAt > LiveCaptionPolicy.window
+            {
                 carried = nil
             }
             let video = [carried].compactMap { $0 } + LiveCaptionFrame.select(fresh)

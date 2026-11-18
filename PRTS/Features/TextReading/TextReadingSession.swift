@@ -284,7 +284,8 @@ final class TextReadingSession: ObservableObject {
             let surface = try await services.surface(jpeg)
             try Task.checkCancellation()
             answer = TextReadingAnswer(
-                lead: localized(surface.localizationKey), expectsModelEmptyMarker: true
+                lead: localized(surface.localizationKey),
+                expectsModelEmptyMarker: true
             )
             let result: Result<String, Error>
             do {
