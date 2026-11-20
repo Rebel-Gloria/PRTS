@@ -1,15 +1,8 @@
 import Foundation
 
-/// One invocation owns one ephemeral connection; cancellation tears it down.
+/// Feature entry points authorize the operation once; transport honors explicit task cancellation.
 /// Redirects are rejected so credentials and camera content stay at the requested endpoint.
 nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Sendable {
-    private let uploadAllowed: @Sendable () -> Bool
-
-    init(uploadAllowed: @escaping @Sendable () -> Bool = { PhotoUploadPermission.isAllowed() }) {
-        self.uploadAllowed = uploadAllowed
-        super.init()
-    }
-
     func describe(
         jpeg: Data,
         text: String,
@@ -39,7 +32,6 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
         configuration: URLSessionConfiguration = .ephemeral
     ) async throws -> String {
         try Task.checkCancellation()
-        guard uploadAllowed() else { throw PhotoChatError.uploadNotAllowed }
         #if PRTS_DEV
         let recordingID = UUID().uuidString
         let recordingGeneration =
@@ -84,7 +76,6 @@ nonisolated final class PhotoChatClient: NSObject, URLSessionTaskDelegate, Senda
         do {
             let answer = try await withTaskCancellationHandler {
                 try Task.checkCancellation()
-                guard uploadAllowed() else { throw PhotoChatError.uploadNotAllowed }
                 let (bytes, response) = try await session.bytes(for: request)
                 guard let http = response as? HTTPURLResponse else {
                     throw PhotoChatError.malformedStream

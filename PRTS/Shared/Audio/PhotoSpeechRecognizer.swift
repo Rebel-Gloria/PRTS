@@ -65,8 +65,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             let recognizer = SFSpeechRecognizer(locale: SpeechPreferences.language().locale),
             recognizer.isAvailable
         else { throw RecognitionError.unavailable }
-        let localOnly = onDeviceOnly || !PhotoUploadPermission.isAllowed()
-        guard !localOnly || recognizer.supportsOnDeviceRecognition else {
+        guard !onDeviceOnly || recognizer.supportsOnDeviceRecognition else {
             throw RecognitionError.unavailable
         }
         speechRecognizer = recognizer
@@ -77,7 +76,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         }
         audioLease = lease
         let request = SFSpeechAudioBufferRecognitionRequest()
-        request.requiresOnDeviceRecognition = localOnly
+        request.requiresOnDeviceRecognition = onDeviceOnly
         request.shouldReportPartialResults = true
         self.request = request
         let input = engine.inputNode

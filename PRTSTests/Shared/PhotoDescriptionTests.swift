@@ -260,28 +260,10 @@ nonisolated final class PhotoMockURLProtocol: URLProtocol, @unchecked Sendable {
 }
 
 struct PhotoTransportTests {
-    @Test func deniedUploadRejectsPreparedRequest() async throws {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [PhotoMockURLProtocol.self]
-        let request = try PhotoChatProtocol.request(
-            jpeg: Data([1]),
-            text: "测试",
-            key: "test-only",
-            service: .qwen,
-            system: PhotoPrompts.system
-        )
-        await #expect(throws: PhotoChatError.uploadNotAllowed) {
-            try await PhotoChatClient(uploadAllowed: { false }).send(
-                request,
-                configuration: configuration
-            )
-        }
-    }
-
     @Test func receivesMockStreamWithoutReasoning() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PhotoMockURLProtocol.self]
-        let answer = try await PhotoChatClient(uploadAllowed: { true }).describe(
+        let answer = try await PhotoChatClient().describe(
             jpeg: Data([1]),
             text: "测试",
             key: "test-only",
@@ -294,7 +276,7 @@ struct PhotoTransportTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PhotoMockURLProtocol.self]
         do {
-            _ = try await PhotoChatClient(uploadAllowed: { true }).describe(
+            _ = try await PhotoChatClient().describe(
                 jpeg: Data([1]),
                 text: "测试",
                 key: "test-401",

@@ -135,10 +135,6 @@ final class TextReadingSession: ObservableObject {
         await withCheckedContinuation { done in camera.stop { done.resume() } }
     }
 
-    func cancelCloudRequest() {
-        if cloud != nil && phase != .ending { terminate() }
-    }
-
     func terminate() {
         end()
     }

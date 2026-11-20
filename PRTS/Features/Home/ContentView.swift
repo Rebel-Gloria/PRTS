@@ -36,7 +36,6 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var audioInterrupted = false
     @State private var isShowingUserGuide = false
-    @AppStorage(PhotoUploadPermission.key) private var uploadAllowed = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
     @AppStorage(InteractionPreferences.lowVisionKey) private var lowVisionMode = false
     @AppStorage(InteractionPreferences.tapToStopKey) private var tapToStop = false
@@ -275,6 +274,8 @@ struct ContentView: View {
                 audioInterrupted = interruption == .began
                 updateFeatureFeedback()
                 if audioInterrupted {
+                    liveCaption.cancelPress()
+                    askingByTap = false
                     photo.handleAudioInterruption()
                     speechManager.stopCurrentSpeech()
                 }
@@ -304,12 +305,6 @@ struct ContentView: View {
             }
         }
 
-        .onChange(of: uploadAllowed) { _, allowed in
-            guard !allowed else { return }
-            photo.cancelCloudRequest()
-            textReading.cancelCloudRequest()
-            if liveCaption.isRunning { liveCaption.stop() }
-        }
         .disabled(resettingRecording)
         .tint(.appAccent)
         .preferredColorScheme(.dark)

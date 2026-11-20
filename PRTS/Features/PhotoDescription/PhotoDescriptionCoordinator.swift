@@ -26,13 +26,10 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private var awaitingPlayback = false
     private var capturingQuestion = false
 
-    /// An audio interruption releases the microphone, while captured-image inference can finish.
+    /// Interruption is not a send action. Only work already confirmed by the user may finish.
     func handleAudioInterruption() {
         setFeedbackEnabled(false)
-        guard capturingQuestion else { return }
-        recognizer.endCapture()
-        press.cancel()
-        perform(.stopRecording)
+        cancelUnreleasedQuestion()
     }
     #if PRTS_DEV
     private var recordingGeneration: UInt64 = 0
@@ -239,11 +236,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     /// A disappearing input control might never deliver the release event. Do not submit it.
     func cancelUnreleasedQuestion() {
-        if capturingQuestion { cancel() }
-    }
-
-    func cancelCloudRequest() {
-        if let request, request.configuration.provider != .onDevice { cancel() }
+        if capturingQuestion || timer != nil { cancel() }
     }
 
     func shutdown() async {

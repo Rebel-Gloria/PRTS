@@ -156,15 +156,36 @@ struct PhotoLifecycleTests {
         #expect(f.audio.spoken.isEmpty)
     }
 
-    @Test func audioInterruptionReleasesMicrophoneAndFinishesQuestionSilently() async {
+    @Test(arguments: [false, true])
+    func interruptionDiscardsUnreleasedInput(recording: Bool) async {
+        let f = PhotoFixture()
+        f.down()
+        if recording {
+            f.state.time = 0.5
+            f.coordinator.advancePress()
+            await f.coordinator.work?.value
+        }
+        f.coordinator.handleAudioInterruption()
+        f.coordinator.setFeedbackEnabled(true)
+        f.state.time = 1
+        f.coordinator.advancePress()
+        f.coordinator.up()
+        #expect(!f.coordinator.busy)
+        #expect(f.state.events.contains("cancel-mic"))
+        #expect(!f.state.events.contains("transcript"))
+        #expect(await f.network.requests.isEmpty)
+        #expect(f.audio.spoken.isEmpty)
+    }
+
+    @Test func audioInterruptionAfterReleaseFinishesQuestionSilently() async {
         let f = PhotoFixture()
         f.down()
         f.state.time = 0.5
         f.coordinator.advancePress()
         await f.coordinator.work?.value
+        f.coordinator.up()
         f.coordinator.handleAudioInterruption()
         await f.network.waitForRequests(1)
-        #expect(f.state.events.contains("stop-mic"))
         #expect(await f.network.requests[0].question == "门在哪里？")
         await f.network.reply(0, "左边。")
         await f.coordinator.work?.value
@@ -432,17 +453,27 @@ struct PhotoLifecycleTests {
         #expect(await f.network.requests.isEmpty)
     }
 
-    @Test func revokingUploadsStopsCloudRecordingBeforeRelease() async {
+    @Test func changedUploadPermissionOnlyAffectsTheNextQuestion() async {
         let f = PhotoFixture()
         f.down()
         f.state.time = 0.5
         f.coordinator.advancePress()
         await f.coordinator.work?.value
         #expect(f.recognizer.onDeviceOnly == false)
-        f.coordinator.cancelCloudRequest()
+        f.state.allowUpload = false
+        f.coordinator.up()
+        await f.network.waitForRequests(1)
+        #expect(await f.network.requests[0].configuration.uploadAllowed)
+        await f.network.reply(0, "左边。")
+        await f.coordinator.work?.value
+        f.audio.onFinished?()
+        f.down()
+        f.state.time += 0.5
+        f.coordinator.advancePress()
         f.coordinator.up()
         #expect(!f.coordinator.busy)
-        #expect(await f.network.requests.isEmpty)
+        #expect(f.state.events.filter { $0 == "record" }.count == 1)
+        #expect(await f.network.requests.count == 1)
     }
 
     @Test func noConsentOrCredentialNeverCaptures() async {

@@ -2396,13 +2396,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When this is off, you can still ask questions using the on-device service. Cloud questions may also use Apple’s speech service."
+            "value" : "Turning this off prevents new cloud operations. Current requests and live captions continue. You can still ask questions on device. Cloud questions may use Apple’s speech service."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "关闭后，选择“本机”仍可按住提问。使用云端提问时，语音识别也可能使用 Apple 服务。"
+            "value" : "关闭后不能开始新的云端操作。进行中的请求和流式字幕会继续，本机提问不受影响。云端提问可能使用 Apple 语音服务。"
           }
         }
       }

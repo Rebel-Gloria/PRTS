@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated enum PhotoChatError: Error, LocalizedError, CustomNSError, Equatable {
     case missingKey, invalidService, emptyInput, malformedStream, incompleteStream, emptyAnswer,
-        responseTooLarge, answerTooLong, uploadNotAllowed
+        responseTooLarge, answerTooLong
     case http(Int)
     static var errorDomain: String { "PRTS.PhotoChat" }
     var errorCode: Int {
@@ -15,7 +15,6 @@ nonisolated enum PhotoChatError: Error, LocalizedError, CustomNSError, Equatable
         case .emptyAnswer: 6
         case .responseTooLarge: 7
         case .answerTooLong: 8
-        case .uploadNotAllowed: 9
         case .http(let status): status
         }
     }
@@ -34,7 +33,6 @@ nonisolated enum PhotoChatError: Error, LocalizedError, CustomNSError, Equatable
         case .missingKey: "photo.error.missingKey"
         case .invalidService: "photo.error.invalidService"
         case .emptyInput: "photo.error.emptyInput"
-        case .uploadNotAllowed: "photo.message.allowUpload"
         case .malformedStream: "photo.error.malformedStream"
         case .incompleteStream, .answerTooLong: "photo.error.incompleteStream"
         case .emptyAnswer: "photo.error.emptyAnswer"
