@@ -5,7 +5,6 @@ import Testing
 
 @MainActor
 private final class PhotoTestState {
-    var time: TimeInterval = 0
     var allowUpload = true
     var onDevice = false
     var highResolution = false
@@ -25,12 +24,19 @@ private final class PhotoTestRecognizer: PhotoRecognizing {
         self.onDeviceOnly = onDeviceOnly
         state.events.append("record")
     }
-    func endCapture() { state.events.append("stop-mic") }
+    func endCapture() -> Bool {
+        guard onDeviceOnly != nil else { return false }
+        state.events.append("stop-mic")
+        return true
+    }
     func finish() async throws -> String {
         state.events.append("transcript")
         return question
     }
-    func cancel() { state.events.append("cancel-mic") }
+    func cancel() {
+        onDeviceOnly = nil
+        state.events.append("cancel-mic")
+    }
 }
 
 @MainActor
@@ -107,7 +113,6 @@ private final class PhotoFixture {
         recognizer = PhotoTestRecognizer(state)
         var services = PhotoDescriptionServices()
         services.errors = .ignored
-        services.now = { state.time }
         services.configuration = { _ in
             PhotoDescriptionConfiguration(
                 provider: state.onDevice ? .onDevice : .qwen,
@@ -129,8 +134,9 @@ private final class PhotoFixture {
             services: services
         )
     }
-    func down() {
-        coordinator.down(
+    func perform(_ action: PhotoPressState.Action) {
+        _ = coordinator.perform(
+            action,
             capture: { [state] longestSide in
                 state.capturedLongestSide = longestSide
                 state.events.append("capture")
@@ -145,10 +151,11 @@ private final class PhotoFixture {
 struct PhotoLifecycleTests {
     @Test func audioInterruptionPreservesImageInference() async {
         let f = PhotoFixture()
-        f.down()
-        f.coordinator.up()
+        f.perform(.shortCapture)
         await f.network.waitForRequests(1)
-        f.coordinator.handleAudioInterruption()
+        f.coordinator.cancelUnreleasedQuestion()
+        f.coordinator.setFeedbackEnabled(false)
+        #expect(f.state.events.filter { $0 == "stop-audio" }.count == 1)
         #expect(f.coordinator.busy)
         await f.network.reply(0, "门口。")
         await f.coordinator.work?.value
@@ -156,35 +163,25 @@ struct PhotoLifecycleTests {
         #expect(f.audio.spoken.isEmpty)
     }
 
-    @Test(arguments: [false, true])
-    func interruptionDiscardsUnreleasedInput(recording: Bool) async {
+    @Test func cancellingAnotherPressDoesNotDiscardASubmittedPhoto() async {
         let f = PhotoFixture()
-        f.down()
-        if recording {
-            f.state.time = 0.5
-            f.coordinator.advancePress()
-            await f.coordinator.work?.value
-        }
-        f.coordinator.handleAudioInterruption()
-        f.coordinator.setFeedbackEnabled(true)
-        f.state.time = 1
-        f.coordinator.advancePress()
-        f.coordinator.up()
-        #expect(!f.coordinator.busy)
-        #expect(f.state.events.contains("cancel-mic"))
-        #expect(!f.state.events.contains("transcript"))
-        #expect(await f.network.requests.isEmpty)
-        #expect(f.audio.spoken.isEmpty)
+        f.perform(.shortCapture)
+        await f.network.waitForRequests(1)
+        f.perform(.startRecording)
+        f.coordinator.cancelUnreleasedQuestion()
+        await f.network.reply(0, "门口。")
+        await f.coordinator.work?.value
+        #expect(f.audio.spoken == ["门口。"])
     }
 
     @Test func audioInterruptionAfterReleaseFinishesQuestionSilently() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         await f.coordinator.work?.value
-        f.coordinator.up()
-        f.coordinator.handleAudioInterruption()
+        f.perform(.stopRecording)
+        #expect(f.state.events.last == "stop-mic")
+        f.coordinator.cancelUnreleasedQuestion()
+        f.coordinator.setFeedbackEnabled(false)
         await f.network.waitForRequests(1)
         #expect(await f.network.requests[0].question == "门在哪里？")
         await f.network.reply(0, "左边。")
@@ -218,9 +215,7 @@ struct PhotoLifecycleTests {
 
     @Test func mutingKeepsInferenceButNeverReplaysItsAnswerAfterFocusReturns() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.1
-        f.coordinator.up()
+        f.perform(.shortCapture)
         await f.network.waitForRequests(1)
         let pending = f.coordinator.work
         f.coordinator.setFeedbackEnabled(false)
@@ -232,10 +227,7 @@ struct PhotoLifecycleTests {
         #expect(f.audio.spoken.isEmpty)
         #expect(!f.coordinator.busy)
 
-        f.state.time = 2
-        f.down()
-        f.state.time = 2.1
-        f.coordinator.up()
+        f.perform(.shortCapture)
         await f.network.waitForRequests(2)
         await f.network.reply(1, "新的回答")
         await f.coordinator.work?.value
@@ -245,9 +237,7 @@ struct PhotoLifecycleTests {
 
     @Test func mutingAnAnswerAlreadyPlayingReleasesTheInteraction() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.1
-        f.coordinator.up()
+        f.perform(.shortCapture)
         await f.network.waitForRequests(1)
         await f.network.reply(0, "正在播放")
         await f.coordinator.work?.value
@@ -262,16 +252,11 @@ struct PhotoLifecycleTests {
         let f = PhotoFixture()
         f.state.highResolution = highResolution
         f.state.onDevice = onDevice
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         #expect(f.state.capturedLongestSide == (highResolution ? 1920 : 1280))
         f.coordinator.cancel()
 
-        f.state.time = 1
-        f.down()
-        f.state.time = 1.1
-        f.coordinator.up()
+        f.perform(.shortCapture)
         #expect(f.state.capturedLongestSide == 1280)
         await f.network.waitForRequests(1)
         await f.network.reply(0, "门口。")
@@ -279,12 +264,9 @@ struct PhotoLifecycleTests {
         f.coordinator.cancel()
     }
 
-    @Test func shortPressUsesReleaseFrameAndFixedQuestion() async throws {
+    @Test func confirmedShortCaptureSendsTheImageWithoutAQuestion() async throws {
         let f = PhotoFixture()
-        f.down()
-        #expect(f.state.events == ["silence"])
-        f.state.time = 0.49
-        f.coordinator.up()
+        f.perform(.shortCapture)
         await f.coordinator.work?.value
         #expect(f.state.events == ["silence", "capture", "A"])
         await f.network.waitForRequests(1)
@@ -299,19 +281,12 @@ struct PhotoLifecycleTests {
         #expect(!f.coordinator.busy)
     }
 
-    @Test func longPressCapturesAtThresholdAndStopsBeforeSubmitCue() async throws {
+    @Test func recordingStopsBeforeSubmitCue() async throws {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.499
-        f.coordinator.advancePress()
-        #expect(f.state.events == ["silence"])
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         await f.coordinator.work?.value
         #expect(f.state.events == ["silence", "capture", "B", "record"])
-        f.state.time = 1
-        f.coordinator.advancePress()
-        f.coordinator.up()
+        f.perform(.stopRecording)
         await f.coordinator.work?.value
         let stopped = f.state.events.firstIndex(of: "stop-mic")!
         #expect(f.state.events[stopped + 1] == "A")
@@ -325,24 +300,22 @@ struct PhotoLifecycleTests {
         f.coordinator.cancel()
     }
 
-    @Test func releaseWhileTheMicrophoneStartsStopsItAfterItStarted() async {
+    @Test func releaseBeforeTheMicrophoneStartsNeverRecordsOrSubmits() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
-        f.state.time = 0.6
-        f.coordinator.up()
+        f.perform(.startRecording)
+        let starting = f.coordinator.work
+        f.perform(.stopRecording)
         await f.coordinator.work?.value
-        let events = f.state.events
-        #expect(events.firstIndex(of: "record")! < events.firstIndex(of: "stop-mic")!)
-        f.coordinator.cancel()
+        await starting?.value
+        #expect(!f.state.events.contains("record"))
+        #expect(!f.state.events.contains("transcript"))
+        #expect(await f.network.requests.isEmpty)
+        #expect(!f.coordinator.busy)
     }
 
     @Test func cancelWhileTheCueStartsNeverStartsTheMicrophone() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         let work = f.coordinator.work
         f.coordinator.cancel()
         await work?.value
@@ -355,13 +328,9 @@ struct PhotoLifecycleTests {
         let questions = ["请告诉我\n门的“颜色”是什么？", "路牌上写了什么？"]
         for (index, question) in questions.enumerated() {
             f.recognizer.question = question
-            let start = Double(index) * 2
-            f.state.time = start
-            f.down()
-            f.state.time = start + 0.5
-            f.coordinator.advancePress()
-            f.state.time = start + 1
-            f.coordinator.up()
+            f.perform(.startRecording)
+            await f.coordinator.work?.value
+            f.perform(.stopRecording)
             await f.network.waitForRequests(index + 1)
             let sent = await f.network.requests[index]
             #expect(sent.question == question)
@@ -386,31 +355,14 @@ struct PhotoLifecycleTests {
         }
     }
 
-    @Test func cancelledPressDoesNotCaptureOrUpload() async {
-        let f = PhotoFixture()
-        f.down()
-        f.coordinator.cancel()
-        f.state.time = 1
-        f.coordinator.advancePress()
-        f.coordinator.up()
-        #expect(!f.state.events.contains("capture"))
-        #expect(!f.state.events.contains("A"))
-        #expect(await f.network.requests.isEmpty)
-        #expect(!f.coordinator.busy)
-    }
-
     @Test func oldResponseCannotSpeakOrCancelNewInteraction() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.1
-        f.coordinator.up()
+        f.perform(.shortCapture)
         let oldWork = f.coordinator.work
         await f.network.waitForRequests(1)
         f.coordinator.cancel()
-        f.state.time = 2
-        f.down()
-        f.state.time = 2.1
-        f.coordinator.up()
+
+        f.perform(.shortCapture)
         await f.network.waitForRequests(2)
         await f.network.reply(0, "旧回答")
         await oldWork?.value
@@ -424,9 +376,7 @@ struct PhotoLifecycleTests {
 
     @Test func truncatedAnswerAnnouncesFailureAndReleasesAfterSpeech() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.1
-        f.coordinator.up()
+        f.perform(.shortCapture)
         await f.network.waitForRequests(1)
         let work = f.coordinator.work
         await f.network.fail(0)
@@ -442,12 +392,13 @@ struct PhotoLifecycleTests {
 
     @Test func losingInputBeforeReleaseDiscardsTheQuestion() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         await f.coordinator.work?.value
         f.coordinator.cancelUnreleasedQuestion()
-        f.coordinator.up()
+        f.coordinator.setFeedbackEnabled(false)
+        #expect(f.state.events.filter { $0 == "stop-audio" }.count == 1)
+        f.coordinator.setFeedbackEnabled(true)
+        f.perform(.stopRecording)
         #expect(!f.coordinator.busy)
         #expect(f.state.events.contains("cancel-mic"))
         #expect(await f.network.requests.isEmpty)
@@ -455,22 +406,18 @@ struct PhotoLifecycleTests {
 
     @Test func changedUploadPermissionOnlyAffectsTheNextQuestion() async {
         let f = PhotoFixture()
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         await f.coordinator.work?.value
         #expect(f.recognizer.onDeviceOnly == false)
         f.state.allowUpload = false
-        f.coordinator.up()
+        f.perform(.stopRecording)
         await f.network.waitForRequests(1)
         #expect(await f.network.requests[0].configuration.uploadAllowed)
         await f.network.reply(0, "左边。")
         await f.coordinator.work?.value
         f.audio.onFinished?()
-        f.down()
-        f.state.time += 0.5
-        f.coordinator.advancePress()
-        f.coordinator.up()
+        f.perform(.startRecording)
+        f.perform(.stopRecording)
         #expect(!f.coordinator.busy)
         #expect(f.state.events.filter { $0 == "record" }.count == 1)
         #expect(await f.network.requests.count == 1)
@@ -479,18 +426,14 @@ struct PhotoLifecycleTests {
     @Test func noConsentOrCredentialNeverCaptures() async {
         let f = PhotoFixture()
         f.state.allowUpload = false
-        f.down()
-        f.coordinator.up()
+        f.perform(.shortCapture)
         #expect(!f.coordinator.busy)
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
-        f.coordinator.up()
+        f.perform(.startRecording)
+        f.perform(.stopRecording)
         #expect(!f.coordinator.busy)
         f.state.allowUpload = true
         f.state.hasCredential = false
-        f.down()
-        f.coordinator.up()
+        f.perform(.shortCapture)
         #expect(!f.state.events.contains("capture"))
         #expect(!f.state.events.contains("record"))
         #expect(await f.network.requests.isEmpty)
@@ -502,12 +445,13 @@ struct PhotoLifecycleTests {
         f.state.onDevice = true
         f.state.allowUpload = false
         f.state.hasCredential = false
-        f.down()
         if question {
-            f.state.time = 0.5
-            f.coordinator.advancePress()
+            f.perform(.startRecording)
+            await f.coordinator.work?.value
+            f.perform(.stopRecording)
+        } else {
+            f.perform(.shortCapture)
         }
-        f.coordinator.up()
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
         #expect(requests[0].key.isEmpty)
@@ -535,13 +479,14 @@ struct PhotoLifecycleTests {
             services.configuration = configured.configuration
             services.credential = configured.credential
         }
-        f.down()
         #expect(accounts.isEmpty)
         if question {
-            f.state.time = 0.5
-            f.coordinator.advancePress()
+            f.perform(.startRecording)
+            await f.coordinator.work?.value
+            f.perform(.stopRecording)
+        } else {
+            f.perform(.shortCapture)
         }
-        f.coordinator.up()
         await f.network.waitForRequests(1)
         let request = await f.network.requests[0]
         let account = question ? "api-key.deepseek" : "api-key"
@@ -568,13 +513,12 @@ struct PhotoLifecycleTests {
             services.configuration = configured.configuration
             services.credential = configured.credential
         }
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
+        await f.coordinator.work?.value
         defaults.set("deepseek", forKey: PhotoChatProvider.selectionKey)
         defaults.set(false, forKey: PhotoImagePurpose.highResolutionKey)
         defaults.set(false, forKey: PhotoChatProvider.qwen.questionThinkingKey)
-        f.coordinator.up()
+        f.perform(.stopRecording)
         await f.network.waitForRequests(1)
         let first = await f.network.requests[0]
         #expect(first.key == "test-api-key")
@@ -586,11 +530,9 @@ struct PhotoLifecycleTests {
         await f.coordinator.work?.value
         f.coordinator.cancel()
 
-        f.state.time = 2
-        f.down()
-        f.state.time = 2.5
-        f.coordinator.advancePress()
-        f.coordinator.up()
+        f.perform(.startRecording)
+        await f.coordinator.work?.value
+        f.perform(.stopRecording)
         await f.network.waitForRequests(2)
         let second = await f.network.requests[1]
         #expect(second.key == "test-api-key.deepseek")
@@ -618,12 +560,13 @@ struct PhotoLifecycleTests {
             services.configuration = configured.configuration
             services.credential = configured.credential
         }
-        f.down()
         if question {
-            f.state.time = 0.5
-            f.coordinator.advancePress()
+            f.perform(.startRecording)
+            await f.coordinator.work?.value
+            f.perform(.stopRecording)
+        } else {
+            f.perform(.shortCapture)
         }
-        f.coordinator.up()
         await f.network.waitForRequests(1)
         #expect(await f.network.requests[0].key.isEmpty)
         await f.network.reply(0, "门口。")
@@ -634,11 +577,9 @@ struct PhotoLifecycleTests {
     @Test func missingSpeechPermissionNeverFallsBackToDefaultQuestion() async {
         let f = PhotoFixture()
         f.state.speechAuthorized = false
-        f.down()
-        f.state.time = 0.5
-        f.coordinator.advancePress()
+        f.perform(.startRecording)
         await f.coordinator.work?.value
-        f.coordinator.up()
+        f.perform(.stopRecording)
         #expect(!f.state.events.contains("capture"))
         #expect(!f.state.events.contains("record"))
         #expect(await f.network.requests.isEmpty)

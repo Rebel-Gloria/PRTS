@@ -16,7 +16,7 @@ private final class CaptionPhotoTestAnswerAudio: AnswerAudio {
 private final class CaptionPhotoRecognizer: PhotoRecognizing {
     var starts = 0
     func start(onDeviceOnly: Bool) throws { starts += 1 }
-    func endCapture() {}
+    func endCapture() -> Bool { starts > 0 }
     func finish() async throws -> String { "谁走过来了？" }
     func cancel() {}
 }
@@ -31,7 +31,6 @@ private final class CaptionPhotoFixture {
     lazy var photo: PhotoDescriptionCoordinator = {
         var services = PhotoDescriptionServices()
         services.errors = .ignored
-        services.now = { [unowned self] in self.time }
         services.configuration = { _ in
             PhotoDescriptionConfiguration(
                 provider: .onDevice,
@@ -93,6 +92,17 @@ struct LiveCaptionPhotoInteractionTests {
         #expect(fixture.audio.cues == [.submit])
         await fixture.photo.work?.value
         fixture.photo.cancel()
+    }
+
+    @Test func cancellingBeforeTheHoldThresholdDoesNotCaptureOrSubmit() {
+        let fixture = CaptionPhotoFixture()
+        fixture.perform(fixture.state.down(at: 0, running: false))
+        fixture.state.cancel()
+        fixture.perform(fixture.state.advance(to: 1))
+        fixture.perform(fixture.state.up(at: 1))
+        #expect(fixture.captures == 0)
+        #expect(fixture.audio.cues.isEmpty)
+        #expect(!fixture.photo.busy)
     }
 
     @Test func triplePressHasNoPhotoCueOrCapture() {

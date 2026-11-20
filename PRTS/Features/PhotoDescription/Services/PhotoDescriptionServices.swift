@@ -34,11 +34,10 @@ nonisolated struct PhotoDescriptionRequest: Sendable {
     let key: String
 }
 
-/// Replaceable time, configuration, permissions and description calls.
+/// Replaceable configuration, permissions and description calls.
 @MainActor
 struct PhotoDescriptionServices {
     var errors = ErrorReporter(source: .photoDescription)
-    var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     var configuration: (IntelligenceFeature) throws -> PhotoDescriptionConfiguration
     var credential: (PhotoChatProvider) throws -> String?
     var speechAuthorized: () -> Bool = { PhotoSpeechRecognizer.authorized }

@@ -3,12 +3,12 @@ import AVFoundation
 enum AppAudioMode: Equatable { case speech, tone, recording }
 
 /// The platform session is shared by every voice and microphone in the app.
-protocol AudioSessionDriving: Sendable {
+nonisolated protocol AudioSessionDriving: Sendable {
     func activate(_ mode: AppAudioMode) throws
     func deactivate() throws
 }
 
-private struct SystemAudioSession: AudioSessionDriving {
+nonisolated private struct SystemAudioSession: AudioSessionDriving {
     func activate(_ mode: AppAudioMode) throws {
         let session = AVAudioSession.sharedInstance()
         switch mode {
@@ -52,7 +52,28 @@ final class AudioSessionCoordinator {
     private let errors: ErrorReporter
     private let scheduleDeactivation: (DispatchWorkItem) -> Void
     private var current: Lease?
-    private var activeMode: AppAudioMode?
+    // Sync speech and async input can request the same route before activation returns.
+    // Only the audio queue evaluates the result, once for all those callers.
+    nonisolated private final class Activation: @unchecked Sendable {
+        let mode: AppAudioMode
+        let driver: any AudioSessionDriving
+        private var cached: Result<Void, Error>?
+
+        func run() -> Result<Void, Error> {
+            if let cached { return cached }
+            let result = Result { try driver.activate(mode) }
+            cached = result
+            return result
+        }
+
+        init(_ mode: AppAudioMode, driver: any AudioSessionDriving) {
+            self.mode = mode
+            self.driver = driver
+        }
+    }
+
+    private var activation: Activation?
+    private var requested: Lease?
     private var pendingDeactivation: DispatchWorkItem?
 
     init(
@@ -67,58 +88,70 @@ final class AudioSessionCoordinator {
         self.scheduleDeactivation = scheduleDeactivation
     }
 
-    func activate(_ mode: AppAudioMode) throws -> Lease {
+    private func request(_ mode: AppAudioMode, lease: Lease) -> Activation {
         pendingDeactivation?.cancel()
         pendingDeactivation = nil
-        // The recording cue and the recognizer both ask for the same session in one press.
-        if current == nil || activeMode != mode {
-            do {
-                let driver = driver
-                try Self.queue.sync { try driver.activate(mode) }
-            } catch {
-                if current == nil { deactivate() }
-                throw error
-            }
+        requested = lease
+        if let activation, activation.mode == mode { return activation }
+        let next = Activation(mode, driver: driver)
+        activation = next
+        return next
+    }
+
+    private func finish(_ result: Result<Void, Error>, route: Activation, lease: Lease) throws
+        -> Lease
+    {
+        do {
+            try result.get()
+        } catch {
+            guard activation === route else { throw error }
+            activation = nil
+            requested = nil
+            if current == nil { deactivate() }
+            throw error
         }
-        let lease = Lease()
-        current = lease
-        activeMode = mode
+        guard activation === route else { throw CancellationError() }
+        current = requested
         return lease
+    }
+
+    func activate(_ mode: AppAudioMode) throws -> Lease {
+        let lease = Lease()
+        let route = request(mode, lease: lease)
+        return try finish(Self.queue.sync { route.run() }, route: route, lease: lease)
+    }
+
+    func activateAsync(_ mode: AppAudioMode) async throws -> Lease {
+        let lease = Lease()
+        let route = request(mode, lease: lease)
+        let result = await withCheckedContinuation { done in
+            Self.queue.async { done.resume(returning: route.run()) }
+        }
+        return try finish(result, route: route, lease: lease)
     }
 
     func release(_ lease: Lease?) {
         guard let lease, current == lease else { return }
         current = nil
-        activeMode = nil
+        if let requested, requested != lease { return }
+        requested = nil
+        activation = nil
         deactivate()
     }
 
-    /// For work that starts with a press: the session can take over 100 ms to change category, so
-    /// recording and cues wait for it off the main thread. The returned lease may already be stale
-    /// if the caller was cancelled while waiting; it releases that lease itself.
-    func activateAsync(_ mode: AppAudioMode) async throws -> Lease {
-        pendingDeactivation?.cancel()
-        pendingDeactivation = nil
-        let previous = (lease: current, mode: activeMode)
-        let lease = Lease()
-        current = lease
-        activeMode = mode
-        guard previous.lease == nil || previous.mode != mode else { return lease }
+    func resumeAfterInterruption() -> Bool {
+        // Recheck the system, not the cached result; do not steal another output's lease.
+        let mode = activation?.mode ?? .speech
         do {
-            let driver = driver
-            try await withCheckedThrowingContinuation {
-                (done: CheckedContinuation<Void, Error>) in
-                Self.queue.async { done.resume(with: Result { try driver.activate(mode) }) }
+            try Self.queue.sync { [driver] in try driver.activate(mode) }
+            if activation == nil && current == nil {
+                pendingDeactivation?.cancel()
+                deactivate()
             }
+            return true
         } catch {
-            if current == lease {
-                current = previous.lease
-                activeMode = previous.mode
-                if current == nil { deactivate() }
-            }
-            throw error
+            return false
         }
-        return lease
     }
 
     private func deactivate() {

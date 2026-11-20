@@ -24,7 +24,6 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
     private var task: SFSpeechRecognitionTask?
     private var speechRecognizer: SFSpeechRecognizer?
     private var tapInstalled = false
-    private var endedAudio = false
     private var generation = UUID()
     private var latest = ""
     private var result: Result<String, Error>?
@@ -54,6 +53,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
     }
 
     func start(onDeviceOnly: Bool) async throws {
+        try Task.checkCancellation()
         #if PRTS_DEV
         let recordingGeneration =
             DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
@@ -132,15 +132,14 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
     }
 
     /// Stop capture immediately on release; allow the recognizer to finalize the last word.
-    func endCapture() {
-        guard !endedAudio else { return }
-        endedAudio = true
+    func endCapture() -> Bool {
+        guard let request else { return false }
         stopMicrophone()
-        request?.endAudio()
+        request.endAudio()
+        return true
     }
 
     func finish() async throws -> String {
-        endCapture()
         if let result { return try result.get() }
         let id = generation
         return try await withTaskCancellationHandler {
@@ -171,7 +170,6 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         speechRecognizer = nil
         latest = ""
         result = nil
-        endedAudio = false
         waiter?.resume(throwing: CancellationError())
         waiter = nil
     }

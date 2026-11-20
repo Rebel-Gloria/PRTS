@@ -1,4 +1,3 @@
-import ARKit
 import Combine
 import Foundation
 
@@ -136,28 +135,6 @@ final class LiveCaptionSession: ObservableObject {
             isAnnouncing = false
         }
         message = ""
-    }
-
-    func start(snapshot: @escaping () -> FrameSnapshot?) {
-        let now = services.now
-        start(capture: {
-            guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
-                throw PhotoChatError.emptyInput
-            }
-            let sampledAt = now()
-            return Task.detached(priority: .userInitiated) {
-                var captured = try LiveCaptionFrame.capture(
-                    image: PhotoImageEncoder.image(
-                        pixelBuffer: frame.frame.capturedImage,
-                        orientation: frame.orientation
-                    ),
-                    sampledAt: sampledAt
-                )
-                captured.sourceFrameID = frame.id
-                captured.sourceTimestamp = frame.frame.timestamp
-                return captured
-            }
-        })
     }
 
     func start(capture: @escaping () throws -> Task<LiveCaptionFrame, Error>) {

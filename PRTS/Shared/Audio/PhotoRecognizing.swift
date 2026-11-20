@@ -5,7 +5,8 @@ import Foundation
 @MainActor
 protocol PhotoRecognizing: AnyObject {
     func start(onDeviceOnly: Bool) async throws
-    func endCapture()
+    /// False when released before the microphone started; there is nothing to submit.
+    func endCapture() -> Bool
     func finish() async throws -> String
     func cancel()
 }

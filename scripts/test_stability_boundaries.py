@@ -73,15 +73,20 @@ class StabilityBoundaryTests(unittest.TestCase):
         source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         interruption = source.split("for: AVAudioSession.interruptionNotification", 1)[1]
         interruption = interruption.split(".onDisappear", 1)[0]
-        self.assertIn("photo.handleAudioInterruption()", interruption)
+        gate = source.split("private func updateFeatureFeedback()", 1)[1].split("private func", 1)[
+            0
+        ]
+        self.assertIn("if !enabled { cancelPendingPhotoInput() }", gate)
         self.assertIn("updateFeatureFeedback()", interruption)
         for stop in ("textReading.terminate()", "photo.cancel()", "liveCaption.stop()"):
             self.assertNotIn(stop, interruption)
-        photo = (
-            ROOT / "PRTS/Features/PhotoDescription/PhotoDescriptionCoordinator.swift"
-        ).read_text(encoding="utf-8")
-        handler = photo.split("func handleAudioInterruption()", 1)[1].split("    ///", 1)[0]
-        self.assertIn("recognizer.endCapture()", handler)
+        # Foregrounding or explicitly starting guidance can recover without an end notification.
+        for start, end in (
+            (".onChange(of: scenePhase)", ".onAppear"),
+            ("private func startGuidance()", "private var operationMessage"),
+        ):
+            action = source.split(start, 1)[1].split(end, 1)[0]
+            self.assertIn("recoverInterruptedAudio()", action)
 
     def test_recognition_failure_translations(self):
         catalog = json.loads((ROOT / "PRTS/Localizable.xcstrings").read_text(encoding="utf-8"))

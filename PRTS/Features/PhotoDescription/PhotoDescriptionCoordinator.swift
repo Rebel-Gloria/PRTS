@@ -1,4 +1,3 @@
-import ARKit
 import Combine
 import Foundation
 
@@ -11,8 +10,6 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     @Published private(set) var message = ""
     /// Follows the speech language chosen in the app, which can differ from the system's.
     var localized: (String) -> String = { String(localized: String.LocalizationValue($0)) }
-    private var press = PhotoPressState()
-    private var timer: Task<Void, Never>?
     private(set) var work: Task<Void, Never>?
     private var imageTask: Task<Data, Error>?
     private var generation = UUID()
@@ -26,11 +23,6 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private var awaitingPlayback = false
     private var capturingQuestion = false
 
-    /// Interruption is not a send action. Only work already confirmed by the user may finish.
-    func handleAudioInterruption() {
-        setFeedbackEnabled(false)
-        cancelUnreleasedQuestion()
-    }
     #if PRTS_DEV
     private var recordingGeneration: UInt64 = 0
     #endif
@@ -39,10 +31,13 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     /// Enabling feedback again applies to the next interaction, never a delayed old answer.
     func setFeedbackEnabled(_ enabled: Bool) {
         feedbackEnabled = enabled
-        guard !enabled else { return }
+        guard !enabled, busy else { return }
         interactionMaySpeak = false
-        audio.stop()
-        if awaitingPlayback { cancel() }
+        if awaitingPlayback {
+            cancel()
+        } else {
+            audio.stop()
+        }
     }
 
     convenience init() {
@@ -61,19 +56,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         self.recognizer = recognizer
         self.audio = audio
         self.services = services
-        audio.onFinished = { [weak self] in self?.cancel(clearMessage: true) }
-    }
-
-    func down(snapshot: @escaping () -> FrameSnapshot?, silence: () -> Void) {
-        down(capture: captureOperation(snapshot: snapshot), silence: silence)
-    }
-
-    func perform(
-        _ action: PhotoPressState.Action,
-        snapshot: @escaping () -> FrameSnapshot?,
-        silence: () -> Void
-    ) -> Bool {
-        perform(action, capture: captureOperation(snapshot: snapshot), silence: silence)
+        audio.onFinished = { [weak self] in self?.cancel() }
     }
 
     func perform(
@@ -86,43 +69,6 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         }
         perform(action)
         return busy
-    }
-
-    private func captureOperation(
-        snapshot: @escaping () -> FrameSnapshot?
-    ) -> (CGFloat) throws -> Task<Data, Error> {
-        let now = services.now
-        return { longestSide in
-            guard let frame = snapshot(), now() - frame.receivedAt < 1 else {
-                throw PhotoChatError.emptyInput
-            }
-            #if PRTS_DEV
-            DevInteractionRecording.original(
-                pixelBuffer: frame.frame.capturedImage,
-                orientation: frame.orientation,
-                feature: "photoDescription",
-                metadata: ["frameID": String(frame.id), "epoch": String(frame.epoch)]
-            )
-            #endif
-            return Task.detached(priority: .userInitiated) {
-                return try PhotoImageEncoder.jpeg(
-                    pixelBuffer: frame.frame.capturedImage,
-                    orientation: frame.orientation,
-                    longestSide: longestSide
-                )
-            }
-        }
-    }
-
-    func down(capture: @escaping (CGFloat) throws -> Task<Data, Error>, silence: () -> Void) {
-        guard prepare(capture: capture, silence: silence) else { return }
-        press.begin(at: services.now())
-        let id = generation
-        timer = Task { [weak self] in
-            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
-            guard let self, self.generation == id else { return }
-            self.advancePress()
-        }
     }
 
     private func prepare(
@@ -175,17 +121,6 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         return true
     }
 
-    /// Timer and deterministic tests use the same transition; the clock is authoritative.
-    func advancePress() {
-        if press.advance(to: services.now()) == .startRecording { startRecording() }
-    }
-
-    func up() {
-        timer?.cancel()
-        timer = nil
-        for action in press.release(at: services.now()) { perform(action) }
-    }
-
     private func perform(_ action: PhotoPressState.Action) {
         switch action {
         case .shortCapture:
@@ -198,7 +133,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             }
             let id = generation
             work = Task { [weak self] in
-                guard let self else { return }
+                guard let self, self.generation == id else { return }
                 do {
                     try await self.cue(.submit)
                     guard self.generation == id else { return }
@@ -209,16 +144,16 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             }
         case .startRecording: startRecording()
         case .stopRecording:
-            guard capturingQuestion, imageTask != nil else { return }
+            guard capturingQuestion else { return }
+            guard recognizer.endCapture() else {
+                cancel()
+                return
+            }
             capturingQuestion = false
             let id = generation
-            // A release can arrive while the microphone is still starting.
-            let starting = work
             work = Task { [weak self] in
-                await starting?.value
                 guard let self, self.generation == id else { return }
                 do {
-                    self.recognizer.endCapture()
                     try await self.cue(.submit)
                     guard self.generation == id else { return }
                     self.message = self.localized("photo.message.recognizing")
@@ -236,20 +171,18 @@ final class PhotoDescriptionCoordinator: ObservableObject {
 
     /// A disappearing input control might never deliver the release event. Do not submit it.
     func cancelUnreleasedQuestion() {
-        if capturingQuestion || timer != nil { cancel() }
+        if capturingQuestion { cancel() }
     }
 
     func shutdown() async {
         let pendingWork = work
         let pendingImage = imageTask
-        let pendingTimer = timer
         cancel()
         await pendingWork?.value
         _ = await pendingImage?.result
-        await pendingTimer?.value
     }
 
-    func cancel(clearMessage: Bool = true) {
+    func cancel() {
         #if PRTS_DEV
         if busy {
             DevInteractionRecording.noteSuppressedAfterClear(
@@ -265,9 +198,6 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         }
         #endif
         generation = UUID()
-        press.cancel()
-        timer?.cancel()
-        timer = nil
         work?.cancel()
         work = nil
         imageTask?.cancel()
@@ -280,7 +210,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         isAnnouncing = false
         awaitingPlayback = false
         capturingQuestion = false
-        if clearMessage { message = "" }
+        message = ""
     }
 
     private func capture(purpose: PhotoImagePurpose) throws {
@@ -329,7 +259,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         let recordingGeneration = self.recordingGeneration
         #endif
         work = Task { [weak self] in
-            guard let self else { return }
+            guard let self, self.generation == id else { return }
             do {
                 try await self.cue(.record)
                 guard self.generation == id else { return }

@@ -94,7 +94,14 @@ struct ContentView: View {
                         volumeButtons: volumeButtons,
                         down: photoDown,
                         up: { liveCaption.up(perform: performPhotoAction) },
-                        cancel: cancelPhotoPress,
+                        cancelPress: {
+                            liveCaption.cancelPress()
+                            if !askingByTap { photo.cancelUnreleasedQuestion() }
+                        },
+                        cancelRequest: {
+                            liveCaption.cancelPress()
+                            photo.cancel()
+                        },
                         setQuestionRecording: setQuestionRecording,
                         strings: .init(
                             label: speechManager.interfaceString("photo.button.label"),
@@ -215,7 +222,10 @@ struct ContentView: View {
             .onChange(of: isShowingUserGuide) { _, _ in updateFeatureFeedback() }
             .onChange(of: scenePhase) { _, phase in
                 guard !resettingRecording else { return }
-                if phase == .active { pointerCannotHold = Self.assistivePointerRunning }
+                if phase == .active {
+                    pointerCannotHold = Self.assistivePointerRunning
+                    recoverInterruptedAudio()
+                }
                 updateFeatureFeedback()
                 if phase != .active {
                     stopHoldTask?.cancel()
@@ -274,9 +284,6 @@ struct ContentView: View {
                 audioInterrupted = interruption == .began
                 updateFeatureFeedback()
                 if audioInterrupted {
-                    liveCaption.cancelPress()
-                    askingByTap = false
-                    photo.handleAudioInterruption()
                     speechManager.stopCurrentSpeech()
                 }
             }
@@ -334,11 +341,11 @@ struct ContentView: View {
             ]
         )
         #endif
+        if !enabled { cancelPendingPhotoInput() }
         hapticManager.setFeedbackEnabled(enabled)
         photo.setFeedbackEnabled(enabled)
         liveCaption.setFeedbackEnabled(enabled)
         textReading.setFeedbackEnabled(enabled)
-        if !homeActionsAvailable || scenePhase != .active { cancelPendingPhotoInput() }
         if !enabled { camera.poll(suspendFeedback: true) }
     }
 
@@ -575,7 +582,19 @@ struct ContentView: View {
         startGuidance()
     }
 
+    private func recoverInterruptedAudio() {
+        // An interruption may have no matching end notification. Retry only on a new
+        // foreground/start action, never on the guidance timer.
+        if audioInterrupted {
+            audioInterrupted = !AudioSessionCoordinator.shared.resumeAfterInterruption()
+        }
+    }
+
     private func startGuidance() {
+        if audioInterrupted {
+            recoverInterruptedAudio()
+            updateFeatureFeedback()
+        }
         feedback.guidanceStarted()
         camera.startCamera()
     }
@@ -638,11 +657,6 @@ struct ContentView: View {
         liveCaption.cancelPress()
         photo.cancelUnreleasedQuestion()
         askingByTap = false
-    }
-
-    private func cancelPhotoPress() {
-        liveCaption.cancelPress()
-        photo.cancel()
     }
 
     /// Three-finger hold or the VoiceOver action: reading pauses guidance, which resumes after.

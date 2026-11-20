@@ -6,7 +6,8 @@ struct PhotoInteractionView: View {
     let volumeButtons: Bool
     let down: () -> Void
     let up: () -> Void
-    let cancel: () -> Void
+    let cancelPress: () -> Void
+    let cancelRequest: () -> Void
     let setQuestionRecording: (Bool) -> Bool
     let strings: PhotoCaptureButton.Strings
 
@@ -18,7 +19,7 @@ struct PhotoInteractionView: View {
                 PhotoCaptureButton(
                     down: down,
                     up: up,
-                    cancel: cancel,
+                    cancel: cancelPress,
                     setQuestionRecording: setQuestionRecording,
                     strings: strings
                 )
@@ -29,7 +30,7 @@ struct PhotoInteractionView: View {
             PhotoHardwareButtons(
                 down: down,
                 up: up,
-                cancel: cancel,
+                cancel: cancelPress,
                 enabled: hardware
             )
         )
@@ -44,7 +45,7 @@ struct PhotoInteractionView: View {
                     .readableGlassPanel()
                     if busy {
                         Button {
-                            cancel()
+                            cancelRequest()
                         } label: {
                             Text("home.photo.cancel").frame(minWidth: 44, minHeight: 44)
                         }
