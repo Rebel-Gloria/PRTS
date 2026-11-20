@@ -91,6 +91,18 @@ class SpatialIntegrationTests(unittest.TestCase):
                     if keep and not line.lstrip().startswith(("import ", "//")):
                         lines.append(line)
                 text = "\n".join(lines).replace(',"ground_evidence_expired"', "")
+                if path == PROBE / "App/MonocularDepthProvider.swift":
+                    # Only the probe displays these diagnostics live; the app computes coverage
+                    # when recording. Continue comparing the entire prediction and render path.
+                    text = text.replace("    let relativeCoverage: Float\n", "")
+                    text = re.sub(
+                        r"^    var groundStatus: String \{.*?^    \}\n", "", text, flags=re.M | re.S
+                    )
+                    text = text.replace(
+                        "        self.relativeCoverage =\n"
+                        r"            Float(relative.filter(\.isFinite).count) / Float(max(1, relative.count))",
+                        "",
+                    )
                 # Explicit concurrency annotations do not change mathematical operations.
                 # Value records explicitly opt out of the app's MainActor default.
                 for record in (

@@ -21,17 +21,6 @@ final class MonocularFrame: @unchecked Sendable {
     let provisionalFit: InverseDepthCalibration?
     let groundReference: NativeGroundSelection
     let status: String
-    let relativeCoverage: Float
-    var groundStatus: String {
-        switch groundReference.mode {
-        case "confirmed": return "原生 floor 参考（非净空证明）"
-        case "provisional_ground": return "待确认水平面（非 floor 分类）"
-        case "retained_reference":
-            return String(format: "短时参考 %.1f s（非当前地面观测）", groundReference.age)
-        case "provisional": return "原生平面确认中"
-        default: return "暂无可靠参考"
-        }
-    }
     init(
         frame: FrameSnapshot,
         width: Int,
@@ -49,8 +38,6 @@ final class MonocularFrame: @unchecked Sendable {
         provisionalFit: InverseDepthCalibration?,
         groundReference: NativeGroundSelection
     ) {
-        self.relativeCoverage =
-            Float(relative.filter(\.isFinite).count) / Float(max(1, relative.count))
         self.scaleDecision = scaleDecision
         self.provisionalFit = provisionalFit
         self.groundReference = groundReference

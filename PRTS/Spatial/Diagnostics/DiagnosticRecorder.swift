@@ -309,7 +309,8 @@ final class DiagnosticRecorder: @unchecked Sendable {
             scaleDecision: prediction.scaleDecision,
             provisionalFit: prediction.provisionalFit,
             groundReference: prediction.groundReference,
-            relativeCoverage: prediction.relativeCoverage
+            relativeCoverage: Float(prediction.relative.reduce(0) { $0 + ($1.isFinite ? 1 : 0) })
+                / Float(max(1, prediction.relative.count))
         )
         // Capture only scalar metadata and value arrays, never MonocularFrame/ARFrame/RGB buffers.
         let relative = prediction.relative
