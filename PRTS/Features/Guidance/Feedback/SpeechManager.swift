@@ -137,6 +137,7 @@ final class SpeechManager: NSObject, ObservableObject, AVSpeechSynthesizerDelega
 
     /// Camera state used to go to both VoiceOver and the synthesizer; now it uses one channel.
     func announceCameraState(_ state: CameraState) {
+        guard voiceAnnouncementsEnabled else { return }
         if UIAccessibility.isVoiceOverRunning {
             Self.postQueuedAnnouncement(accessibilityAnnouncement(for: state))
         } else {

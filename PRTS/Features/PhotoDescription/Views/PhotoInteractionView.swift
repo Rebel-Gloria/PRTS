@@ -7,6 +7,7 @@ struct PhotoInteractionView: View {
     let down: () -> Void
     let up: () -> Void
     let cancel: () -> Void
+    let setQuestionRecording: (Bool) -> Bool
     let strings: PhotoCaptureButton.Strings
 
     var body: some View {
@@ -18,6 +19,7 @@ struct PhotoInteractionView: View {
                     down: down,
                     up: up,
                     cancel: cancel,
+                    setQuestionRecording: setQuestionRecording,
                     strings: strings
                 )
             }

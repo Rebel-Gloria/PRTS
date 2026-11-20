@@ -7,6 +7,6 @@ struct LiveCaptionServices {
     var uploadAllowed: () -> Bool
 
     init(defaults: UserDefaults = .standard) {
-        uploadAllowed = { defaults.bool(forKey: "photoDescription.uploadAllowed") }
+        uploadAllowed = { PhotoUploadPermission.isAllowed(in: defaults) }
     }
 }

@@ -65,13 +65,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Turns your spoken question into text sent with the photo."
+            "value" : "Turns your spoken question into text so you can ask about the photo."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "把你的语音提问转成文字，随照片一起发送。"
+            "value" : "将你的语音转为文字，方便你就照片提问。"
           }
         }
       }

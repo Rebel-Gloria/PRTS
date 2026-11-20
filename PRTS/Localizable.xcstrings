@@ -1373,13 +1373,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Draws a 3D mesh of your surroundings over the camera view."
+            "value" : "Shows a 3D mesh over the camera view. Not available in Low vision mode or without a preview."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在相机画面上叠加显示周围环境的立体网格。"
+            "value" : "在相机画面上显示周围环境的立体网格。低视力模式和无画面模式下不可用。"
           }
         }
       }
@@ -1764,13 +1764,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allows sending photos and questions when you press the photo button."
+            "value" : "Allows photos and questions to be sent to online services. On-device features work without it."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "允许按下拍照按钮时发送照片和问题。"
+            "value" : "允许向云端发送画面和提问。本机功能不需要开启。"
           }
         }
       }
@@ -2379,13 +2379,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow sending photos and questions"
+            "value" : "Allow cloud processing"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "允许发送照片和提问"
+            "value" : "允许使用云端服务"
           }
         }
       }
@@ -2396,13 +2396,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voice questions may use Apple speech recognition. Your photos, recordings, questions, and answers are not saved."
+            "value" : "When this is off, you can still ask questions using the on-device service. Cloud questions may also use Apple’s speech service."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音识别可能会使用 Apple 服务。你的照片、录音、提问和回答均不会被保存。"
+            "value" : "关闭后，选择“本机”仍可按住提问。使用云端提问时，语音识别也可能使用 Apple 服务。"
           }
         }
       }
@@ -2430,13 +2430,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uses sharper photos for questions and text reading, which takes a little longer and uses more data."
+            "value" : "Uses sharper photos for questions and model-based text reading. Apple Vision always reads the original photo."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用更清晰的照片进行提问和读文字，等待时间会略长，联网用量也会相应增加。"
+            "value" : "提问或使用模型读文字时采用更清晰的照片。Apple Vision 始终识别原图。"
           }
         }
       }
@@ -2787,13 +2787,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Guidance is running."
+            "value" : "The camera is on."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "避障照常运行。"
+            "value" : "相机仍在运行。"
           }
         }
       }
@@ -3178,13 +3178,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow sending photos in Settings first"
+            "value" : "Turn on cloud processing in Settings"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "先在设置里允许发送照片"
+            "value" : "请在设置中允许使用云端服务"
           }
         }
       }

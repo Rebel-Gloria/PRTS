@@ -435,7 +435,13 @@ struct TextReadingSessionTests {
     }
 
     @Test func oldPhotoCannotBecomeNewPassPhoto() async {
-        let h = ReadingHarness()
+        var widths: [CGFloat] = []
+        let h = ReadingHarness { services in
+            services.vision = { image in
+                widths.append(image.extent.width)
+                return "测试文字。"
+            }
+        }
         h.session.start(intro: "A")
         h.capture()
         h.session.cancel()
@@ -446,7 +452,8 @@ struct TextReadingSessionTests {
         h.camera.deliver(1, image: h.image(22))
         await h.audio.waitForSpeech(6)
         await h.session.work?.value
-        #expect(h.encoded == [22])
+        #expect(widths == [22])
+        #expect(h.encoded.isEmpty)
         #expect(h.audio.spoken.last == "ocr.lead.object：测试文字。")
         h.audio.finish()
         #expect(h.ended == 2)
@@ -464,20 +471,19 @@ struct TextReadingSessionTests {
         #expect(h.ended == 1)
     }
 
-    @Test func encodingFailureReportsFailureWithoutInvokingReader() async {
-        let h = ReadingHarness { services in
+    @Test func encodingFailureFallsBackToVisionWithOriginalPhoto() async {
+        let h = ReadingHarness(service: .onDevice) { services in
             services.encode = { _ in throw ReadingTestError.failed }
-            services.vision = { _ in
-                Issue.record("Encoding failure cannot enter recognition")
-                return ""
+            services.surface = { _ in
+                Issue.record("A model requires an encoded image")
+                throw ReadingTestError.failed
             }
         }
         h.session.start(intro: "intro")
         h.capture()
         h.camera.deliver(0, image: h.image())
         await h.audio.waitForSpeech(3)
-        #expect(h.audio.spoken.last == "ocr.failed")
-        #expect(!h.audio.spoken.contains("ocr.empty"))
+        #expect(h.audio.spoken.last == "ocr.lead.object：测试文字。")
         h.audio.finish()
         #expect(h.ended == 1)
     }

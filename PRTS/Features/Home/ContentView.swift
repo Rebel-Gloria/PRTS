@@ -36,6 +36,7 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     @State private var audioInterrupted = false
     @State private var isShowingUserGuide = false
+    @AppStorage(PhotoUploadPermission.key) private var uploadAllowed = false
     @AppStorage(UserGuide.shownKey) private var userGuideShown = false
     @AppStorage(InteractionPreferences.lowVisionKey) private var lowVisionMode = false
     @AppStorage(InteractionPreferences.tapToStopKey) private var tapToStop = false
@@ -95,6 +96,7 @@ struct ContentView: View {
                         down: photoDown,
                         up: { liveCaption.up(perform: performPhotoAction) },
                         cancel: cancelPhotoPress,
+                        setQuestionRecording: setQuestionRecording,
                         strings: .init(
                             label: speechManager.interfaceString("photo.button.label"),
                             hint: speechManager.interfaceString("photo.button.hint"),
@@ -278,6 +280,7 @@ struct ContentView: View {
                 }
             }
             .onDisappear {
+                cancelPendingPhotoInput()
                 photo.setFeedbackEnabled(false)
                 liveCaption.setFeedbackEnabled(false)
                 textReading.setFeedbackEnabled(false)
@@ -301,6 +304,12 @@ struct ContentView: View {
             }
         }
 
+        .onChange(of: uploadAllowed) { _, allowed in
+            guard !allowed else { return }
+            photo.cancelCloudRequest()
+            textReading.cancelCloudRequest()
+            if liveCaption.isRunning { liveCaption.stop() }
+        }
         .disabled(resettingRecording)
         .tint(.appAccent)
         .preferredColorScheme(.dark)
@@ -334,6 +343,7 @@ struct ContentView: View {
         photo.setFeedbackEnabled(enabled)
         liveCaption.setFeedbackEnabled(enabled)
         textReading.setFeedbackEnabled(enabled)
+        if !homeActionsAvailable || scenePhase != .active { cancelPendingPhotoInput() }
         if !enabled { camera.poll(suspendFeedback: true) }
     }
 
@@ -428,19 +438,7 @@ struct ContentView: View {
     /// Tap alternative to holding the photo button: first tap starts the question, second sends it.
     private var askButton: some View {
         Button {
-            if askingByTap {
-                askingByTap = false
-                photo.up()
-            } else {
-                liveCaption.cancelPress()
-                liveCaption.interruptAnnouncement()
-                photo.localized = { speechManager.interfaceString($0) }
-                photo.down(
-                    capture: { try camera.capturePhoto(longestSide: $0) },
-                    silence: { speechManager.stopCurrentSpeech() }
-                )
-                askingByTap = photo.busy
-            }
+            _ = setQuestionRecording(!askingByTap)
         } label: {
             Label(
                 LocalizedStringKey(
@@ -505,7 +503,11 @@ struct ContentView: View {
     }
 
     private var cameraStatus: some View {
-        CameraStatusView(state: camera.state, isLargeText: isLargeText)
+        CameraStatusView(
+            state: camera.state,
+            lowVisionMode: lowVisionMode,
+            isLargeText: isLargeText
+        )
     }
 
     private var primaryButton: some View {
@@ -597,13 +599,24 @@ struct ContentView: View {
         startCameraFromButton()
     }
 
+    /// Explicit accessibility actions must not be reinterpreted as a short tap or a triple press.
+    private func setQuestionRecording(_ recording: Bool) -> Bool {
+        guard homeFeedbackEnabled, camera.state == .running, !liveCaption.isRunning,
+            recording ? !photo.busy : askingByTap && photo.busy
+        else { return false }
+        liveCaption.cancelPress()
+        performPhotoAction(.photo(recording ? .startRecording : .stopRecording))
+        askingByTap = recording && photo.busy
+        return photo.busy
+    }
+
     private func photoDown() {
-        guard homeActionsAvailable else { return }
+        guard homeFeedbackEnabled else { return }
         liveCaption.down(perform: performPhotoAction)
     }
 
     private func performPhotoAction(_ action: LiveCaptionPressState.Action) {
-        guard homeActionsAvailable else { return }
+        guard homeFeedbackEnabled else { return }
         switch action {
         case .photo(let action):
             liveCaption.interruptAnnouncement()
@@ -624,6 +637,12 @@ struct ContentView: View {
             liveCaption.stop()
             liveCaption.announce(speechManager.interfaceString("liveCaption.off"))
         }
+    }
+
+    private func cancelPendingPhotoInput() {
+        liveCaption.cancelPress()
+        photo.cancelUnreleasedQuestion()
+        askingByTap = false
     }
 
     private func cancelPhotoPress() {

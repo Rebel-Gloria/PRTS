@@ -18,7 +18,7 @@ PRTS uses your iPhone camera to detect obstacles ahead, describe your surroundin
 
 ## Settings
 
-- **Intelligence**: Choose whether descriptions, questions, and text reading run on your device or through an online service. By default, everything stays on your device and photos aren't uploaded. Live captions always use Qwen.
+- **Intelligence**: Choose whether descriptions, questions, and text reading run on your device or through an online service. With Allow cloud processing off, you can still ask questions using On device. Your photos and questions stay on your device. Live captions always use Qwen.
 - **Interaction**: Turn on Low vision mode (keeps the camera and smart features on while pausing depth sensing and guidance cues), Tap to stop, Volume button shortcut, Three-finger text reading, or No camera preview.
 - **Language and Speech**: Turn voice announcements on or off, and adjust speech rate or language.
 

@@ -24,6 +24,14 @@ struct PhotoPresentationTests {
         actions.removeAll()
         #expect(button.accessibilityActivate())
         #expect(actions == ["down", "up"])
+        actions.removeAll()
+        button.setQuestionRecording = { recording in
+            actions.append(recording ? "ask" : "send")
+            return true
+        }
+        #expect(button.accessibleBegin())
+        #expect(button.accessibleEnd())
+        #expect(actions == ["ask", "send"])
         button.isHighlighted = true
         button.layoutIfNeeded()
         #expect(button.alpha == 0.25)

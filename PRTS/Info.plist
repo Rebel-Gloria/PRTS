@@ -25,7 +25,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used while you hold the photo button to record your question.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Turns your spoken question into text sent with the photo.</string>
+	<string>Turns your spoken question into text so you can ask about the photo.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>PRTS uses the camera to detect the ground and obstacles around you.</string>
 	<key>UIApplicationSceneManifest</key>

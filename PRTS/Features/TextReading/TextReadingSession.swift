@@ -135,6 +135,10 @@ final class TextReadingSession: ObservableObject {
         await withCheckedContinuation { done in camera.stop { done.resume() } }
     }
 
+    func cancelCloudRequest() {
+        if cloud != nil && phase != .ending { terminate() }
+    }
+
     func terminate() {
         end()
     }
@@ -230,20 +234,28 @@ final class TextReadingSession: ObservableObject {
         #endif
         do {
             guard let image else { throw PhotoChatError.emptyInput }
-            let jpeg = try await services.encode(image)
-            #if PRTS_DEV
-            RecordingStore.shared.attachment(
-                data: jpeg,
-                kind: "model_input",
-                fileExtension: "jpg",
-                metadata: ["feature": "textReading", "interactionID": id.uuidString],
-                generation: recordingGeneration
-            )
-            #endif
+            // Vision reads the camera image itself, even if encoding for a model failed.
+            var cachedJPEG: Data?
+            func modelImage() async throws -> Data {
+                if let cachedJPEG { return cachedJPEG }
+                let jpeg = try await services.encode(image)
+                #if PRTS_DEV
+                RecordingStore.shared.attachment(
+                    data: jpeg,
+                    kind: "model_input",
+                    fileExtension: "jpg",
+                    metadata: ["feature": "textReading", "interactionID": id.uuidString],
+                    generation: recordingGeneration
+                )
+                #endif
+                try Task.checkCancellation()
+                cachedJPEG = jpeg
+                return jpeg
+            }
             try await service.read(remoteAvailable: cloud != nil) { reader in
                 guard generation == id else { throw CancellationError() }
                 do {
-                    try await read(jpeg, image, with: reader, id)
+                    try await read(modelImage, image, with: reader, id)
                 } catch {
                     if generation == id {
                         voice.stop()
@@ -272,7 +284,7 @@ final class TextReadingSession: ObservableObject {
     }
 
     private func read(
-        _ jpeg: Data,
+        _ modelImage: () async throws -> Data,
         _ image: CIImage,
         with reader: TextReadingService.Reader,
         _ id: UUID
@@ -281,7 +293,7 @@ final class TextReadingSession: ObservableObject {
     {
         switch reader {
         case .onDevice:
-            let surface = try await services.surface(jpeg)
+            let surface = try await services.surface(modelImage())
             try Task.checkCancellation()
             answer = TextReadingAnswer(
                 lead: localized(surface.localizationKey),
@@ -304,7 +316,7 @@ final class TextReadingSession: ObservableObject {
             _ = try result.get()
         case .remote:
             guard let cloud else { throw PhotoChatError.invalidService }
-            let (surface, text) = try await services.remote(jpeg, cloud.key, cloud.service)
+            let (surface, text) = try await services.remote(modelImage(), cloud.key, cloud.service)
             try Task.checkCancellation()
             answer = TextReadingAnswer(lead: localized(surface.localizationKey))
             received(text, id)

@@ -85,7 +85,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("noPreviewToggle")
                 if model.supportsScanMesh {
                     Toggle("settings.display.scanMesh", isOn: $model.scanMesh)
-                        .disabled(noPreview)
+                        .disabled(noPreview || lowVisionMode)
                         .accessibilityIdentifier("scanMeshToggle")
                 }
             } footer: {

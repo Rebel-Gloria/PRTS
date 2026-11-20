@@ -24,7 +24,7 @@ extension PhotoDescriptionConfiguration {
             )
             : (question ? PhotoPrompts.questionSystem : PhotoPrompts.system)
         thinking = question && provider.questionThinking(defaults)
-        uploadAllowed = defaults.bool(forKey: "photoDescription.uploadAllowed")
+        uploadAllowed = PhotoUploadPermission.isAllowed(in: defaults)
         highResolution = defaults.bool(forKey: PhotoImagePurpose.highResolutionKey)
     }
 }

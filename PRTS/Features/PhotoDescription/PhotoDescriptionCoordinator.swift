@@ -237,6 +237,15 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         }
     }
 
+    /// A disappearing input control might never deliver the release event. Do not submit it.
+    func cancelUnreleasedQuestion() {
+        if capturingQuestion { cancel() }
+    }
+
+    func cancelCloudRequest() {
+        if let request, request.configuration.provider != .onDevice { cancel() }
+    }
+
     func shutdown() async {
         let pendingWork = work
         let pendingImage = imageTask
@@ -300,7 +309,8 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func startRecording() {
-        if !prepareService(for: .question) { return }
+        guard prepareService(for: .question), let request else { return }
+        let onDeviceOnly = request.configuration.provider == .onDevice
         guard services.speechAuthorized() else {
             cancel()
             message = localized("photo.message.microphoneNeeded")
@@ -335,11 +345,11 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                     try await DevInteractionRecording.$recordingGeneration.withValue(
                         recordingGeneration
                     ) {
-                        try await self.recognizer.start()
+                        try await self.recognizer.start(onDeviceOnly: onDeviceOnly)
                     }
                 }
                 #else
-                try await self.recognizer.start()
+                try await self.recognizer.start(onDeviceOnly: onDeviceOnly)
                 #endif
                 guard self.generation == id else { return }
                 self.message = self.localized("photo.message.speakNow")

@@ -145,6 +145,29 @@ final class PRTSUITests: XCTestCase {
     }
 
     @MainActor
+    func testRunningCameraStatusMatchesLowVisionSetting() throws {
+        let app = XCUIApplication.prts()
+        app.launchArguments += [
+            "-followSystemLanguageEnabled", "NO", "-selectedLanguage", "Chinese",
+        ]
+        let arguments = app.launchArguments
+        for (setting, expected) in [("YES", "低视力模式"), ("NO", "避障中")] {
+            app.launchArguments = arguments + ["-app.lowVisionMode", setting]
+            app.launch()
+            let camera = app.buttons["cameraButton"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 10))
+            camera.tap()
+            let status = app.descendants(matching: .any)["cameraStatus"].firstMatch
+            let matches = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", expected),
+                object: status
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [matches], timeout: 15), .completed, expected)
+            app.terminate()
+        }
+    }
+
+    @MainActor
     func testLowVisionRequiresConfirmationAndCancellationKeepsItOff() throws {
         let app = XCUIApplication.prts()
         app.launchArguments += ["-AppleLanguages", "(en)"]

@@ -17,7 +17,7 @@ nonisolated enum CameraState: Equatable {
     case permissionDenied
     case unavailable(CameraUnavailableReason)
 
-    var statusLocalizationKey: String {
+    func statusLocalizationKey(lowVisionMode: Bool) -> String {
         switch self {
         case .idle:
             return "camera.status.idle"
@@ -26,7 +26,7 @@ nonisolated enum CameraState: Equatable {
         case .starting:
             return "camera.status.starting"
         case .running:
-            return "camera.status.running"
+            return lowVisionMode ? "settings.lowVision" : "camera.status.running"
         case .permissionDenied:
             return "camera.status.permissionDenied"
         case .unavailable:

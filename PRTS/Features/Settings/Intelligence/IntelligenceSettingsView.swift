@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct IntelligenceSettingsView: View {
-    @AppStorage("photoDescription.uploadAllowed") private var uploadAllowed = false
+    @AppStorage(PhotoUploadPermission.key) private var uploadAllowed = false
     @AppStorage(PhotoChatProvider.selectionKey) private var provider = PhotoChatProvider.onDevice
     @AppStorage(IntelligenceFeature.description.selectionKey) private var descriptionProvider = ""
     @AppStorage(IntelligenceFeature.question.selectionKey) private var questionProvider = ""

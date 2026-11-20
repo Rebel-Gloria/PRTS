@@ -20,7 +20,11 @@ private final class PhotoTestRecognizer: PhotoRecognizing {
     let state: PhotoTestState
     var question = "门在哪里？"
     init(_ state: PhotoTestState) { self.state = state }
-    func start() throws { state.events.append("record") }
+    private(set) var onDeviceOnly: Bool?
+    func start(onDeviceOnly: Bool) throws {
+        self.onDeviceOnly = onDeviceOnly
+        state.events.append("record")
+    }
     func endCapture() { state.events.append("stop-mic") }
     func finish() async throws -> String {
         state.events.append("transcript")
@@ -415,10 +419,41 @@ struct PhotoLifecycleTests {
         #expect(f.state.events.last == "stop-audio")
     }
 
+    @Test func losingInputBeforeReleaseDiscardsTheQuestion() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        await f.coordinator.work?.value
+        f.coordinator.cancelUnreleasedQuestion()
+        f.coordinator.up()
+        #expect(!f.coordinator.busy)
+        #expect(f.state.events.contains("cancel-mic"))
+        #expect(await f.network.requests.isEmpty)
+    }
+
+    @Test func revokingUploadsStopsCloudRecordingBeforeRelease() async {
+        let f = PhotoFixture()
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
+        await f.coordinator.work?.value
+        #expect(f.recognizer.onDeviceOnly == false)
+        f.coordinator.cancelCloudRequest()
+        f.coordinator.up()
+        #expect(!f.coordinator.busy)
+        #expect(await f.network.requests.isEmpty)
+    }
+
     @Test func noConsentOrCredentialNeverCaptures() async {
         let f = PhotoFixture()
         f.state.allowUpload = false
         f.down()
+        f.coordinator.up()
+        #expect(!f.coordinator.busy)
+        f.down()
+        f.state.time = 0.5
+        f.coordinator.advancePress()
         f.coordinator.up()
         #expect(!f.coordinator.busy)
         f.state.allowUpload = true
@@ -445,6 +480,7 @@ struct PhotoLifecycleTests {
         await f.network.waitForRequests(1)
         let requests = await f.network.requests
         #expect(requests[0].key.isEmpty)
+        if question { #expect(f.recognizer.onDeviceOnly == true) }
         await f.network.reply(0, "门口。")
         await f.coordinator.work?.value
         f.coordinator.cancel()

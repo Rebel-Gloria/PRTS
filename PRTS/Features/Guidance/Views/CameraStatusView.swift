@@ -2,7 +2,13 @@ import SwiftUI
 
 struct CameraStatusView: View {
     let state: CameraState
+    let lowVisionMode: Bool
     let isLargeText: Bool
+
+    private var statusKey: LocalizedStringKey {
+        LocalizedStringKey(state.statusLocalizationKey(lowVisionMode: lowVisionMode))
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: iconName)
@@ -11,7 +17,7 @@ struct CameraStatusView: View {
                 .symbolEffect(.pulse, isActive: state == .running)
                 .accessibilityHidden(true)
 
-            Text(LocalizedStringKey(state.statusLocalizationKey))
+            Text(statusKey)
                 .font(.headline)
                 .lineLimit(3)
         }
@@ -23,7 +29,7 @@ struct CameraStatusView: View {
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("home.camera.status.label")
-        .accessibilityValue(LocalizedStringKey(state.statusLocalizationKey))
+        .accessibilityValue(statusKey)
         .accessibilityIdentifier("cameraStatus")
     }
 

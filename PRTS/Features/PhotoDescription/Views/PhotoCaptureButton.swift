@@ -7,6 +7,7 @@ struct PhotoCaptureButton: UIViewRepresentable {
     var down: () -> Void
     var up: () -> Void
     var cancel: () -> Void
+    var setQuestionRecording: (Bool) -> Bool
     /// VoiceOver label, hint and custom action names in the interface language.
     var strings = Strings.chinese
     /// Reading these makes SwiftUI update the button as soon as either setting changes.
@@ -55,6 +56,7 @@ struct PhotoCaptureButton: UIViewRepresentable {
         uiView.down = down
         uiView.up = up
         uiView.cancel = cancel
+        uiView.setQuestionRecording = setQuestionRecording
         uiView.apply(strings)
         uiView.applyVisibility(highContrast: contrast == .increased || reduceTransparency)
     }
@@ -63,6 +65,7 @@ struct PhotoCaptureButton: UIViewRepresentable {
         var down: (() -> Void)?
         var up: (() -> Void)?
         var cancel: (() -> Void)?
+        var setQuestionRecording: ((Bool) -> Bool)?
 
         private var applied: Strings?
 
@@ -98,12 +101,10 @@ struct PhotoCaptureButton: UIViewRepresentable {
         }
 
         @objc func accessibleBegin() -> Bool {
-            down?()
-            return true
+            setQuestionRecording?(true) ?? false
         }
         @objc func accessibleEnd() -> Bool {
-            up?()
-            return true
+            setQuestionRecording?(false) ?? false
         }
         @objc func pressed() { down?() }
         @objc func released() { up?() }

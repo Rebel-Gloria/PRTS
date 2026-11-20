@@ -53,7 +53,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         return await AVAudioApplication.requestRecordPermission()
     }
 
-    func start() async throws {
+    func start(onDeviceOnly: Bool) async throws {
         #if PRTS_DEV
         let recordingGeneration =
             DevInteractionRecording.recordingGeneration ?? RecordingStore.shared.admissionGeneration
@@ -65,6 +65,10 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
             let recognizer = SFSpeechRecognizer(locale: SpeechPreferences.language().locale),
             recognizer.isAvailable
         else { throw RecognitionError.unavailable }
+        let localOnly = onDeviceOnly || !PhotoUploadPermission.isAllowed()
+        guard !localOnly || recognizer.supportsOnDeviceRecognition else {
+            throw RecognitionError.unavailable
+        }
         speechRecognizer = recognizer
         let lease = try await audioSession.activateAsync(.recording)
         guard generation == id else {
@@ -73,6 +77,7 @@ final class PhotoSpeechRecognizer: PhotoRecognizing {
         }
         audioLease = lease
         let request = SFSpeechAudioBufferRecognitionRequest()
+        request.requiresOnDeviceRecognition = localOnly
         request.shouldReportPartialResults = true
         self.request = request
         let input = engine.inputNode

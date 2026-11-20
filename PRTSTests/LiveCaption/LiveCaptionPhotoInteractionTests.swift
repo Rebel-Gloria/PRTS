@@ -15,7 +15,7 @@ private final class CaptionPhotoTestAnswerAudio: AnswerAudio {
 @MainActor
 private final class CaptionPhotoRecognizer: PhotoRecognizing {
     var starts = 0
-    func start() throws { starts += 1 }
+    func start(onDeviceOnly: Bool) throws { starts += 1 }
     func endCapture() {}
     func finish() async throws -> String { "谁走过来了？" }
     func cancel() {}

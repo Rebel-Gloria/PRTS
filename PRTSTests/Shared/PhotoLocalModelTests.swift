@@ -267,6 +267,7 @@ extension PhotoLocalModelTests {
 /// The remote readers with real keys, through the app's own request code. Runs only when the
 /// keys are passed in (TEST_RUNNER_PRTS_QWEN_KEY / TEST_RUNNER_PRTS_DEEPSEEK_KEY on xcodebuild);
 /// they are never stored in the repo.
+@Suite(.enabled(if: PhotoUploadPermission.isAllowed(), "Requires cloud uploads to be enabled"))
 @MainActor
 struct RemoteTextReadingTests {
     nonisolated static let env = ProcessInfo.processInfo.environment
