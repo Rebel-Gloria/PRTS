@@ -485,10 +485,11 @@ final class PRTSUITests: XCTestCase {
         reveal(export, in: app)
         XCTAssertTrue(export.isEnabled)
         export.tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any)["recordingShareSheet"].waitForExistence(timeout: 30),
-            app.debugDescription
-        )
+        // The system share sheet hosts its own accessibility tree. Check the exported item.
+        let archive = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH %@", "PRTS-")
+        ).firstMatch
+        XCTAssertTrue(archive.waitForExistence(timeout: 30), app.debugDescription)
     }
     #endif
 
