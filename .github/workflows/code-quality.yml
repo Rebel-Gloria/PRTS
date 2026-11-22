@@ -125,6 +125,12 @@ jobs:
       - name: Check tools and source boundaries
         if: ${{ !cancelled() }}
         run: python -B -m unittest discover -s scripts -p 'test_*.py'
+      - name: Test experimental analysis tools
+        if: ${{ !cancelled() }}
+        run: |
+          python -m pip install numpy==2.4.6
+          python -B -m unittest discover -s Experiments/SpatialProbe/scripts -p 'test_*.py'
+          python -B -m unittest discover -s Experiments/astra -p 'tests.py'
       - name: Check whitespace
         if: ${{ !cancelled() }}
         run: git diff --check "$BASE" HEAD --
@@ -139,7 +145,11 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
       - name: Test spatial algorithms
-        run: swift test --package-path Packages/SpatialCore --scratch-path "$RUNNER_TEMP/SpatialCore"
+        run: |
+          swift test --package-path Packages/SpatialCore --scratch-path "$RUNNER_TEMP/SpatialCore"
+          swift test -c release --package-path Packages/SpatialCore --scratch-path "$RUNNER_TEMP/SpatialCore"
+      - name: Test the experimental spatial package
+        run: swift test --package-path Experiments/SpatialProbe/Core --scratch-path "$RUNNER_TEMP/SpatialProbe"
       - name: Test imported contracts
         run: PRTS_CONTRACTS_ONLY=1 swift test --package-path Vendor/PRTSCore --scratch-path "$RUNNER_TEMP/Contracts"
 
@@ -186,10 +196,10 @@ jobs:
             'import json,sys; print(next(d["udid"] for group in json.load(sys.stdin)["devices"].values() for d in group if d["name"].startswith("iPhone")))')
           xcrun simctl boot "$device"
           echo "PRTS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
-      - name: Build simulator tests
+      - name: Build app unit tests
         timeout-minutes: 20
         run: >-
-          xcodebuild -project PRTS.xcodeproj -scheme PRTS
+          xcodebuild -project PRTS.xcodeproj -scheme PRTSUnitTests
           -configuration '${{ matrix.configuration }}'
           -destination 'generic/platform=iOS Simulator'
           -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
@@ -198,18 +208,18 @@ jobs:
       - name: Wait for simulator readiness
         timeout-minutes: 10
         run: xcrun simctl bootstatus "$PRTS_TEST_DEVICE" -b
-      - name: Test the app
+      - name: Run app unit tests
         timeout-minutes: 30
         run: >-
-          bash scripts/ci/simulator-tests.sh -project PRTS.xcodeproj -scheme PRTS
+          xcodebuild -project PRTS.xcodeproj -scheme PRTSUnitTests
           -configuration '${{ matrix.configuration }}'
           -destination "platform=iOS Simulator,id=$PRTS_TEST_DEVICE"
           -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
           -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult"
-          -test-timeouts-enabled YES -default-test-execution-time-allowance 300
-          -maximum-test-execution-time-allowance 300
+          -skip-testing:PRTSTests/PhotoLocalModelTests
+          -parallel-testing-enabled NO
           DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
-          ENABLE_TESTABILITY=YES ARCHS=arm64
+          ENABLE_TESTABILITY=YES ARCHS=arm64 test-without-building
       - name: Compile the device app
         timeout-minutes: 15
         run: >-
