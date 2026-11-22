@@ -1,4 +1,5 @@
 name: Code quality
+run-name: Code quality · ${{ inputs.verify_sha || github.sha }}
 
 on:
   push:
@@ -6,26 +7,86 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Prerelease
+        type: boolean
+        default: false
+      verify_sha:
+        description: Internal bulk-push SHA (leave blank for normal runs)
+        type: string
+        required: false
 
 permissions:
   contents: read
 
-concurrency:
-  group: code-quality-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
+  distribute:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Queue independent checks for earlier commits in this push
+        env:
+          BEFORE: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci/dispatch-commits.sh
+
+  plan:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.scope.outputs.sha }}
+      base: ${{ steps.scope.outputs.base }}
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select the requested main commit
+        if: inputs.verify_sha != ''
+        env:
+          TARGET: ${{ inputs.verify_sha }}
+          RELEASE: ${{ inputs.prerelease }}
+        run: |
+          [[ "$GITHUB_REF" == refs/heads/main && "$RELEASE" != true && "$TARGET" =~ ^[a-f0-9]{40}$ ]]
+          git merge-base --is-ancestor "$TARGET" "$GITHUB_SHA"
+          git checkout --detach "$TARGET"
+      - name: Determine check scope
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/ci/quality.py
+
   style-and-boundaries:
+    needs: plan
+    env:
+      MODE: ${{ needs.plan.outputs.mode }}
+      BASE: ${{ needs.plan.outputs.base }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
       # setup-swift refreshes the signing keys from keyserver.ubuntu.com and stalls or fails when
       # that server is unreachable. Without the refresh, only the check for revoked keys is lost.
       - name: Install Swift 6.2.0
+        if: env.MODE != 'docs'
         run: |
           name=swift-6.2-RELEASE-ubuntu24.04
           url=https://download.swift.org/swift-6.2-release/ubuntu2404/swift-6.2-RELEASE
@@ -36,12 +97,17 @@ jobs:
           tar -xzf "$RUNNER_TEMP/swift.tar.gz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/$name/usr/bin" >> "$GITHUB_PATH"
       - name: Install pinned formatters
+        if: env.MODE != 'docs'
         run: |
           python -m pip install -r scripts/requirements-style.txt
           python scripts/install_shfmt.py
       - name: Check code style
         id: style
-        run: python scripts/style.py
+        if: env.MODE != 'docs'
+        run: |
+          args=()
+          if [[ "$MODE" == source ]]; then args+=(--changed-from "$BASE"); fi
+          python scripts/style.py "${args[@]}"
       - name: Collect formatter fixes
         if: failure() && steps.style.outcome == 'failure'
         run: |
@@ -57,31 +123,41 @@ jobs:
             ${{ runner.temp }}/style-fix.log
           retention-days: 7
       - name: Check tools and source boundaries
+        if: ${{ !cancelled() }}
         run: python -B -m unittest discover -s scripts -p 'test_*.py'
       - name: Check whitespace
-        run: git diff --check
+        if: ${{ !cancelled() }}
+        run: git diff --check "$BASE" HEAD --
 
   spatial-tests:
+    needs: plan
+    if: needs.plan.outputs.mode != 'docs'
     runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
       - name: Test spatial algorithms
         run: swift test --package-path Packages/SpatialCore --scratch-path "$RUNNER_TEMP/SpatialCore"
       - name: Test imported contracts
         run: PRTS_CONTRACTS_ONLY=1 swift test --package-path Vendor/PRTSCore --scratch-path "$RUNNER_TEMP/Contracts"
 
   app-build:
+    needs: plan
+    if: needs.plan.outputs.mode != 'docs'
     # The LocalVLM stub links normally but always reports an unavailable model.
     # These tests cover application behavior, not model inference or physical sensors.
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 65
     strategy:
       fail-fast: false
       matrix:
         configuration: [Release, Dev]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
       - name: Select the newest Xcode
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
@@ -108,33 +184,32 @@ jobs:
         run: |
           device=$(xcrun simctl list devices available -j | python3 -c \
             'import json,sys; print(next(d["udid"] for group in json.load(sys.stdin)["devices"].values() for d in group if d["name"].startswith("iPhone")))')
+          xcrun simctl boot "$device"
           echo "PRTS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
-      - name: Boot the simulator
-        timeout-minutes: 10
-        run: xcrun simctl bootstatus "$PRTS_TEST_DEVICE" -b
       - name: Build simulator tests
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: >-
           xcodebuild -project PRTS.xcodeproj -scheme PRTS
           -configuration '${{ matrix.configuration }}'
-          -destination "platform=iOS Simulator,id=$PRTS_TEST_DEVICE"
+          -destination 'generic/platform=iOS Simulator'
           -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
-          CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
+          DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
           ENABLE_TESTABILITY=YES ARCHS=arm64 build-for-testing
+      - name: Wait for simulator readiness
+        timeout-minutes: 10
+        run: xcrun simctl bootstatus "$PRTS_TEST_DEVICE" -b
       - name: Test the app
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: >-
-          xcodebuild -project PRTS.xcodeproj -scheme PRTS
+          bash scripts/ci/simulator-tests.sh -project PRTS.xcodeproj -scheme PRTS
           -configuration '${{ matrix.configuration }}'
           -destination "platform=iOS Simulator,id=$PRTS_TEST_DEVICE"
           -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
           -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult"
-          -only-testing:PRTSTests -skip-testing:PRTSTests/PhotoLocalModelTests
-          -parallel-testing-enabled NO
           -test-timeouts-enabled YES -default-test-execution-time-allowance 60
           -maximum-test-execution-time-allowance 120
-          CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
-          ENABLE_TESTABILITY=YES ARCHS=arm64 test-without-building
+          DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
+          ENABLE_TESTABILITY=YES ARCHS=arm64
       - name: Compile the device app
         timeout-minutes: 15
         run: >-
@@ -142,6 +217,10 @@ jobs:
           -configuration '${{ matrix.configuration }}'
           -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/Device"
           CODE_SIGNING_ALLOWED=NO DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO build
+      - name: Check device permission resources
+        run: >-
+          python3 scripts/ci/check_permissions.py
+          "$RUNNER_TEMP/Device/Build/Products/${{ matrix.configuration }}-iphoneos/PRTS.app"
       - name: Pack test results
         if: always()
         run: |
@@ -156,3 +235,44 @@ jobs:
           path: ${{ runner.temp }}/AppTests.zip
           if-no-files-found: ignore
           retention-days: 7
+
+  full:
+    name: Full checks ${{ needs.plan.outputs.sha }}
+    needs: [plan, style-and-boundaries, spatial-tests, app-build]
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Full checks completed for ${{ needs.plan.outputs.sha }}.' >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: full
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.prerelease && !inputs.verify_sha
+    permissions:
+      contents: write
+    uses: ./.github/workflows/prerelease.yml
+
+  summary:
+    needs: [plan, style-and-boundaries, spatial-tests, app-build, publish]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report actual check outcomes
+        env:
+          SHA: ${{ needs.plan.outputs.sha }}
+          BASE: ${{ needs.plan.outputs.base }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          STYLE: ${{ needs.style-and-boundaries.result }}
+          SPATIAL: ${{ needs.spatial-tests.result }}
+          APP: ${{ needs.app-build.result }}
+          RELEASE: ${{ needs.publish.result }}
+        run: |
+          {
+            echo "Tested: $SHA · comparison: $BASE · mode: $MODE"
+            echo "- Style, Python and whitespace: $STYLE"
+            if [[ "$MODE" == docs ]]; then
+              echo "- Spatial and app checks: reused $BASE (not executed)"
+            else
+              echo "- Spatial: $SPATIAL; Release and Dev apps: $APP"
+            fi
+            echo "- Prerelease: $RELEASE"
+          } >> "$GITHUB_STEP_SUMMARY"

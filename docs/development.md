@@ -77,19 +77,23 @@ git diff --check
 
 ### 持续集成
 
-`.github/workflows/code-quality.yml` 在推送到 `main` 或向 `main` 提交拉取请求时运行以下三个作业：
+`Code quality` 对每个进入 `main` 的提交分别验证，批量推送时为中间提交补发独立运行。运行名称和摘要显示实际被测 SHA；新推送不取消旧运行。PR 验证合并结果。
 
-| 作业 | 执行内容 |
+| 检查模式 | 执行内容 |
 |---|---|
-| `style-and-boundaries` | 全仓库格式检查、Python 边界测试与 `git diff --check` |
-| `spatial-tests` | `SpatialCore` 单元测试与 `Vendor/PRTSCore` 契约测试 |
-| `app-build` | 编译 `Release` 与 `Dev`，运行模拟器 `PRTSTests`，并检查真机编译 |
+| 全量 | 全仓格式与风格、Python 工具与工程边界、空间算法和上游契约、Release 和 Dev 模拟器功能测试、无签名真机编译及包内中英文权限说明 |
+| 已有应用 Swift 源码修改 | 按完整文件检查格式，构建与功能检查仍全部执行 |
+| 仅修改仓库说明文档 | `README.md`、`docs/` 下的 Markdown 可复用直接父提交的 macOS 检查；仍运行 Python 检查与空白检查 |
 
-`app-build` 使用 `scripts/ci/local_vlm_stub.cpp` 编译可链接的 LocalVLM 替身与空占位权重，因此 CI 会跳过 `PhotoLocalModelTests`，也不验证真机传感器与真实推理；其余 `PRTSTests` 在两种构建下实际运行。依赖三指长按的读文字 UI 测试项受限于公开自动化接口能力默认跳过并在真机手工核验，生命周期由单元测试覆盖。
+增量仅适用于普通推送，并要求直接父提交在本仓库 `main` 完成同一规则的全量验证。配置变更、增删或移动源码、合并提交、无法确认基线时均执行全量。手动运行和 PR 始终全量。各模式均检查实际提交差异；复用不计为重新执行。应用内使用说明和模型资源不属于仓库说明文档。
+
+模拟器启动与测试编译重叠，两种配置分别复用各自的构建产物运行单元及 UI 测试。默认纳入新增测试；`scripts/ci/simulator-tests.sh` 逐项列出例外：替身不能验证真实模型，模拟器不能验收实际相机、系统输入权限、辅助触控和三指手势；设备性能采样与实景演示不作功能门禁。读文字生命周期仍由单元测试覆盖。真机编译后检查应用内的默认、英文和简体中文相机、麦克风及语音识别权限说明。
 
 ### IPA 预发布构建
 
-`.github/workflows/prerelease.yml` 在 `main` 的 Code quality 检查成功后自动构建并发布 GitHub Pre-release，也支持在 Actions 中手动运行。手动运行仅接受 `main`，且当前提交必须已有成功的 Code quality 检查。拉取请求不会发布安装包。
+1. 在 GitHub Actions 选择 **Code quality** 和 **Run workflow**，分支选择 `main`。
+2. 勾选 **Prerelease**，将内部批量验证用的 SHA 留空，然后开始运行。
+3. 该次全量检查成功后，发布作业从同一 SHA 构建两个安装包。普通推送、PR 和未勾选的手动运行都不会发布。
 
 | 项目 | 行为 |
 |---|---|

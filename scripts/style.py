@@ -85,8 +85,20 @@ def main():
     parser.add_argument(
         "--language", choices=TOOLS, action="append", help="Limit languages locally"
     )
+    parser.add_argument(
+        "--changed-from", help="Check whole tracked files modified since this commit"
+    )
     args = parser.parse_args()
     files = source_files()
+    if args.changed_from:
+        changed = (
+            subprocess.check_output(
+                ["git", "diff", "--name-only", "-z", args.changed_from, "HEAD", "--"], cwd=ROOT
+            )
+            .decode()
+            .split("\0")
+        )
+        files = sorted(set(files).intersection(changed))
     passed = True
     for language in args.language or TOOLS:
         selected = [

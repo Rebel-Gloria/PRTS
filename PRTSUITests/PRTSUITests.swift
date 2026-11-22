@@ -135,6 +135,7 @@ final class PRTSUITests: XCTestCase {
             large.descendants(matching: .any)["homeTips"].frame.minY
         )
         snap(large, "Home at accessibility XXXL")
+        #if !targetEnvironment(simulator)
         camera.tap()
         let running = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS '停止'"),
@@ -142,6 +143,7 @@ final class PRTSUITests: XCTestCase {
         )
         XCTAssertEqual(XCTWaiter.wait(for: [running], timeout: 8), .completed)
         snap(large, "Running at accessibility XXXL")
+        #endif
     }
 
     @MainActor

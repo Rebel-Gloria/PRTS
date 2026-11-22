@@ -1,43 +1,20 @@
 name: Prerelease IPA
 
-on:
-  workflow_run:
-    workflows: [Code quality]
-    branches: [main]
-    types: [completed]
-  workflow_dispatch:
+on: workflow_call
 
 permissions:
   contents: read
 
-concurrency:
-  group: prerelease-ipa
-  cancel-in-progress: false
-
 jobs:
   prerelease:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
-       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: macos-26
     timeout-minutes: 90
     permissions:
-      actions: read
       contents: write
     env:
-      SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SOURCE_COMMIT: ${{ github.sha }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Verify successful main CI
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          count=$(gh run list --workflow code-quality.yml --commit "$SOURCE_COMMIT" --limit 100 \
-            --json conclusion,event,headBranch \
-            --jq '[.[] | select(.conclusion == "success" and .headBranch == "main" and (.event == "push" or .event == "workflow_dispatch"))] | length')
-          test "$count" -gt 0
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ env.SOURCE_COMMIT }}
