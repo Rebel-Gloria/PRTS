@@ -87,7 +87,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
     let journal: RecordingStore
     private let lock = NSLock()
     private var retired = false
-    private var isEnabled: Bool { journal.isEnabled && lock.withLock { !retired } }
+    var isEnabled: Bool { journal.isEnabled && lock.withLock { !retired } }
 
     func retire() { lock.withLock { retired = true } }
     init(journal: RecordingStore = .shared) {

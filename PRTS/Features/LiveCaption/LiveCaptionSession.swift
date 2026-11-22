@@ -324,10 +324,9 @@ final class LiveCaptionSession: ObservableObject {
             {
                 carried = nil
             }
+            guard requests.count < LiveCaptionPolicy.maximumRequestsInFlight else { continue }
             let video = [carried].compactMap { $0 } + LiveCaptionFrame.select(fresh)
-            guard video.count >= LiveCaptionPolicy.minimumVideoFrames,
-                requests.count < LiveCaptionPolicy.maximumRequestsInFlight
-            else { continue }
+            guard video.count >= LiveCaptionPolicy.minimumVideoFrames else { continue }
             carried = video.last
             send(video, key: key)
         }

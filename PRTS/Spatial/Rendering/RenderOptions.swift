@@ -19,6 +19,7 @@ nonisolated struct RenderOptions: Codable, Sendable, Equatable {
         set { pathVisible = newValue }
     }
     var layer: SensorLayer = .rgb
+    var needsDepthImage: Bool { layer != .rgb || overlayDepth }
     var overlayDepth = false
     var overlayAlpha: Float = 0.45
     var smoothedDisplay = false

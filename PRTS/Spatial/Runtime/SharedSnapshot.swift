@@ -72,7 +72,7 @@ struct SharedSnapshot: Sendable {
     }
     var displayedFrame: FrameSnapshot? {
         if let frozen { return frozen }
-        if usesMonocular && (options.layer != .rgb || options.overlayDepth) {
+        if usesMonocular && options.needsDepthImage {
             return activeMonocular?.frame ?? frame
         }
         return frame

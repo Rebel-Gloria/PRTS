@@ -285,8 +285,10 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         var contentRect: [Double]?
         let snapshot = s.displayedFrame
         let prediction = s.activeMonocular
-        let surface = s.activeSurfacePresentation(now: start)
-        let predictedPath = s.activePath(now: start)
+        let logRender = (s.running || s.frame != nil) && diagnostics.isEnabled
+        let surface = s.options.showSurfaceModel ? s.activeSurfacePresentation(now: start) : nil
+        // Dev records path freshness even when the path itself is hidden.
+        let predictedPath = s.options.showPath || logRender ? s.activePath(now: start) : nil
         var drawnPath = 0
         if let frame = snapshot, s.running, let imagePipeline, let worldPipeline,
             let y = texture(frame.frame.capturedImage, format: .r8Unorm),
@@ -309,10 +311,12 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 for: orientation,
                 viewportSize: orientedSize
             )
-            imageTransform = [
-                transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty,
-            ].map(Double.init)
-            contentRect = [fit.x, fit.y, fit.width, fit.height].map(Double.init)
+            if logRender {
+                imageTransform = [
+                    transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty,
+                ].map(Double.init)
+                contentRect = [fit.x, fit.y, fit.width, fit.height].map(Double.init)
+            }
             encoder.setViewport(
                 MTLViewport(
                     originX: Double(fit.x),
@@ -329,17 +333,24 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
             let sh = max(1, Int(floor(fit.y + fit.height)) - sy)
             encoder.setScissorRect(MTLScissorRect(x: sx, y: sy, width: sw, height: sh))
             // Confidence always belongs to the depth variant on screen. Geometry remains raw sceneDepth.
-            let depthData =
-                s.usesMonocular
-                ? nil
-                : (s.options.smoothedDisplay
-                    ? frame.frame.smoothedSceneDepth : frame.frame.sceneDepth)
-            let modelBuffer = prediction?.frame.id == frame.id ? prediction?.displayBuffer : nil
-            let depth =
-                s.usesMonocular
-                ? modelBuffer.flatMap { texture($0, format: .r32Float) }
-                : depthData.flatMap { texture($0.depthMap, format: .r32Float) }
-            let confidence = depthData?.confidenceMap.flatMap { texture($0, format: .r8Unorm) }
+            var depth: (MTLTexture, CVMetalTexture)?
+            var confidence: (MTLTexture, CVMetalTexture)?
+            if s.options.needsDepthImage {
+                if s.usesMonocular {
+                    if let prediction, prediction.frame.id == frame.id,
+                        let map = prediction.displayBuffer
+                    {
+                        depth = texture(map, format: .r32Float)
+                    }
+                } else if let data = s.options.smoothedDisplay
+                    ? frame.frame.smoothedSceneDepth : frame.frame.sceneDepth
+                {
+                    depth = texture(data.depthMap, format: .r32Float)
+                    if s.options.layer == .confidence, let map = data.confidenceMap {
+                        confidence = texture(map, format: .r8Unorm)
+                    }
+                }
+            }
             if let depth { retainedTextures.append(depth.1) }
             if let confidence { retainedTextures.append(confidence.1) }
             let pixelFormat = CVPixelBufferGetPixelFormatType(frame.frame.capturedImage)
@@ -412,9 +423,14 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                         drawnNativePlanes = nativePlaneCount
                     }
                 }
-                let result = s.activeGeometryResult(now: start)
-                updateAnalysisBuffers(result, epoch: s.epoch)
-                updateSurfaceBuffers(surface)
+                let showGrid = s.options.showGrid && !s.options.showSurfaceModel
+                let showBlocking = s.options.showSurfaceModel && s.options.showBlockingColumns
+                let showChannels =
+                    s.options.showPath && !s.pathOptions.enabled && s.options.showChannels
+                if showGrid || showBlocking || showChannels {
+                    updateAnalysisBuffers(s.activeGeometryResult(now: start), epoch: s.epoch)
+                }
+                if s.options.showSurfaceModel { updateSurfaceBuffers(surface) }
                 if s.options.showSurfaceModel, let surfaceBuffer, surfaceCount > 0 {
                     encoder.setVertexBuffer(surfaceBuffer, offset: 0, index: 0)
                     encoder.drawPrimitives(
@@ -449,13 +465,12 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                 }
                 // Diagnostic overlay is intentionally x-ray: scene mesh must not hide unknown regions behind obstacles.
                 encoder.setDepthStencilState(noDepth)
-                if s.options.showGrid && !s.options.showSurfaceModel, let gridBuffer, gridCount > 0
-                {
+                if showGrid, let gridBuffer, gridCount > 0 {
                     encoder.setVertexBuffer(gridBuffer, offset: 0, index: 0)
                     encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: gridCount)
                 }
                 // Red air-space is an explicit exclusion column, not a measured opaque surface.
-                if s.options.showSurfaceModel && s.options.showBlockingColumns {
+                if showBlocking {
                     if let blockingBuffer, blockingCount > 0 {
                         encoder.setVertexBuffer(blockingBuffer, offset: 0, index: 0)
                         encoder.drawPrimitives(
@@ -474,10 +489,14 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                         )
                     }
                 }
-                updatePathBuffer(
-                    predictedPath,
-                    projection: s.activeRouteProjection(now: ProcessInfo.processInfo.systemUptime)
-                )
+                if s.options.showPath {
+                    updatePathBuffer(
+                        predictedPath,
+                        projection: s.activeRouteProjection(
+                            now: ProcessInfo.processInfo.systemUptime
+                        )
+                    )
+                }
                 if s.options.showPath, let pathBuffer, pathCount > 0 {
                     // World-locked routes are annotations. A noisy floor triangle must not
                     // alternately cover/reveal a fixed world line (apparent broken dashes).
@@ -488,7 +507,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
                     encoder.setDepthStencilState(worldDepth)
                 }
                 // Legacy multi-sector diagnostics remain available only when single-path mode is off.
-                if s.options.showPath, !s.pathOptions.enabled, s.options.showChannels,
+                if showChannels,
                     s.activeGuidanceResult(now: start) != nil, let channelBuffer, channelCount > 0
                 {
                     encoder.setVertexBuffer(channelBuffer, offset: 0, index: 0)
@@ -519,7 +538,7 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         let result = s.activeGeometryResult(now: start)
         let delta = result.flatMap { r in snapshot.map { ($0.frame.timestamp - r.timestamp) * 1000 }
         }
-        if s.running || s.frame != nil {
+        if logRender {
             let geometryReason =
                 s.result.map { s.presentationGate.geometryBlockReason($0, now: start) }
                 ?? "no_analysis_result"
@@ -599,7 +618,6 @@ final class ProbeRenderer: NSObject, MTKViewDelegate {
         let diagnostic = diagnostics
         let diagnosticEpoch = s.epoch
         let diagnosticFrameID = snapshot?.id
-        let logRender = s.running || s.frame != nil
         command.addCompletedHandler { buffer in
             // Keep CVMetalTexture and source CVPixelBuffer alive until GPU completion.
             _ = lifetime

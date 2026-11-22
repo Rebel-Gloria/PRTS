@@ -84,6 +84,17 @@ struct PRTSTests {
                 != nil
         )
     }
+    @Test func depthImagesAreOnlyNeededForDepthPresentation() {
+        var options = RenderOptions.product(scanMesh: true)
+        #expect(!options.needsDepthImage)
+        options.overlayDepth = true
+        #expect(options.needsDepthImage)
+        options.overlayDepth = false
+        for layer in [SensorLayer.depth, .confidence] {
+            options.layer = layer
+            #expect(options.needsDepthImage)
+        }
+    }
     @Test func displayOptionsRemainBackwardCompatible() throws {
         let old = RenderOptions()
         var json = try #require(

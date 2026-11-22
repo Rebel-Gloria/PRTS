@@ -543,8 +543,16 @@ struct LiveCaptionSessionTests {
         let session = captionSession(audio, clock, replies)
         var time = 0.0
         await advance(clock, until: LiveCaptionPolicy.maximumRequestsInFlight, replies, from: &time)
-        await advance(clock, samples: 20, from: &time)
-        #expect(await replies.videos.count == LiveCaptionPolicy.maximumRequestsInFlight)
+        let limit = LiveCaptionPolicy.maximumRequestsInFlight
+        await advance(clock, samples: 50, from: &time)
+        #expect(await replies.videos.count == limit)
+        await replies.reply(0, "无")
+        await settle()
+        await advance(clock, samples: 30, from: &time)
+        await settle()
+        let videos = await replies.videos
+        #expect(videos.count == limit + 1)
+        #expect(videos.last?.first != videos[limit - 1].last)
         session.stop()
         clock.finish()
         await replies.finish()
