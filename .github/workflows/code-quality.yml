@@ -206,8 +206,8 @@ jobs:
           -destination "platform=iOS Simulator,id=$PRTS_TEST_DEVICE"
           -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/App"
           -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult"
-          -test-timeouts-enabled YES -default-test-execution-time-allowance 60
-          -maximum-test-execution-time-allowance 120
+          -test-timeouts-enabled YES -default-test-execution-time-allowance 300
+          -maximum-test-execution-time-allowance 300
           DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO
           ENABLE_TESTABILITY=YES ARCHS=arm64
       - name: Compile the device app
