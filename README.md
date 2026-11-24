@@ -33,10 +33,12 @@ PRTS 是一款面向视障和低视力用户的 iPhone 与 iPad 应用，提供�
 
 2. 打开 `PRTS.xcodeproj`，选择 `PRTS` scheme 进行构建或运行。
 
-命令行编译参数、Dev 自动录制与自动化测试请参阅[开发指南](docs/development.md)。
+命令行编译参数、Dev 自动录制与离线回放工具请参阅[开发指南](docs/development.md)。
 
-额外的，我们在 pre-release 内准备了预构建的 ipa 包，其中包括 Dev 构建与 Release 构建，你可以自签至自己的iOS 设备上，但需要启用开发者账号才能启用
-Dev 构建将会自动化录制用于重放测试的所有的数据，其中可能包括你的个人隐私，尽管我们保证此数据不会主动传输到设备以外，但若使用此构建，造成的隐私风险应当由您自行承担
+你也可以从 GitHub Releases 的预发布（Pre-release）页面获取未签名的 `Release` 与 `Dev` 预构建 IPA 包，使用自己的 Apple 开发者签名或侧载工具安装到 iOS 设备。
+
+> [!IMPORTANT]
+> `Dev` 构建会在本机自动录制现场画面、空间数据与提问音频用于离线回放。录制数据仅保存在设备本地，不会主动上传，请仅在受控测试环境中使用。
 
 ## 文档阅读顺序
 
@@ -68,3 +70,6 @@ Dev 构建将会自动化录制用于重放测试的所有的数据，其中可�
 | Depth Anything V2 Small | [Apache 2.0](PRTS/Spatial/Models/LICENSE-DepthAnythingV2.txt) | 模型卡与校验信息位于 `PRTS/Spatial/Models/` |
 | llama.cpp | MIT | 通过 `Packages/LocalVLM/prepare.sh` 获取与编译 |
 | MiniCPM-V 4.7 1B 权重 | Apache 2.0 | 来自 `openbmb/MiniCPM-V-4.7-1B-gguf` |
+
+> [!NOTE]
+> 应用内暂未提供第三方许可证展示入口，相关界面正在规划中。如组件权利人对当前署名方式有疑问，请通过 [GitHub Issues](https://github.com/Rebel-Gloria/PRTS/issues) 反馈。

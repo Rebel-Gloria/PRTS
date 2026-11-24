@@ -8,10 +8,10 @@ PRTS uses your iPhone camera to detect obstacles ahead, describe your surroundin
 - **Stop guidance**: Touch and hold the main button for 1 second. If Tap to stop is on, or if you use VoiceOver, tap or double-tap with two fingers instead.
 - **Describe the scene**: While guidance runs, press either volume button—or tap the on-screen photo button—for a brief description of what's ahead.
 - **Ask a question**: Press and hold a volume button or the photo button, speak after the tone, then release to send.
-- **Live captions**: Press a volume button or the photo button three times in a row to hear ongoing actions, and press once to stop. Live captions require a Qwen API key and an internet connection.
+- **Live captions**: Press a volume button or the photo button three times in a row to hear ongoing actions, and press once to stop. Live captions require Allow cloud processing, a Qwen API key, and an internet connection.
 - **Read text**: Hold three fingers on the screen and keep your iPhone steady to capture and hear text on signs, papers, or objects.
 
-To keep the volume buttons for adjusting volume, turn off Volume button shortcut in Settings > Interaction and use the on-screen photo button instead.
+To keep the volume buttons for adjusting volume, turn off Volume button shortcut under Interaction in Settings and use the on-screen photo button instead.
 
 ## Settings
 

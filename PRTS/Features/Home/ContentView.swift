@@ -491,9 +491,8 @@ struct ContentView: View {
             .padding(.horizontal, 14)
             .frame(minHeight: 36)
             .glassSurface(in: Capsule())
-            .accessibilityLabel(
-                Text("home.noPreview.title") + Text(verbatim: "，") + Text("home.noPreview.subtitle")
-            )
+            .accessibilityLabel("home.noPreview.title")
+            .accessibilityValue("home.noPreview.subtitle")
             .accessibilityIdentifier("noPreviewNotice")
     }
 

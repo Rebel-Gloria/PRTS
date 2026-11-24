@@ -783,9 +783,6 @@
         }
       }
     },
-    "English" : {
-
-    },
     "home.camera.button.start" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1057,9 +1054,6 @@
           }
         }
       }
-    },
-    "PRTS" : {
-
     },
     "liveCaption.off" : {
       "extractionState" : "manual",
@@ -2251,9 +2245,6 @@
         }
       }
     },
-    "中文" : {
-
-    },
     "home.camera.action.stop" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3059,13 +3050,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Guidance speech pauses while reading text. Use this only when it is safe to stop and listen."
+            "value" : "Guidance cues pause while reading text. Use this only when it is safe to stop and listen."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "读文字期间避障语音会暂停。请在确认周围安全时使用。"
+            "value" : "读文字期间避障提示会暂停。请在确认周围安全时使用。"
           }
         }
       }

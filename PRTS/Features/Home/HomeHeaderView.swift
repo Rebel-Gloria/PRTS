@@ -28,7 +28,7 @@ struct HomeHeaderView: View {
                 .frame(width: 32, height: 32)
                 .accessibilityHidden(true)
 
-            Text("PRTS")
+            Text(verbatim: "PRTS")
                 .font(.title2.weight(.bold))
         }
         // The brand is a title, not content; past accessibility1 it would push the controls away.
