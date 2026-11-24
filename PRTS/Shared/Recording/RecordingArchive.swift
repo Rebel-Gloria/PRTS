@@ -1,3 +1,4 @@
+#if PRTS_DEV
 import Foundation
 
 /// The coordinator provides a streaming ZIP representation; never loads an archive into memory.
@@ -69,3 +70,4 @@ nonisolated enum RecordingArchive {
         return output
     }
 }
+#endif

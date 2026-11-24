@@ -111,15 +111,13 @@ final class SpeechManager: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             language: activeLanguage
         )
         activeUtterance = ObjectIdentifier(utterance)
-        #if PRTS_DEV
-        RecordingStore.shared.event(
+        DevInteractionRecording.event(
             "speech_requested",
             details: [
                 "text": message, "voice": utterance.voice?.identifier ?? "system_default",
                 "rate": String(utterance.rate), "pitch": String(utterance.pitchMultiplier),
             ]
         )
-        #endif
         synthesizer.speak(utterance)
     }
 
@@ -146,9 +144,10 @@ final class SpeechManager: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     }
 
     static func postQueuedAnnouncement(_ message: String) {
-        #if PRTS_DEV
-        RecordingStore.shared.event("voiceover_announcement_requested", details: ["text": message])
-        #endif
+        DevInteractionRecording.event(
+            "voiceover_announcement_requested",
+            details: ["text": message]
+        )
         UIAccessibility.post(
             notification: .announcement,
             argument: NSAttributedString(
@@ -222,9 +221,7 @@ final class SpeechManager: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     }
 
     func stopCurrentSpeech() {
-        #if PRTS_DEV
-        if activeUtterance != nil { RecordingStore.shared.event("speech_stopped") }
-        #endif
+        if activeUtterance != nil { DevInteractionRecording.event("speech_stopped") }
         perceptionSpeechActive = false
         activeUtterance = nil
         if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
@@ -239,9 +236,7 @@ final class SpeechManager: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let id = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
             guard let self, self.activeUtterance == id else { return }
-            #if PRTS_DEV
-            RecordingStore.shared.event("speech_finished")
-            #endif
+            DevInteractionRecording.event("speech_finished")
             self.activeUtterance = nil
             self.perceptionSpeechActive = false
             self.audioSession.release(self.audioLease)

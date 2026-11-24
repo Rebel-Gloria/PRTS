@@ -1,9 +1,12 @@
 /// Adapts spatial inputs and outputs to the application recording store.
 
 import ARKit
-import Darwin
 import Foundation
 import SpatialCore
+
+#if PRTS_DEV
+import Darwin
+#endif
 
 nonisolated struct CaptureDiagnostic: Codable, Sendable {
     let epoch: UInt64, frameID: UInt64, parameterVersion: UInt64
@@ -50,6 +53,7 @@ nonisolated struct CaptureDiagnostic: Codable, Sendable {
         }
     }
 }
+
 // Transport values are encoded on the journal queue, not on the UI actor.
 nonisolated struct RenderDiagnostic: Codable, Sendable {
     let phase: String
@@ -83,6 +87,7 @@ nonisolated struct RenderDiagnostic: Codable, Sendable {
     var pathApproachVertices: Int? = nil
     var pathTargetVertices: Int? = nil
 }
+
 final class DiagnosticRecorder: @unchecked Sendable {
     let journal: RecordingStore
     private let lock = NSLock()
@@ -90,6 +95,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
     var isEnabled: Bool { journal.isEnabled && lock.withLock { !retired } }
 
     func retire() { lock.withLock { retired = true } }
+
     init(journal: RecordingStore = .shared) {
         self.journal = journal
         event(
@@ -98,7 +104,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
             epoch: 0
         )
     }
+
     func event(_ name: String, details: String, epoch: UInt64) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         if name == "scene_phase" { journal.noteLifecycle(details) }
         if name == "will_terminate" { journal.noteLifecycle("will_terminate") }
@@ -113,8 +121,11 @@ final class DiagnosticRecorder: @unchecked Sendable {
             wallTime: ISO8601DateFormatter().string(from: Date())
         )
         journal.submit(.events) { .init(json: try DiagnosticJSON.encode(event)) }
+        #endif
     }
+
     func capture(_ frame: FrameSnapshot) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         let record = CaptureDiagnostic(frame)
         journal.submit(.capture, estimatedBytes: 12 * 1024 * 1024) {
@@ -123,7 +134,6 @@ final class DiagnosticRecorder: @unchecked Sendable {
                 binary: try RecordingFrameCodec.encode(frame)
             )
         }
-        #if PRTS_DEV
         journal.videoFrame(
             pixelBuffer: frame.frame.capturedImage,
             timestamp: frame.frame.timestamp,
@@ -134,6 +144,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         )
         #endif
     }
+
     func routePublication(
         candidate: PathUpdate,
         state: SharedSnapshot,
@@ -143,6 +154,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         analysisEnd: Double,
         previousCaptureTimestamp: Double?
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Record: Encodable, Sendable {
             let schemaVersion = 4
@@ -176,8 +188,11 @@ final class DiagnosticRecorder: @unchecked Sendable {
             thermalState: state.thermal
         )
         journal.submit(.path) { .init(json: try DiagnosticJSON.encode(record)) }
+        #endif
     }
+
     func path(_ update: PathUpdate, frame: FrameSnapshot, options: PathOptions) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Record: Encodable, Sendable {
             let phase = "prediction"
@@ -199,7 +214,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
         journal.submit(.path, estimatedBytes: 16 * 1024) {
             .init(json: try DiagnosticJSON.encode(record))
         }
+        #endif
     }
+
     func pathFeedback(
         epoch: UInt64,
         frameID: UInt64,
@@ -208,6 +225,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         pulse: PathHapticPulse?,
         status: String
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Record: Encodable, Sendable {
             let phase = "feedback"
@@ -224,13 +242,16 @@ final class DiagnosticRecorder: @unchecked Sendable {
             status: status
         )
         journal.submit(.path) { .init(json: try DiagnosticJSON.encode(record)) }
+        #endif
     }
+
     func analysis(
         _ result: AnalysisResult,
         frame: FrameSnapshot,
         observation: DepthObservation?,
         metrics: MetricContext
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Record: Encodable, Sendable {
             let frame: FrameLog, capture: CaptureDiagnostic, diagnostics: AnalysisDiagnostics?
@@ -266,8 +287,11 @@ final class DiagnosticRecorder: @unchecked Sendable {
             }
             return .init(json: try DiagnosticJSON.encode(record), binary: binary)
         }
+        #endif
     }
+
     func monocular(_ prediction: MonocularFrame, manual: Bool = false) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Header: Encodable, Sendable {
             let schemaVersion = 1, kind = "relative_depth_frame"
@@ -325,7 +349,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
             relative.withUnsafeBytes { binary.append(contentsOf: $0) }
             return .init(json: json, binary: binary)
         }
+        #endif
     }
+
     func mesh(
         _ mesh: MeshSnapshot?,
         id: String,
@@ -334,6 +360,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         callbackTime: Double,
         action: String
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Record: Encodable, Sendable {
             let id: String, epoch: UInt64, revision: UInt64, callbackTime: Double,
@@ -381,10 +408,12 @@ final class DiagnosticRecorder: @unchecked Sendable {
                 }
             )
         }
+        #endif
     }
+
     func renderSkipped(renderID: UInt64, state: SharedSnapshot, reason: String) {
-        guard isEnabled else { return }
-        guard state.running else { return }
+        #if PRTS_DEV
+        guard isEnabled, state.running else { return }
         nonisolated struct Skip: Encodable, Sendable {
             let phase = "skipped"
             let renderID: UInt64, epoch: UInt64, frameID: UInt64?, uptime: Double, reason: String
@@ -397,11 +426,16 @@ final class DiagnosticRecorder: @unchecked Sendable {
             reason: reason
         )
         journal.submit(.render) { .init(json: try DiagnosticJSON.encode(value)) }
+        #endif
     }
+
     func render(_ record: RenderDiagnostic) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         journal.submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
+        #endif
     }
+
     func gpu(
         renderID: UInt64,
         epoch: UInt64,
@@ -410,6 +444,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         error: String?,
         gpuMS: Double
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct GPU: Encodable, Sendable {
             let phase = "gpu_completed"
@@ -426,7 +461,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
             gpuMS: gpuMS
         )
         journal.submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
+        #endif
     }
+
     func presented(
         renderID: UInt64,
         epoch: UInt64,
@@ -434,6 +471,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         time: Double,
         sourceTime: Double?
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Presented: Encodable, Sendable {
             let phase = "drawable_presented"
@@ -448,7 +486,9 @@ final class DiagnosticRecorder: @unchecked Sendable {
             sourceTimestamp: sourceTime
         )
         journal.submit(.render) { .init(json: try DiagnosticJSON.encode(record)) }
+        #endif
     }
+
     func heartbeat(
         _ state: SharedSnapshot,
         permission: String,
@@ -457,6 +497,7 @@ final class DiagnosticRecorder: @unchecked Sendable {
         lowPower: Bool,
         appState: String
     ) {
+        #if PRTS_DEV
         guard isEnabled else { return }
         nonisolated struct Heartbeat: Encodable, Sendable {
             let uptime: Double, epoch: UInt64, running: Bool, permission: String, appState: String
@@ -505,7 +546,10 @@ final class DiagnosticRecorder: @unchecked Sendable {
         )
         journal.submit(.heartbeat) { .init(json: try DiagnosticJSON.encode(record)) }
         journal.requestCheckpoint()
+        #endif
     }
+
+    #if PRTS_DEV
     private static func residentBytes() -> UInt64? {
         var info = mach_task_basic_info()
         var count = mach_msg_type_number_t(
@@ -518,4 +562,5 @@ final class DiagnosticRecorder: @unchecked Sendable {
         }
         return code == KERN_SUCCESS ? UInt64(info.resident_size) : nil
     }
+    #endif
 }

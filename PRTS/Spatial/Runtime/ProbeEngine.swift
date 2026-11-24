@@ -199,13 +199,9 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
         sessionQueue.async { [self] in
             analysisQueue.async { [self] in
                 meshQueue.async { [self] in
-                    #if PRTS_DEV
                     DevInteractionRecording.flush { [self] in
                         diagnostics.journal.suspend(completion: finish)
                     }
-                    #else
-                    diagnostics.journal.suspend(completion: finish)
-                    #endif
                 }
             }
         }

@@ -1,3 +1,4 @@
+#if PRTS_DEV
 import ARKit
 import Foundation
 import SpatialCore
@@ -109,3 +110,4 @@ nonisolated enum RecordingFrameCodec {
         return data
     }
 }
+#endif

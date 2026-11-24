@@ -23,7 +23,6 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     private let lock = NSLock()
     private var state = DiagnosticStatus()
     private var generation: UInt64 = 0
-    private var boundaryUptime: Double = 0
     private var clearing = false
     private var maintenance = false
     private var videoPending = 0
@@ -57,7 +56,6 @@ nonisolated final class RecordingStore: @unchecked Sendable {
 
     func status() -> DiagnosticStatus { lock.withLock { state } }
     var admissionGeneration: UInt64 { lock.withLock { generation } }
-    var recordingBoundaryUptime: Double { lock.withLock { boundaryUptime } }
 
     private func admit(_ kind: String, bytes: Int, videoFrame: Bool = false) -> UInt64? {
         guard isEnabled else { return nil }
@@ -492,6 +490,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     func export(completion: @escaping @Sendable (Result<URL, Error>) -> Void) {
+        #if PRTS_DEV
         guard isEnabled else {
             completion(.failure(RecordingError.disabled))
             return
@@ -525,6 +524,9 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                 }
             }
         }
+        #else
+        completion(.failure(RecordingError.disabled))
+        #endif
     }
 
     /// Close admission before stopping producers; deletion waits for their cancellation barriers.
@@ -542,7 +544,6 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                 maintenance = true
                 clearing = true
                 generation &+= 1
-                boundaryUptime = ProcessInfo.processInfo.systemUptime
                 return true
             })
         else {
@@ -557,10 +558,13 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                         let files = FileManager.default
                         let documents = root.deletingLastPathComponent()
                         let targets =
-                            [root, RecordingArchive.root]
+                            [root]
                             + ["DevDiagnostics", "Sessions", "Diagnostics"].map {
                                 documents.appendingPathComponent($0, isDirectory: true)
                             }
+                        #if PRTS_DEV
+                        try RecordingArchive.removePreviousExports()
+                        #endif
                         for target in targets {
                             if files.fileExists(atPath: target.path) {
                                 try files.removeItem(at: target)

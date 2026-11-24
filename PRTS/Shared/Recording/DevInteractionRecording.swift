@@ -1,50 +1,61 @@
-#if PRTS_DEV
-import AVFoundation
 import CoreImage
+import CoreVideo
 import Foundation
 import SpatialCore
 
-/// Copies original interaction images before any model-specific resizing. Encoding stays off
-/// the capture and UI queues, with a bounded number of retained camera buffers.
+#if PRTS_DEV
+import AVFoundation
+#endif
+
+/// Copies original interaction images before any model-specific resizing and centralizes
+/// dev-only interaction telemetry so feature code avoids repetitive conditional compilation.
 nonisolated enum DevInteractionRecording {
+    #if PRTS_DEV
     @TaskLocal static var interactionID: String?
     @TaskLocal static var recordingGeneration: UInt64?
+    static var currentGeneration: UInt64 { RecordingStore.shared.admissionGeneration }
     private static let queue = DispatchQueue(label: "PRTS.recording.images", qos: .utility)
     private static let admission = NSLock()
     private nonisolated(unsafe) static var pendingImages = 0
-    private nonisolated(unsafe) static var suppressionGeneration: UInt64?
-    private nonisolated(unsafe) static var suppressedInteractions: Set<String> = []
 
-    static func noteSuppressedAfterClear(feature: String, id: String, generation: UInt64) {
-        let current = RecordingStore.shared.admissionGeneration
-        guard generation != current else { return }
-        let shouldRecord = admission.withLock {
-            if suppressionGeneration != current {
-                suppressionGeneration = current
-                suppressedInteractions.removeAll()
-            }
-            guard suppressedInteractions.count < 128 else { return false }
-            return suppressedInteractions.insert(feature + ":" + id).inserted
-        }
-        if shouldRecord {
-            RecordingStore.shared.event(
-                "active_interaction_recording_suppressed_after_clear",
-                details: ["feature": feature],
-                generation: current
-            )
-        }
+    static func event(
+        _ name: String,
+        details: @autoclosure () -> [String: String] = [:],
+        generation: UInt64? = nil
+    ) {
+        RecordingStore.shared.event(
+            name,
+            details: details(),
+            generation: generation ?? recordingGeneration
+        )
+    }
+
+    static func attachment(
+        data: Data,
+        kind: String,
+        fileExtension: String,
+        metadata: @autoclosure () -> [String: String] = [:],
+        generation: UInt64? = nil
+    ) {
+        RecordingStore.shared.attachment(
+            data: data,
+            kind: kind,
+            fileExtension: fileExtension,
+            metadata: metadata(),
+            generation: generation ?? recordingGeneration
+        )
     }
 
     static func original(
         pixelBuffer: CVPixelBuffer,
         orientation: ImageOrientation,
         feature: String,
-        metadata: [String: String] = [:]
+        metadata: @autoclosure () -> [String: String] = [:]
     ) {
         original(
             image: PhotoImageEncoder.image(pixelBuffer: pixelBuffer, orientation: orientation),
             feature: feature,
-            metadata: metadata
+            metadata: metadata()
         )
     }
 
@@ -111,21 +122,119 @@ nonisolated enum DevInteractionRecording {
     static func failure(
         _ error: Error,
         feature: String,
-        id: String,
+        id: @autoclosure () -> String,
         generation: UInt64? = nil
     ) {
         let value = error as NSError
         RecordingStore.shared.event(
             error is CancellationError ? "interaction_cancelled" : "interaction_failed",
             details: [
-                "feature": feature, "interactionID": id,
+                "feature": feature, "interactionID": id(),
                 "domain": value.domain, "code": String(value.code),
             ],
             generation: generation ?? recordingGeneration
         )
     }
+
+    static func recordLocalModelRequest(
+        jpeg: Data? = nil,
+        details: @autoclosure () -> [String: String],
+        onText: (@Sendable (String) -> Void)?,
+        run: ((@Sendable (String) -> Void)?) async throws -> String
+    ) async throws -> String {
+        let id = UUID().uuidString
+        let generation = recordingGeneration ?? RecordingStore.shared.admissionGeneration
+        var requestDetails = details()
+        requestDetails["requestID"] = id
+        requestDetails["interactionID"] = interactionID ?? "unavailable"
+        RecordingStore.shared.event(
+            "model_request_started",
+            details: requestDetails,
+            generation: generation
+        )
+        if let jpeg {
+            RecordingStore.shared.attachment(
+                data: jpeg,
+                kind: "model_input",
+                fileExtension: "jpg",
+                metadata: ["requestID": id],
+                generation: generation
+            )
+        }
+        let receive: (@Sendable (String) -> Void)? = { piece in
+            RecordingStore.shared.event(
+                "model_response_delta",
+                details: ["requestID": id, "text": piece],
+                generation: generation
+            )
+            onText?(piece)
+        }
+        do {
+            let answer = try await run(receive)
+            RecordingStore.shared.event(
+                "model_request_completed",
+                details: ["requestID": id, "answer": answer],
+                generation: generation
+            )
+            return answer
+        } catch {
+            failure(error, feature: "onDevice_model", id: id, generation: generation)
+            throw error
+        }
+    }
+    #else
+    @inlinable static var currentGeneration: UInt64 { 0 }
+
+    @inlinable
+    static func event(
+        _ name: String,
+        details: @autoclosure () -> [String: String] = [:],
+        generation: UInt64? = nil
+    ) {}
+
+    @inlinable
+    static func attachment(
+        data: Data,
+        kind: String,
+        fileExtension: String,
+        metadata: @autoclosure () -> [String: String] = [:],
+        generation: UInt64? = nil
+    ) {}
+
+    @inlinable
+    static func original(
+        pixelBuffer: CVPixelBuffer,
+        orientation: ImageOrientation,
+        feature: String,
+        metadata: @autoclosure () -> [String: String] = [:]
+    ) {}
+
+    @inlinable
+    static func flush(completion: @escaping @Sendable () -> Void) {
+        completion()
+    }
+
+    @inlinable
+    static func failure(
+        _ error: Error,
+        feature: String,
+        id: @autoclosure () -> String,
+        generation: UInt64? = nil
+    ) {}
+
+    @inlinable
+    static func recordLocalModelRequest(
+        jpeg: Data? = nil,
+        details: @autoclosure () -> [String: String],
+        onText: (@Sendable (String) -> Void)?,
+        run: ((@Sendable (String) -> Void)?) async throws -> String
+    ) async throws -> String {
+        try await run(onText)
+    }
+    #endif
 }
 
+#if PRTS_DEV
 /// Native microphone buffers are copied before the audio tap returns. Batches keep each
 /// buffer's format, timing and byte layout, so replay need not resample or quantize audio.
 nonisolated final class DevAudioRecording: @unchecked Sendable {
@@ -137,7 +246,7 @@ nonisolated final class DevAudioRecording: @unchecked Sendable {
     private nonisolated(unsafe) static var registry: [WeakRecording] = []
     private let id: String
     private let interactionID: String
-    private var generation: UInt64  // microphone queue only after initialization
+    private let generation: UInt64
     private let queue = DispatchQueue(label: "PRTS.recording.microphone", qos: .utility)
     private let admission = NSLock()
     private var pending = 0
@@ -175,17 +284,18 @@ nonisolated final class DevAudioRecording: @unchecked Sendable {
 
     func append(_ buffer: AVAudioPCMBuffer, time: AVAudioTime) {
         let admittedGeneration = RecordingStore.shared.admissionGeneration
+        guard admittedGeneration == generation else { return }
         let accepted = admission.withLock {
             guard pending < 16 else { return false }
             pending += 1
             return true
         }
         guard accepted else {
-            RecordingStore.shared.noteGap("microphone_audio", generation: admittedGeneration)
+            RecordingStore.shared.noteGap("microphone_audio", generation: generation)
             RecordingStore.shared.event(
                 "microphone_buffer_dropped",
                 details: ["utteranceID": id],
-                generation: admittedGeneration
+                generation: generation
             )
             return
         }
@@ -201,7 +311,7 @@ nonisolated final class DevAudioRecording: @unchecked Sendable {
                 )
             } else if source.mDataByteSize > 0 {
                 admission.withLock { pending -= 1 }
-                RecordingStore.shared.noteGap("microphone_audio", generation: admittedGeneration)
+                RecordingStore.shared.noteGap("microphone_audio", generation: generation)
                 return
             }
         }
@@ -223,7 +333,7 @@ nonisolated final class DevAudioRecording: @unchecked Sendable {
         guard let json = try? JSONSerialization.data(withJSONObject: header, options: [.sortedKeys])
         else {
             admission.withLock { pending -= 1 }
-            RecordingStore.shared.noteGap("microphone_audio", generation: admittedGeneration)
+            RecordingStore.shared.noteGap("microphone_audio", generation: generation)
             return
         }
         var length = UInt32(json.count).littleEndian
@@ -235,17 +345,6 @@ nonisolated final class DevAudioRecording: @unchecked Sendable {
         let rate = buffer.format.sampleRate
         queue.async {
             defer { self.admission.withLock { self.pending -= 1 } }
-            if self.generation != admittedGeneration {
-                // Old partial batches retain their admission generation and are rejected by
-                // the store after deletion. The live utterance continues in the new run.
-                self.flush()
-                self.generation = admittedGeneration
-                RecordingStore.shared.event(
-                    "microphone_recording_continued_after_clear",
-                    details: ["utteranceID": self.id],
-                    generation: admittedGeneration
-                )
-            }
             self.batches.append(bytes)
             self.frames += frameCount
             if Double(self.frames) >= rate { self.flush() }

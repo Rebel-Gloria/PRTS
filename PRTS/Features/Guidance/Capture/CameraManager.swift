@@ -156,7 +156,6 @@ final class CameraManager: ObservableObject {
         guard let image = imageSnapshot(),
             ProcessInfo.processInfo.systemUptime - image.receivedAt < 1
         else { throw PhotoChatError.emptyInput }
-        #if PRTS_DEV
         DevInteractionRecording.original(
             pixelBuffer: image.pixelBuffer,
             orientation: image.orientation,
@@ -167,7 +166,6 @@ final class CameraManager: ObservableObject {
                 "source": lowVisionMode ? "rgb" : "arkit",
             ]
         )
-        #endif
         return Task.detached(priority: .userInitiated) {
             try PhotoImageEncoder.jpeg(
                 pixelBuffer: image.pixelBuffer,
