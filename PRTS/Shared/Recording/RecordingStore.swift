@@ -555,21 +555,13 @@ nonisolated final class RecordingStore: @unchecked Sendable {
             queue.async { [self] in
                 seal { [self] in
                     do {
-                        let files = FileManager.default
                         let documents = root.deletingLastPathComponent()
                         let targets =
-                            [root]
+                            [root, RecordingArchive.root]
                             + ["DevDiagnostics", "Sessions", "Diagnostics"].map {
                                 documents.appendingPathComponent($0, isDirectory: true)
                             }
-                        #if PRTS_DEV
-                        try RecordingArchive.removePreviousExports()
-                        #endif
-                        for target in targets {
-                            if files.fileExists(atPath: target.path) {
-                                try files.removeItem(at: target)
-                            }
-                        }
+                        try Self.removeRecordingDirectories(targets)
                         droppedAtLastSeal = [:]
                         lock.withLock {
                             let pending = state.pending
@@ -593,6 +585,21 @@ nonisolated final class RecordingStore: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    /// One inaccessible directory must not prevent deletion of the remaining recordings.
+    static func removeRecordingDirectories(_ directories: [URL]) throws {
+        var firstError: Error?
+        for directory in directories {
+            do {
+                try FileManager.default.removeItem(at: directory)
+            } catch CocoaError.fileNoSuchFile {
+                continue
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+        }
+        if let firstError { throw firstError }
     }
 }
 

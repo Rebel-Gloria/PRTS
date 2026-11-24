@@ -38,7 +38,39 @@ struct RecordingStoreTests {
         #endif
     }
 
+    @Test func nextLaunchRemovesOnlyTemporaryExports() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let exports = base.appendingPathComponent("RecordingExports")
+        try FileManager.default.createDirectory(at: exports, withIntermediateDirectories: true)
+        let original = base.appendingPathComponent("original.bin")
+        try Data([1, 2]).write(to: original)
+        try Data([3, 4]).write(to: exports.appendingPathComponent("previous.zip"))
+        try RecordingArchive.removePreviousExports(at: exports)
+        #expect(!FileManager.default.fileExists(atPath: exports.path))
+        #expect(try Data(contentsOf: original) == Data([1, 2]))
+        try RecordingArchive.removePreviousExports(at: exports)
+    }
+
     #if PRTS_DEV
+    @Test func clearAttemptsRemainingDirectoriesAfterAnError() throws {
+        let files = FileManager.default
+        let base = files.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? files.removeItem(at: base) }
+        let parent = base.appendingPathComponent("locked")
+        let exports = parent.appendingPathComponent("RecordingExports")
+        let recordings = base.appendingPathComponent("Recordings")
+        try files.createDirectory(at: exports, withIntermediateDirectories: true)
+        try files.createDirectory(at: recordings, withIntermediateDirectories: true)
+        try files.setAttributes([.posixPermissions: 0o555], ofItemAtPath: parent.path)
+        defer { try? files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: parent.path) }
+        #expect(throws: (any Error).self) {
+            try RecordingStore.removeRecordingDirectories([exports, recordings])
+        }
+        #expect(files.fileExists(atPath: exports.path))
+        #expect(!files.fileExists(atPath: recordings.path))
+    }
+
     private actor StopBarrier {
         private var entered = false
         private var arrival: CheckedContinuation<Void, Never>?
@@ -94,20 +126,6 @@ struct RecordingStoreTests {
         #expect(!events.contains("before_reset"))
         #expect(!events.contains("late_spatial_result"))
         #expect(events.contains("new_runtime"))
-    }
-
-    @Test func nextLaunchRemovesOnlyTemporaryExports() throws {
-        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: base) }
-        let exports = base.appendingPathComponent("RecordingExports")
-        try FileManager.default.createDirectory(at: exports, withIntermediateDirectories: true)
-        let original = base.appendingPathComponent("original.bin")
-        try Data([1, 2]).write(to: original)
-        try Data([3, 4]).write(to: exports.appendingPathComponent("previous.zip"))
-        try RecordingArchive.removePreviousExports(at: exports)
-        #expect(!FileManager.default.fileExists(atPath: exports.path))
-        #expect(try Data(contentsOf: original) == Data([1, 2]))
-        try RecordingArchive.removePreviousExports(at: exports)
     }
 
     @Test func exportSealsOneSnapshotAndKeepsRecording() async throws {

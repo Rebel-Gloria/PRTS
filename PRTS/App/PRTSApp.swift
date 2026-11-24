@@ -13,13 +13,11 @@ struct PRTSApp: App {
     init() {
         // Initializes product retention/migration before any feature can report an error.
         _ = ErrorLog.application
-        #if PRTS_DEV
         do {
             try RecordingArchive.removePreviousExports()
         } catch {
             ErrorLog.application.record(error, source: .storage)
         }
-        #endif
     }
 
     var body: some Scene {

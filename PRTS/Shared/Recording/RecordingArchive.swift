@@ -1,4 +1,3 @@
-#if PRTS_DEV
 import Foundation
 
 /// The coordinator provides a streaming ZIP representation; never loads an archive into memory.
@@ -13,6 +12,7 @@ nonisolated enum RecordingArchive {
         }
     }
 
+    #if PRTS_DEV
     static func create(from directories: [URL]) throws -> URL {
         let files = FileManager.default
         var sourceBytes: Int64 = 0
@@ -69,5 +69,5 @@ nonisolated enum RecordingArchive {
         guard copied else { throw RecordingError.writeFailed }
         return output
     }
+    #endif
 }
-#endif
