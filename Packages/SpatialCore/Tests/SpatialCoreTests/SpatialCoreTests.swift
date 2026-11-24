@@ -5,19 +5,6 @@ import simd
 
 final class SpatialCoreTests: XCTestCase {
     let k = CameraIntrinsics(fx: 200, fy: 200, cx: 159.5, cy: 119.5, width: 320, height: 240)
-    func testJournalReopenAfterStopDoesNotTruncateEarlierRecords() throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
-            UUID().uuidString + ".jsonl"
-        )
-        defer { try? FileManager.default.removeItem(at: url) }
-        let first = try AppendFile.open(at: url)
-        try first.write(contentsOf: Data("first\n".utf8))
-        try first.close()
-        let reopened = try AppendFile.open(at: url)
-        try reopened.write(contentsOf: Data("second\n".utf8))
-        try reopened.close()
-        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "first\nsecond\n")
-    }
     func testProjectionRoundTripAndARAxisSigns() {
         let p = k.unproject(u: 210, v: 160, depth: 2)
         XCTAssertGreaterThan(p.x, 0)

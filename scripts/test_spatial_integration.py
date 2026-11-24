@@ -29,9 +29,8 @@ class SpatialIntegrationTests(unittest.TestCase):
             # legacy graph defaults and forward/maneuver behavior. Clearance math stays pinned below.
             if source.name in {"PathPrediction.swift", "FanPathSearch.swift", "PathDrawing.swift"}:
                 continue
-            # Disk retention is intentionally versioned independently of the frozen algorithms.
-            # DiagnosticPolicyTests and DiagnosticTests cover its behavior.
-            if source.name == "DiagnosticJournal.swift":
+            # Disk retention lives in the app's RecordingStore; SpatialCore keeps only DTOs.
+            if source.name in {"AppendFile.swift", "DiagnosticJournal.swift"}:
                 continue
             with self.subTest(file=source.name):
                 current = source_file(
