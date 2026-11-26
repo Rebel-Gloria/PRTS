@@ -36,15 +36,47 @@ class SpatialIntegrationTests(unittest.TestCase):
                 current = source_file(
                     ROOT / "Packages/SpatialCore/Sources/SpatialCore", source.name
                 ).read_text(encoding="utf-8")
-                if source.name == "Analysis.swift":
-                    # Build25 extends the record only. Keep the ENTIRE sensor analyzer
-                    # token-identical rather than exempting Analysis.swift wholesale.
-                    current = current.replace(
-                        "    /// Present only on an adapted planning snapshot; nil in raw/older recordings.\n"
-                        "    public var planningObstacles: [OccupancyFootprint]?\n",
-                        "",
-                    )
                 expected = source.read_text(encoding="utf-8")
+                if source.name == "Analysis.swift":
+                    # Only product feedback classification has no frozen counterpart.
+                    # Keep comparing the entire fit, tracking, grid, and clearance pipeline.
+                    current = re.sub(
+                        r"^        func groundFeedback\(mapped: Bool = false\).*?^        \}\n",
+                        "",
+                        current,
+                        flags=re.M | re.S,
+                    )
+                    current = swift_code(current)
+                    for product, probe in (
+                        (
+                            "public enum GroundFeedbackEvidence: String, Codable, Sendable { case mapped, unmapped, fullFieldObstacle }",
+                            "",
+                        ),
+                        ("public var groundFeedbackEvidence: GroundFeedbackEvidence?", ""),
+                        ("public var planningObstacles: [OccupancyFootprint]?", ""),
+                        (
+                            "let depthStatistics = DepthStatistics(observation, parameters: p) diagnostics.depth = depthStatistics",
+                            "diagnostics.depth = DepthStatistics(observation, parameters: p)",
+                        ),
+                        ("!observation.isPrediction,", ""),
+                        (
+                            "Float(depthStatistics.acceptedHighConfidence) / Float(depthStatistics.pixels)",
+                            "observation.coverage(parameters: p)",
+                        ),
+                        ("result.groundFeedbackEvidence = groundFeedback()", ""),
+                        (
+                            "result.groundFeedbackEvidence = groundFeedback(mapped: confirmedGround && grid.cells.contains { $0.groundSamples > 0 })",
+                            "",
+                        ),
+                    ):
+                        self.assertIn(product, current)
+                        current = current.replace(swift_code(product), swift_code(probe))
+                if source.name == "Depth.swift":
+                    # Zero is not a physical range, even with a configured lower bound of zero.
+                    expected = expected.replace(
+                        "return supported && depth[i].isFinite && depth[i] >= p.minDepth && depth[i] <= p.maxDepth",
+                        "let z = depth[i]\n        return supported && z.isFinite && z > 0 && z >= p.minDepth && z <= p.maxDepth",
+                    )
                 if source.name == "PathHapticPolicy.swift":
                     # The product already prompts outside alignment without the probe's
                     # additional entry threshold. Pin this existing difference explicitly.
@@ -198,13 +230,14 @@ class SpatialIntegrationTests(unittest.TestCase):
         self.assertIn("s.pathUpdate = decision.update", runtime)
         self.assertIn("routeHazardWatermark", runtime)
         home = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
-        self.assertIn("snapshot.pathUpdate.waypointGuidance != nil", home)
-        self.assertIn("feedback.consumeDirection(snapshot, speech: speechManager)", home)
-        # Open-space speech is independent of whether a fresh measured floor exists.
-        self.assertLess(
-            home.index("snapshot.pathUpdate.waypointGuidance != nil"),
-            home.index("else if let result = camera.latestSceneResult"),
-        )
+        # All raw and route speech passes through the same ground-evidence gate.
+        coordinator = (
+            ROOT / "PRTS/Features/Guidance/Feedback/FeedbackCoordinator.swift"
+        ).read_text()
+        self.assertIn("raw: camera.latestSceneResult", home)
+        self.assertNotIn("feedback.consumeDirection", home)
+        self.assertIn("snapshot.feedbackEvidence(now: now)", coordinator)
+        self.assertIn("private func consumeDirection(", coordinator)
         self.assertNotIn("ForwardPathSearch", runtime)
         self.assertNotIn("ForwardObstacleTrigger", runtime)
 
@@ -323,8 +356,7 @@ class SpatialIntegrationTests(unittest.TestCase):
         home = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")
         self.assertNotIn('Button("返回")', settings)
         self.assertIn("speech.speakSettingsScreen", settings)
-        self.assertIn("else if !isShowingSettings {", home)
-        self.assertIn("speechManager.cancelPerceptionSpeech()", home)
+        self.assertIn("if !isShowingSettings { speechManager.cancelPerceptionSpeech() }", home)
 
     def test_original_home_controls_and_theme_are_preserved(self):
         # Guard observable actions and accessibility contracts, not layout hashes.

@@ -19,6 +19,7 @@ struct ObstacleWaypointPlanner: Sendable {
     private var scenarios = WaypointScenarioLatch()
     private var selectedReason: String?
     private var transitionPending = false
+    private var obstacleObservedAt: Double?
     private var lastUpdate = PathUpdate()
 
     var retainedPath: PredictedPath? { current }
@@ -107,6 +108,7 @@ struct ObstacleWaypointPlanner: Sendable {
             options: options,
             laneOnly: true
         )
+        if measuredObstacle != nil { obstacleObservedAt = r.timestamp }
         let (measuredScenario, retainedObstacle) = scenarios.update(
             measuredObstacle,
             now: r.timestamp,
@@ -130,6 +132,7 @@ struct ObstacleWaypointPlanner: Sendable {
             continuation = []
             side = 0
             scenario = .clear
+            obstacleObservedAt = nil
             reference = .init(origin: foot, forward: device.forward, plane: plane)
             previousFoot = foot
             return output(
@@ -168,6 +171,30 @@ struct ObstacleWaypointPlanner: Sendable {
                             )
                         } == true)
             } ?? false
+        // Clear hysteresis may hold a checked segment, never select a new turn from
+        // the remembered obstacle. A collision with that segment still vetoes it.
+        if measuredObstacle == nil {
+            if arrived || blocked {
+                replan = arrived ? "current_target_reached" : "target_or_path_blocked"
+                current = nil
+                goal = nil
+                continuation = []
+                preview = nil
+                previewAt = nil
+            }
+            let stillBlocked =
+                (!arrived && blocked) || lastUpdate.waypointGuidance?.scenario == .blocked
+            return output(
+                result: r,
+                options: options,
+                scenario: stillBlocked ? .blocked : newScenario,
+                obstacle: obstacle,
+                reason: replan ?? lastUpdate.reason,
+                replan: replan,
+                view: view,
+                retainedObstacleAt: obstacleObservedAt
+            )
+        }
         if blocked { replan = "target_or_path_blocked" }
         if arrived { replan = "current_target_reached" }
         if stageChanged && replan == nil {
@@ -176,10 +203,9 @@ struct ObstacleWaypointPlanner: Sendable {
         }
 
         if current == nil || replan != nil {
-            // Promotion is never a promise made when the preview was generated. Recheck
-            // the connection and the complete suffix now, then atomically replace current.
+            // The preview is a bypass, not a stand-off target for a distant obstacle.
             var plan: ObstacleWaypointSearch.Plan?
-            if arrived, let pending = preview,
+            if arrived, newScenario == .nearObstacle, let pending = preview,
                 raster.supports([foot] + Array(pending.points.dropFirst()))
             {
                 plan = .init(points: [foot] + Array(pending.points.dropFirst()), side: pending.side)
@@ -337,9 +363,10 @@ struct ObstacleWaypointPlanner: Sendable {
         obstacle: ForwardObstacle?,
         reason: String,
         replan: String?,
-        view: RouteCameraView?
+        view: RouteCameraView?,
+        retainedObstacleAt: Double? = nil
     ) -> PathUpdate {
-        if current != nil {
+        if current != nil, retainedObstacleAt == nil {
             current?.validatedFrameID = r.frameID
             current?.observedAt = r.timestamp
         }
@@ -374,6 +401,7 @@ struct ObstacleWaypointPlanner: Sendable {
         )
         update.waypointGuidance?.goalSelectedReason = goal == nil ? nil : selectedReason
         update.waypointGuidance?.transitionPending = transitionPending
+        update.waypointGuidance?.retainedObstacleAt = retainedObstacleAt
         if let target = goal, let pose = r.sourcePose,
             let basis = GroundBasis(plane: target.plane, pose: pose)
         {

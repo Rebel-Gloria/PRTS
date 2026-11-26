@@ -17,9 +17,12 @@ public struct OccupancyFilterDiagnostics: Codable, Sendable {
 struct TemporalOccupancyGrid: Sendable {
     private struct Track: Sendable {
         var anchor: V3
-        var since: Double
+        var measuredAge: Double = 0
+        var interrupted = false
         var last: Double
     }
+    private var missedObservation = false
+    private var interruptedPending: [OccupancyFootprint] = []
     private var previous: [SIMD3<Int>: Track] = [:]
     // Multiple measured squares may quantize to one association bin. Keep ALL confirmed
     // squares for collision geometry; choosing one timer must not discard the other area.
@@ -33,6 +36,10 @@ struct TemporalOccupancyGrid: Sendable {
     private(set) var diagnostics = OccupancyFilterDiagnostics()
     mutating func reset() { self = .init() }
 
+    mutating func missingObservation() {
+        // An unobserved interval cannot count toward confirming a transient obstacle.
+        missedObservation = true
+    }
     mutating func apply(_ result: AnalysisResult, forwardLength: Float = 8, routeForward: V3? = nil)
         -> AnalysisResult?
     {
@@ -98,6 +105,7 @@ struct TemporalOccupancyGrid: Sendable {
         diagnostics.referenceSource = referenceSource
         diagnostics.forwardBufferLength = forwardLength
         var current: [SIMD3<Int>: Track] = [:]
+        interruptedPending.removeAll(keepingCapacity: true)
         confirmedFootprints.removeAll(keepingCapacity: true)
         func key(_ p: V3) -> SIMD3<Int> {
             SIMD3(Int(floor(p.x / 0.1)), Int(floor(p.y / 0.1)), Int(floor(p.z / 0.1)))
@@ -131,31 +139,57 @@ struct TemporalOccupancyGrid: Sendable {
                         }
                     }
                 }
-                var track =
-                    match ?? Track(anchor: world, since: result.timestamp, last: result.timestamp)
+                var track = match ?? Track(anchor: world, last: result.timestamp)
+                if missedObservation {
+                    track.interrupted = match != nil
+                } else {
+                    track.measuredAge += result.timestamp - track.last
+                }
                 track.last = result.timestamp
-                let age = result.timestamp - track.since
+                let age = track.measuredAge
                 confirmed = age + 0.000001 >= diagnostics.thresholdSeconds
                 diagnostics.maximumAge = max(diagnostics.maximumAge, age)
+                let footprint = OccupancyFootprint(
+                    center: world,
+                    right: grid.basis.right,
+                    forward: grid.basis.forward,
+                    size: grid.cellSize
+                )
                 if confirmed {
                     diagnostics.confirmedCells += 1
-                    confirmedFootprints.append(
-                        .init(
-                            center: world,
-                            right: grid.basis.right,
-                            forward: grid.basis.forward,
-                            size: grid.cellSize
-                        )
-                    )
+                    confirmedFootprints.append(footprint)
                 } else {
                     diagnostics.pendingCells += 1
+                    if track.interrupted { interruptedPending.append(footprint) }
                 }
-                // Keep the older matching track when multiple samples quantize to one bin.
-                if current[k].map({ $0.since > track.since }) ?? true { current[k] = track }
+                if let old = current[k],
+                    old.measuredAge > age
+                        || (old.measuredAge == age && old.interrupted)
+                {
+                    continue
+                }
+                current[k] = track
             }
         }
-        previous = current  // A missing detection does not carry its timer into a later sighting.
+        previous = current  // A measured frame without the obstacle breaks its track.
+        missedObservation = false
         return projected(result, forwardLength: forwardLength, forward: basis.forward)
+    }
+
+    /// Only a repeated, still-pending footprint in the current lane can withhold clear.
+    func hasInterruptedObstacleAhead(pose: RigidPose, options: PathOptions) -> Bool {
+        guard !interruptedPending.isEmpty, let plane = referencePlane,
+            let basis = GroundBasis.geometry(
+                plane: plane,
+                pose: pose,
+                previousForward: referenceForward
+            )
+        else { return false }
+        let foot = plane.project(pose.position)
+        let end = foot + basis.forward * options.forwardBufferLength
+        return interruptedPending.contains {
+            $0.overlaps(from: foot, to: end, radius: options.minimumWidth / 2)
+        }
     }
 
     /// Re-query the SAME confirmed world tracks in another direction; never ingest twice or

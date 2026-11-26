@@ -51,7 +51,8 @@ public struct DepthObservation: Sendable {
         } else {
             supported = confidence.map { i < $0.count && $0[i] == 2 } ?? false
         }
-        return supported && depth[i].isFinite && depth[i] >= p.minDepth && depth[i] <= p.maxDepth
+        let z = depth[i]
+        return supported && z.isFinite && z > 0 && z >= p.minDepth && z <= p.maxDepth
     }
     public func points(parameters p: ProbeParameters) -> [V3] {
         guard structurallyValid else { return [] }

@@ -1,6 +1,10 @@
 import Foundation
 import simd
 
+public enum GroundFeedbackEvidence: String, Codable, Sendable {
+    case mapped, unmapped, fullFieldObstacle
+}
+
 public struct AnalysisResult: Codable, Sendable {
     public var epoch: UInt64
     public var frameID: UInt64
@@ -10,6 +14,9 @@ public struct AnalysisResult: Codable, Sendable {
     public var sourcePose: RigidPose?
     public var plane: GroundPlane?
     public var grid: LocalGrid?
+    /// Nil without usable native depth this frame or when absent from an older recording.
+    /// A mapped floor is not a clear route.
+    public var groundFeedbackEvidence: GroundFeedbackEvidence?
     /// Present only on an adapted planning snapshot; nil in raw/older recordings.
     public var planningObstacles: [OccupancyFootprint]?
     public var surfaceModel: SurfaceModel?
@@ -116,14 +123,17 @@ public final class SpatialAnalyzer {
         var diagnostics = AnalysisDiagnostics()
         diagnostics.priorCount = priors.count
         let diagnosticsStart = ProcessInfo.processInfo.systemUptime
-        diagnostics.depth = DepthStatistics(observation, parameters: p)
+        let depthStatistics = DepthStatistics(observation, parameters: p)
+        diagnostics.depth = depthStatistics
         diagnostics.depthReadStatus = "available"
         diagnostics.confidenceReadStatus = observation.confidence == nil ? "missing" : "available"
         result.diagnostics = diagnostics
         result.stageMilliseconds["diagnostics"] =
             (ProcessInfo.processInfo.systemUptime - diagnosticsStart) * 1000
         let start = ProcessInfo.processInfo.systemUptime
-        guard observation.structurallyValid, observation.confidence != nil else {
+        guard observation.structurallyValid, !observation.isPrediction,
+            observation.confidence != nil
+        else {
             _ = groundTracker.update(
                 fitted: nil,
                 pose: observation.pose,
@@ -140,7 +150,8 @@ public final class SpatialAnalyzer {
             return result
         }
         let points = observation.points(parameters: p)
-        result.validDepthCoverage = observation.coverage(parameters: p)
+        result.validDepthCoverage =
+            Float(depthStatistics.acceptedHighConfidence) / Float(depthStatistics.pixels)
         result.diagnostics?.sampledPoints = points.count
         let afterDepth = ProcessInfo.processInfo.systemUptime
         result.stageMilliseconds["depth"] = (afterDepth - start) * 1000
@@ -182,6 +193,11 @@ public final class SpatialAnalyzer {
             observation.timestamp - $0.observedAt
         }
         result.diagnostics?.groundReferenceInvalidation = selection.invalidation
+        func groundFeedback(mapped: Bool = false) -> GroundFeedbackEvidence? {
+            guard depthStatistics.acceptedHighConfidence > 0 else { return nil }
+            if mapped { return .mapped }
+            return observation.hasFullFieldObstacle(parameters: p) ? .fullFieldObstacle : .unmapped
+        }
         if !selection.currentConfirmed {
             if fitted == nil { result.diagnostics?.modelBlockReasons.append("ground_fit_failed") }
             if let fitted {
@@ -194,6 +210,7 @@ public final class SpatialAnalyzer {
         guard !points.isEmpty else {
             result.diagnostics?.modelState = "blocked"
             result.status = "未知：无高置信度深度；没有新的表面证据"
+            result.groundFeedbackEvidence = groundFeedback()
             return result
         }
         // A retained reference labels CURRENT depth only. It never fabricates an infinite blue plane.
@@ -202,6 +219,7 @@ public final class SpatialAnalyzer {
             result.status = "未知：未建立可靠地面，近期参考也不可用"
             result.stageMilliseconds["groundGrid"] =
                 (ProcessInfo.processInfo.systemUptime - afterDepth) * 1000
+            result.groundFeedbackEvidence = groundFeedback()
             return result
         }
         result.plane = plane
@@ -219,6 +237,7 @@ public final class SpatialAnalyzer {
             result.diagnostics?.modelState = "blocked"
             result.diagnostics?.modelBlockReasons.append("invalid_geometry_basis")
             result.status = "未知：地面坐标不可用"
+            result.groundFeedbackEvidence = groundFeedback()
             return result
         }
         result.diagnostics?.geometryBasisMode =
@@ -246,6 +265,9 @@ public final class SpatialAnalyzer {
             }
         }
         result.grid = grid
+        result.groundFeedbackEvidence = groundFeedback(
+            mapped: confirmedGround && grid.cells.contains { $0.groundSamples > 0 }
+        )
         let afterGrid = ProcessInfo.processInfo.systemUptime
         result.stageMilliseconds["groundGrid"] = (afterGrid - afterDepth) * 1000
         result.distances =

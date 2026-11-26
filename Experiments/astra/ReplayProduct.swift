@@ -104,12 +104,15 @@ struct Variant: Encodable {
     var heading: Float?, coverage: Float?, rebases: Int?
     var pathCollision050: Bool?, pathCollision060: Bool?, pathCollision090: Bool?
 }
-func severity(_ c: ObstacleRouteSpeech) -> Int {
-    switch c {
-    case .clear: return 0
-    case .blocked: return 3
-    case .obstacle(let d, _), .adjustCamera(let d): return (d ?? 99) < 1 ? 2 : 1
-    }
+func severity(_ c: ObstacleRouteSpeech) -> Int? {
+    func obstacleLevel(_ distance: Float?) -> Int { (distance ?? .infinity) < 1 ? 2 : 1 }
+    if case .clear = c { return 0 }
+    if case .blocked = c { return 3 }
+    if case .obstacle(let d, _) = c { return obstacleLevel(d) }
+    if case .adjustCamera(let d) = c { return obstacleLevel(d) }
+    // Historical policies lack the standalone close cue. Score its spoken equivalent
+    // without assigning an obstacle severity to older status cues such as initialization.
+    return c.chinese == ObstacleRouteSpeech.obstacle(0, nil).chinese ? 2 : nil
 }
 func collision(_ points: [V3], _ footprints: [OccupancyFootprint], _ width: Float) -> Bool {
     zip(points, points.dropFirst()).contains { a, b in
@@ -347,7 +350,7 @@ struct Output: Encodable {
                     reference: u.strategy?.reference,
                     confirmedCount: footprints.count,
                     speech: cue?.chinese,
-                    speechSeverity: cue.map(severity),
+                    speechSeverity: cue.flatMap(severity),
                     planningMS: base.milliseconds,
                     heading: heading?.angleDegrees,
                     pathCollision050: pts.map { collision($0, footprints, 0.5) },

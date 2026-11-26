@@ -10,7 +10,7 @@ final class ObstacleWaypointTests: XCTestCase {
     func testWaypointOpenSceneHasNoDrawnRoute() {
         var predictor = PathPredictor()
         let update = predictor.update(
-            result: fixture.frame(cells: { _ in .unknown }),
+            result: fixture.frame(),
             observation: nil,
             options: .init()
         )
@@ -113,11 +113,70 @@ extension ObstacleWaypointTests {
             options: .init(),
             view: nil
         )
+        XCTAssertEqual(reached.waypointGuidance?.scenario, .nearObstacle)
         XCTAssertNotNil(reached.path)
         XCTAssertNotEqual(reached.goal?.id, goal.id)
         XCTAssertEqual(reached.goal?.point, next)
         XCTAssertEqual(reached.path?.points.last, reached.goal?.point)
         XCTAssertEqual(reached.goalChangeReason, "current_target_reached")
+    }
+
+    func testWaypointArrivalAfterNearToDistantTransitionSelectsApproachInsteadOfPreview() throws {
+        var planner = ObstacleWaypointPlanner()
+        var options = PathOptions()
+        options.waypoints.standOff = 0.9
+        let first = planner.update(
+            result: waypointModel(cells: fixture.box),
+            cameraResult: nil,
+            options: options,
+            view: nil
+        )
+        let bend = try XCTUnwrap(first.goal?.point)
+        let far: (V3) -> CellState = { point in
+            abs(point.x) < 0.2 && (3...3.2).contains(bend.z - point.z) ? .obstacle : .candidate
+        }
+        // Let the farther obstacle settle while the current bend is still committed.
+        var held = first
+        for (index, time) in [1.1, 1.6, 1.9].enumerated() {
+            held = planner.update(
+                result: waypointModel(UInt64(index + 2), time, cells: far),
+                cameraResult: nil,
+                options: options,
+                view: nil
+            )
+            XCTAssertEqual(held.waypointGuidance?.scenario, .nearObstacle)
+            XCTAssertEqual(held.goal?.id, first.goal?.id)
+        }
+        let preview = try XCTUnwrap(held.waypointGuidance?.nextTarget)
+        let arrival = waypointModel(5, 2, pose: .init(position: bend + V3(0, 1.4, 0)), cells: far)
+        let raster = try XCTUnwrap(
+            RoutePlanningGrid(result: arrival, options: options, obstacleVeto: true)
+        )
+        XCTAssertTrue(raster.supports([bend, preview]))
+        let reached = planner.update(
+            result: arrival,
+            cameraResult: nil,
+            options: options,
+            view: nil
+        )
+        let target = try XCTUnwrap(reached.goal?.point)
+        XCTAssertEqual(reached.waypointGuidance?.scenario, .distantObstacle)
+        XCTAssertNotEqual(target, preview)
+        XCTAssertEqual(reached.path?.points, [bend, target])
+        XCTAssertEqual(target.x, 0, accuracy: 0.001)
+        let distance = try XCTUnwrap(reached.waypointGuidance?.obstacleDistance)
+        XCTAssertEqual(
+            bend.z - target.z,
+            distance - options.waypoints.standOff,
+            accuracy: raster.grid.cellSize
+        )
+        XCTAssertTrue(
+            ObstacleWaypointSearch.hasStandOff(
+                target,
+                raster: raster,
+                distance: options.waypoints.standOff
+            )
+        )
     }
 
     func testWaypointPreviewObstacleChangesOnlyUncommittedSuffix() throws {
@@ -366,12 +425,12 @@ extension ObstacleWaypointTests {
         }
         XCTAssertNotNil(before.path)
         _ = predictor.update(
-            result: fixture.frame(5, 1.4, cells: { _ in .unknown }),
+            result: fixture.frame(5, 1.4),
             observation: nil,
             options: .init()
         )
         let clear = predictor.update(
-            result: fixture.frame(6, 2.0, cells: { _ in .unknown }),
+            result: fixture.frame(6, 2.0),
             observation: nil,
             options: .init()
         )
@@ -415,7 +474,7 @@ extension ObstacleWaypointTests {
             )
         }
         XCTAssertNotNil(old.path)
-        var r = fixture.frame(1, 3, cells: { _ in .unknown })
+        var r = fixture.frame(1, 3)
         r.epoch = 2
         r.grid?.epoch = 2
         let reset = predictor.update(result: r, observation: nil, options: .init())
@@ -476,14 +535,14 @@ extension ObstacleWaypointTests {
             }
         }
         let clear = planner.update(
-            result: fixture.frame(5, 1.4, cells: { _ in .unknown }),
+            result: fixture.frame(5, 1.4),
             observation: nil,
             options: .init()
         )
         XCTAssertEqual(clear.occupancyFilter?.confirmedCells, 0)
         XCTAssertNotNil(clear.path)
         let settled = planner.update(
-            result: fixture.frame(6, 2.0, cells: { _ in .unknown }),
+            result: fixture.frame(6, 2.0),
             observation: nil,
             options: .init()
         )
@@ -491,14 +550,14 @@ extension ObstacleWaypointTests {
         XCTAssertNil(settled.path)
     }
 
-    func testWaypointNoGroundDoesNotPreventClearDecision() {
+    func testMissingMeasurementCannotPublishClear() {
         var planner = PathPredictor()
         var r = fixture.frame(cells: { _ in .unknown })
         r.plane = nil
         r.grid = nil
         let u = planner.update(result: r, observation: nil, options: .init())
-        XCTAssertEqual(u.waypointGuidance?.scenario, .clear)
-        XCTAssertEqual(u.continuity?.status, .clear)
+        XCTAssertNil(u.waypointGuidance)
+        XCTAssertNil(u.continuity)
         XCTAssertNil(u.path)
     }
 }

@@ -54,13 +54,18 @@ nonisolated final class TestRGBCamera: RGBCapturing, @unchecked Sendable {
 struct CameraRecoveryTests {
     private final class TestFeedback: SpatialFeedback {
         var status = "test"
-        func tick(_ snapshot: SharedSnapshot, diagnostics: DiagnosticRecorder, suspended: Bool) {}
+        private(set) var suspended: Bool?
+        func tick(_ snapshot: SharedSnapshot, diagnostics: DiagnosticRecorder, suspended: Bool) {
+            self.suspended = suspended
+        }
         func reset() {}
     }
 
     private func makeCamera(
         session: TestProbeSession = TestProbeSession(),
         queue: DispatchQueue = DispatchQueue(label: "test.camera.session"),
+        feedback: TestFeedback? = nil,
+        hasDepth: Bool = false,
         permission: @escaping () async throws -> Bool = { true },
         isActive: @escaping () -> Bool = { true },
         authorization: AVAuthorizationStatus = .authorized,
@@ -72,14 +77,14 @@ struct CameraRecoveryTests {
                     session: session,
                     capabilities: DeviceCapabilities(
                         world: true,
-                        depth: false,
+                        depth: hasDepth,
                         meshClassification: false,
                         smooth: false,
                         planeClassification: false
                     ),
                     sessionQueue: queue
                 ),
-                feedback: TestFeedback()
+                feedback: feedback ?? TestFeedback()
             ),
             permission: permission,
             isActive: isActive,
@@ -105,12 +110,136 @@ struct CameraRecoveryTests {
         #expect(!camera.model.engine.store.read().running)
     }
 
+    // The fake session produces no ARFrames. Install a measured strip at a known
+    // time so retaining survey coverage can be tested independently of live tracking.
+    private let surveyPose = RigidPose(position: V3(0, 1.4, 0))
+
+    private func recordMeasurement(_ camera: CameraManager, frameID: UInt64) {
+        let plane = GroundPlane(normal: V3(0, 1, 0), offset: 0)
+        let basis = GroundBasis(plane: plane, pose: surveyPose)!
+        camera.model.engine.store.update {
+            var grid = LocalGrid(
+                basis: basis,
+                parameters: $0.parameters,
+                timestamp: Double(frameID),
+                frameID: frameID,
+                epoch: $0.epoch
+            )
+            for i in grid.cells.indices where abs(grid.center(i).x) < 0.7 {
+                grid.cells[i] = GridCell(state: .candidate)
+            }
+            $0.waypointSurvey.record(
+                grid,
+                pose: surveyPose,
+                retention: $0.pathOptions.retentionSeconds
+            )
+            $0.result = AnalysisResult(
+                epoch: $0.epoch,
+                frameID: frameID,
+                timestamp: grid.timestamp,
+                parameters: $0.parameters,
+                parameterVersion: $0.parameterVersion,
+                status: "synthetic"
+            )
+            $0.result?.grid = grid
+        }
+    }
+
+    private func coversMeasuredStep(_ camera: CameraManager, at time: Double) -> Bool {
+        let snapshot = camera.model.engine.store.read()
+        return snapshot.waypointSurvey.coversStep(
+            from: surveyPose,
+            target: nil,
+            options: snapshot.pathOptions,
+            now: time
+        )
+    }
+
+    @Test func feedbackOnlyPauseKeepsMeasurementsButDoesNotAuthorizeStaleOutput() async {
+        let session = TestProbeSession()
+        let feedback = TestFeedback()
+        let camera = makeCamera(session: session, feedback: feedback, hasDepth: true)
+        camera.startCamera()
+        await camera.startTask?.value
+        let epoch = camera.model.snapshot.epoch
+        recordMeasurement(camera, frameID: 1)
+
+        // Photo and Settings mute both channels. Live captions leave the camera's
+        // haptic channel open; their speech gate belongs to the home screen.
+        camera.poll(suspendFeedback: true)
+        #expect(feedback.suspended == true)
+        #expect(coversMeasuredStep(camera, at: 1))
+        #expect(camera.model.snapshot.result?.frameID == 1)
+        #expect(throws: PhotoChatError.emptyInput) {
+            _ = try camera.capturePhoto(longestSide: 1280)
+        }
+        recordMeasurement(camera, frameID: 2)
+        camera.poll(suspendFeedback: false)
+        #expect(feedback.suspended == false)
+        #expect(coversMeasuredStep(camera, at: 4))
+        #expect(!coversMeasuredStep(camera, at: 4.01))
+        #expect(camera.model.snapshot.result?.frameID == 2)
+        #expect(camera.model.snapshot.epoch == epoch)
+        #expect(camera.latestSceneResult == nil)
+        #expect(throws: PhotoChatError.emptyInput) { _ = try camera.captureCaptionFrame() }
+        #expect(session.operations == ["run"])
+        await stop(camera)
+    }
+
+    @Test func backgroundWithoutSessionInterruptionDoesNotRestartMapping() async {
+        let session = TestProbeSession()
+        let camera = makeCamera(session: session, hasDepth: true)
+        camera.startCamera()
+        await camera.startTask?.value
+        let epoch = camera.model.snapshot.epoch
+        recordMeasurement(camera, frameID: 3)
+        camera.lifecycle(.inactive)
+        camera.lifecycle(.background)
+        camera.poll(suspendFeedback: false)
+        #expect(camera.model.feedbackSuspended)
+        #expect(camera.latestSceneResult == nil)
+        camera.lifecycle(.active)
+        #expect(!camera.model.feedbackSuspended)
+        #expect(coversMeasuredStep(camera, at: 3.1))
+        #expect(camera.model.snapshot.result?.frameID == 3)
+        #expect(camera.model.snapshot.epoch == epoch)
+        #expect(session.operations == ["run"])
+        await stop(camera)
+    }
+
+    @Test func explicitRestartCannotReuseMeasurementsFromBeforeStop() async {
+        let session = TestProbeSession()
+        let camera = makeCamera(session: session, hasDepth: true)
+        camera.startCamera()
+        await camera.startTask?.value
+        let epoch = camera.model.snapshot.epoch
+        recordMeasurement(camera, frameID: 4)
+        #expect(coversMeasuredStep(camera, at: 4))
+        await stop(camera)
+        #expect(!coversMeasuredStep(camera, at: 4.1))
+        #expect(camera.model.engine.store.read().result == nil)
+        camera.lifecycle(.active)
+        #expect(!camera.requestedRunning)
+        #expect(camera.startTask == nil)
+        camera.startCamera()
+        await camera.startTask?.value
+        #expect(camera.model.snapshot.epoch > epoch)
+        #expect(camera.model.snapshot.result == nil)
+        #expect(!camera.model.snapshot.geometryEnabled)
+        #expect(camera.latestSceneResult == nil)
+        #expect(session.operations == ["run", "pause", "run"])
+        await stop(camera)
+    }
+
     @Test func textCameraMayStartOnlyAfterGuidancePauseCompletes() async {
         let session = TestProbeSession()
         let queue = DispatchQueue(label: "test.camera.handoff")
-        let camera = makeCamera(session: session, queue: queue)
+        let camera = makeCamera(session: session, queue: queue, hasDepth: true)
         camera.startCamera()
         await camera.startTask?.value
+        let epoch = camera.model.snapshot.epoch
+        recordMeasurement(camera, frameID: 1)
+        #expect(coversMeasuredStep(camera, at: 1))
         queue.suspend()
         await withCheckedContinuation { done in
             camera.pauseForTextReading {
@@ -121,9 +250,14 @@ struct CameraRecoveryTests {
             #expect(camera.suspendsFeedback)
             queue.resume()
         }
+        #expect(camera.requestedRunning)
+        #expect(!coversMeasuredStep(camera, at: 1.1))
+        #expect(camera.model.engine.store.read().result == nil)
         camera.finishTextReading(isActive: true)
         await camera.startTask?.value
         #expect(session.operations == ["run", "pause", "run"])
+        #expect(camera.model.snapshot.epoch > epoch)
+        #expect(!camera.model.snapshot.geometryEnabled)
         await stop(camera)
     }
 
@@ -337,14 +471,20 @@ struct CameraRecoveryTests {
     @Test func lowVisionReleasesSpatialCaptureAndKeepsOnlyRGB() async {
         let session = TestProbeSession()
         let rgb = TestRGBCamera()
-        let camera = makeCamera(session: session, rgbCamera: rgb)
+        let camera = makeCamera(session: session, hasDepth: true, rgbCamera: rgb)
         camera.startCamera()
         await camera.startTask?.value
+        let epoch = camera.model.snapshot.epoch
+        recordMeasurement(camera, frameID: 1)
+        #expect(coversMeasuredStep(camera, at: 1))
         await withCheckedContinuation { done in
             camera.setLowVisionMode(true) { done.resume() }
         }
         await camera.startTask?.value
         #expect(session.operations == ["run", "pause"])
+        #expect(camera.requestedRunning)
+        #expect(!coversMeasuredStep(camera, at: 1.1))
+        #expect(camera.model.snapshot.result == nil)
         #expect(rgb.operations == ["start"])
         #expect(!camera.model.engine.store.read().running)
         #expect(camera.state == .running)
@@ -359,6 +499,8 @@ struct CameraRecoveryTests {
         #expect(rgb.operations == ["start", "stop"])
         #expect(session.operations.last == "run")
         #expect(camera.model.engine.store.read().running)
+        #expect(camera.model.snapshot.epoch > epoch)
+        #expect(!camera.model.snapshot.geometryEnabled)
         await stop(camera)
     }
 
@@ -407,11 +549,13 @@ struct CameraRecoveryTests {
     @Test func systemInterruptionRetainsSessionAndWaitsForFreshEvidence() async {
         let queue = DispatchQueue(label: "test.camera.interruption")
         let session = TestProbeSession()
-        let camera = makeCamera(session: session, queue: queue)
+        let camera = makeCamera(session: session, queue: queue, hasDepth: true)
         camera.startCamera()
         await camera.startTask?.value
         let engine = camera.model.engine
         let epoch = engine.store.read().epoch
+        recordMeasurement(camera, frameID: 1)
+        #expect(coversMeasuredStep(camera, at: 1))
         await withCheckedContinuation { done in
             queue.async {
                 engine.sessionWasInterrupted(ARSession())
@@ -420,10 +564,12 @@ struct CameraRecoveryTests {
         }
         let interrupted = engine.store.read()
         #expect(interrupted.running)
+        #expect(!coversMeasuredStep(camera, at: 1.1))
         #expect(interrupted.interrupted)
         #expect(interrupted.epoch > epoch)
         #expect(!interrupted.geometryEnabled)
         #expect(interrupted.frame == nil)
+        #expect(interrupted.result == nil)
         #expect(session.operations == ["run"])
         await withCheckedContinuation { done in
             queue.async {
@@ -433,6 +579,8 @@ struct CameraRecoveryTests {
         }
         let resumed = engine.store.read()
         #expect(!resumed.interrupted)
+        #expect(resumed.epoch == interrupted.epoch)
+        #expect(resumed.result == nil)
         #expect(!resumed.geometryEnabled)
         #expect(resumed.frame == nil)
         #expect(session.operations == ["run"])

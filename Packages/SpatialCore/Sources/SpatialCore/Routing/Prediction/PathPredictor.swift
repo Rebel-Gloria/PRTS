@@ -226,6 +226,32 @@ public struct PathPredictor: Sendable {
             return update
         }
         if experimentalOccupancyPlanning {
+            if usesWaypoints, result.groundFeedbackEvidence == .fullFieldObstacle {
+                // Withdraw the published route even if no UI poll sees this frame. Forget the
+                // planner's held target too: later open floor cannot revalidate that detour.
+                let started = ProcessInfo.processInfo.systemUptime
+                let watermark = max(hazardWatermark, result.frameID)
+                onOccupancyConflict?(watermark)
+                waypointPlanner = .init()
+                occupancyFilter.missingObservation()
+                var veto = occupancyContext(
+                    .init(reason: "full_field_obstacle"),
+                    result: result,
+                    options: options,
+                    watermark: watermark,
+                    started: started
+                )
+                veto.continuity?.status = .hazardBlocked
+                return veto
+            }
+            // No new sensor evidence: leave the published route and its original clock alone.
+            // In particular, never advance the open-space latch with an empty search raster.
+            if usesWaypoints,
+                result.groundFeedbackEvidence == .unmapped || result.waypointSensorGrid == nil
+            {
+                occupancyFilter.missingObservation()
+                return .init(reason: "waiting_for_observation")
+            }
             return occupancyUpdate(
                 result: result,
                 options: options,
@@ -264,14 +290,15 @@ public struct PathPredictor: Sendable {
                     ? waypointPlanner.planningForward : planner.planningForward
             )
         else {
-            let held =
-                usesWaypoints
-                ? waypointPlanner.held(reason: "occupancy_waiting_reference")
-                : planner.held(
-                    at: result.timestamp,
-                    options: options.validated(),
-                    reason: "occupancy_waiting_reference"
-                )
+            if usesWaypoints {
+                occupancyFilter.missingObservation()
+                return .init(reason: "occupancy_waiting_reference")
+            }
+            let held = planner.held(
+                at: result.timestamp,
+                options: options.validated(),
+                reason: "occupancy_waiting_reference"
+            )
             return occupancyContext(
                 held,
                 result: result,
@@ -291,6 +318,22 @@ public struct PathPredictor: Sendable {
             onConflict?(watermark)
         }
         if usesWaypoints {
+            // Searchable unknown cells cannot clear a previous hazard or open a new route.
+            // A confirmed obstacle is actionable even with no measured floor alongside it.
+            let seesForwardGround =
+                result.grid.flatMap { raw in
+                    result.sourcePose.map {
+                        WaypointSurvey.seesForwardGround(raw, pose: $0, options: options)
+                    }
+                } ?? false
+            func waiting() -> PathUpdate {
+                var waiting = PathUpdate(reason: "waiting_for_observation")
+                waiting.occupancyFilter = occupancyFilter.diagnostics
+                return waiting
+            }
+            if !seesForwardGround && planning.planningObstacles?.isEmpty != false {
+                return waiting()
+            }
             let cameraResult = result.sourcePose.flatMap {
                 occupancyFilter.projected(
                     result,
@@ -304,6 +347,17 @@ public struct PathPredictor: Sendable {
                 options: options.validated(),
                 view: cameraView
             )
+            if update.waypointGuidance?.scenario == .clear,
+                !seesForwardGround
+                    || result.sourcePose.map({
+                        occupancyFilter.hasInterruptedObstacleAhead(
+                            pose: $0,
+                            options: options.validated()
+                        )
+                    }) == true
+            {
+                return waiting()
+            }
             update.occupancyFilter = occupancyFilter.diagnostics
             update.confirmedObstacles = planning.planningObstacles
             return occupancyContext(
@@ -378,7 +432,7 @@ public struct PathPredictor: Sendable {
             epoch: result.epoch,
             parameterVersion: result.parameterVersion,
             frameID: result.frameID,
-            timestamp: result.timestamp,
+            timestamp: update.waypointGuidance?.retainedObstacleAt ?? result.timestamp,
             requestID: result.frameID,
             sourceMapVersion: result.frameID,
             hazardWatermark: watermark,

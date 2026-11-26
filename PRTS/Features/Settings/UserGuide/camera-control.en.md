@@ -25,6 +25,10 @@ To launch with the Action button, go to iPhone Settings > Action Button, choose 
 
 - PRTS is an aid and doesn't replace a white cane or a guide dog.
 - Guidance requires a Pro model with LiDAR and can't detect steps or drop-offs yet.
-- Guidance cues pause while describing, answering, or reading text, and descriptions or answers can be wrong. Rely on guidance cues and your cane before moving ahead.
+- You’ll feel two taps when guidance starts. Silence doesn’t mean the way ahead is clear. If you stop and start again, or return to guidance after reading text, wait for a new cue.
+- If your iPhone can’t see the ground, it won’t say the way is clear or tell you to turn. It can still say “Obstacle close” if a nearby obstacle fills the view.
+- If your iPhone briefly loses sight of the way ahead, it can only use what it just detected. If you move beyond that area and it still can’t see ahead, it alerts you once.
+- Guidance speech and vibration pause while PRTS describes a scene, answers a question, or shows Settings. With live captions, you can still feel guidance cues. While reading text, PRTS stops checking for obstacles.
+- Descriptions and answers can be wrong. Use your cane along with guidance cues before moving ahead.
 
 You can open this guide again anytime from the bottom of Settings.

@@ -22,6 +22,7 @@ struct SharedSnapshot: Sendable {
     var surfaceHistory = SurfaceHistory()
     var pathOptions = PathOptions()
     var pathUpdate = PathUpdate()
+    var waypointSurvey = WaypointSurvey()
     var routeHazardWatermark: UInt64 = 0
     var routePublicationReason = "not_running"
     var routePublishTime: Double?
@@ -99,6 +100,13 @@ struct SharedSnapshot: Sendable {
         guard let result, presentationGate.allowsGeometry(result, now: now) else { return nil }
         return result
     }
+    func feedbackEvidence(now: Double) -> GroundFeedbackEvidence? {
+        if usesMonocular { return .unmapped }
+        return activeGeometryResult(now: now)?.groundFeedbackEvidence
+    }
+    var latestFeedbackFrameID: UInt64 {
+        max(result?.frameID ?? 0, pathUpdate.continuity?.frameID ?? 0)
+    }
     func activeSurfacePresentation(now: Double) -> SurfacePresentation? {
         surfaceHistory.presentation(
             current: activeGeometryResult(now: now),
@@ -108,13 +116,19 @@ struct SharedSnapshot: Sendable {
         )
     }
     func activeRouteProjection(now: Double) -> RouteProjection? {
-        guard pathOptions.enabled, let projection = pathUpdate.projection,
+        guard pathOptions.enabled, feedbackEvidence(now: now) != .fullFieldObstacle,
+            let projection = pathUpdate.projection,
             projection.visible(gate: presentationGate, now: now)
         else { return nil }
         return projection
     }
     func activePath(now: Double) -> PathPresentation? {
-        guard pathOptions.enabled, let path = pathUpdate.path, let frame else { return nil }
+        guard pathOptions.enabled, feedbackEvidence(now: now) != .fullFieldObstacle,
+            let path = pathUpdate.path, let frame
+        else { return nil }
+        if path.planningPolicy == .obstacleVeto && activeWaypointUpdate(now: now) == nil {
+            return nil
+        }
         return PathPresentation.make(
             path: path,
             gate: presentationGate,
@@ -125,20 +139,51 @@ struct SharedSnapshot: Sendable {
     }
     /// Open-space guidance has no path by design; it must not depend on the ground-render result.
     func activeWaypointUpdate(now: Double) -> PathUpdate? {
+        guard let pose = surveyPose(now: now), let cue = pathUpdate.waypointGuidance,
+            let context = pathUpdate.continuity, context.epoch == epoch,
+            context.parameterVersion == parameterVersion, context.frameID >= minimumGeometryFrameID,
+            context.frameID <= presentationGate.frameID,
+            context.hazardWatermark >= routeHazardWatermark,
+            now >= context.timestamp, now - context.timestamp <= pathOptions.retentionSeconds
+        else { return nil }
+        if cue.scenario != .clear && now - context.timestamp <= parameters.maxResultAge {
+            return pathUpdate  // Presentation lifetime is separate from permission to issue a cue.
+        }
+        let target = surveyTarget(pose)
+        guard pathUpdate.path == nil || target != nil,
+            let observedAt = waypointSurvey.measuredAt(
+                from: pose,
+                target: target,
+                options: pathOptions,
+                now: now,
+                noLaterThan: context.timestamp
+            )
+        else { return nil }
+        var eligible = pathUpdate
+        // A new observation elsewhere must not make this historical clear speak as new.
+        eligible.continuity?.timestamp = min(observedAt, context.timestamp)
+        return eligible
+    }
+    private func surveyPose(now: Double) -> RigidPose? {
         let gate = presentationGate
-        guard pathOptions.enabled, pathUpdate.waypointGuidance != nil,
-            let context = pathUpdate.continuity,
-            gate.enabled, gate.trackingNormal, context.epoch == gate.epoch,
-            context.parameterVersion == gate.parameterVersion,
-            context.frameID >= gate.minimumGeometryFrameID,
-            context.frameID <= gate.frameID, context.hazardWatermark >= routeHazardWatermark,
+        guard pathOptions.enabled, gate.enabled, gate.trackingNormal,
             now >= gate.frameTimestamp, now - gate.frameTimestamp <= gate.maxAge
         else { return nil }
-        return pathUpdate
+        return frame?.pose
+    }
+    private func surveyTarget(_ pose: RigidPose) -> V3? {
+        pathUpdate.path.flatMap {
+            PathTracking.heading(path: $0, pose: pose, lookAhead: pathOptions.lookAhead)?.target
+        }
+    }
+    func hasLeftMappedArea(now: Double) -> Bool {
+        guard let pose = surveyPose(now: now) else { return false }
+        return waypointSurvey.leftMappedArea(pose: pose, options: pathOptions)
     }
     func pathHeading(now: Double) -> PathHeading? {
         // Angle feedback follows the LIVE tracked pose during a normal turn. The fixed goal
         // is not reselected here; fresh tracking/epoch/TTL and near-vertical checks still apply.
+        if let evidence = feedbackEvidence(now: now), evidence != .mapped { return nil }
         guard let path = activePath(now: now), let pose = frame?.pose else { return nil }
         guard presentationGate.directionStable else { return nil }
         let heading = PathTracking.heading(
@@ -156,5 +201,14 @@ struct SharedSnapshot: Sendable {
     func activeGuidanceResult(now: Double) -> AnalysisResult? {
         guard let result, presentationGate.allowsGuidance(result, now: now) else { return nil }
         return result
+    }
+}
+
+extension PathUpdate {
+    func canStartWaypointFeedback(now: Double, maxAge: Double) -> Bool {
+        guard let waypointGuidance, waypointGuidance.retainedObstacleAt == nil,
+            let measuredAt = continuity?.timestamp
+        else { return false }
+        return now >= measuredAt && now - measuredAt <= maxAge
     }
 }

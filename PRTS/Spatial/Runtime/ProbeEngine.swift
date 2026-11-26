@@ -108,6 +108,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.frozen = nil
                 $0.result = nil
                 $0.surfaceHistory.reset()
+                $0.waypointSurvey = .init()
                 $0.pathUpdate = .init(reason: "invalidated")
                 $0.diagnosticResult = nil
                 $0.analyzedFrame = nil
@@ -154,6 +155,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.frozen = nil
                 $0.result = nil
                 $0.surfaceHistory.reset()
+                $0.waypointSurvey = .init()
                 $0.pathUpdate = .init(reason: "invalidated")
                 $0.diagnosticResult = nil
                 $0.analyzedFrame = nil
@@ -214,6 +216,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             $0.monocular = nil
             $0.frozenMonocular = nil
             $0.surfaceHistory.reset()
+            $0.waypointSurvey = .init()
             $0.pathUpdate = .init(reason: "invalidated")
             $0.geometryEnabled = false
         }
@@ -244,6 +247,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.result = nil
                 $0.monocular = nil
                 $0.surfaceHistory.reset()
+                $0.waypointSurvey = .init()
                 $0.pathUpdate = .init(reason: "invalidated")
                 $0.geometryEnabled = false
                 $0.minimumGeometryFrameID = ($0.frame?.id ?? 0) + 1
@@ -293,6 +297,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                 $0.result = nil
                 $0.monocular = nil
                 $0.surfaceHistory.reset()
+                $0.waypointSurvey = .init()
                 $0.pathUpdate = .init(reason: "invalidated")
                 $0.minimumGeometryFrameID = snapshot.id + 1
             }
@@ -529,6 +534,14 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                         now: now,
                         expectedPolicy: PRTSRuntimeProfile.routePlanningPolicy
                     )
+                    if decision.accepted, pathUpdate.waypointGuidance != nil, let grid = result.grid
+                    {
+                        s.waypointSurvey.record(
+                            grid,
+                            pose: frame.pose,
+                            retention: s.pathOptions.retentionSeconds
+                        )
+                    }
                     s.pathUpdate = decision.update
                     s.routePublicationReason = decision.reason
                     s.routePublishTime = now
@@ -633,6 +646,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
                     $0.result = nil
                     $0.surfaceHistory.reset()
                     if PRTSRuntimeProfile.routePlanningPolicy == .verified {
+                        $0.waypointSurvey = .init()
                         $0.pathUpdate = .init(reason: "invalidated")
                     }
                     $0.meshDrops += 1
@@ -703,6 +717,7 @@ final class ProbeEngine: NSObject, ARSessionDelegate, @unchecked Sendable {
             $0.frozen = nil
             $0.result = nil
             $0.surfaceHistory.reset()
+            $0.waypointSurvey = .init()
             $0.pathUpdate = .init(reason: "session_interrupted")
             $0.diagnosticResult = nil
             $0.analyzedFrame = nil

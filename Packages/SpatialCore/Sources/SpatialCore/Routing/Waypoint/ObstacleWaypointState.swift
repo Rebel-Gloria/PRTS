@@ -38,6 +38,8 @@ public struct ObstacleWaypointGuidance: Codable, Sendable {
     public var referenceForward: V3
     public var goalSelectedReason: String? = nil
     public var transitionPending: Bool? = nil
+    /// Hysteresis may keep the existing segment; it is not a new obstacle observation.
+    public var retainedObstacleAt: Double? = nil
 }
 
 /// RGB intrinsics use the unrotated full camera image. Aspect-fit screen rotation preserves

@@ -142,7 +142,11 @@ struct ContentView: View {
                 guard homeFeedbackEnabled, !photo.busy,
                     textReading.phase == .idle, !liveCaption.suspendsFeedback, !guidanceSuppressed
                 else { return }
-                speechManager.announceCameraState(newState)
+                if !camera.model.snapshot.pathOptions.enabled
+                    || (newState != .starting && newState != .running)
+                {
+                    speechManager.announceCameraState(newState)
+                }
                 if newState == .running { hapticManager.cameraStarted() }
             }
             .onReceive(pollTimer) { _ in
@@ -160,35 +164,32 @@ struct ContentView: View {
                 let suspendFeedback = suspendHaptics || liveCaption.suspendsFeedback
                 camera.poll(suspendFeedback: suspendHaptics)
                 let snapshot = camera.model.snapshot
+                let now = ProcessInfo.processInfo.systemUptime
+                let waypoint = suspendHaptics ? nil : snapshot.activeWaypointUpdate(now: now)
+                feedback.synchronizeSession(snapshot, speech: speechManager)
+                let wasReportingLoss = feedback.reportedLoss
                 if suspendHaptics {
                     feedback.resetAlerts()
-                } else if let alert = feedback.alert(snapshot) {
+                } else if let alert = feedback.alert(snapshot, waypoint: waypoint, now: now) {
                     if snapshot.pathOptions.haptics { hapticManager.guidanceAlert() }
-                    // Not perception speech: the branches below cancel that when no result
-                    // is current, which is exactly when this has to be heard.
                     if alert == .lost && !suspendFeedback {
-                        speechManager.speak(speechManager.interfaceString("speech.guidance.lost"))
+                        feedback.speakLoss(using: speechManager)
                     }
                 }
                 if !suspendFeedback {
-                    if snapshot.pathOptions.enabled && snapshot.pathUpdate.waypointGuidance != nil {
-                        // One committed route state owns open/far/near speech. Do not also
-                        // announce the raw centre sector or wait for a rendered floor.
-                        feedback.consumeDirection(snapshot, speech: speechManager)
-                    } else if let result = camera.latestSceneResult {
-                        feedback.consume(
-                            result,
-                            speech: speechManager,
-                            announceCandidates: !snapshot.pathOptions.enabled
-                        )
-                        feedback.consumeDirection(snapshot, speech: speechManager)
-                    } else {
-                        feedback.reset()
+                    if wasReportingLoss && !feedback.reportedLoss {
                         speechManager.cancelPerceptionSpeech()
                     }
-                } else if !isShowingSettings {
-                    feedback.reset()
-                    speechManager.cancelPerceptionSpeech()
+                    feedback.consume(
+                        snapshot,
+                        waypoint: waypoint,
+                        raw: camera.latestSceneResult,
+                        speech: speechManager,
+                        now: now
+                    )
+                } else {
+                    feedback.pauseSpeech(through: snapshot.latestFeedbackFrameID)
+                    if !isShowingSettings { speechManager.cancelPerceptionSpeech() }
                 }
             }
             .onChange(of: operationMessage) { _, message in
@@ -211,10 +212,7 @@ struct ContentView: View {
             }
             .onChange(of: isShowingSettings) { _, shown in
                 updateFeatureFeedback()
-                if shown {
-                    feedback.reset()
-                    speechManager.stopCurrentSpeech()
-                }
+                if shown { speechManager.stopCurrentSpeech() }
             }
             .onChange(of: lowVisionMode) { _, enabled in
                 if !resettingRecording { camera.setLowVisionMode(enabled) }
@@ -235,10 +233,7 @@ struct ContentView: View {
                     hapticManager.stopHoldFeedback()
                 }
                 camera.lifecycle(phase)
-                if phase != .active {
-                    feedback.reset()
-                    speechManager.stopCurrentSpeech()
-                }
+                if phase != .active { speechManager.stopCurrentSpeech() }
                 runPendingCommand()
             }
             .onAppear {
@@ -344,7 +339,12 @@ struct ContentView: View {
         photo.setFeedbackEnabled(enabled)
         liveCaption.setFeedbackEnabled(enabled)
         textReading.setFeedbackEnabled(enabled)
-        if !enabled { camera.poll(suspendFeedback: true) }
+        if !enabled {
+            feedback.resetAlerts()
+            feedback.pauseSpeech(through: camera.model.snapshot.latestFeedbackFrameID)
+            speechManager.cancelPerceptionSpeech()
+            camera.poll(suspendFeedback: true)
+        }
     }
 
     private func resetRecordings() {
@@ -592,7 +592,7 @@ struct ContentView: View {
             recoverInterruptedAudio()
             updateFeatureFeedback()
         }
-        feedback.guidanceStarted()
+        feedback.reset()
         camera.startCamera()
     }
 
@@ -670,7 +670,8 @@ struct ContentView: View {
         hapticManager.stopHoldFeedback()
         liveCaption.stop()
         photo.cancel()
-        feedback.reset()
+        feedback.resetAlerts()
+        feedback.pauseSpeech(through: camera.model.snapshot.latestFeedbackFrameID)
         speechManager.stopCurrentSpeech()
         let resumeGuidance = camera.state == .running
         hapticManager.buttonTapped()

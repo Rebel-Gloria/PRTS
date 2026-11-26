@@ -5,32 +5,57 @@ import SpatialCore
 /// neither interrupts nor re-arms speech. Suppressed turns are evaluated again from the
 /// LIVE current heading; no queue can replay a preview/obsolete target instruction.
 struct ObstacleRouteAnnouncementPolicy {
-    private var initializationStartedAt: Double?
-    private var initializationAnnounced = false
     private var observedScenario: ObstacleRouteScenario?
+    private var lastClearObservation: Double?
     private var scenarioSince: Double = 0
     private var spokenScenario: ObstacleRouteScenario?
     private var turns = TurnAnnouncementPolicy()
     private var spokenNear: Bool?
     private var spokenAt: Double = -.infinity
     private var spokenTurn: Int?
-    static let initializationDelay: Double = 0.5
+    private var lastFullFieldObservation: Double?
+    var lastCueWasFullField: Bool { lastFullFieldObservation != nil }
+    static let firstClearDelay: Double = 0.5
     static let minimumInterval: Double = 2.5
-    /// Feedback resumes after photos, reading and settings without saying "initializing" again;
-    /// only the silent wait for the occupancy model repeats.
-    mutating func reset() {
-        let announced = initializationAnnounced
-        self = .init()
-        initializationAnnounced = announced
-    }
-    /// The user started guidance, so its first sentence is the initialization cue again.
-    mutating func announceInitialization() { initializationAnnounced = false }
+    mutating func reset() { self = .init() }
 
-    /// Cancel only a semantically obsolete turn, not every geometry revision. Cancellation
-    /// does not clear the cooldown, so rapid state changes cannot repeatedly restart audio.
-    mutating func interruptIfObsolete(update: PathUpdate, heading: PathHeading?, threshold: Float)
+    /// One immediate warning per encounter. Repeated polls and brief measurement holes
+    /// don't repeat it; a subsequently spoken route or a genuine gap can re-arm it.
+    mutating func fullFieldCue(measuredAt time: Double) -> ObstacleRouteSpeech? {
+        if let lastFullFieldObservation, time - lastFullFieldObservation < Self.minimumInterval {
+            self.lastFullFieldObservation = max(time, lastFullFieldObservation)
+            return nil
+        }
+        reset()
+        lastFullFieldObservation = time
+        return .close
+    }
+
+    /// A gap invalidates the pending confirmation, not an already spoken instruction.
+    mutating func pauseObservations() {
+        observedScenario = nil
+        lastClearObservation = nil
+    }
+
+    private func takesPriority(_ scenario: ObstacleRouteScenario) -> Bool {
+        guard let spokenScenario, scenario != spokenScenario else { return false }
+        return spokenScenario == .clear || scenario == .blocked
+            || (spokenScenario == .distantObstacle && scenario == .nearObstacle)
+    }
+
+    /// A confirmed escalation supersedes even a clear utterance with no spoken turn.
+    mutating func interruptIfObsolete(
+        update: PathUpdate,
+        heading: PathHeading?,
+        threshold: Float,
+        newObservation: Bool = true
+    )
         -> Bool
     {
+        if newObservation, let scenario = update.waypointGuidance?.scenario, takesPriority(scenario)
+        {
+            return true
+        }
         guard let side = spokenTurn else { return false }
         let opposite = heading.map { $0.angleDegrees * Float(side) < -threshold } ?? false
         guard update.path == nil || update.waypointGuidance?.scenario != .nearObstacle || opposite
@@ -45,33 +70,56 @@ struct ObstacleRouteAnnouncementPolicy {
         now: Double,
         deviationDegrees: Float,
         alignmentDegrees: Float = 5,
+        maxResultAge: Double = ProbeParameters().maxResultAge,
         canSpeak: Bool = true
     ) -> ObstacleRouteSpeech? {
-        guard let state = update.waypointGuidance else { return nil }
-        if observedScenario != state.scenario {
-            observedScenario = state.scenario
-            scenarioSince = now
+        guard let state = update.waypointGuidance else {
+            pauseObservations()
+            return nil
         }
-        // The occupancy model needs time to confirm its first observations. Initialization
-        // is a separate cue, so it cannot spend the cooldown for the first actual scene.
-        guard let initializationStartedAt else {
-            if initializationAnnounced {
-                self.initializationStartedAt = now
+        // A retained clear still prevents a loss alert, but cannot start a new
+        // announcement. Count measurement time, not polls of the same observation.
+        let observationTime: Double
+        if state.scenario == .clear {
+            guard let timestamp = update.continuity?.timestamp, timestamp <= now,
+                now - timestamp <= maxResultAge
+            else {
+                pauseObservations()
                 return nil
             }
-            guard canSpeak else { return nil }
-            self.initializationStartedAt = now
-            initializationAnnounced = true
-            return .initializing
+            if let lastClearObservation,
+                timestamp < lastClearObservation || timestamp - lastClearObservation > maxResultAge
+            {
+                pauseObservations()
+            }
+            observationTime = timestamp
+            lastClearObservation = timestamp
+        } else {
+            observationTime = now
+            lastClearObservation = nil
         }
-        guard now - initializationStartedAt + 0.000001 >= Self.initializationDelay else {
-            return nil
+        if observedScenario == nil {
+            // Break any unfinished alignment timer across a pause, without re-arming
+            // a direction that the user already heard.
+            _ = turns.update(
+                heading: nil,
+                now: now,
+                threshold: deviationDegrees,
+                alignment: alignmentDegrees
+            )
+        }
+        if observedScenario != state.scenario {
+            observedScenario = state.scenario
+            scenarioSince = observationTime
         }
         let first = spokenScenario == nil
         let entered = spokenScenario != state.scenario
-        // The first scene uses the live state after initialization. Subsequent transient
-        // changes settle for 0.6s; subsequent scene cues retain their minimum spacing.
-        guard first || !entered || now - scenarioSince + 0.000001 >= 0.6 else { return nil }
+        let priority = takesPriority(state.scenario)
+        // Pending occupancy can look clear on the first frame. Only clear needs this
+        // startup wait: the planner has already confirmed a published obstacle.
+        let settledFor = observationTime - scenarioSince + 0.000001
+        if first && state.scenario == .clear && settledFor < Self.firstClearDelay { return nil }
+        guard first || priority || !entered || settledFor >= 0.6 else { return nil }
         var proposedTurns = turns
         let turn =
             state.scenario == .nearObstacle && update.path != nil
@@ -88,7 +136,7 @@ struct ObstacleRouteAnnouncementPolicy {
             state.scenario != .clear && near != nil && near != spokenNear && now - spokenAt >= 4
         // Keep alignment/re-arm observations while muted, but don't consume an unsaid turn.
         if turn == nil { turns = proposedTurns }
-        guard canSpeak, first || now - spokenAt + 0.000001 >= Self.minimumInterval,
+        guard canSpeak, first || priority || now - spokenAt + 0.000001 >= Self.minimumInterval,
             first || entered || turn != nil || distanceDue
         else { return nil }
         turns = proposedTurns
@@ -96,6 +144,7 @@ struct ObstacleRouteAnnouncementPolicy {
         spokenNear = near
         spokenScenario = state.scenario
         spokenTurn = turn
+        lastFullFieldObservation = nil
         switch state.scenario {
         case .clear:
             turns.reset()
@@ -109,8 +158,8 @@ struct ObstacleRouteAnnouncementPolicy {
 }
 
 nonisolated enum ObstacleRouteSpeech: Equatable {
-    case initializing
     case clear
+    case close
     case obstacle(Float?, Int?)
     case blocked(Float?)
     case adjustCamera(Float?)
@@ -120,8 +169,8 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
 
     var chinese: String {
         switch self {
-        case .initializing: return "初始化中"
         case .clear: return "前方畅通"
+        case .close: return "障碍很近"
         case .adjustCamera(let distance): return Self.level(distance, chinese: true) + "，转动手机"
         case .blocked(let distance): return Self.level(distance, chinese: true) + "，无法绕行"
         case .obstacle(let distance, let side):
@@ -131,8 +180,8 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
     }
     var english: String {
         switch self {
-        case .initializing: return "Initializing"
         case .clear: return "Clear ahead"
+        case .close: return "Obstacle close"
         case .adjustCamera(let distance):
             return Self.level(distance, chinese: false) + ", turn the phone"
         case .blocked(let distance): return Self.level(distance, chinese: false) + ", no way around"
@@ -143,7 +192,7 @@ nonisolated enum ObstacleRouteSpeech: Equatable {
         }
     }
     static func level(_ distance: Float?, chinese: Bool) -> String {
-        let near = distance.map(isNear) ?? false
-        return chinese ? (near ? "障碍很近" : "有障碍") : (near ? "Obstacle close" : "Obstacle")
+        if distance.map(isNear) == true { return chinese ? Self.close.chinese : Self.close.english }
+        return chinese ? "有障碍" : "Obstacle"
     }
 }

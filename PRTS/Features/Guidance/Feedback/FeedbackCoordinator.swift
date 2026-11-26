@@ -7,71 +7,165 @@ final class FeedbackCoordinator: ObservableObject {
     private var policy = FeedbackPolicy()
     private var turnPolicy = TurnAnnouncementPolicy()
     private var routeSpeech = RouteAnnouncementPolicy()
-    private var waypointSpeech = ObstacleRouteAnnouncementPolicy()
-    private var alerts = GuidanceAlertPolicy()
+    private var session = WaypointFeedbackSession()
+    var reportedLoss: Bool { session.alerts.reportedLoss }
+
     private var hasWaypointFeedback = false
-    private var turnEpoch: UInt64?
     private var turnGoal: UInt64?
-    private var turnVersion: UInt64?
+    private var mutedSpeechThrough: UInt64 = 0
+    private var withheldRouteThrough: UInt64 = 0
+
+    func synchronizeSession(_ snapshot: SharedSnapshot, speech: SpeechManager) {
+        if session.synchronize(
+            epoch: snapshot.epoch,
+            parameterVersion: snapshot.parameterVersion,
+            planningEnabled: snapshot.pathOptions.enabled
+        ) {
+            resetFallback()
+            speech.cancelPerceptionSpeech()
+        }
+    }
 
     /// Runs whenever vibration may play, also while live captions own the voice.
     func alert(
         _ snapshot: SharedSnapshot,
-        now: Double = ProcessInfo.processInfo.systemUptime
+        waypoint: PathUpdate?,
+        now: Double
     ) -> GuidanceAlert? {
-        guard snapshot.running, snapshot.pathOptions.enabled else {
-            alerts.reset()
+        guard snapshot.running, snapshot.pathOptions.enabled, snapshot.geometryEnabled,
+            !snapshot.interrupted, snapshot.frozen == nil, snapshot.thermalRaw < 3
+        else {
+            resetAlerts()
             return nil
         }
-        let update = snapshot.activeWaypointUpdate(now: now)
-        return alerts.update(
-            available: update != nil,
-            blocked: update?.waypointGuidance?.scenario == .blocked,
+        let evidence = snapshot.feedbackEvidence(now: now)
+        if let evidence, evidence != .mapped, let result = snapshot.result {
+            withheldRouteThrough = max(withheldRouteThrough, result.frameID)
+        }
+        let eligible = (waypoint?.continuity?.frameID ?? 0) > withheldRouteThrough
+        if evidence == .fullFieldObstacle {
+            // This can interrupt loss, but it is not recovery of a navigable route.
+            resetAlerts()
+            return nil
+        }
+        if evidence == nil, eligible {
+            // A retained route prevents a spurious loss, but isn't new evidence of recovery.
+            resetAlerts()
+            return nil
+        }
+        let available = eligible && evidence == .mapped
+        return session.alerts.update(
+            available: available,
+            blocked: evidence == .mapped && waypoint?.waypointGuidance?.scenario == .blocked,
+            leftMappedArea: !available && snapshot.hasLeftMappedArea(now: now),
             now: now
         )
     }
 
-    func resetAlerts() { alerts.reset() }
+    /// Reset only the active alert timers; a new session discards the latches as well.
+    func resetAlerts() { session.alerts.pause() }
 
-    /// Uses the same angle hysteresis as haptics, independently of vibration hardware.
-    func consumeDirection(
+    func pauseSpeech(through frameID: UInt64? = nil) {
+        if let frameID { mutedSpeechThrough = max(mutedSpeechThrough, frameID) }
+        session.speech.pauseObservations()
+        policy.reset()  // A raw-sector candidate still needs consecutive observations.
+    }
+
+    func speakLoss(using speech: SpeechManager) {
+        guard speech.voiceAnnouncementsEnabled else { return }
+        session.speech.reset()  // Recovery can supersede this spoken loss, not a muted haptic.
+        speech.speakPerception(speech.interfaceString("speech.guidance.lost"))
+    }
+
+    func consume(
         _ snapshot: SharedSnapshot,
+        waypoint: PathUpdate?,
+        raw: SceneResult?,
         speech: SpeechManager,
-        now: Double = ProcessInfo.processInfo.systemUptime
+        now: Double
     ) {
         guard speech.voiceAnnouncementsEnabled else {
-            turnPolicy.reset()
-            routeSpeech.reset()
-            waypointSpeech.reset()
+            pauseSpeech(through: snapshot.latestFeedbackFrameID)
             return
         }
-        if snapshot.pathUpdate.waypointGuidance != nil {
-            if turnEpoch != snapshot.epoch || turnVersion != snapshot.parameterVersion {
-                waypointSpeech.reset()
+        let evidence = snapshot.feedbackEvidence(now: now)
+        if let result = snapshot.result, let evidence, evidence != .mapped {
+            pauseSpeech()
+            if evidence == .fullFieldObstacle {
+                if result.frameID > mutedSpeechThrough,
+                    let cue = session.speech.fullFieldCue(measuredAt: result.timestamp)
+                {
+                    speech.speakPerception(cue.chinese, english: cue.english)
+                }
+            } else if !session.speech.lastCueWasFullField && !reportedLoss {
                 speech.cancelPerceptionSpeech()
-                turnEpoch = snapshot.epoch
-                turnVersion = snapshot.parameterVersion
             }
+            return
+        }
+        // A reported loss or an already-issued close warning may finish during a depth gap.
+        guard !reportedLoss else { return }
+        guard evidence == .mapped, let result = snapshot.result,
+            result.frameID > mutedSpeechThrough
+        else {
+            pauseSpeech()
+            if waypoint == nil && !session.speech.lastCueWasFullField {
+                speech.cancelPerceptionSpeech()
+            }
+            return
+        }
+        if snapshot.pathOptions.enabled {
+            let routeFrame = snapshot.pathUpdate.continuity?.frameID
+            guard (routeFrame ?? 0) > max(mutedSpeechThrough, withheldRouteThrough) else {
+                pauseSpeech()
+                return
+            }
+            consumeDirection(snapshot, waypoint: waypoint, speech: speech, now: now)
+        } else if let raw, raw.frame.sessionEpoch == result.epoch,
+            raw.frame.parameterVersion == result.parameterVersion,
+            raw.frame.frameID == result.frameID
+        {
+            consume(raw, now: now, speech: speech)
+        }
+    }
+
+    /// Uses the same angle hysteresis as haptics, independently of vibration hardware.
+    private func consumeDirection(
+        _ snapshot: SharedSnapshot,
+        waypoint: PathUpdate?,
+        speech: SpeechManager,
+        now: Double
+    ) {
+        if waypoint != nil || snapshot.pathUpdate.waypointGuidance != nil {
             hasWaypointFeedback = true
-            guard let update = snapshot.activeWaypointUpdate(now: now) else {
-                // A dropped/stale frame pauses speech without re-arming its one-shot latch.
+            guard let update = waypoint else {
+                session.speech.pauseObservations()
                 speech.cancelPerceptionSpeech()
                 return
             }
+            let canStart = update.canStartWaypointFeedback(
+                now: now,
+                maxAge: snapshot.parameters.maxResultAge
+            )
             let heading = snapshot.pathHeading(now: now)
-            if waypointSpeech.interruptIfObsolete(
+            if session.speech.interruptIfObsolete(
                 update: update,
                 heading: heading,
-                threshold: snapshot.pathOptions.deviationDegrees
+                threshold: snapshot.pathOptions.deviationDegrees,
+                newObservation: canStart
             ) {
                 speech.cancelPerceptionSpeech()
             }
-            if let cue = waypointSpeech.cue(
+            guard canStart else {
+                session.speech.pauseObservations()
+                return
+            }
+            if let cue = session.speech.cue(
                 update: update,
                 heading: heading,
                 now: now,
                 deviationDegrees: snapshot.pathOptions.deviationDegrees,
                 alignmentDegrees: snapshot.pathOptions.alignmentDegrees,
+                maxResultAge: snapshot.parameters.maxResultAge,
                 canSpeak: !speech.isSpeakingPerception
             ) {
                 speech.speakPerception(cue.chinese, english: cue.english)
@@ -80,22 +174,15 @@ final class FeedbackCoordinator: ObservableObject {
         }
         if hasWaypointFeedback {
             speech.cancelPerceptionSpeech()
-            waypointSpeech.reset()
+            session.speech.pauseObservations()
             hasWaypointFeedback = false
-        }
-        if turnEpoch != snapshot.epoch || turnVersion != snapshot.parameterVersion {
-            routeSpeech.reset()
         }
         // Do not interrupt an obstacle warning, or consume the one-shot latch before it can
         // actually speak. Re-evaluate the LIVE route once the current utterance finishes.
         guard !speech.isSpeakingPerception else { return }
-        if turnEpoch != snapshot.epoch || turnGoal != snapshot.pathUpdate.goal?.id
-            || turnVersion != snapshot.parameterVersion
-        {
+        if turnGoal != snapshot.pathUpdate.goal?.id {
             turnPolicy.reset()
-            turnEpoch = snapshot.epoch
             turnGoal = snapshot.pathUpdate.goal?.id
-            turnVersion = snapshot.parameterVersion
         }
         let heading = snapshot.pathOptions.enabled ? snapshot.pathHeading(now: now) : nil
         let side = turnPolicy.update(
@@ -109,23 +196,27 @@ final class FeedbackCoordinator: ObservableObject {
             side: side,
             hasHeading: heading != nil
         ) {
+            session.speech.reset()
             speech.speakPerception(cue.chinese, english: cue.english)
         }
     }
-    func guidanceStarted() { waypointSpeech.announceInitialization() }
 
     private(set) var lastConsumedResultID: String?
     private(set) var lastSpokenResultID: String?
 
     func reset() {
-        waypointSpeech.reset()
+        session = .init()
+        resetFallback()
+    }
+
+    private func resetFallback() {
         hasWaypointFeedback = false
-        policy.reset()
+        policy = .init()
         turnPolicy.reset()
         routeSpeech.reset()
-        turnEpoch = nil
         turnGoal = nil
-        turnVersion = nil
+        mutedSpeechThrough = 0
+        withheldRouteThrough = 0
         lastConsumedResultID = nil
         lastSpokenResultID = nil
     }
@@ -138,12 +229,15 @@ final class FeedbackCoordinator: ObservableObject {
     ) {
         lastConsumedResultID = result.id
         for event in policy.evaluate(result, now: now) {
-            lastSpokenResultID = event.resultID
             switch event {
             case .perceptionUnavailable:
+                session.speech.reset()
+                lastSpokenResultID = event.resultID
                 speech.speakPerception("暂时看不清", english: "Can't see clearly")
-                return  // Direction haptics are owned solely by PathHaptics.
+                return
             case .centerObstacle(_, let distance, _):
+                session.speech.reset()
+                lastSpokenResultID = event.resultID
                 speech.speakPerception(
                     ObstacleRouteSpeech.level(distance, chinese: true),
                     english: ObstacleRouteSpeech.level(distance, chinese: false)
@@ -152,6 +246,8 @@ final class FeedbackCoordinator: ObservableObject {
 
             case .observedCandidate(_, let sector):
                 guard announceCandidates else { continue }
+                session.speech.reset()
+                lastSpokenResultID = event.resultID
                 let zh = sector == .left ? "左侧" : (sector == .right ? "右侧" : "中间")
                 let en = sector == .left ? "left" : (sector == .right ? "right" : "center")
                 speech.speakPerception("\(zh)可走", english: "Open on the \(en)")

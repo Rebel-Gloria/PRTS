@@ -52,13 +52,16 @@ public enum RoutePublicationPolicy {
                 || now - c.timestamp <= gate.maxAge,
             c.frameID <= gate.frameID
         else { return reject("candidate_expired_or_future") }
-        // A normal replacement is a transaction, not an instruction to clear the route.
-        // Confirmed occupancy has already raised the watermark before search. Explicit
-        // lifecycle/coordinate resets remain separate from an unfinished candidate.
+        // A serial publisher may receive the veto here without the worker's fast callback.
+        // An unfinished replacement without a new hazard still leaves the current route alone.
+        let vetoesCurrent =
+            c.status == .hazardBlocked
+            && c.hazardWatermark > (current.continuity?.hazardWatermark ?? 0)
         if c.planningPolicy == RoutePlanningPolicy.obstacleVeto.rawValue,
-            candidate.path == nil, current.path != nil,
+            candidate.path == nil, current.path != nil, !vetoesCurrent,
             candidate.waypointGuidance?.scenario != .clear,
             candidate.waypointGuidance?.scenario != .blocked,
+            candidate.goalChangeReason != "current_target_reached",
             candidate.reason != "disabled", candidate.reason != "ground_or_metric_conflict"
         {
             return reject("candidate_not_ready")

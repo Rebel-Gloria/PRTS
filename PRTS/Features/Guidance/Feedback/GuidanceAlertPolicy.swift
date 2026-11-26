@@ -2,7 +2,7 @@ import Foundation
 
 /// States in which the user should stop relying on direction cues.
 nonisolated enum GuidanceAlert: Equatable {
-    /// No current guidance result: tracking is limited, frames are stale or analysis is paused.
+    /// Guidance is still missing after the user has moved beyond reusable measurements.
     case lost
     /// Obstacles are confirmed ahead and no way around them is in view.
     case blocked
@@ -28,38 +28,74 @@ nonisolated struct SustainedCue {
     }
 }
 
-/// Silence used to mean "clear", "cannot see" and "stopped" alike. Direction speech and
-/// vibration both stop without a path, so these two states get a cue of their own.
-/// A dropped frame or a brief blocked flicker must not raise one: both states have to last.
+/// A session starts disarmed. Only usable guidance arms a loss episode, and only
+/// recovery (not a change in tracking confidence) can re-arm it after it fires.
 nonisolated struct GuidanceAlertPolicy {
     static let lossDelay: Double = 1.5
-    /// Tracking and the occupancy model need longer to produce their first result.
-    static let startupLossDelay: Double = 4
-    static let lossInterval: Double = 5
-    /// The settling time route speech uses for a scene change.
     static let blockedDelay: Double = 0.6
     static let blockedInterval: Double = 3
 
-    private var seen = false
-    private var lost = SustainedCue()
+    private enum LossState { case waiting, armed, reported }
+    private var lossState = LossState.waiting
+    private var missingSince: Double?
+    var reportedLoss: Bool { lossState == .reported }
     private var blocked = SustainedCue()
 
-    mutating func reset() { self = .init() }
+    /// Do not count time spent in another feature as loss or blockage. Neither a
+    /// previous measurement nor an already reported loss expires just because UI paused.
+    mutating func pause() {
+        missingSince = nil
+        blocked = .init()
+    }
 
-    mutating func update(available: Bool, blocked isBlocked: Bool, now: Double) -> GuidanceAlert? {
-        if available { seen = true }
-        let isLost = lost.update(
-            active: !available,
-            now: now,
-            delay: seen ? Self.lossDelay : Self.startupLossDelay,
-            interval: Self.lossInterval
-        )
+    mutating func update(
+        available: Bool,
+        blocked isBlocked: Bool,
+        leftMappedArea: Bool,
+        now: Double
+    ) -> GuidanceAlert? {
         let stillBlocked = blocked.update(
             active: available && isBlocked,
             now: now,
             delay: Self.blockedDelay,
             interval: Self.blockedInterval
         )
-        return isLost ? .lost : (stillBlocked ? .blocked : nil)
+        if available {
+            lossState = .armed
+            missingSince = nil
+            return stillBlocked ? .blocked : nil
+        }
+        guard lossState == .armed else { return nil }
+        let start = missingSince ?? now
+        missingSince = start
+        guard leftMappedArea, now - start + 0.000001 >= Self.lossDelay else { return nil }
+        lossState = .reported
+        return .lost
+    }
+}
+
+/// Measurement and spoken-scene history belong to one planning session, not one visit
+/// to the home screen. Check identity even on polls with no result or muted feedback.
+struct WaypointFeedbackSession {
+    private var epoch: UInt64?
+    private var parameterVersion: UInt64?
+    private var planningEnabled: Bool?
+    var alerts = GuidanceAlertPolicy()
+    var speech = ObstacleRouteAnnouncementPolicy()
+
+    mutating func synchronize(epoch: UInt64, parameterVersion: UInt64, planningEnabled: Bool)
+        -> Bool
+    {
+        guard
+            self.epoch != epoch || self.parameterVersion != parameterVersion
+                || self.planningEnabled != planningEnabled
+        else { return false }
+        let replaced = self.epoch != nil
+        alerts = .init()
+        speech.reset()
+        self.epoch = epoch
+        self.parameterVersion = parameterVersion
+        self.planningEnabled = planningEnabled
+        return replaced
     }
 }

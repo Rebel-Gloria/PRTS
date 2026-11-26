@@ -37,7 +37,11 @@ class StabilityBoundaryTests(unittest.TestCase):
         self.assertIn("camera.poll(suspendFeedback:suspendHaptics)", code)
         self.assertIn("ifsuspendHaptics{feedback.resetAlerts()", code)
         self.assertIn("if!suspendFeedback{", code)
-        self.assertIn("elseif!isShowingSettings{", code)
+        self.assertIn(
+            "else{feedback.pauseSpeech(through:snapshot.latestFeedbackFrameID)"
+            "if!isShowingSettings{speechManager.cancelPerceptionSpeech()}",
+            code,
+        )
 
     def test_lifecycle_only_gates_feedback_and_preserves_work(self):
         source = (ROOT / "PRTS/Features/Home/ContentView.swift").read_text(encoding="utf-8")

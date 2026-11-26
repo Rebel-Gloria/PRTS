@@ -31,6 +31,8 @@ final class ProbeViewModel: ObservableObject {
     @Published var recordingStatus = ""
     @Published var clearingRecordings = false
     var feedbackSuspended = false
+    private var ongoingHapticGoal: UInt64?
+    private var lastMutedHapticObservation: UInt64?
     private let feedback: any SpatialFeedback
     @Published var permissionMessage: String?
     @Published var requestingPermission = false
@@ -64,6 +66,12 @@ final class ProbeViewModel: ObservableObject {
             epoch: engine.store.read().epoch
         )
         if phase != .active {
+            let snapshot = engine.store.read()
+            lastMutedHapticObservation = max(
+                lastMutedHapticObservation ?? 0,
+                snapshot.latestFeedbackFrameID
+            )
+            ongoingHapticGoal = nil
             feedback.reset()
         }
         if phase == .background {
@@ -141,9 +149,42 @@ final class ProbeViewModel: ObservableObject {
         default: orientation = .portrait
         }
         engine.store.update { $0.orientation = orientation }
-        snapshot = engine.store.read()
-        feedback.tick(snapshot, diagnostics: engine.diagnostics, suspended: feedbackSuspended)
+        let next = engine.store.read()
+        if next.epoch != snapshot.epoch || next.parameterVersion != snapshot.parameterVersion {
+            lastMutedHapticObservation = nil
+            ongoingHapticGoal = nil
+        }
+        snapshot = next
         let now = ProcessInfo.processInfo.systemUptime
+        let update = snapshot.pathUpdate
+        let goal = update.goal?.id
+        let evidence = snapshot.feedbackEvidence(now: now)
+        let groundMissing = evidence == .unmapped || evidence == .fullFieldObstacle
+        if feedbackSuspended || !snapshot.pathOptions.haptics || groundMissing {
+            lastMutedHapticObservation = max(
+                lastMutedHapticObservation ?? 0,
+                snapshot.latestFeedbackFrameID
+            )
+        }
+        // A new camera pose can still carry the last pre-pause measurement, even within 250 ms.
+        let measuredSinceMute =
+            lastMutedHapticObservation.map {
+                (update.continuity?.frameID ?? 0) > $0
+            } ?? true
+        // Only a continuously eligible segment may use historical evidence for vibration.
+        let wouldRestart = goal != nil && goal != ongoingHapticGoal
+        let suspended =
+            feedbackSuspended || groundMissing
+            || (wouldRestart
+                && (evidence != .mapped || !measuredSinceMute
+                    || !update.canStartWaypointFeedback(
+                        now: now,
+                        maxAge: snapshot.parameters.maxResultAge
+                    )))
+        feedback.tick(snapshot, diagnostics: engine.diagnostics, suspended: suspended)
+        ongoingHapticGoal =
+            !suspended && snapshot.pathOptions.haptics && goal != nil
+                && snapshot.pathHeading(now: now) != nil ? goal : nil
         if now - lastHeartbeat >= 1 {
             lastHeartbeat = now
             engine.diagnostics.heartbeat(

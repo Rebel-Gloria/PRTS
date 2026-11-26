@@ -212,7 +212,7 @@ python3 scripts/pull_recordings.py --device <设备标识> --output <录制文�
 | 回放当前源码 | `run.sh` 调用 `run_product.sh`，串联 `prepare_product.py`、`ReplayProduct.swift`、`metrics_product.py` 与 `seal_product.py` |
 | 复现第二轮历史实验 | `run_round2.sh`，使用 `prepare.py`、`Replay.swift` 与 `metrics.py`；原型源码按固定历史提交提取，`SpatialCore` 使用当前工作区 |
 
-所有离线计算结果均为代理指标，最终结论以[验证结果](validation.md)为准。
+ASTRA 按规划候选计算路线和语音代理指标，不重建首页完整的语音、振动和渲染状态。历史初始化提示不计作障碍。若要判断某帧是否实际发起提示，需要结合录制事件或重放首页反馈链路，见[验证结果](validation.md)。
 
 ### SpatialProbe
 
