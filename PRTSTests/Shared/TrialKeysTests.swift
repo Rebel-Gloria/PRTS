@@ -14,15 +14,15 @@ struct TrialKeysTests {
     func installsTrialKeys() throws {
         let qwen = try #require(Self.env["PRTS_QWEN_KEY"])
         let deepseek = try #require(Self.env["PRTS_DEEPSEEK_KEY"])
-        try PhotoCredentialStore.save(qwen, account: PhotoChatProvider.qwen.keyAccount)
-        try PhotoCredentialStore.save(deepseek, account: PhotoChatProvider.deepseek.keyAccount)
+        try PhotoCredentialStore.save(qwen, account: PhotoChatService.qwen.keyAccount)
+        try PhotoCredentialStore.save(deepseek, account: PhotoChatService.deepseek.keyAccount)
         let defaults = UserDefaults.standard
         defaults.set(PhotoChatProvider.qwen.rawValue, forKey: PhotoChatProvider.selectionKey)
         defaults.set(true, forKey: "photoDescription.uploadAllowed")
         defaults.set(TextReadingService.vlm.rawValue, forKey: TextReadingService.selectionKey)
-        #expect(try PhotoCredentialStore.read(account: PhotoChatProvider.qwen.keyAccount) == qwen)
+        #expect(try PhotoCredentialStore.read(account: PhotoChatService.qwen.keyAccount) == qwen)
         #expect(
-            try PhotoCredentialStore.read(account: PhotoChatProvider.deepseek.keyAccount)
+            try PhotoCredentialStore.read(account: PhotoChatService.deepseek.keyAccount)
                 == deepseek
         )
     }

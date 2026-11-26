@@ -2897,13 +2897,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Supports OpenAI-compatible vision models."
+            "value" : "Supports OpenAI-compatible vision models. The API key is saved for this host and port."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "支持兼容 OpenAI 格式的视觉模型。"
+            "value" : "支持兼容 OpenAI 格式的视觉模型。API Key 仅用于此主机和端口。"
           }
         }
       }

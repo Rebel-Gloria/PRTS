@@ -4,7 +4,7 @@ import Security
 /// Device-only secret storage. Neither UserDefaults nor DIAG receives credentials.
 nonisolated enum PhotoCredentialStore {
     private static let service = "com.jingxuan.PRTS.photo-description"
-    /// One Keychain item per provider (`PhotoChatProvider.keyAccount`).
+    /// Built-in accounts are stable; custom accounts are scoped to the request origin.
     private static func query(_ account: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,

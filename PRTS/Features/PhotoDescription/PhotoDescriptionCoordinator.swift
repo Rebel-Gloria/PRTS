@@ -99,7 +99,10 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                     message = localized("photo.message.allowUpload")
                     return false
                 }
-                guard let credential = try services.credential(configuration.provider),
+                guard let service = configuration.service else {
+                    throw PhotoChatError.invalidService
+                }
+                guard let credential = try services.credential(service.keyAccount),
                     !credential.isEmpty
                 else {
                     throw PhotoChatError.missingKey

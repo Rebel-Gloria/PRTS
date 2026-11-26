@@ -34,9 +34,6 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
         }
     }
 
-    /// The Qwen key keeps the original Keychain account so existing installs stay configured.
-    var keyAccount: String { self == .qwen ? "api-key" : "api-key.\(rawValue)" }
-
     /// nil on device and for an incomplete custom entry.
     func service(_ defaults: UserDefaults = .standard) -> PhotoChatService? {
         switch self {
@@ -50,9 +47,15 @@ nonisolated enum PhotoChatProvider: String, CaseIterable, Identifiable, Sendable
             guard !model.isEmpty,
                 let url = PhotoChatService.chatURL(
                     from: defaults.string(forKey: Self.customEndpointKey) ?? ""
-                )
+                ),
+                let account = PhotoChatService.customKeyAccount(for: url)
             else { return nil }
-            return PhotoChatService(endpoint: url, model: model, thinking: .standard)
+            return PhotoChatService(
+                endpoint: url,
+                keyAccount: account,
+                model: model,
+                thinking: .standard
+            )
         }
     }
 }

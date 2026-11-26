@@ -135,7 +135,7 @@ final class LiveCaptionSession: ObservableObject {
         }
         let key: String
         do {
-            if let savedKey = try credential(PhotoChatProvider.qwen.keyAccount), !savedKey.isEmpty {
+            if let savedKey = try credential(PhotoChatService.qwen.keyAccount), !savedKey.isEmpty {
                 key = savedKey
             } else {
                 announce(localized("liveCaption.requiresQwen"))

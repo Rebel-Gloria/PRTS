@@ -39,7 +39,7 @@ nonisolated struct PhotoDescriptionRequest: Sendable {
 struct PhotoDescriptionServices {
     var errors = ErrorReporter(source: .photoDescription)
     var configuration: (IntelligenceFeature) throws -> PhotoDescriptionConfiguration
-    var credential: (PhotoChatProvider) throws -> String?
+    var credential: (String) throws -> String?
     var speechAuthorized: () -> Bool = { PhotoSpeechRecognizer.authorized }
     var requestSpeechPermission: () async -> Bool = {
         await PhotoSpeechRecognizer.requestPermissions()
@@ -60,6 +60,6 @@ struct PhotoDescriptionServices {
         }
     ) {
         configuration = { try PhotoDescriptionConfiguration(feature: $0, defaults: defaults) }
-        credential = { try readCredential($0.keyAccount) }
+        credential = readCredential
     }
 }

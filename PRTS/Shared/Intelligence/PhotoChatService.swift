@@ -1,7 +1,8 @@
 import Foundation
 
 nonisolated struct PhotoChatService: Equatable, Sendable {
-    var endpoint: URL
+    let endpoint: URL
+    let keyAccount: String
     var model: String
     /// How this provider turns reasoning off; custom endpoints get only standard fields.
     var thinking: ThinkingSwitch
@@ -12,6 +13,7 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
         endpoint: URL(
             string: "https://maas.qianwenaiapi.com/compatible-mode/v1/chat/completions"
         )!,
+        keyAccount: "api-key",
         model: "qwen3.8-flash",
         thinking: .qwenFlag
     )
@@ -19,14 +21,23 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
     /// which takes about 13 s per caption, so requests must keep sending the thinking switch.
     static let qwenOmni = PhotoChatService(
         endpoint: qwen.endpoint,
+        keyAccount: qwen.keyAccount,
         model: "qwen3.8-omni-flash",
         thinking: .qwenFlag
     )
     static let deepseek = PhotoChatService(
         endpoint: URL(string: "https://api.deepseek.com/chat/completions")!,
+        keyAccount: "api-key.deepseek",
         model: "deepseek-flash",
         thinking: .deepseekObject
     )
+
+    /// Custom credentials belong to an HTTPS origin, not a model or API path.
+    static func customKeyAccount(for endpoint: URL) -> String? {
+        guard endpoint.scheme?.lowercased() == "https", let host = endpoint.host, !host.isEmpty
+        else { return nil }
+        return "api-key.custom.\(host.lowercased()):\(endpoint.port ?? 443)"
+    }
 
     /// Accepts a base URL ("https://host/v1") or the full Chat Completions URL. HTTPS only:
     /// the request carries the API key and a camera image.
@@ -34,7 +45,7 @@ nonisolated struct PhotoChatService: Equatable, Sendable {
         guard
             var parts = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
             parts.scheme?.lowercased() == "https", let host = parts.host, !host.isEmpty,
-            parts.query == nil, parts.fragment == nil
+            parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil
         else { return nil }
         var path = parts.path
         while path.hasSuffix("/") { path.removeLast() }

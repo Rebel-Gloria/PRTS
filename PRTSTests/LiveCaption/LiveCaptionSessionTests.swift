@@ -198,7 +198,7 @@ struct LiveCaptionSessionTests {
             audio: audio,
             services: services,
             credential: { account in
-                #expect(account == PhotoChatProvider.qwen.keyAccount)
+                #expect(account == PhotoChatService.qwen.keyAccount)
                 return "test-qwen-key"
             },
             describeOpening: { _, key in
@@ -354,7 +354,7 @@ struct LiveCaptionSessionTests {
             audio: audio,
             services: services,
             credential: { account in
-                #expect(account == PhotoChatProvider.qwen.keyAccount)
+                #expect(account == PhotoChatService.qwen.keyAccount)
                 return nil
             }
         )

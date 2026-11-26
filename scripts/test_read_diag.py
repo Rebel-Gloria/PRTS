@@ -439,6 +439,91 @@ class DiagnosticReaderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             depth_frame(struct.pack("<I", len(encoded)) + encoded + raw[4 + n :])
 
+    def test_original_image_attachment_without_external_jpg_does_not_claim_no_rgb(self):
+        (self.root / "manifest.json").write_text(json.dumps(dict(source="synthetic", runID="dev")))
+        row = dict(
+            sequence=1,
+            payload=dict(
+                kind="original_image",
+                fileExtension="png",
+                metadata=dict(reason="synthetic"),
+            ),
+            attachment=dict(
+                file="data-00000.bin",
+                codec="deflate-raw",
+                offset=0,
+                compressedBytes=16,
+                uncompressedBytes=32,
+                sha256="0" * 64,
+            ),
+        )
+        (self.root / "events.jsonl").write_text(json.dumps(row) + "\n")
+        out = summarize(self.root)
+        self.assertEqual(out["unexpectedImageFiles"], [])
+        self.assertNotIn("no rgb is recorded", out["note"].lower())
+        self.assertIn("original_image=1", out["note"])
+        self.assertEqual(out["observedMedia"]["eventAttachments"], {"original_image": 1})
+
+    def test_no_detected_media_does_not_claim_no_rgb_or_shareable(self):
+        (self.root / "manifest.json").write_text(json.dumps(dict(source="synthetic", runID="dev")))
+        out = summarize(self.root)
+        note = out["note"].lower()
+        self.assertNotIn("no rgb is recorded", note)
+        self.assertIn("not proof", note)
+        self.assertIn("share", note)
+        self.assertEqual(out["observedMedia"]["eventAttachments"], {})
+        self.assertEqual(out["observedMedia"]["externalImageFiles"], [])
+        self.assertEqual(out["observedMedia"]["videoFiles"], [])
+        self.assertEqual(out["observedMedia"]["videoStreamRecords"], 0)
+        self.assertEqual(out["observedMedia"]["audioFiles"], [])
+
+    def test_observed_video_external_image_and_audio_attachment_are_annotated(self):
+        (self.root / "manifest.json").write_text(json.dumps(dict(source="synthetic", runID="dev")))
+        (self.root / "extra").mkdir()
+        (self.root / "extra" / "frame.jpg").write_bytes(b"not-decoded")
+        (self.root / "video.mov").write_bytes(b"not-decoded")
+        (self.root / "video.jsonl").write_text(
+            json.dumps(dict(sequence=1, payload=dict(timestamp=1.0))) + "\n"
+        )
+        audio_row = dict(
+            sequence=2,
+            payload=dict(kind="microphone_audio", fileExtension="pcm", metadata={}),
+            attachment=dict(
+                file="data-00000.bin",
+                codec="deflate-raw",
+                offset=0,
+                compressedBytes=8,
+                uncompressedBytes=8,
+                sha256="0" * 64,
+            ),
+        )
+        (self.root / "events.jsonl").write_text(json.dumps(audio_row) + "\n")
+        out = summarize(self.root)
+        self.assertEqual(out["unexpectedImageFiles"], ["extra/frame.jpg", "video.mov"])
+        self.assertEqual(out["observedMedia"]["externalImageFiles"], ["extra/frame.jpg"])
+        self.assertEqual(out["observedMedia"]["videoFiles"], ["video.mov"])
+        self.assertEqual(out["observedMedia"]["videoStreamRecords"], 1)
+        self.assertEqual(out["observedMedia"]["eventAttachments"], {"microphone_audio": 1})
+        self.assertNotIn("no rgb is recorded", out["note"].lower())
+        self.assertIn("external image files (1)", out["note"])
+        self.assertIn("video files (1)", out["note"])
+        self.assertIn("video stream records (1)", out["note"])
+        self.assertIn("microphone_audio=1", out["note"])
+
+    def test_original_image_attachment_verifies_container_checksum(self):
+        (self.root / "manifest.json").write_text(json.dumps(dict(source="synthetic", runID="dev")))
+        ref = self.binary(b"synthetic-not-decoded-as-image")
+        row = dict(
+            sequence=1,
+            payload=dict(kind="original_image", fileExtension="png", metadata={}),
+            attachment=ref,
+        )
+        (self.root / "events.jsonl").write_text(json.dumps(row) + "\n")
+        out = summarize(self.root, verify=True)
+        self.assertEqual(out["attachmentVerified"], 1)
+        self.assertEqual(out["attachmentErrors"], [])
+        self.assertEqual(out["observedMedia"]["eventAttachments"], {"original_image": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

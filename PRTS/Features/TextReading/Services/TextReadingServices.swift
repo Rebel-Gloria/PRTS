@@ -4,12 +4,15 @@ import Foundation
 @MainActor
 struct TextReadingServices {
     /// Missing setup stays offline without a prompt; photo upload still requires permission.
-    static func cloudSetup() -> (key: String, service: PhotoChatService)? {
-        guard PhotoUploadPermission.isAllowed(),
-            let provider = IntelligenceFeature.textReading.provider(),
-            let service = provider.service()
+    static func cloudSetup(
+        defaults: UserDefaults = .standard,
+        readCredential: (String) throws -> String? = { try PhotoCredentialStore.read(account: $0) }
+    ) -> (key: String, service: PhotoChatService)? {
+        guard PhotoUploadPermission.isAllowed(in: defaults),
+            let provider = IntelligenceFeature.textReading.provider(defaults),
+            let service = provider.service(defaults)
         else { return nil }
-        guard let key = try? PhotoCredentialStore.read(account: provider.keyAccount), !key.isEmpty
+        guard let key = try? readCredential(service.keyAccount), !key.isEmpty
         else { return nil }
         return (key, service)
     }

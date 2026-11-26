@@ -500,6 +500,52 @@ struct PhotoLifecycleTests {
         f.coordinator.cancel()
     }
 
+    @Test(arguments: [false, true])
+    func customRequestsUseOnlyTheSelectedOriginsKey(question: Bool) async {
+        let name = "PhotoLifecycleTests.origin.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("custom", forKey: PhotoChatProvider.selectionKey)
+        defaults.set("vision", forKey: PhotoChatProvider.customModelKey)
+        defaults.set("https://FIRST.example:443/v1", forKey: PhotoChatProvider.customEndpointKey)
+        defaults.set(true, forKey: "photoDescription.uploadAllowed")
+        let account = "api-key.custom.first.example:443"
+        var lookups: [String] = []
+        let f = PhotoFixture { services in
+            let live = PhotoDescriptionServices(defaults: defaults) { key in
+                lookups.append(key)
+                return key == account ? "test-only" : nil
+            }
+            services.configuration = { feature in
+                let snapshot = try live.configuration(feature)
+                defaults.set(
+                    "https://second.example/v2",
+                    forKey: PhotoChatProvider.customEndpointKey
+                )
+                return snapshot
+            }
+            services.credential = live.credential
+        }
+        if question {
+            f.perform(.startRecording)
+            await f.coordinator.work?.value
+            f.perform(.stopRecording)
+        } else {
+            f.perform(.shortCapture)
+        }
+        await f.network.waitForRequests(1)
+        let first = await f.network.requests[0]
+        #expect(first.key == "test-only")
+        #expect(first.configuration.service?.endpoint.host?.lowercased() == "first.example")
+        await f.network.reply(0, "回答")
+        await f.coordinator.work?.value
+        f.coordinator.cancel()
+        f.perform(question ? .startRecording : .shortCapture)
+        await f.coordinator.work?.value
+        #expect(await f.network.requests.count == 1)
+        #expect(lookups == [account, "api-key.custom.second.example:443"])
+    }
+
     @Test func changingPreferencesDuringRecordingAffectsOnlyTheNextRequest() async {
         let name = "PhotoLifecycleTests.snapshot.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!

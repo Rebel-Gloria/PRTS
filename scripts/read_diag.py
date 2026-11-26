@@ -15,6 +15,11 @@ from pathlib import Path
 from summarize_session import stats
 
 MAX_ATTACHMENT = 64 * 1024 * 1024
+MEDIA_SUFFIXES = {
+    "externalImageFiles": {".jpg", ".jpeg", ".png", ".heic"},
+    "videoFiles": {".mp4", ".mov"},
+    "audioFiles": {".wav", ".m4a", ".caf", ".aac", ".mp3", ".pcm"},
+}
 
 
 def records(path, issues):
@@ -181,11 +186,11 @@ def summarize(directory, verify=False):
         "renderPhases": {},
         "attachmentVerified": 0,
         "attachmentErrors": [],
-        "note": "Analysis frames are not display frames. A rendered overlay is not proof of accurate/safe geometry. No RGB is recorded.",
     }
     if (directory / "status.json").exists():
         output["status"] = json.loads((directory / "status.json").read_text())
     tracking, depth, blocks, models, geometry, guidance, phases = (Counter() for _ in range(7))
+    event_attachments = Counter()
     reference_modes, surface_modes = Counter(), Counter()
     ages, coverage = [], []
     scale_reasons, prediction_ground = Counter(), Counter()
@@ -200,6 +205,7 @@ def summarize(directory, verify=False):
     path_present = path_renders = historical_path_renders = 0
     for stream in (
         "events",
+        "video",
         "capture",
         "analysis",
         "render",
@@ -212,7 +218,12 @@ def summarize(directory, verify=False):
         for row in records(directory / (stream + ".jsonl"), issues):
             count += 1
             p = row["payload"]
-            if stream == "capture":
+            if stream == "events":
+                if "attachment" in row:
+                    raw_kind = p.get("kind")
+                    kind = raw_kind if isinstance(raw_kind, str) and raw_kind else "unspecified"
+                    event_attachments[kind] += 1
+            elif stream == "capture":
                 tracking[p.get("tracking", "missing")] += 1
             elif stream == "analysis":
                 frame, diagnostic = p.get("frame", {}), p.get("diagnostics") or {}
@@ -358,11 +369,35 @@ def summarize(directory, verify=False):
         depthCoverage=stats(coverage),
         jsonIssues=issues,
     )
-    output["unexpectedImageFiles"] = [
-        str(p.relative_to(directory))
-        for p in directory.rglob("*")
-        if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".heic", ".mp4", ".mov")
-    ]
+    files = {kind: [] for kind in MEDIA_SUFFIXES}
+    for path in directory.rglob("*"):
+        for kind, suffixes in MEDIA_SUFFIXES.items():
+            if path.suffix.lower() in suffixes and path.is_file():
+                files[kind].append(str(path.relative_to(directory)))
+    for names in files.values():
+        names.sort()
+    video_records = output["counts"]["video"]
+    output["unexpectedImageFiles"] = sorted(files["externalImageFiles"] + files["videoFiles"])
+    output["observedMedia"] = {
+        **files,
+        "eventAttachments": dict(event_attachments),
+        "videoStreamRecords": video_records,
+        "inspectionScope": "filenames_and_stream_metadata_only",
+    }
+    observed = [f"{k}={v}" for k, v in sorted(event_attachments.items())]
+    counts = {
+        "external image files": len(files["externalImageFiles"]),
+        "video files": len(files["videoFiles"]),
+        "audio files": len(files["audioFiles"]),
+        "video stream records": video_records,
+    }
+    observed += [f"{kind} ({count})" for kind, count in counts.items() if count]
+    output["note"] = (
+        "Analysis frames are not display frames. A rendered overlay is not proof of safe geometry. "
+        + ("Observed media/attachments: " + ", ".join(observed) + ". " if observed else "")
+        + "Only filenames and stream metadata identify media here; absence of detection is not proof "
+        "that the export contains no RGB or other sensitive data, or that it is safe to share."
+    )
     return output
 
 

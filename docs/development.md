@@ -199,7 +199,7 @@ python3 scripts/pull_recordings.py --device <设备标识> --output <录制文�
 | 重跑完整避障流水线 | `bash Experiments/astra/run.sh <诊断目录>` |
 | 统计源码规模 | `python3 scripts/code_inventory.py`（加 `--write` 更新 `build/code-inventory.md`） |
 
-`read_diag.py` 兼容读取早期旧格式空间诊断数据；标注 `source=synthetic` 的输出为合成测试数据。
+`read_diag.py` 兼容读取早期旧格式空间诊断数据；标注 `source=synthetic` 的输出为合成测试数据。摘要中的 `observedMedia` 按文件名和记录元数据列出媒体；原始图像或音频也可能存放在二进制附件中。未检出媒体不代表录制包可以直接分享。
 
 ### 回放说明
 
@@ -213,6 +213,12 @@ python3 scripts/pull_recordings.py --device <设备标识> --output <录制文�
 | 复现第二轮历史实验 | `run_round2.sh`，使用 `prepare.py`、`Replay.swift` 与 `metrics.py`；原型源码按固定历史提交提取，`SpatialCore` 使用当前工作区 |
 
 ASTRA 按规划候选计算路线和语音代理指标，不重建首页完整的语音、振动和渲染状态。历史初始化提示不计作障碍。若要判断某帧是否实际发起提示，需要结合录制事件或重放首页反馈链路，见[验证结果](validation.md)。
+
+### 照片提示词联网评测
+
+`Experiments/photo-prompt/run_eval.py` 会向指定服务发送评测图像。运行时用 `--service-config <文件>` 指向仓库外、仅当前用户可读的 JSON 文件：`endpoint` 为完整 HTTPS Chat Completions 地址，`token` 为该服务的评测专用密钥。脚本不读取开发工具凭据，也不跟随重定向。模型白名单与调用预算仍然生效。
+
+同一轮次只能续跑同一评测接口。更换接口或遇到未记录服务指纹的旧归档时，请新建轮次；轮换同一接口的密钥不需要新建轮次。归档用指纹标记接口，不写入配置中的地址或密钥。
 
 ### SpatialProbe
 

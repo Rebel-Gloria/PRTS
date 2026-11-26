@@ -145,8 +145,11 @@ struct IntelligenceSettingsView: View {
         message = ""
         do {
             for provider in PhotoChatProvider.allCases where provider != .onDevice {
-                let hasKey = try PhotoCredentialStore.read(account: provider.keyAccount) != nil
-                if hasKey && provider.service() != nil { configuredProviders.insert(provider) }
+                if let service = provider.service(),
+                    try PhotoCredentialStore.read(account: service.keyAccount) != nil
+                {
+                    configuredProviders.insert(provider)
+                }
             }
         } catch { report(error.localizedDescription) }
     }

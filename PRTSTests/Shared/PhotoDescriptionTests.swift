@@ -106,7 +106,7 @@ struct PhotoDescriptionTests {
             UserDefaults(suiteName: "PhotoDescriptionTests.\(UUID().uuidString)")
         )
         #expect(PhotoChatProvider.current(defaults) == .onDevice)
-        #expect(PhotoChatProvider.qwen.keyAccount == "api-key")
+        #expect(PhotoChatService.qwen.keyAccount == "api-key")
         defaults.set("custom", forKey: PhotoChatProvider.selectionKey)
         defaults.set("https://api.example.com/v1", forKey: PhotoChatProvider.customEndpointKey)
         #expect(PhotoChatProvider.custom.service(defaults) == nil)
@@ -126,6 +126,34 @@ struct PhotoDescriptionTests {
         )
         #expect(customBody["model"] as? String == "vision-mini")
         #expect(customBody["thinking"] == nil && customBody["enable_thinking"] == nil)
+    }
+
+    @MainActor @Test func customTextReadingKeysFollowHTTPSOriginNotModelOrPath() throws {
+        let name = "PhotoDescriptionTests.origin.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("custom", forKey: PhotoChatProvider.selectionKey)
+        defaults.set(true, forKey: "photoDescription.uploadAllowed")
+        let key = "api-key.custom.reader.example:443"
+        var lookups: [String] = []
+        func setup(_ url: String, model: String) -> String? {
+            defaults.set(url, forKey: PhotoChatProvider.customEndpointKey)
+            defaults.set(model, forKey: PhotoChatProvider.customModelKey)
+            return TextReadingServices.cloudSetup(defaults: defaults) { account in
+                lookups.append(account)
+                return account == key ? "test-only" : nil
+            }?.key
+        }
+        #expect(setup("https://Reader.example/v1", model: "one") == "test-only")
+        #expect(setup("https://reader.example:443/v2", model: "two") == "test-only")
+        #expect(setup("https://reader.example:8443/v2", model: "two") == nil)
+        #expect(setup("https://other.example/v1", model: "one") == nil)
+        #expect(setup("http://reader.example/v1", model: "one") == nil)
+        #expect(
+            lookups == [
+                key, key, "api-key.custom.reader.example:8443", "api-key.custom.other.example:443",
+            ]
+        )
     }
 
     @Test func questionsCanTurnThinkingOn() throws {

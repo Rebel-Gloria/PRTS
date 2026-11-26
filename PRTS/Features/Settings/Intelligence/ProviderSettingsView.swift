@@ -17,7 +17,17 @@ struct ProviderSettingsView: View {
         _questionThinking = AppStorage(wrappedValue: false, provider.questionThinkingKey)
     }
 
+    private var keyAccount: String? {
+        if provider == .custom {
+            return PhotoChatService.chatURL(from: customEndpoint).flatMap(
+                PhotoChatService.customKeyAccount
+            )
+        }
+        return provider.service()?.keyAccount
+    }
+
     var body: some View {
+        let keyAccount = self.keyAccount
         Form {
             if provider == .onDevice {
                 Section {
@@ -68,19 +78,23 @@ struct ProviderSettingsView: View {
                         .accessibilityHint("photo.settings.keyPlaceholder")
                         .accessibilityIdentifier("photoAPIKey")
                     Button("photo.settings.save") {
+                        guard let keyAccount else { return }
                         do {
-                            try PhotoCredentialStore.save(key, account: provider.keyAccount)
+                            try PhotoCredentialStore.save(key, account: keyAccount)
                             key = ""
                             hasKey = true
                             report(speech.interfaceString("photo.settings.saved"))
                         } catch { report(error.localizedDescription) }
                     }
-                    .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(
+                        keyAccount == nil
+                            || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
                     .accessibilityIdentifier("photoSaveKey")
-                    if hasKey {
+                    if hasKey, let keyAccount {
                         Button("photo.settings.delete", role: .destructive) {
                             do {
-                                try PhotoCredentialStore.delete(account: provider.keyAccount)
+                                try PhotoCredentialStore.delete(account: keyAccount)
                                 hasKey = false
                                 key = ""
                                 report(speech.interfaceString("photo.settings.deleted"))
@@ -125,8 +139,10 @@ struct ProviderSettingsView: View {
             }
         }
         .navigationTitle(LocalizedStringKey(provider.localizationKey))
-        .onAppear {
-            if provider != .onDevice { loadKeyState() }
+        .onChange(of: keyAccount, initial: true) {
+            key = ""
+            message = ""
+            loadKeyState(for: keyAccount)
         }
         .onDisappear { key = "" }
     }
@@ -149,8 +165,10 @@ struct ProviderSettingsView: View {
         SpeechManager.postQueuedAnnouncement(text)
     }
 
-    private func loadKeyState() {
-        do { hasKey = try PhotoCredentialStore.read(account: provider.keyAccount) != nil } catch {
+    private func loadKeyState(for keyAccount: String?) {
+        hasKey = false
+        guard let keyAccount else { return }
+        do { hasKey = try PhotoCredentialStore.read(account: keyAccount) != nil } catch {
             report(error.localizedDescription)
         }
     }
