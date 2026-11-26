@@ -163,7 +163,46 @@ class SpatialIntegrationTests(unittest.TestCase):
                 text = text.replace("nonisolated static func planes", "static func planes")
                 text = text.replace('        let privacy = "No RGB or video saved."', "")
                 text = text.replace('map. " + privacy', 'map. No RGB or video saved."')
-                return swift_code(text)
+                code = swift_code(text)
+                if path == target and name == "MonocularDepthProvider.swift":
+                    # The product carries the exact lookup index alongside each native ray.
+                    # Keep checking both lookup expressions, the rays/IDs, tracker and output.
+                    for product, frozen, count in (
+                        (
+                            "let references: MonocularReferencePixels "
+                            "var samples: [ScaleSample] { references.samples }",
+                            "let samples: [ScaleSample]",
+                            1,
+                        ),
+                        ("references: MonocularReferencePixels,", "samples: [ScaleSample],", 1),
+                        ("self.references = references", "self.samples = samples", 1),
+                        (
+                            "var references = MonocularReferencePixels()",
+                            "var samples: [ScaleSample] = []",
+                            1,
+                        ),
+                        (
+                            "references.append(pixelIndex: y * w + x, relativeMap: raw,",
+                            "samples.append(.init(relative: raw[y * w + x],",
+                            2,
+                        ),
+                        ("featureID: identifiers[i])", "featureID: identifiers[i]))", 1),
+                        (
+                            'source: "arkit_floor_bounded_plane")',
+                            'source: "arkit_floor_bounded_plane"))',
+                            1,
+                        ),
+                        (
+                            "InverseDepthCalibration.fit(references.independentSamples())",
+                            "InverseDepthCalibration.fit(samples)",
+                            1,
+                        ),
+                        ("samples: references.samples,", "samples: samples,", 1),
+                        ("references: references,", "samples: samples,", 1),
+                    ):
+                        self.assertEqual(code.count(swift_code(product)), count, product)
+                        code = code.replace(swift_code(product), swift_code(frozen))
+                return code
 
             with self.subTest(file=name):
                 self.assertEqual(body(PROBE / "App" / name), body(target))

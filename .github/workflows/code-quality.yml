@@ -128,9 +128,10 @@ jobs:
       - name: Test experimental analysis tools
         if: ${{ !cancelled() }}
         run: |
-          python -m pip install numpy==2.4.6
+          python -m pip install numpy==2.4.6 Pillow==13.0.0
           python -B -m unittest discover -s Experiments/SpatialProbe/scripts -p 'test_*.py'
           python -B -m unittest discover -s Experiments/astra -p 'tests.py'
+          python -B -m unittest discover -s Experiments/monocular -p 'test_*.py'
       - name: Check whitespace
         if: ${{ !cancelled() }}
         run: git diff --check "$BASE" HEAD --

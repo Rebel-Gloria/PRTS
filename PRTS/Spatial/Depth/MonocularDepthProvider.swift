@@ -13,7 +13,8 @@ final class MonocularFrame: @unchecked Sendable {
     let calibration: InverseDepthCalibration?
     let planes: [NativePlaneObservation]
     let ground: NativePlaneObservation?
-    let samples: [ScaleSample]
+    let references: MonocularReferencePixels
+    var samples: [ScaleSample] { references.samples }
     let displayBuffer: CVPixelBuffer?
     let milliseconds: Double
     let timings: [String: Double]
@@ -30,7 +31,7 @@ final class MonocularFrame: @unchecked Sendable {
         calibration: InverseDepthCalibration?,
         planes: [NativePlaneObservation],
         ground: NativePlaneObservation?,
-        samples: [ScaleSample],
+        references: MonocularReferencePixels,
         milliseconds: Double,
         timings: [String: Double],
         status: String,
@@ -49,7 +50,7 @@ final class MonocularFrame: @unchecked Sendable {
         self.calibration = calibration
         self.planes = planes
         self.ground = ground
-        self.samples = samples
+        self.references = references
         self.status = status
         let displayStart = ProcessInfo.processInfo.systemUptime
         let values: [Float]
@@ -162,7 +163,7 @@ final class MonocularDepthProvider {
         let raw = inferred.relative
         let alignmentStart = ProcessInfo.processInfo.systemUptime
         let k = frame.intrinsics.scaled(width: w, height: h)
-        var samples: [ScaleSample] = []
+        var references = MonocularReferencePixels()
         if frame.trackingNormal, let features = frame.frame.rawFeaturePoints {
             let points = features.points
             let identifiers = features.identifiers
@@ -174,15 +175,14 @@ final class MonocularDepthProvider {
                 else { continue }
                 let x = Int(p.x.rounded())
                 let y = Int(p.y.rounded())
-                samples.append(
-                    .init(
-                        relative: raw[y * w + x],
-                        meters: -point.z,
-                        u: p.x / Float(w),
-                        v: p.y / Float(h),
-                        source: "arkit_sparse_feature",
-                        featureID: identifiers[i]
-                    )
+                references.append(
+                    pixelIndex: y * w + x,
+                    relativeMap: raw,
+                    meters: -point.z,
+                    u: p.x / Float(w),
+                    v: p.y / Float(h),
+                    source: "arkit_sparse_feature",
+                    featureID: identifiers[i]
                 )
             }
         }
@@ -196,20 +196,22 @@ final class MonocularDepthProvider {
                         intrinsics: k,
                         camera: frame.pose
                     ) {
-                        samples.append(
-                            .init(
-                                relative: raw[y * w + x],
-                                meters: depth,
-                                u: Float(x) / Float(w),
-                                v: Float(y) / Float(h),
-                                source: "arkit_floor_bounded_plane"
-                            )
+                        references.append(
+                            pixelIndex: y * w + x,
+                            relativeMap: raw,
+                            meters: depth,
+                            u: Float(x) / Float(w),
+                            v: Float(y) / Float(h),
+                            source: "arkit_floor_bounded_plane"
                         )
                     }
                 }
             }
         }
-        let fitScale = frame.trackingNormal ? InverseDepthCalibration.fit(samples) : nil
+        // Only the fit votes are reduced. Preserve all native IDs for inter-frame drift checks.
+        let fitScale =
+            frame.trackingNormal
+            ? InverseDepthCalibration.fit(references.independentSamples()) : nil
         let decision = scaleTracker.update(
             .init(
                 timestamp: frame.frame.timestamp,
@@ -219,7 +221,7 @@ final class MonocularDepthProvider {
                 intrinsics: k,
                 pose: frame.pose,
                 relative: raw,
-                samples: samples,
+                samples: references.samples,
                 fit: fitScale
             )
         )
@@ -259,7 +261,7 @@ final class MonocularDepthProvider {
             calibration: calibration,
             planes: planes,
             ground: ground,
-            samples: samples,
+            references: references,
             milliseconds: (ProcessInfo.processInfo.systemUptime - start) * 1000,
             timings: inferred.timings.merging(
                 [

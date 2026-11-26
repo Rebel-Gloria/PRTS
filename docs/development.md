@@ -75,6 +75,29 @@ git diff --check
 
 `SpatialCore` 的路线测试按场景拆分（共享场景构造器位于 `Tests/SpatialCoreTests/Support/RoutingTestScene.swift`），可通过 `--filter` 单独运行，例如 `swift test --package-path Packages/SpatialCore --filter RouteProjectionTests`。
 
+### 无 LiDAR 合成回放
+
+在 Mac 上可以用仓库自带的生成图像、产品 Core ML 模型和合成相机数据验证米制融合。以下命令在仓库根目录运行；Python 环境需有 NumPy 和 Pillow。
+
+1. 构建回放程序与模型，并生成三段有独立几何真值的走廊序列：
+
+   ```sh
+   out=build/monocular
+   bash Experiments/monocular/build_replay.sh "$out/bin"
+   python3 Experiments/monocular/render_scene.py Experiments/monocular/fixtures/corridor.jpg "$out/scene"
+   ```
+
+   默认序列沿走廊前进。若要验证横移、转向、停顿和折返，请换一个输出目录，并为生成命令添加 `--trajectory lateral-return`。
+
+2. 用场景的 RGB、相机位姿、内参、稀疏世界点和有界地面运行产品预测，再单独用真值评分：
+
+   ```sh
+   "$out/bin/fusion-replay" combined "$out/scene/normal" "$out/combined"
+   python3 Experiments/monocular/score_fusion.py "$out/scene/normal" "$out/combined"
+   ```
+
+使用 `occluded` 场景可检查第二个无特征点的障碍，使用 `near` 可检查约 1.5 m 内的箱体。将 `combined` 模式替换为 `features`、`floor` 或 `none` 可分别隔离参考来源；`withoutBox` 移除全部箱体特征且不使用地面平面，`layered` 只使用稀疏地图，并加入被遮挡的固定世界点（不使用地面平面），`noisy` 引入位置误差，`interrupted` 模拟两帧追踪受限。每种模式使用独立输出目录。`metrics.json` 区分全部帧与确认帧的覆盖率和有效像素误差，`compare.png` 以相同色标显示真值与预测，灰色表示没有估计。只检查单张生成图时，用 `fusion-replay image 图像路径 输出路径` 写出相对逆深度，不附加米制标签。使用 `python3 -m unittest discover -s Experiments/monocular` 检查留出和计分规则。实验结果与适用范围见[验证结果](validation.md#无-lidar-融合的合成验证)。
+
 ### 持续集成
 
 `Code quality` 对每个进入 `main` 的提交分别验证，批量推送时为中间提交补发独立运行。运行名称和摘要显示实际被测 SHA；新推送不取消旧运行。PR 验证合并结果。
@@ -83,7 +106,7 @@ git diff --check
 |---|---|
 | 全量 | 全仓格式与风格、Python 工具与工程边界、空间算法（Debug 和 Release）、SpatialProbe 实验包和上游契约、Release 和 Dev 的 App 单元测试、无签名真机编译及包内中英文权限说明 |
 | 已有应用 Swift 源码修改 | 按完整文件检查格式，构建与功能检查仍全部执行 |
-| 仅修改仓库说明文档 | `README.md`、`docs/` 下的 Markdown 可复用直接父提交的 macOS 检查；仍运行全部 Python 检查（含 SpatialProbe 和 Astra 实验工具）与空白检查 |
+| 仅修改仓库说明文档 | `README.md`、`docs/` 下的 Markdown 可复用直接父提交的 macOS 检查；仍运行全部 Python 检查（含 SpatialProbe、Astra 和单目深度评分工具）与空白检查 |
 
 增量仅适用于普通推送，并要求直接父提交在本仓库 `main` 完成同一规则的全量验证。配置变更、增删或移动源码、合并提交、无法确认基线时均执行全量。手动运行和 PR 始终全量。各模式均检查实际提交差异；复用不计为重新执行。应用内使用说明和模型资源不属于仓库说明文档。
 
