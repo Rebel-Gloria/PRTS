@@ -130,7 +130,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
                 return
             }
             let id = generation
-            withRecordingContext(id: id) {
+            DevInteractionRecording.withContext(id: id, generation: recordingGeneration) {
                 work = Task { [weak self] in
                     guard let self, self.generation == id else { return }
                     do {
@@ -151,7 +151,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
             }
             capturingQuestion = false
             let id = generation
-            withRecordingContext(id: id) {
+            DevInteractionRecording.withContext(id: id, generation: recordingGeneration) {
                 work = Task { [weak self] in
                     guard let self, self.generation == id else { return }
                     do {
@@ -211,7 +211,10 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     private func capture(purpose: PhotoImagePurpose) throws {
         guard let captureOperation, let request else { throw PhotoChatError.emptyInput }
         self.captureOperation = nil
-        imageTask = try withRecordingContext(id: generation) {
+        imageTask = try DevInteractionRecording.withContext(
+            id: generation,
+            generation: recordingGeneration
+        ) {
             try captureOperation(
                 purpose.longestSide(highResolution: request.configuration.highResolution)
             )
@@ -242,7 +245,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         }
         capturingQuestion = true
         let id = generation
-        withRecordingContext(id: id) {
+        DevInteractionRecording.withContext(id: id, generation: recordingGeneration) {
             work = Task { [weak self] in
                 guard let self, self.generation == id else { return }
                 do {
@@ -265,7 +268,7 @@ final class PhotoDescriptionCoordinator: ObservableObject {
         let describe = services.describe
         self.request = nil
         message = localized("photo.message.describing")
-        withRecordingContext(id: id) {
+        DevInteractionRecording.withContext(id: id, generation: recordingGeneration) {
             work = Task { [weak self] in
                 do {
                     let jpeg = try await imageTask.value
@@ -342,28 +345,8 @@ final class PhotoDescriptionCoordinator: ObservableObject {
     }
 
     private func speak(_ text: String) throws {
-        try withRecordingContext { try audio.speak(text) }
-    }
-
-    private func withRecordingContext<T>(
-        id: UUID? = nil,
-        _ body: () throws -> T
-    ) rethrows -> T {
-        #if PRTS_DEV
-        if let id {
-            return try DevInteractionRecording.$interactionID.withValue(id.uuidString) {
-                try DevInteractionRecording.$recordingGeneration.withValue(
-                    recordingGeneration,
-                    operation: body
-                )
-            }
+        try DevInteractionRecording.withContext(generation: recordingGeneration) {
+            try audio.speak(text)
         }
-        return try DevInteractionRecording.$recordingGeneration.withValue(
-            recordingGeneration,
-            operation: body
-        )
-        #else
-        return try body()
-        #endif
     }
 }

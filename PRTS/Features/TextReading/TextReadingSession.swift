@@ -186,12 +186,17 @@ final class TextReadingSession: ObservableObject {
                 Task { @MainActor in
                     guard let self, self.generation == id else { return }
                     self.camera.stop()
-                    self.withRecordingContext(id: id) {
+                    DevInteractionRecording.withContext(
+                        id: id,
+                        generation: self.recordingGeneration
+                    ) {
                         self.work = Task { await self.read(image, id) }
                     }
                 }
             }
-            withRecordingContext(id: id) { camera.capture(captured) }
+            DevInteractionRecording.withContext(id: id, generation: recordingGeneration) {
+                camera.capture(captured)
+            }
         } catch {
             services.errors.record(error)
             end()
@@ -347,7 +352,9 @@ final class TextReadingSession: ObservableObject {
 
     private func speak(_ text: String) throws {
         guard feedbackEnabled, passMaySpeak else { return }
-        try withRecordingContext { try voice.speak(text) }
+        try DevInteractionRecording.withContext(generation: recordingGeneration) {
+            try voice.speak(text)
+        }
         voiceBusy = true
         if phase == .reading { phase = .speaking }
     }
@@ -385,27 +392,5 @@ final class TextReadingSession: ObservableObject {
             self.phase = .idle
             self.finished()
         }
-    }
-
-    private func withRecordingContext<T>(
-        id: UUID? = nil,
-        _ body: () throws -> T
-    ) rethrows -> T {
-        #if PRTS_DEV
-        if let id {
-            return try DevInteractionRecording.$interactionID.withValue(id.uuidString) {
-                try DevInteractionRecording.$recordingGeneration.withValue(
-                    recordingGeneration,
-                    operation: body
-                )
-            }
-        }
-        return try DevInteractionRecording.$recordingGeneration.withValue(
-            recordingGeneration,
-            operation: body
-        )
-        #else
-        return try body()
-        #endif
     }
 }

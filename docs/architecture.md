@@ -18,11 +18,11 @@ PRTS 由主应用和两个本地 Swift Package 组成。核心避障算法位于
 | `PRTS/Features/Settings/` | 设置页、智能服务配置与使用说明解析朗读 | `SettingsView`、`IntelligenceSettingsView`、`UserGuide`、`UserGuideDocument` |
 | `PRTS/Features/Developer/` | Dev 录制包的系统分享界面 | `RecordingShareSheet` |
 | `PRTS/Shared/Intelligence/` | 联网流式协议、HTTPS 安全检查、钥匙串凭证与本机模型路径 | `PhotoChatService`、`IntelligenceFeature` |
-| `PRTS/Shared/Imaging/` | 图像转正、缩放与 JPEG 编码 | `PhotoImageEncoder` |
+| `PRTS/Shared/Imaging/` | 相机预览、图像转正、缩放与 JPEG 编码 | `CaptureSessionPreview`、`PhotoImageEncoder` |
 | `PRTS/Shared/Audio/` | 音频会话租约管理、TTS 输出、提示音与系统语音识别 | `AudioSessionCoordinator`、`AnswerAudioOutput`、`PhotoSpeechRecognizer` |
 | `PRTS/Shared/Input/` | 按键状态判定、硬件按键接入与交互偏好 | `PhotoPressState`、`PhotoHardwareButtons`、`InteractionPreferences` |
 | `PRTS/Shared/Diagnostics/` | 运行期应用错误日志 | `ErrorLog`、`ErrorReporter` |
-| `PRTS/Shared/Recording/` | Dev 自动录制、原图音频附件、视频分段与 ZIP 打包 | `RecordingStore`、`DevInteractionRecording`、`RecordingVideoWriter`、`RecordingArchive` |
+| `PRTS/Shared/Recording/` | Dev 自动录制、交互录制上下文、原图音频附件、视频分段与 ZIP 打包 | `RecordingStore`、`DevInteractionRecording`、`RecordingVideoWriter`、`RecordingArchive` |
 | `Packages/SpatialCore/` | 地面与障碍分析（`Perception/`）、路线规划（`Routing/`）、播报与触觉策略（`Feedback/`） | `SpatialAnalyzer`、`PathPredictor` |
 | `Packages/LocalVLM/` | llama.cpp 封装，在设备上运行 MiniCPM-V | `LocalVLM` |
 | `Vendor/PRTSCore/` | 上游契约源码快照；主应用不链接此包，仅运行契约测试 | — |
@@ -147,7 +147,7 @@ ARSession
 | RGB 媒体服务重置 | 仅在用户仍要求运行、应用活跃且中断结束时尝试重建一次 | `RGBCamera`、`RGBCameraRecovery` |
 | 切换低视力模式 | 先停 ARKit 并清空空间输入，再启普通 RGB；关闭时按相反顺序切回 | `CameraManager` |
 
-用户显式停止避障后，任何迟到的权限回调或读文字结束回调均不得重新拉起相机。
+用户显式停止避障后，任何迟到的权限回调或读文字结束回调均不得重新拉起相机。低视力与读文字共用 `CaptureSessionPreview` 显示已有会话，视图存续期间不更换会话或旋转策略，也不负责相机启停。低视力预览跟随界面方向，读文字预览固定竖屏。
 
 开启“点按停止”或检测到辅助触控、切换控制时，主按钮切为轻点停止。由于 `UIAccessibility.isAssistiveTouchRunning` 仅在开启引导式访问时能可靠返回 true，普通辅助触控用户需在设置中手动打开“点按停止”。
 

@@ -461,7 +461,7 @@ struct ContentView: View {
         } else if textReading.phase != .idle && !isShowingSettings {
             // Attaching the preview while the session is still being configured stalls the UI for seconds.
             if !noPreview && textReading.framesSeen > 0 {
-                TextCameraPreview(session: textReading.camera.session)
+                CaptureSessionPreview(session: textReading.camera.session, rotation: .portrait)
                     .ignoresSafeArea()
                     .accessibilityHidden(true)
             }

@@ -18,7 +18,12 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
     let isEnabled: Bool
     let root: URL
-    private let queue = DispatchQueue(label: "prts.recording.disk", qos: .utility)
+    // A busy recording queue must release each packet's temporary Foundation objects.
+    private let queue = DispatchQueue(
+        label: "prts.recording.disk",
+        qos: .utility,
+        autoreleaseFrequency: .workItem
+    )
     private let exportQueue = DispatchQueue(label: "prts.recording.export", qos: .utility)
     private let lock = NSLock()
     private var state = DiagnosticStatus()

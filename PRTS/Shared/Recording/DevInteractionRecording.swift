@@ -10,6 +10,33 @@ import AVFoundation
 /// Copies original interaction images before any model-specific resizing and centralizes
 /// dev-only interaction telemetry so feature code avoids repetitive conditional compilation.
 nonisolated enum DevInteractionRecording {
+    static func withContext<T>(
+        id: UUID? = nil,
+        generation: UInt64,
+        _ body: () throws -> T
+    ) rethrows -> T {
+        #if PRTS_DEV
+        return try $recordingGeneration.withValue(generation) {
+            if let id { return try $interactionID.withValue(id.uuidString, operation: body) }
+            return try body()
+        }
+        #else
+        return try body()
+        #endif
+    }
+
+    /// Caption callbacks keep the generation of the request that scheduled them.
+    static func withContext<T>(fallbackGeneration: UInt64, _ body: () throws -> T) rethrows -> T {
+        #if PRTS_DEV
+        return try $recordingGeneration.withValue(
+            recordingGeneration ?? fallbackGeneration,
+            operation: body
+        )
+        #else
+        return try body()
+        #endif
+    }
+
     #if PRTS_DEV
     @TaskLocal static var interactionID: String?
     @TaskLocal static var recordingGeneration: UInt64?

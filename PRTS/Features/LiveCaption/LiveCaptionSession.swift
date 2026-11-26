@@ -108,7 +108,9 @@ final class LiveCaptionSession: ObservableObject {
         guard feedbackEnabled else { return }
         isAnnouncing = true
         do {
-            try withRecordingContext { try audio.speak(text) }
+            try DevInteractionRecording.withContext(fallbackGeneration: recordingGeneration) {
+                try audio.speak(text)
+            }
         } catch {
             services.errors.record(error)
             audio.stop()
@@ -154,14 +156,17 @@ final class LiveCaptionSession: ObservableObject {
             generation: recordingGeneration
         )
         do {
-            try withRecordingContext(id: interactionID) {
+            try DevInteractionRecording.withContext(
+                id: interactionID,
+                generation: recordingGeneration
+            ) {
                 try say(localized("liveCaption.on"))
             }
         } catch {
             fail(error)
             return
         }
-        withRecordingContext(id: interactionID) {
+        DevInteractionRecording.withContext(id: interactionID, generation: recordingGeneration) {
             work = Task {
                 do {
                     try await run(capture: capture, key: key)
@@ -374,7 +379,9 @@ final class LiveCaptionSession: ObservableObject {
 
     private func say(_ text: String) throws {
         guard feedbackEnabled else { return }
-        try withRecordingContext { try audio.speak(text) }
+        try DevInteractionRecording.withContext(fallbackGeneration: recordingGeneration) {
+            try audio.speak(text)
+        }
         isSpeaking = true
     }
 
@@ -388,7 +395,9 @@ final class LiveCaptionSession: ObservableObject {
         guard let answer = waitingAnswer else { return }
         waitingAnswer = nil
         do {
-            try withRecordingContext { try present(answer) }
+            try DevInteractionRecording.withContext(fallbackGeneration: recordingGeneration) {
+                try present(answer)
+            }
         } catch { fail(error) }
     }
 
@@ -397,26 +406,6 @@ final class LiveCaptionSession: ObservableObject {
         stop()
         message = error.localizedDescription
         if mayAnnounce { announce(message) }
-    }
-
-    private func withRecordingContext<T>(
-        id: UUID? = nil,
-        _ body: () throws -> T
-    ) rethrows -> T {
-        #if PRTS_DEV
-        if let id {
-            return try DevInteractionRecording.$interactionID.withValue(id.uuidString) {
-                try DevInteractionRecording.$recordingGeneration.withValue(
-                    recordingGeneration,
-                    operation: body
-                )
-            }
-        }
-        let token = DevInteractionRecording.recordingGeneration ?? recordingGeneration
-        return try DevInteractionRecording.$recordingGeneration.withValue(token, operation: body)
-        #else
-        return try body()
-        #endif
     }
 
     private func recordSelection(_ frames: some Collection<LiveCaptionFrame>, phase: String) {
