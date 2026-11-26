@@ -40,8 +40,10 @@ final class MonocularReferenceTests: XCTestCase {
         XCTAssertEqual(references.pixelIndices, [119 * 256 + 72, 119 * 256 + 72])
         XCTAssertTrue(references.independentSamples().isEmpty)
         // Rejected fit votes still have their original rays and IDs for drift checks.
-        XCTAssertEqual(references.samples.map(\.u), [72.32 / 256, 71.68 / 256])
-        XCTAssertEqual(references.samples.map(\.v), [Float(119.5).nextDown / 192, 119.0 / 192])
+        let expectedU: [Float] = [72.32 / 256, 71.68 / 256]
+        let expectedV: [Float] = [Float(119.5).nextDown / 192, 119.0 / 192]
+        XCTAssertEqual(references.samples.map(\.u), expectedU)
+        XCTAssertEqual(references.samples.map(\.v), expectedV)
         XCTAssertEqual(references.samples.compactMap(\.featureID), [0, 1])
     }
 
