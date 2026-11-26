@@ -2,6 +2,7 @@ import os
 import plistlib
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,6 +13,46 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class QualityTests(unittest.TestCase):
+    def test_experimental_suites_follow_the_tested_tree(self):
+        workflow = (ROOT / ".github/workflows/code-quality.yml").read_text()
+        step = workflow.split("      - name: Test experimental analysis tools\n", 1)[1]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1].split("      - name:", 1)[0])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+
+            def add_suite(name, check):
+                suite = root / "Experiments" / name
+                suite.parent.mkdir(parents=True)
+                suite.write_text(
+                    "import unittest\nclass Example(unittest.TestCase):\n"
+                    f"    def test_runs(self):\n        {check}\n"
+                )
+                return suite.relative_to(root)
+
+            def run():
+                return subprocess.run(
+                    ["bash", "-e", "-o", "pipefail", "-c", script],
+                    cwd=root,
+                    env=dict(os.environ, RUNNER_TEMP=directory),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+
+            self.assertNotEqual(run().returncode, 0)
+            old = add_suite("original tests/tests.py", "print('original suite')")
+            new = add_suite("new/test_added.py", "self.fail('new suite failed')")
+            subprocess.run(["git", "add", "--", old], cwd=root, check=True)
+            historical = run()
+            self.assertEqual(historical.returncode, 0, historical.stdout)
+            self.assertIn("original suite", historical.stdout)
+            self.assertNotIn("new suite failed", historical.stdout)
+            subprocess.run(["git", "add", "--", new], cwd=root, check=True)
+            current = run()
+            self.assertNotEqual(current.returncode, 0)
+            self.assertIn("new suite failed", current.stdout)
+
     def test_only_repository_prose_can_reuse_macos_checks(self):
         for paths, expected in [
             ([("A", "docs/read me.md"), ("D", "README.md")], "docs"),
