@@ -31,13 +31,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS uses the camera to detect the ground and obstacles around you."
+            "value" : "PRTS uses the camera to detect obstacles ahead, describe your surroundings, and read text."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PRTS 用相机识别你周围的地面和障碍。"
+            "value" : "PRTS 用相机识别前方的障碍、描述周围的画面和读文字。"
           }
         }
       }
@@ -48,13 +48,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Used while you hold the photo button to record your question."
+            "value" : "Records your spoken question when you ask about your surroundings."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按住拍照按钮时录下你的提问。"
+            "value" : "就周围的画面提问时，PRTS 会录下你的问题。"
           }
         }
       }

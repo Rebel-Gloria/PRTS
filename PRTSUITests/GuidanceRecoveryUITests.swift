@@ -151,7 +151,7 @@ final class GuidanceRecoveryUITests: XCTestCase {
         let running = XCTNSPredicateExpectation(
             predicate: NSPredicate(
                 format: "label IN %@",
-                ["长按停止", "Press and hold to stop", "停止", "Stop"]
+                ["按住以停止", "Touch and hold to stop", "停止", "Stop"]
             ),
             object: app.buttons["cameraButton"]
         )

@@ -126,13 +126,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stopping tasks and clearing recordings…"
+            "value": "Stopping tasks and clearing recordings"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在停止任务并清除录制…"
+            "value": "正在停止任务并清除录制数据"
           }
         }
       }
@@ -347,7 +347,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not set up"
+            "value" : "Not configured"
           }
         },
         "zh-Hans" : {
@@ -364,7 +364,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set up"
+            "value" : "Configured"
           }
         },
         "zh-Hans" : {
@@ -455,7 +455,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "全局"
+            "value" : "全部服务"
           }
         }
       }
@@ -472,7 +472,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "服务配比"
+            "value" : "按功能设置"
           }
         }
       }
@@ -738,13 +738,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Guiding"
+            "value" : "Camera is live"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "避障中"
+            "value" : "相机正在运行"
           }
         }
       }
@@ -806,13 +806,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Starts the camera and obstacle guidance"
+            "value" : "Starts the camera, and obstacle guidance on devices with LiDAR"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启相机并开始避障"
+            "value" : "开启相机，并在配备 LiDAR 的设备上开始避障"
           }
         }
       }
@@ -829,7 +829,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始相机"
+            "value" : "开启相机"
           }
         }
       }
@@ -840,13 +840,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Press and hold to stop"
+            "value" : "Touch and hold to stop"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "长按停止"
+            "value" : "按住以停止"
           }
         }
       }
@@ -863,7 +863,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按住一秒停止。使用旁白时双击即可停止。"
+            "value" : "按住一秒停止。使用旁白时轻点两下即可停止。"
           }
         }
       }
@@ -999,7 +999,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "三指长按或轻点主按钮退出"
+            "value" : "三指按住或轻点主按钮退出"
           }
         }
       }
@@ -1248,7 +1248,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lets the on-device model answer more detail, translation and explanation questions."
+            "value" : "Lets the on-device model answer more detail, translation, and explanation questions."
           }
         },
         "zh-Hans" : {
@@ -1560,7 +1560,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "轻点主按钮即可停止，无需按住。使用辅助触控、眼动追踪或不便长按时可开启。"
+            "value" : "轻点主按钮即可停止，无需按住。使用辅助触控、眼动追踪或不便按住时可开启。"
           }
         }
       }
@@ -1662,7 +1662,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用普通相机，并暂停深度感知和避障计算。"
+            "value" : "使用普通相机，并暂停深度感知和避障提示。"
           }
         }
       }
@@ -1764,7 +1764,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "允许向云端发送画面和提问。本机功能不需要开启。"
+            "value" : "允许向云端发送画面和提问。使用本机功能无需开启此项。"
           }
         }
       }
@@ -1781,7 +1781,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回答前会多想一会儿，要多等一下。"
+            "value" : "回答前会多思考一会儿。"
           }
         }
       }
@@ -1792,13 +1792,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Doesn't draw the camera view. Everything else keeps working."
+            "value" : "Doesn't show the camera view. Everything else keeps working."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "不渲染画面，其余功能正常工作。"
+            "value" : "不显示相机画面，其余功能正常工作。"
           }
         }
       }
@@ -2387,13 +2387,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Turning this off prevents new cloud operations. Current requests and live captions continue. You can still ask questions on device. Cloud questions may use Apple’s speech service."
+            "value" : "Turning this off prevents new cloud operations, while operations in progress continue. On-device questions require on-device speech recognition. Speech recognition for cloud questions may use Apple services."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "关闭后不能开始新的云端操作。进行中的请求和流式字幕会继续，本机提问不受影响。云端提问可能使用 Apple 语音服务。"
+            "value" : "关闭后不会发起新的云端操作，进行中的操作会继续。本机提问需使用本机语音识别，云端提问的语音识别可能使用 Apple 服务。"
           }
         }
       }
@@ -2750,7 +2750,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后不渲染相机画面，其余功能照常工作，有助于省电和减少发热。"
+            "value" : "开启后不显示相机画面，其余功能照常工作，有助于省电和减少发热。"
           }
         }
       }
@@ -2999,13 +2999,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When on, while guidance runs, press a volume button to describe the scene, or hold it to ask a question."
+            "value" : "When on, while the camera is running, press a volume button to describe the scene, or hold it to ask a question."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后，避障运行时按一下音量键描述画面，按住提问。"
+            "value" : "开启后，相机运行时按一下音量键描述画面，按住提问。"
           }
         }
       }
@@ -3016,13 +3016,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "While guidance runs, press Camera Control to describe the scene, or hold it to ask a question."
+            "value" : "While the camera is running, press Camera Control to describe the scene, or hold it to ask a question."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "避障运行时，按一下相机控制按钮描述画面，按住提问。"
+            "value" : "相机运行时，按一下相机控制按钮描述画面，按住提问。"
           }
         }
       }
@@ -3084,7 +3084,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Follows your default provider when selected. If the online service is unavailable, text reading falls back to the on-device model, then Apple Vision. Apple Vision reads text without scene context."
+            "value" : "When set to follow your default provider, text reading uses the service selected above. If the online service is unavailable, it falls back to the on-device model, then Apple Vision. Apple Vision reads text without scene context."
           }
         },
         "zh-Hans" : {
@@ -3328,7 +3328,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请在设置里填写服务地址和模型"
+            "value" : "请在设置中填写服务地址和模型"
           }
         }
       }
@@ -3373,7 +3373,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Response ended early. Try again."
+            "value" : "Response ended early. Try again"
           }
         },
         "zh-Hans" : {
@@ -3447,7 +3447,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音识别暂不可用"
+            "value" : "语音识别不可用"
           }
         }
       }
@@ -3464,7 +3464,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有听清，请重新长按提问"
+            "value" : "没有听清，请重新按住提问"
           }
         }
       }

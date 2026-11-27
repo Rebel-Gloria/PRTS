@@ -153,7 +153,7 @@ final class PRTSUITests: XCTestCase {
             "-followSystemLanguageEnabled", "NO", "-selectedLanguage", "Chinese",
         ]
         let arguments = app.launchArguments
-        for (setting, expected) in [("YES", "低视力模式"), ("NO", "避障中")] {
+        for (setting, expected) in [("YES", "低视力模式"), ("NO", "相机正在运行")] {
             app.launchArguments = arguments + ["-app.lowVisionMode", setting]
             app.launch()
             let camera = app.buttons["cameraButton"]
@@ -317,7 +317,7 @@ final class PRTSUITests: XCTestCase {
     private func waitForGuidance(_ app: XCUIApplication, timeout: TimeInterval) -> Bool {
         let stop = NSPredicate(
             format: "label IN %@",
-            ["长按停止", "Press and hold to stop", "停止", "Stop"]
+            ["按住以停止", "Touch and hold to stop", "停止", "Stop"]
         )
         let running = XCTNSPredicateExpectation(
             predicate: stop,
