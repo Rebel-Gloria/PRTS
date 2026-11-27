@@ -104,11 +104,11 @@
 
 | 项目 | 规格 |
 |---|---|
-| 来源 | `openbmb/MiniCPM-V-4.7-1B-gguf`（主模型 `Q5_K_M` 约 752 MB + `mmproj` FP16 约 1.1 GB） |
-| 推理引擎 | llama.cpp（固定提交 `620d222`），启用 mtmd 与 Metal |
+| 来源 | `openbmb/MiniCPM-V-4.7-1B-gguf`（主模型 `Q5_K_M` 约 752 MB + 视觉投影权重约 1.1 GB，包含 BF16 和 F32 张量） |
+| 推理引擎 | llama.cpp（固定提交 `620d222`），使用 mtmd，真机推理启用 Metal |
 | 解码参数 | 贪心解码，描述最多 160 token，切片上限 9 |
 
-切片上限读取自 mmproj 元数据 `clip.vision.max_slice_nums`（模型选型对比见[验证结果](validation.md#本地视觉模型)）。该模型与 llama.cpp 由 `Packages/LocalVLM/prepare.sh` 编译为支持真机与 arm64 模拟器的 `PRTSLocalVLM.xcframework`（构建流程见[开发指南](development.md#构建)），构建应用时通过 `cp -c` 以 APFS 文件克隆方式复制进 `PRTS.app/LocalVLM/`，路径由 `PRTS/Shared/Intelligence/PhotoLocalModel.swift` 解析。
+切片上限读取自 mmproj 元数据 `clip.vision.max_slice_nums`（模型选型对比见[验证结果](validation.md#本地视觉模型)）。`Packages/LocalVLM/prepare.sh` 校验两份模型文件，并将推理引擎编译为 `PRTSLocalVLM.xcframework`（见[模拟器推理后端](development.md#模拟器推理后端)）。构建应用时，模型文件通过 `cp -c` 以 APFS 文件克隆方式复制进 `PRTS.app/LocalVLM/`，路径由 `PRTS/Shared/Intelligence/PhotoLocalModel.swift` 解析。
 
 `Packages/LocalVLM` 对外提供 `describe` 与复用视觉编码的 `ask` 两个流式接口。模型首次调用时加载并常驻内存，所有请求在单串行队列排队执行，取消在两个 token 之间生效，并确保回调不会截断多字节 UTF-8 字符。
 

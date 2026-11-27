@@ -7,13 +7,13 @@
 | 项目 | 要求 |
 |---|---|
 | 应用构建 | macOS、Xcode 26 或更高版本（使用 iOS 26 SDK API），部署目标 iOS 17 |
-| 本地模型构建 | `cmake`、`ninja`、网络连接及约 2 GB 可用磁盘空间 |
+| 本地模型构建 | `cmake`、`ninja`；首次准备需要网络。两份权重约占 1.8 GB，另需源码与编译缓存空间 |
 | 工具脚本与格式检查 | Python 3.11 或更高版本 |
 | 真机安装 | 已配置 Apple 开发者签名团队 |
 
 ## 构建
 
-1. 准备本地视觉模型和推理库（首次构建或修改 `Packages/LocalVLM/csrc/` 后执行）：
+1. 准备本地视觉模型和推理库（首次构建、修改推理封装或模拟器补丁后执行）：
 
    ```sh
    bash Packages/LocalVLM/prepare.sh
@@ -34,6 +34,23 @@
    ```
 
 如需将源码提交哈希写入二进制，请附加构建参数 `PRTS_SOURCE_COMMIT=$(git rev-parse HEAD)`。
+
+### 模拟器推理后端
+
+`PRTS_SIMULATOR_BACKEND` 是编译原生推理库时传给 `prepare.sh` 的参数，不是 Xcode 的启动参数。切换后请重新构建模拟器 App。Release 和 Dev 使用同一个后端，不新增应用设置。
+
+| 准备命令 | 生成的推理库 |
+|---|---|
+| `PRTS_SIMULATOR_BACKEND=metal bash Packages/LocalVLM/prepare.sh`（默认） | 原版真机库，以及带兼容补丁的 arm64 模拟器 Metal 库 |
+| `PRTS_SIMULATOR_BACKEND=cpu bash Packages/LocalVLM/prepare.sh` | 同一真机库；模拟器不编译 Metal，视觉模型使用 Accelerate 的 BLAS 后端 |
+| `DEVICE_ONLY=1 bash Packages/LocalVLM/prepare.sh` | 只生成原版真机库，忽略模拟器选项；用于 IPA 构建 |
+
+两种模拟器后端分别从相同的 llama.cpp 固定版本生成独立源码副本和构建目录；真机源码不打补丁。Metal 后端在页对齐且可包装的目的缓冲区上保留异步读回，其他目的缓冲区先同步再按实际长度复制。视觉权重保持原样：只有兼容计算管线可用时，才接管连续二维的 `BF16 × F32 → F32` 矩阵乘法；不支持的计算仍由原调度器分配，不强开 SIMD 或原生 BF16。
+
+要复查传输边界和矩阵结果，请先准备默认 Metal 库，启动模拟器，再运行 `bash Packages/LocalVLM/Tests/run-simulator.sh <模拟器 UDID>`。这个检查使用真实 Metal，不读取图片或模型。CI 的模型替身不能代替它。
+
+> [!NOTE]
+> 模拟器使用 Mac 的 GPU，不模拟所选 iPhone 的 GPU。若要排查不同 Mac 或模拟器版本的差异，可改用 `cpu` 做对照；性能、功耗与真机听感仍需在设备上验证。
 
 ### 本机签名
 
@@ -133,8 +150,6 @@ git diff --check
 > IPA 未签名，安装前需要使用自己的签名或侧载工具重新签名。Dev 会自动保存现场画面、空间数据和提问音频。CI 验证构建与包内模型完整性，不代表已通过真机传感器或真实推理验收。
 
 GitHub 的单个 Release 附件必须小于 2 GiB。`scripts/package_ipa.py` 在上传前检查大小、设备平台、源码提交、真实推理库符号及模型 SHA-256；任一检查失败都会停止发布。
-
-如需只准备真机推理库，可运行 `DEVICE_ONLY=1 bash Packages/LocalVLM/prepare.sh`。默认仍同时准备真机和模拟器库。
 
 ### 代码格式化
 

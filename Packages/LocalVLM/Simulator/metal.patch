@@ -1,0 +1,241 @@
+diff --git a/ggml/src/ggml-metal/ggml-metal-context.m b/ggml/src/ggml-metal/ggml-metal-context.m
+index e906466..c9aee12 100644
+--- a/ggml/src/ggml-metal/ggml-metal-context.m
++++ b/ggml/src/ggml-metal/ggml-metal-context.m
+@@ -12,4 +12,5 @@
+
+ #import <Metal/Metal.h>
++#include <unistd.h>
+
+ #undef MIN
+@@ -325,4 +326,7 @@ static struct ggml_metal_buffer_id ggml_metal_get_buffer_id(const struct ggml_te
+
+ void ggml_metal_set_tensor_async(ggml_metal_t ctx, struct ggml_tensor * tensor, const void * data, size_t offset, size_t size) {
++    if (size == 0) {
++        return;
++    }
+     @autoreleasepool {
+         // wrap the source data into a Metal buffer
+@@ -371,12 +375,22 @@ void ggml_metal_set_tensor_async(ggml_metal_t ctx, struct ggml_tensor * tensor,
+
+ void ggml_metal_get_tensor_async(ggml_metal_t ctx, const struct ggml_tensor * tensor, void * data, size_t offset, size_t size) {
++    if (size == 0) {
++        return;
++    }
+     @autoreleasepool {
+         id<MTLDevice> device = ggml_metal_device_get_obj(ctx->dev);
+-        id<MTLBuffer> buf_dst = [device newBufferWithBytesNoCopy:data
+-                                                          length:size
+-                                                         options:MTLResourceStorageModeShared
+-                                                     deallocator:nil];
+-
+-        GGML_ASSERT(buf_dst);
++        const size_t page = (size_t) sysconf(_SC_PAGESIZE);
++        id<MTLBuffer> buf_dst = nil;
++        if ((uintptr_t) data % page == 0 && size % page == 0) {
++            buf_dst = [device newBufferWithBytesNoCopy:data length:size
++                                               options:MTLResourceStorageModeShared deallocator:nil];
++        }
++        if (!buf_dst) {
++            // Use ggml's ordered fallback for host ranges Metal cannot wrap.
++            // Never round a caller's range up or retain its pointer past synchronization.
++            ggml_metal_synchronize(ctx);
++            ggml_backend_tensor_get(tensor, data, offset, size);
++            return;
++        }
+
+         struct ggml_metal_buffer_id bid_src = ggml_metal_get_buffer_id(tensor);
+diff --git a/ggml/src/ggml-metal/ggml-metal-device.h b/ggml/src/ggml-metal/ggml-metal-device.h
+index 4012b9d..a3ecfd5 100644
+--- a/ggml/src/ggml-metal/ggml-metal-device.h
++++ b/ggml/src/ggml-metal/ggml-metal-device.h
+@@ -2,4 +2,8 @@
+
+ #include "ggml.h"
++#include <TargetConditionals.h>
++#if !TARGET_OS_SIMULATOR || !defined(PRTS_SIMULATOR_METAL)
++#error "PRTS simulator Metal sources cannot be used for a device build"
++#endif
+
+ #ifdef __cplusplus
+@@ -86,4 +90,9 @@ void ggml_metal_encoder_set_buffer(ggml_metal_encoder_t encoder, struct ggml_met
+ void ggml_metal_encoder_set_threadgroup_memory_size(ggml_metal_encoder_t encoder, size_t size, int idx);
+
++bool prts_sim_supports_mul_mat(ggml_metal_device_t dev, const struct ggml_tensor * op);
++void prts_sim_encode_mul_mat(ggml_metal_device_t dev, ggml_metal_encoder_t enc, const struct ggml_tensor * op,
++                             struct ggml_metal_buffer_id weights, struct ggml_metal_buffer_id input,
++                             struct ggml_metal_buffer_id output);
++
+ void ggml_metal_encoder_dispatch_threadgroups(ggml_metal_encoder_t encoder, int tg0, int tg1, int tg2, int tptg0, int tptg1, int tptg2);
+
+diff --git a/ggml/src/ggml-metal/ggml-metal-device.m b/ggml/src/ggml-metal/ggml-metal-device.m
+index d1bce8b..1962318 100644
+--- a/ggml/src/ggml-metal/ggml-metal-device.m
++++ b/ggml/src/ggml-metal/ggml-metal-device.m
+@@ -914,4 +914,6 @@ void ggml_metal_encoder_end_encoding(ggml_metal_encoder_t encoder) {
+     struct ggml_metal_device_props props;
+
++    id<MTLComputePipelineState> sim_bf16;
++
+     // shared fusion debugging context
+     struct ggml_metal_fusion_info * finfo;
+@@ -1109,4 +1111,27 @@ static enum ggml_metal_device_id ggml_metal_device_id_parse(const char * name) {
+ }
+
++static id<MTLComputePipelineState> prts_sim_new_bf16_pipeline(id<MTLDevice> device) {
++    // Compiled independently: failure leaves ggml's original CPU fallback available.
++    static const unsigned char source[] = {
++#include "prts-simulator-msl.inc"
++    };
++    NSString * text = [[NSString alloc] initWithBytes:source length:sizeof(source) encoding:NSUTF8StringEncoding];
++    MTLCompileOptions * options = [MTLCompileOptions new];
++    options.fastMathEnabled = NO;
++    id<MTLLibrary> library = [device newLibraryWithSource:text options:options error:NULL];
++    [options release];
++    [text release];
++    id<MTLFunction> fn = [library newFunctionWithName:@"prts_sim_bf16"];
++    id<MTLComputePipelineState> pipeline = fn ? [device newComputePipelineStateWithFunction:fn error:NULL] : nil;
++    [fn release];
++    [library release];
++    if (pipeline.maxTotalThreadsPerThreadgroup < 64 ||
++        pipeline.staticThreadgroupMemoryLength > device.maxThreadgroupMemoryLength) {
++        [pipeline release];
++        return nil;
++    }
++    return pipeline;
++}
++
+ ggml_metal_device_t ggml_metal_device_init(int device, int n_devices) {
+     ggml_metal_device_t dev = calloc(1, sizeof(struct ggml_metal_device));
+@@ -1309,4 +1334,7 @@ ggml_metal_device_t ggml_metal_device_init(int device, int n_devices) {
+                 }
+
++                if (!dev->props.has_bfloat) {
++                    dev->sim_bf16 = prts_sim_new_bf16_pipeline(dev->mtl_device);
++                }
+                 dev->library = ggml_metal_library_init(dev);
+                 if (!dev->library) {
+@@ -1380,4 +1408,5 @@ void ggml_metal_device_free(ggml_metal_device_t dev) {
+         ggml_metal_rsets_free(dev->rsets);
+
++        [dev->sim_bf16 release];
+         ggml_metal_library_free(dev->library);
+         dev->library = NULL;
+@@ -1537,5 +1566,44 @@ static bool ggml_metal_supports_mul_mat_op(
+ }
+
++bool prts_sim_supports_mul_mat(ggml_metal_device_t dev, const struct ggml_tensor * op) {
++    if (!dev->sim_bf16 || op->op != GGML_OP_MUL_MAT) {
++        return false;
++    }
++    const struct ggml_tensor * a = op->src[0], * b = op->src[1];
++    if (a->type != GGML_TYPE_BF16 || b->type != GGML_TYPE_F32 || op->type != GGML_TYPE_F32 ||
++        !ggml_is_matrix(a) || !ggml_is_matrix(b) || !ggml_is_matrix(op) ||
++        !ggml_is_contiguous(a) || !ggml_is_contiguous(b) || !ggml_is_contiguous(op) ||
++        a->view_offs % 2 || b->view_offs % 4 || op->view_offs % 4) {
++        return false;
++    }
++    const int64_t k = a->ne[0], m = a->ne[1], n = b->ne[1];
++    return k > 0 && m > 0 && n > 0 && b->ne[0] == k && op->ne[0] == m && op->ne[1] == n &&
++           k <= INT32_MAX / m && k <= INT32_MAX / n && m <= INT32_MAX / n;
++}
++
++void prts_sim_encode_mul_mat(ggml_metal_device_t dev, ggml_metal_encoder_t enc, const struct ggml_tensor * op,
++                             struct ggml_metal_buffer_id weights, struct ggml_metal_buffer_id input,
++                             struct ggml_metal_buffer_id output) {
++    // Bind aligned addresses, carrying the remaining element offsets of tensor views in the arguments.
++    const uint32_t k = op->src[0]->ne[0], m = op->ne[0], n = op->ne[1];
++    uint32_t dims[] = { k, m, n, (uint32_t)(weights.offs % 16) / 2,
++                         (uint32_t)(input.offs % 16) / 4, (uint32_t)(output.offs % 16) / 4 };
++    weights.offs -= weights.offs % 16;
++    input.offs -= input.offs % 16;
++    output.offs -= output.offs % 16;
++    [enc->obj setComputePipelineState:dev->sim_bf16];
++    ggml_metal_encoder_set_buffer(enc, weights, 0);
++    ggml_metal_encoder_set_buffer(enc, input, 1);
++    ggml_metal_encoder_set_buffer(enc, output, 2);
++    ggml_metal_encoder_set_bytes(enc, dims, sizeof(dims), 3);
++    ggml_metal_encoder_dispatch_threadgroups(enc, (m + 31) / 32, (n + 31) / 32, 1, 8, 8, 1);
++}
++
+ bool ggml_metal_device_supports_op(ggml_metal_device_t dev, const struct ggml_tensor * op) {
++    // A BF16 storage leaf is not an instruction; the Metal encoder emits nothing for NONE.
++    if ((op->op == GGML_OP_NONE && op->type == GGML_TYPE_BF16 && !op->src[0]) ||
++        prts_sim_supports_mul_mat(dev, op)) {
++        return true;
++    }
+     const bool has_simdgroup_mm        = dev->props.has_simdgroup_mm;
+     const bool has_simdgroup_reduction = dev->props.has_simdgroup_reduction;
+@@ -2320,5 +2388,5 @@ void ggml_metal_buffer_memset_tensor(ggml_metal_buffer_t buf, struct ggml_tensor
+
+             [encoder fillBuffer:bid_dst.metal
+-                          range:NSMakeRange(bid_dst.offs, bid_dst.offs + size)
++                          range:NSMakeRange(bid_dst.offs, size)
+                           value:value];
+
+@@ -2339,9 +2407,6 @@ void ggml_metal_buffer_set_tensor(ggml_metal_buffer_t buf, struct ggml_tensor *
+     @autoreleasepool {
+         // src
+-        void * data_ptr = (void *)(uintptr_t) data; // "const cast" the src data
+-        id<MTLBuffer> buf_src = [buf->dev->mtl_device newBufferWithBytesNoCopy:data_ptr
+-                                                               length:size
+-                                                              options:MTLResourceStorageModeShared
+-                                                          deallocator:nil];
++        id<MTLBuffer> buf_src = [buf->dev->mtl_device newBufferWithBytes:data length:size
++                                                                options:MTLResourceStorageModeShared];
+
+         GGML_ASSERT(buf_src);
+@@ -2399,8 +2464,6 @@ void ggml_metal_buffer_get_tensor(ggml_metal_buffer_t buf, const struct ggml_ten
+
+         // dst
+-        id<MTLBuffer> buf_dst = [buf->dev->mtl_device newBufferWithBytesNoCopy:data
+-                                                               length:size
+-                                                              options:MTLResourceStorageModeShared
+-                                                          deallocator:nil];
++        id<MTLBuffer> buf_dst = [buf->dev->mtl_device newBufferWithLength:size
++                                                                 options:MTLResourceStorageModeShared];
+
+         GGML_ASSERT(buf_dst);
+@@ -2422,4 +2485,6 @@ void ggml_metal_buffer_get_tensor(ggml_metal_buffer_t buf, const struct ggml_ten
+         [cmd_buf commit];
+         [cmd_buf waitUntilCompleted];
++        GGML_ASSERT(cmd_buf.status == MTLCommandBufferStatusCompleted);
++        memcpy(data, buf_dst.contents, size);
+
+         [buf_dst release];
+diff --git a/ggml/src/ggml-metal/ggml-metal-ops.cpp b/ggml/src/ggml-metal/ggml-metal-ops.cpp
+index 53c9816..05b4467 100644
+--- a/ggml/src/ggml-metal/ggml-metal-ops.cpp
++++ b/ggml/src/ggml-metal/ggml-metal-ops.cpp
+@@ -88,4 +88,9 @@ struct ggml_metal_op {
+         assert(i0 >= 0 && i0 < n_nodes());
+
++        // The simulator kernel writes this node, not the following ADD's destination.
++        if (prts_sim_supports_mul_mat(dev, node(i0))) {
++            *n_out = 1;
++            return nullptr;
++        }
+         return ggml_metal_fusion_next(gf, idxs.data(), (int) idxs.size(), i0, mode, n_out);
+     }
+@@ -2589,4 +2594,9 @@ static int ggml_metal_op_mul_mat_mv(ggml_metal_op_t ctx, int idx) {
+ int ggml_metal_op_mul_mat(ggml_metal_op_t ctx, int idx) {
+     ggml_tensor * op = ctx->node(idx);
++    if (prts_sim_supports_mul_mat(ctx->dev, op)) {
++        prts_sim_encode_mul_mat(ctx->dev, ctx->enc, op, ggml_metal_get_buffer_id(op->src[0]),
++                                ggml_metal_get_buffer_id(op->src[1]), ggml_metal_get_buffer_id(op));
++        return 1;
++    }
+
+     ggml_metal_library_t lib = ctx->lib;
+diff --git a/ggml/src/ggml-metal/ggml-metal.cpp b/ggml/src/ggml-metal/ggml-metal.cpp
+index 344882e..03254fe 100644
+--- a/ggml/src/ggml-metal/ggml-metal.cpp
++++ b/ggml/src/ggml-metal/ggml-metal.cpp
+@@ -745,4 +745,7 @@ static ggml_backend_buffer_t ggml_backend_metal_device_buffer_mapped(ggml_backen
+
+     ggml_metal_buffer_t res = ggml_metal_buffer_map(ctx_dev, ptr, size, max_tensor_size);
++    if (!res) {
++        return nullptr;
++    }
+
+     const ggml_metal_device_props * props_dev = ggml_metal_device_get_props(ctx_dev);

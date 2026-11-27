@@ -1,0 +1,19 @@
+diff --git a/tools/mtmd/clip.cpp b/tools/mtmd/clip.cpp
+index 4c1185a..c0a8283 100644
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
+@@ -1,2 +1,6 @@
++#include <TargetConditionals.h>
++#if !TARGET_OS_SIMULATOR || !defined(PRTS_SIMULATOR_ACCELERATE)
++#error "PRTS simulator Accelerate selection is not a device build option"
++#endif
+ #include "clip.h"
+ #include "clip-impl.h"
+@@ -187,4 +191,7 @@ struct clip_ctx {
+         }
+         if (ctx_params.use_gpu) {
++            if (!ctx_params.device) {
++                ctx_params.device = ggml_backend_dev_by_name("BLAS");
++            }
+             if (ctx_params.device != nullptr) {
+                 backend = ggml_backend_dev_init(ctx_params.device, nullptr);

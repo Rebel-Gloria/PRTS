@@ -1,0 +1,42 @@
+#include <metal_stdlib>
+using namespace metal;
+
+// ggml stores rows of K elements. Load a 32x16 tile from each input and accumulate
+// a 32x32 output tile without requiring native bfloat or SIMD-group operations.
+kernel void prts_sim_bf16(device const ushort *weights [[buffer(0)]],
+                          device const float *input [[buffer(1)]],
+                          device float *output [[buffer(2)]], constant uint *d [[buffer(3)]],
+                          uint2 t [[thread_position_in_threadgroup]],
+                          uint2 group [[threadgroup_position_in_grid]]) {
+    const uint k = d[0], m = d[1], n = d[2];
+    threadgroup float w[32][16], x[32][16];
+    float4 sums[4] = {float4(0), float4(0), float4(0), float4(0)};
+
+    for (uint base = 0; base < k; base += 16) {
+        for (uint i = t.y * 8 + t.x; i < 512; i += 64) {
+            uint r = i / 16, j = i % 16, col = base + j;
+            uint wr = group.x * 32 + r, xr = group.y * 32 + r;
+            w[r][j] =
+                wr < m && col < k ? as_type<float>(uint(weights[d[3] + wr * k + col]) << 16) : 0;
+            x[r][j] = xr < n && col < k ? input[d[4] + xr * k + col] : 0;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        for (uint j = 0; j < 16; ++j) {
+            float4 a(w[t.x][j], w[t.x + 8][j], w[t.x + 16][j], w[t.x + 24][j]);
+            for (uint c = 0; c < 4; ++c) {
+                sums[c] = fma(a, float4(x[t.y + 8 * c][j]), sums[c]);
+            }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    for (uint c = 0; c < 4; ++c) {
+        uint col = group.y * 32 + t.y + 8 * c;
+        for (uint r = 0; r < 4; ++r) {
+            uint row = group.x * 32 + t.x + 8 * r;
+            if (col < n && row < m) {
+                output[d[5] + col * m + row] = sums[c][r];
+            }
+        }
+    }
+}
