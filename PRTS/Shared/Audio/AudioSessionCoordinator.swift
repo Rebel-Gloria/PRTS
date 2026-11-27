@@ -42,8 +42,9 @@ nonisolated private struct SystemAudioSession: AudioSessionDriving {
 /// follows at once; that activation cancels it instead of waiting for it to finish.
 @MainActor
 final class AudioSessionCoordinator {
-    struct Lease: Equatable { fileprivate let id = UUID() }
+    struct Lease: Equatable { fileprivate let order: UInt64 }
     static let shared = AudioSessionCoordinator(driver: SystemAudioSession())
+    private static var lastIssuedOrder: UInt64 = 0
     nonisolated private static let queue = DispatchQueue(
         label: "PRTS.audioSession",
         qos: .userInitiated
@@ -51,7 +52,10 @@ final class AudioSessionCoordinator {
     private let driver: any AudioSessionDriving
     private let errors: ErrorReporter
     private let scheduleDeactivation: (DispatchWorkItem) -> Void
+    private let deliverActivation: @Sendable (@escaping @Sendable () -> Void) -> Void
     private var current: Lease?
+    // Keep the last delivery after release: an older completion must not take ownership again.
+    private var lastDeliveredOrder: UInt64 = 0
     // Sync speech and async input can request the same route before activation returns.
     // Only the audio queue evaluates the result, once for all those callers.
     nonisolated private final class Activation: @unchecked Sendable {
@@ -79,13 +83,20 @@ final class AudioSessionCoordinator {
     init(
         driver: any AudioSessionDriving,
         errors: ErrorReporter = .init(source: .audio),
+        deliverActivation: @escaping @Sendable (@escaping @Sendable () -> Void) -> Void = { $0() },
         scheduleDeactivation: @escaping (DispatchWorkItem) -> Void = {
             queue.asyncAfter(deadline: .now() + 0.25, execute: $0)
         }
     ) {
         self.driver = driver
         self.errors = errors
+        self.deliverActivation = deliverActivation
         self.scheduleDeactivation = scheduleDeactivation
+    }
+
+    private func nextLease() -> Lease {
+        Self.lastIssuedOrder += 1
+        return Lease(order: Self.lastIssuedOrder)
     }
 
     private func request(_ mode: AppAudioMode, lease: Lease) -> Activation {
@@ -111,21 +122,27 @@ final class AudioSessionCoordinator {
             throw error
         }
         guard activation === route else { throw CancellationError() }
-        current = requested
+        if lease.order > lastDeliveredOrder {
+            lastDeliveredOrder = lease.order
+            current = lease
+        }
         return lease
     }
 
     func activate(_ mode: AppAudioMode) throws -> Lease {
-        let lease = Lease()
+        let lease = nextLease()
         let route = request(mode, lease: lease)
         return try finish(Self.queue.sync { route.run() }, route: route, lease: lease)
     }
 
     func activateAsync(_ mode: AppAudioMode) async throws -> Lease {
-        let lease = Lease()
+        let lease = nextLease()
         let route = request(mode, lease: lease)
         let result = await withCheckedContinuation { done in
-            Self.queue.async { done.resume(returning: route.run()) }
+            Self.queue.async { [deliverActivation] in
+                let result = route.run()
+                deliverActivation { done.resume(returning: result) }
+            }
         }
         return try finish(result, route: route, lease: lease)
     }

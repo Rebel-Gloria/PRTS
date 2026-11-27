@@ -109,29 +109,112 @@ struct AudioSessionCoordinatorTests {
         #expect(driver.deactivations == 2)
     }
 
-    @Test func overlappingRecordingRequestsShareTheActivationFailure() async {
+    // Run the real queue and cache; hold only delivery of the result to each waiting task.
+    @MainActor
+    private struct Handoff {
         let driver = Driver()
-        let session = coordinator(driver)
-        let (entered, signal) = AsyncStream<Void>.makeStream()
-        let unblock = DispatchSemaphore(value: 0)
-        var calls = 0
-        driver.beforeActivation = {
-            calls += 1
-            if calls == 1 {
-                signal.yield(())
-                unblock.wait()
+        let session: AudioSessionCoordinator
+        private var deliveries: AsyncStream<@Sendable () -> Void>.Iterator
+
+        init() {
+            let (stream, output) = AsyncStream<@Sendable () -> Void>.makeStream()
+            deliveries = stream.makeAsyncIterator()
+            session = AudioSessionCoordinator(
+                driver: driver,
+                errors: .ignored,
+                deliverActivation: { output.yield($0) },
+                scheduleDeactivation: { $0.perform() }
+            )
+        }
+
+        mutating func start(_ mode: AppAudioMode) async -> () async throws ->
+            AudioSessionCoordinator.Lease
+        {
+            let task = Task { [session] in try await session.activateAsync(mode) }
+            var iterator = deliveries
+            let deliver = await iterator.next()!
+            deliveries = iterator
+            return {
+                deliver()
+                return try await task.value
             }
         }
-        driver.failActivation = true
-        let first = Task { try await session.activateAsync(.recording) }
-        var events = entered.makeAsyncIterator()
-        _ = await events.next()
-        // The second call enters on the main actor before the driver is unblocked.
-        DispatchQueue.main.async { unblock.signal() }
-        await #expect(throws: Failure.activation) { try await session.activateAsync(.recording) }
-        await #expect(throws: Failure.activation) { try await first.value }
+    }
+
+    @Test func overlappingRecordingRequestsShareTheActivationFailure() async {
+        var h = Handoff()
+        h.driver.failActivation = true
+        var calls = 0
+        h.driver.beforeActivation = { calls += 1 }
+        let first = await h.start(.recording)
+        let second = await h.start(.recording)
+        await #expect(throws: Failure.activation) { try await second() }
+        await #expect(throws: Failure.activation) { try await first() }
         #expect(calls == 1)
-        #expect(driver.deactivations == 1)
+        #expect(h.driver.deactivations == 1)
+    }
+
+    @Test(arguments: [false, true])
+    func failedSwitchAfterOnlyOneSharedRequestReturns(releaseWhilePending: Bool) async throws {
+        var h = Handoff()
+        let first = await h.start(.recording)
+        let second = await h.start(.recording)
+        let owner = try await first()
+        h.driver.failActivation = true
+        let change = await h.start(.tone)
+        await #expect(throws: CancellationError.self) { try await second() }
+        if releaseWhilePending { h.session.release(owner) }
+        #expect(h.driver.deactivations == 0)
+        await #expect(throws: Failure.activation) { try await change() }
+        #expect(h.driver.deactivations == (releaseWhilePending ? 1 : 0))
+        h.session.release(owner)
+        #expect(h.driver.deactivations == 1)
+        #expect(h.driver.modes == [.recording])
+    }
+
+    @Test(arguments: [false, true])
+    func asyncCompletionCannotTakeBackASynchronousLease(releaseOwnerFirst: Bool) async throws {
+        var h = Handoff()
+        let old = await h.start(.recording)
+        let owner = try h.session.activate(.recording)
+        if releaseOwnerFirst {
+            h.session.release(owner)
+            await #expect(throws: CancellationError.self) { try await old() }
+        } else {
+            h.session.release(try await old())
+            #expect(h.driver.deactivations == 0)
+            h.session.release(owner)
+        }
+        #expect(h.driver.deactivations == 1)
+        #expect(h.driver.modes == [.recording])
+    }
+
+    @Test func anOlderCompletionCannotReviveAReleasedOwnerDuringHandoff() async throws {
+        var h = Handoff()
+        let old = await h.start(.recording)
+        let new = await h.start(.recording)
+        let pending = await h.start(.recording)
+        h.session.release(try await new())
+        #expect(h.driver.deactivations == 0)
+        let stale = try await old()
+        h.driver.failActivation = true
+        #expect(throws: Failure.activation) { try h.session.activate(.tone) }
+        await #expect(throws: CancellationError.self) { try await pending() }
+        #expect(h.driver.deactivations == 1)
+        h.session.release(stale)
+        #expect(h.driver.deactivations == 1)
+    }
+
+    @Test func aSupersededFailureCannotDeactivateTheNewOutput() async throws {
+        var h = Handoff()
+        h.driver.failActivation = true
+        let failed = await h.start(.recording)
+        h.driver.failActivation = false
+        let owner = try h.session.activate(.speech)
+        await #expect(throws: Failure.activation) { try await failed() }
+        #expect(h.driver.deactivations == 0)
+        h.session.release(owner)
+        #expect(h.driver.deactivations == 1)
     }
 
     @Test func foregroundRecoveryWithoutEndNotificationChecksTheActualRoute() throws {
